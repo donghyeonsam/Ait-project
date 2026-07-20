@@ -23,24 +23,29 @@ Ait는 WebRTC 기반 AI 면접 훈련 및 화상 면접 스터디 서비스다.
 충돌하는 지시가 있으면 다음 순서로 판단한다.
 
 1. 사용자가 현재 작업에서 명시한 요구사항
-2. 이 `AGENTS.md`
+2. 프로젝트·제품·디자인 기준을 정의하는 `CLAUDE.md`
 3. 저장소의 최신 기획·디자인 문서와 Figma 디자인 시스템
-4. 기존 코드의 구조와 패턴
-5. 라이브러리 기본값과 일반적인 관례
+4. 에이전트 작업 절차를 정의하는 이 `AGENTS.md`
+5. 기존 코드의 구조와 패턴
+6. 라이브러리 기본값과 일반적인 관례
 
 요구사항이나 디자인이 모호할 때는 임의의 새 규칙을 만들지 않는다. 기존 화면과 공통 컴포넌트를 먼저 조사하고, 결과를 크게 바꾸는 선택만 사용자에게 질문한다.
 
-## 3. 기준 문서
+- 디자인 토큰과 최신 Figma가 다르면 `CLAUDE.md`에 따라 Figma를 우선하고 차이를 사용자에게 알린다.
+- 설치된 의존성, 실행 가능한 스크립트, 빌드 설정은 `package.json`과 실제 설정 파일을 기준으로 확인한다.
 
-- 상세 디자인 규칙 전체: `docs/Ait_UX_UI_그라운드룰_v2.md` (`CLAUDE.md`는 그 요약/실행 버전)
-- 실제 컴포넌트와 토큰의 최종 기준: 저장소의 `globals.css`, Tailwind 설정, 공통 UI 컴포넌트
+## 3. 기준 문서와 역할
+
+- 프로젝트·제품·디자인 규칙의 현재 기준: `CLAUDE.md`
+- 상세 디자인 규칙 전체: 작성 예정인 `docs/Ait_UX_UI_그라운드룰_v2.md`
+- 실제 구현된 토큰의 기준: 저장소의 `globals.css`, Tailwind 설정, 공통 UI 컴포넌트
 - 화면 구조와 최신 시안의 기준: 팀이 지정한 최신 Figma 화면
 
-> 위 경로는 저장소에 디자인 문서를 추가한 뒤 실제 경로에 맞게 수정한다.
+> 작성 예정 문서는 생성된 뒤 실제 경로에 맞게 수정한다. 존재하지 않는 문서나 설정을 현재 구현처럼 가정하지 않는다.
 
 디자인 문서 전체를 컴포넌트에 다시 하드코딩하지 않는다. 색상, 타이포그래피, 간격, 반경, 그림자, 모션은 반드시 공통 토큰을 통해 사용한다.
 
-## 4. 기술 스택과 역할
+## 4. 목표 기술 스택과 역할
 
 - React + TypeScript + Vite
 - React Router: 페이지 라우팅
@@ -86,19 +91,7 @@ Ait는 WebRTC 기반 AI 면접 훈련 및 화상 면접 스터디 서비스다.
 - 한 컴포넌트에 데이터 조회, 미디어 제어, 복잡한 폼, 대규모 레이아웃을 모두 넣지 않는다.
 - shadcn/ui 기본 스타일은 그대로 노출하지 않고 Ait 토큰으로 오버라이드한다.
 
-shadcn/ui 도입 범위는 다음 Coverage Map을 따른다.
-
-- Adopt: Separator, Skeleton, Progress, Avatar, Scroll Area, Collapsible
-- Override: Button, Input, Select, Dialog, Card, Table, Badge, Tabs, Checkbox, Switch, Tooltip, Menubar, Context Menu, Carousel, Resizable, Aspect Ratio, Label, Popover, Calendar, Command, Sheet, Sonner, Accordion, Input OTP
-
-위 목록에 없는 컴포넌트는 필요하다는 근거와 팀 합의 없이 추가하지 않는다.
-
-화면 단위의 기본 조합은 다음을 우선한다.
-
-- 면접 예약 폼: Form + Date Picker + Select + Input + Button
-- 면접 기록: Data Table + Pagination + Badge + Tabs
-- 피드백 리포트: Card + Chart + Progress + Accordion
-- 설정 패널: Sheet + Switch + Separator + Input
+shadcn/ui Coverage Map과 화면별 컴포넌트 조합은 중복 정의하지 않고 `CLAUDE.md`를 따른다. 목록에 없는 컴포넌트는 필요하다는 근거와 팀 합의 없이 추가하지 않는다.
 
 ### 6.3 API와 타입
 
@@ -119,39 +112,26 @@ shadcn/ui 도입 범위는 다음 Coverage Map을 따른다.
 
 ## 7. 디자인 시스템 적용
 
+색상, 타이포그래피, 간격, 반경, elevation, 모션, 컴포넌트 상태의 구체적인 값은 `CLAUDE.md`를 단일 기준으로 사용한다. 이 문서에는 작업 시 확인할 원칙만 둔다.
+
 ### 7.1 레이아웃과 간격
 
-- 기본 콘텐츠 최대 너비는 `1000px`, 중앙 정렬을 기준으로 한다.
-- 8px Grid System을 사용하며 `4px`는 최소 단위 예외로만 허용한다.
-- 권장값: 페이지 좌우 `32px`, 섹션 `48px`, 카드 간·내부 `24px`, 입력 요소 `16px`, 아이콘-텍스트 `8px`.
-- Tailwind 기본 브레이크포인트를 사용한다: 기본 Mobile, `md` Tablet, `lg` Desktop.
-- 별도의 커스텀 미디어 쿼리는 필요한 근거가 없으면 추가하지 않는다.
+- 최신 Figma와 `CLAUDE.md`의 레이아웃·간격 토큰을 사용한다.
+- 모바일·태블릿·데스크톱에서 핵심 기능이 유지되는지 확인한다.
 
 ### 7.2 색상
 
-- 컴포넌트에서 hex 값을 직접 작성하지 않는다.
-- Primary Navy `#1A2A4A`는 핵심 행동과 선택 상태에만 사용한다.
-- Accent Gold `#C9A96E`는 합격·우수·완료 등 성취 맥락에만 사용한다.
-- 흰 배경 위 골드 본문 텍스트를 사용하지 않는다.
-- Success, Warning, Error, Info, Neutral 상태는 Text/Icon + Surface + Border 조합으로 표현한다.
+- 컴포넌트에 색상을 하드코딩하지 않고 정의된 토큰을 사용한다.
 - 색상만으로 상태를 전달하지 않고 문구 또는 아이콘을 함께 제공한다.
-- 성취 배지의 기본 형태는 Gold Surface + 짙은 골드 텍스트 + 골드 Border이며, 강한 Gold Fill은 `합격`처럼 가장 높은 성취를 표시할 때만 사용한다.
 
 ### 7.3 타이포그래피와 시각 토큰
 
-- 기본 폰트는 Pretendard다.
-- 정의된 `text-display`, `text-h1`, `text-h2`, `text-h3`, `text-body`, `text-body-sm`, `text-caption`만 사용한다.
-- `text-[28px]`, 임의 hex, 임의 radius, 임의 shadow, `z-[9999]` 같은 arbitrary value를 추가하지 않는다.
-- Caption 12px는 날짜·개수·파일 크기 등 부가 정보에만 사용한다.
-- Radius는 S 8px, M 12px, L 16px, Pill만 사용한다.
-- Elevation은 `shadow-card`, `shadow-dropdown`, `shadow-modal`만 사용한다.
-- z-index는 Base 0, Sticky 100, Dropdown 200, Overlay 300, Dialog 400, Toast 500 체계를 따른다.
+- 타이포그래피, radius, z-index에 임의 값을 추가하지 않는다.
+- 그림자는 `elevation-1`, `elevation-2`, `elevation-3` 토큰만 사용한다.
 
 ### 7.4 버튼과 폼
 
 - 한 화면 또는 한 명확한 작업 영역의 Primary 버튼은 1개만 둔다.
-- 버튼 variant는 Primary, Secondary, Accent, Text, Destructive의 역할을 섞지 않는다.
-- Primary는 핵심 행동, Secondary는 보조 행동, Accent는 성취 연결 행동, Text는 부가 행동, Destructive는 삭제·종료에 사용한다.
 - 버튼 문구는 `확인`, `다음`보다 `면접 시작`, `환경 점검으로 이동`처럼 행동을 설명하는 동사형으로 쓴다.
 - 파괴적 행동과 면접 종료에는 확인 Dialog를 제공한다.
 - 모든 입력 요소에 화면에 보이는 Label을 제공하고 Placeholder로 대체하지 않는다.
@@ -160,32 +140,20 @@ shadcn/ui 도입 범위는 다음 Coverage Map을 따른다.
 
 ### 7.5 필수 상태와 피드백
 
-해당하는 인터랙티브 컴포넌트에는 다음 상태를 구현한다.
-
-`Default · Hover · Focus · Active · Selected · Disabled · Loading · Error`
-
-- 데이터 로딩: Skeleton
-- 저장 완료 등 짧은 결과: Toast
-- 지속적으로 확인해야 하는 안내·오류: Alert
-- 데이터 없음: Empty State + 다음 행동 CTA
-- 삭제·종료: 확인 Dialog
-
-로딩 중에는 중복 제출과 중복 클릭을 방지한다.
+- 해당하는 인터랙티브 상태는 `CLAUDE.md`의 상태 기준을 따라 구현한다.
+- 로딩 중에는 중복 제출과 중복 클릭을 방지한다.
 
 ### 7.6 모션
 
-- Hover 150ms, 일반 진입 250ms, 페이지 전환 400ms 범위의 토큰을 사용한다.
-- React Bits는 점수 Count Up, 리포트 수치, 카드·모달 진입처럼 의미가 있는 순간에만 제한적으로 사용한다.
-- Aurora, Particles, Star Border, Shiny Text, Tilt Card 등 장식 효과는 사용하지 않는다.
+- 모션 값과 React Bits 허용 범위는 `CLAUDE.md`를 따른다.
 - 모든 모션은 `prefers-reduced-motion`을 반영한다.
 - 면접 진행 화면에는 반복 장식 애니메이션을 넣지 않는다.
 
 ### 7.7 아이콘과 로고
 
-- 아이콘은 Lucide React를 우선하며 기본 `24×24`, `strokeWidth={2}`, `currentColor`를 사용한다.
-- 같은 의미에는 같은 아이콘을 사용한다. camera, mic, calendar, clock, check, chart, user, settings, play, bell, document, arrow 명칭을 우선한다.
+- 아이콘 값과 로고 사용 규칙은 `CLAUDE.md` 및 로고 에셋 가이드를 따른다.
+- 같은 의미에는 같은 아이콘을 사용한다.
 - 로고는 비율을 유지하고 임의 색상 변경을 하지 않는다.
-- 로고 최소 크기는 24px, 최소 여백은 마크 높이의 50%다.
 
 ## 8. 접근성
 
@@ -241,15 +209,18 @@ shadcn/ui 도입 범위는 다음 Coverage Map을 따른다.
 변경 후 저장소에 정의된 명령을 사용해 영향 범위에 맞게 검증한다.
 
 ```bash
-# 아래 명령은 실제 package.json scripts에 맞게 확정한다.
 npm run lint
 npm run typecheck
-npm run test
 npm run build
 ```
 
-- 사소한 UI 변경: lint + 관련 테스트 + 해당 화면 수동 확인
-- 타입·상태·API 변경: lint + typecheck + 관련 테스트
+- `lint`: ESLint로 코드 규칙과 React Hooks 사용을 검사한다.
+- `typecheck`: 결과물을 빌드하지 않고 TypeScript 타입 오류를 검사한다.
+- `build`: 타입 검사 후 배포용 결과물이 정상 생성되는지 확인한다.
+- 현재 자동 테스트 도구와 `test` 스크립트는 없다. 추후 테스트 도구를 도입하면 영향 범위에 맞는 테스트를 추가해 실행한다.
+
+- 사소한 UI 변경: lint + 해당 화면 수동 확인
+- 타입·상태·API 변경: lint + typecheck
 - 라우팅·빌드 설정·의존성 변경: 전체 build
 - WebRTC 변경: 권한 허용/거부, 장치 없음, 재연결, 종료·정리 시나리오 확인
 
@@ -268,7 +239,7 @@ npm run build
 - [ ] 키보드 탐색, Label, focus ring, 대비 기준을 지켰는가?
 - [ ] AI 문구가 근거와 한계를 포함하고 단정적이지 않은가?
 - [ ] 미디어 권한·연결·장치 오류와 cleanup을 처리했는가?
-- [ ] 관련 lint, typecheck, test, build를 실행했는가?
+- [ ] 변경 범위에 맞는 lint, typecheck, build를 실행했는가?
 
 ## 13. 작업 결과 보고 형식
 

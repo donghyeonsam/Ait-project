@@ -1,4 +1,3 @@
-.
 # CLAUDE.md
 
 이 파일은 Claude Code가 이 저장소에서 작업할 때 항상 참고하는 프로젝트 규칙 파일이다.
@@ -7,7 +6,9 @@
 
 **Ait(에잇)**은 AI 기반 모의면접 훈련 플랫폼이다. 사용자가 화상 면접을 진행하면 AI가 답변, 시선, 표정 등을 분석해 피드백 리포트를 제공한다. SSAFY(Samsung SW Academy For Youth) 6주 팀 프로젝트로 진행 중이며, 프론트엔드/백엔드로 팀이 나뉘어 있다.
 
-## 기술 스택
+## 기술 스택 (목표 구성)
+
+실제 설치 여부와 실행 가능한 명령은 `package.json`을 기준으로 확인한다. 아직 설치되지 않은 기술은 관련 작업에서 팀의 요청이나 합의가 있을 때 도입한다.
 
 | 영역 | 기술 |
 | --- | --- |
@@ -36,7 +37,7 @@
 
 ## 디자인 토큰
 
-### 컬러 (globals.css에 이미 정의됨 — 값 직접 안 쓰고 CSS 변수/Tailwind 클래스로 참조)
+### 컬러 (작성 예정인 `globals.css`에 정의한 뒤 값 직접 입력 대신 CSS 변수/Tailwind 클래스로 참조)
 
 ```css
 :root {
@@ -81,11 +82,11 @@
 
 ### Radius
 
-S 8px(Badge/입력창) · M 12px(버튼/카드) · L 16px(모달) · Pill 999px(아바타)
+S 8px(Badge/입력창/버튼) · M 12px(카드) · L 16px(모달) · Pill 999px(아바타)
 
 ### Elevation
 
-`shadow-card`(카드) · `shadow-dropdown`(hover/popover) · `shadow-modal`(모달) — 이 3단계 외 그림자 추가 금지.
+`elevation-1`(카드) · `elevation-2`(hover/popover) · `elevation-3`(모달) — 이 3단계 외 그림자 추가 금지.
 
 ### z-index
 
@@ -204,7 +205,7 @@ easing은 `cubic-bezier(0.4, 0, 0.2, 1)`(기본) / `cubic-bezier(0.2, 0, 0, 1)`(
 
 ## 참고 문서
 
-- 상세 디자인 규칙 전체: `docs/Ait_UX_UI_그라운드룰_v2.md` (본 파일은 그 요약/실행 버전)
+- 상세 디자인 규칙 전체: `docs/Ait_UX_UI_그라운드룰_v2.md` (작성 예정, 본 파일은 그 요약/실행 버전)
 - Figma 디자인 시스템: (링크 추가 예정)
 
 ## Claude에게: 모를 때는
