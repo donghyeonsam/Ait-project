@@ -1,3 +1,12 @@
 spring:
   application:
     name: aitServer
+
+  docker:
+    compose:
+      file: "./infra/docker-compose.yml"
+      lifecycle-management: none
+
+  jackson:
+    mapper:
+      sort-properties-alphabetically: false
