@@ -32,19 +32,11 @@ Ait는 WebRTC 기반 AI 면접 훈련 및 화상 면접 스터디 서비스다.
 
 ## 3. 기준 문서
 
-- UX 원칙·접근성·문구 기준: `docs/design/Ait-UX-UI-Ground-Rules.md`
-- 시각 토큰·컴포넌트 variant·조합 예시: `docs/design/Ait-Design-System.html`
+- 상세 디자인 규칙 전체: `docs/Ait_UX_UI_그라운드룰_v2.md` (`CLAUDE.md`는 그 요약/실행 버전)
 - 실제 컴포넌트와 토큰의 최종 기준: 저장소의 `globals.css`, Tailwind 설정, 공통 UI 컴포넌트
 - 화면 구조와 최신 시안의 기준: 팀이 지정한 최신 Figma 화면
 
 > 위 경로는 저장소에 디자인 문서를 추가한 뒤 실제 경로에 맞게 수정한다.
-
-두 문서의 역할은 다음과 같이 구분한다.
-
-- Markdown은 왜 그렇게 설계하는지와 접근성·상태·UX Writing 원칙을 판단하는 기준이다.
-- HTML은 버튼, 배지, 입력창, 카드, 모달, 폼 컨트롤, 탭, 알림, 리포트, 스테퍼, 빈 상태, 테이블의 구체적인 시각 예시다.
-- HTML의 인라인 스타일은 디자인 전달용 예시일 뿐이다. React 코드에 그대로 복사하지 않는다.
-- 두 문서가 충돌하면 팀의 최신 명시적 결정이 우선이다. 결정 시점을 알 수 없으면 시각 표현은 HTML, 동작·접근성·문구는 Markdown을 우선하고 충돌 사실을 보고한다.
 
 디자인 문서 전체를 컴포넌트에 다시 하드코딩하지 않는다. 색상, 타이포그래피, 간격, 반경, 그림자, 모션은 반드시 공통 토큰을 통해 사용한다.
 
@@ -59,7 +51,7 @@ Ait는 WebRTC 기반 AI 면접 훈련 및 화상 면접 스터디 서비스다.
 - React Hook Form + Zod: 폼 상태와 입력 검증
 - LiveKit React SDK: 화상 면접과 미디어 세션
 - Lucide React: 아이콘
-- Oxlint: 정적 검사
+- ESLint: 정적 검사 (Oxlint 대신 채택)
 
 현재 저장소의 `package.json`과 기존 구현이 이 목록과 다르면 저장소를 우선하며, 의존성을 임의로 추가하거나 교체하지 않는다.
 
@@ -96,11 +88,10 @@ Ait는 WebRTC 기반 AI 면접 훈련 및 화상 면접 스터디 서비스다.
 
 shadcn/ui 도입 범위는 다음 Coverage Map을 따른다.
 
-- Adopt: Separator, Skeleton, Progress, Avatar, Scroll Area, Collapsible, Label
-- Override: Button, Input, Select, Dialog, Card, Table, Badge, Tabs, Checkbox, Switch, Tooltip, Popover, Calendar, Command, Sheet, Sonner, Accordion, Input OTP
-- Skip: Menubar, Context Menu, Carousel, Resizable, Aspect Ratio
+- Adopt: Separator, Skeleton, Progress, Avatar, Scroll Area, Collapsible
+- Override: Button, Input, Select, Dialog, Card, Table, Badge, Tabs, Checkbox, Switch, Tooltip, Menubar, Context Menu, Carousel, Resizable, Aspect Ratio, Label, Popover, Calendar, Command, Sheet, Sonner, Accordion, Input OTP
 
-Skip 컴포넌트나 목록에 없는 컴포넌트는 필요하다는 근거와 팀 합의 없이 추가하지 않는다.
+위 목록에 없는 컴포넌트는 필요하다는 근거와 팀 합의 없이 추가하지 않는다.
 
 화면 단위의 기본 조합은 다음을 우선한다.
 
