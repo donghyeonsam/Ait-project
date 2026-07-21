@@ -2,6 +2,11 @@ logging:
   level:
     com.aitserver: DEBUG
 
+jwt:
+  secret: ${JWT_SECRET_KEY:aitProjectSecretKeyForJwtTokenAuthentication1234567890!}
+  access-token-expiration: 3600000      # 1시간 (밀리초)
+  refresh-token-expiration: 604800000   # 7일 (밀리초)
+
 spring:
   application:
     name: aitServer
