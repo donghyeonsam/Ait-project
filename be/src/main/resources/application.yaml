@@ -2,10 +2,40 @@ spring:
   application:
     name: aitServer
 
+  datasource:
+    url: jdbc:mysql://localhost:3307/${MYSQL_DATABASE}?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ${REDIS_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: update # 혹은 create, validate 등 팀 컨벤션에 맞게 설정
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+
+  sql:
+    init:
+      mode: always
+      # (참고) 기본 위치인 resources 폴더 바로 아래에 두면 아래 경로 설정을 생략해도 알아서 읽습니다.
+      # 만약 schema.sql이 resources/schema/ 폴더 안에 있다면 아래처럼 경로를 명시해 주세요.
+#       schema-locations: "classpath:schema/schema.sql"
+#       data-locations: "classpath:schema/data.sql"
+
   docker:
     compose:
       file: "./infra/docker-compose.yml"
       lifecycle-management: none
+#      enabled: false
 
   jackson:
     mapper:
