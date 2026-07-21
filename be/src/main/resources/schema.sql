@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
                 nickname VARCHAR(20) NOT NULL,
                     role VARCHAR(20) NOT NULL DEFAULT 'USER', -- 앞서 논의한 확장성을 위해 VARCHAR 사용 추천
       first_job_interest VARCHAR(30) DEFAULT NULL,
-    seconde_job_interest VARCHAR(30) DEFAULT NULL,
+    second_job_interest VARCHAR(30) DEFAULT NULL,
            profile_image VARCHAR(255) DEFAULT NULL,
               created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
               updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP, -- 수정될 때 자동으로 현재 시간 갱신
