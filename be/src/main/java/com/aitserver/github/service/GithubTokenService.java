@@ -84,9 +84,9 @@ public class GithubTokenService {
     private PrivateKey getPrivateKeyFromString(String key) throws Exception {
         // PEM 헤더, 푸터, 줄바꿈 제거
         String privateKeyPEM = key
-                .replace("-----BEGIN RSA PRIVATE KEY-----", "")
-                .replace("-----END RSA PRIVATE KEY-----", "")
-                .replaceAll("\\s", "");
+                .replace("-----BEGIN PRIVATE KEY-----", "")
+                .replace("-----END PRIVATE KEY-----", "")
+                .replaceAll("\\s", ""); // 모든 공백과 엔터 제거
 
         byte[] encoded = Base64.getDecoder().decode(privateKeyPEM);
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
