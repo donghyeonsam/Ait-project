@@ -1,3 +1,7 @@
+logging:
+  level:
+    com.aitserver: DEBUG
+
 spring:
   application:
     name: aitServer
@@ -26,17 +30,14 @@ spring:
   sql:
     init:
       mode: always
-      # (참고) 기본 위치인 resources 폴더 바로 아래에 두면 아래 경로 설정을 생략해도 알아서 읽습니다.
-      # 만약 schema.sql이 resources/schema/ 폴더 안에 있다면 아래처럼 경로를 명시해 주세요.
-#       schema-locations: "classpath:schema/schema.sql"
-#       data-locations: "classpath:schema/data.sql"
 
   docker:
     compose:
       file: "./infra/docker-compose.yml"
       lifecycle-management: none
-#      enabled: false
 
   jackson:
     mapper:
       sort-properties-alphabetically: false
+
+# http://localhost:8080/swagger-ui/index.html#/
