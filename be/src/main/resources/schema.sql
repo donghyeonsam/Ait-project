@@ -1,5 +1,7 @@
+-- 사용자 정보 관련
 DROP TABLE IF EXISTS users;
 
+-- 사용자 정보 관련
 CREATE TABLE IF NOT EXISTS users (
                       id BIGINT AUTO_INCREMENT PRIMARY KEY,
                    email VARCHAR(255) NOT NULL UNIQUE,
@@ -13,4 +15,4 @@ CREATE TABLE IF NOT EXISTS users (
               created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
               updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP, -- 수정될 때 자동으로 현재 시간 갱신
               deleted_at DATETIME DEFAULT NULL
-)
+);
