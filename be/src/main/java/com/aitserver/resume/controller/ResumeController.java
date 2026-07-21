@@ -2,15 +2,15 @@ package com.aitserver.resume.controller;
 
 import com.aitserver.global.response.ApiResponse;
 import com.aitserver.resume.dto.ResumeResponse;
+import com.aitserver.resume.dto.ResumeUpdateRequest;
 import com.aitserver.resume.service.ResumeService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -24,7 +24,7 @@ public class ResumeController {
     public ResponseEntity<ApiResponse<ResumeResponse>> getResume(
             @PathVariable Long resumeId,
             HttpServletRequest request
-            // jwt
+
     ){
 
         ResumeResponse resumeResponse = resumeService.getResume(resumeId);
@@ -50,12 +50,35 @@ public class ResumeController {
                 .status(HttpStatus.OK)
                 .body(ApiResponse.success(
                         HttpStatus.OK,
-                        "이력서 아이디 기반 조회 성공",
+                        "내 이력서 조회 성공",
                         resumeResponse,
                         request
                 ));
     }
 
+    @PutMapping("/{resumeId}")
+    public ResponseEntity<ApiResponse<ResumeResponse>> updateResume(
+            @PathVariable Long resumeId,
+            // jwt
+            @Valid @RequestBody ResumeUpdateRequest updateRequest,
+            HttpServletRequest request
+    ) {
+        ResumeResponse response = resumeService.updateResume(
+                resumeId,
+                //userDetails.getUserId(),
+                1L,// 임시
+                updateRequest
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.success(
+                        HttpStatus.OK,
+                        "이력서 저장 및 수정을 성공했습니다.",
+                        response,
+                        request
+                ));
+    }
 
 
 }

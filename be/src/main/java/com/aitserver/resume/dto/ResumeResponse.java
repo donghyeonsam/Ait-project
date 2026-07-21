@@ -9,6 +9,7 @@ public record ResumeResponse(
         Long resumeId,
         Long userId,
         String userName,
+        String analysisContent,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         List<ResumeTrainingResponse> trainings,
@@ -21,6 +22,7 @@ public record ResumeResponse(
                 resume.getId(),
                 resume.getUser().getId(),
                 resume.getUser().getName(),
+                resume.getAnalysisContent(),
                 resume.getCreatedAt(),
                 resume.getUpdatedAt(),
 

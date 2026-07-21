@@ -1,6 +1,7 @@
 package com.aitserver.resume.entity;
 
 
+import com.aitserver.auth.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -25,11 +26,11 @@ public class Resume {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
-    //    @ManyToOne(fetch = FetchType.LAZY)
-    //    @JoinColumn(name = "user_id", nullable = false)
-    //    private User user;
+//    @Column(name = "user_id", nullable = false)
+//    private Long userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Column(name = "analysis_content", columnDefinition = "TEXT")
     private String analysisContent;
@@ -69,14 +70,45 @@ public class Resume {
 
 
 
-    public Resume(Long userId) {
-        this.userId = userId;
+//    public Resume(Long userId) {
+//        this.userId = userId;
+//    }
+
+
+    // 교체
+    public void addTraining(ResumeTraining training) {
+        trainings.add(training);
+        training.setResume(this);
     }
 
-    public void updateAnalysisContent(String analysisContent) {
+    public void addProject(ResumeProject project) {
+        projects.add(project);
+        project.setResume(this);
+    }
+
+    public void addCareer(ResumeCareer career) {
+        careers.add(career);
+        career.setResume(this);
+    }
+
+    // 해당 내용 삭제
+    public void clearResumeDetails() {
+        trainings.clear();
+        projects.clear();
+        careers.clear();
+    }
+
+
+    // 이력서 요약 추가
+    public void updateAnalysisContent(
+            String analysisContent
+    ) {
         this.analysisContent = analysisContent;
     }
 
-
+    // 수정시에 기존 내용 지우기
+    public void clearAnalysisContent() {
+        this.analysisContent = null;
+    }
 
 }

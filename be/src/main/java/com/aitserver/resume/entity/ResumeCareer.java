@@ -39,4 +39,18 @@ public class ResumeCareer {
     public void setResume(Resume resume) {
         this.resume = resume;
     }
+
+    public ResumeCareer(
+            LocalDate startDate,
+            LocalDate endDate,
+            String companyName,
+            String role,
+            String description
+    ) {
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.companyName = companyName;
+        this.role = role;
+        this.description = description;
+    }
 }

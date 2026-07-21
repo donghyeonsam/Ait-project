@@ -5,6 +5,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
+
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -39,5 +41,17 @@ public class ResumeProject {
 
     public void setResume(Resume resume) {
         this.resume = resume;
+    }
+
+    public ResumeProject(
+            String projectName,
+            String techStacks,
+            String role,
+            String description
+    ) {
+        this.projectName = projectName;
+        this.techStacks = techStacks;
+        this.role = role;
+        this.description = description;
     }
 }
