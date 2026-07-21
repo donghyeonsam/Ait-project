@@ -60,5 +60,20 @@ public class AuthController {
                         request
                 ));
     }
+
     // 일반 로그아웃
+    @PostMapping("/logout")
+    ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request) {
+        // @AuthenticationPrincipal을 통해서 Long userId를 받아와라
+        // 그런데 그거 하려면 filter 거쳐야 한다.
+        // 받아왔으면 refreshToken 블랙 리스트에 넣어라
+
+
+        return ResponseEntity.status(HttpStatus.OK)
+                .body(ApiResponse.success(
+                        HttpStatus.OK,
+                        "로그아웃 성공",
+                        request
+                ));
+    }
 }
