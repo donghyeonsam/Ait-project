@@ -1,3 +1,7 @@
+logging:
+  level:
+    com.aitserver: DEBUG
+
 spring:
   application:
     name: aitServer
@@ -35,3 +39,5 @@ spring:
   jackson:
     mapper:
       sort-properties-alphabetically: false
+
+# http://localhost:8080/swagger-ui/index.html#/
