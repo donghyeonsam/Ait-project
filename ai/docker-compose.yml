@@ -1,7 +1,20 @@
 services:
   api:
-    build: .
+    build:
+      context: .
+      args:
+        EMBEDDING_MODEL: ${EMBEDDING_MODEL:-jhgan/ko-sroberta-multitask}
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     volumes:
       - .:/app
+      # Chroma 영속 데이터 (컨테이너 재시작해도 임베딩 유지)
+      - chroma_data:/app/chroma_data
+      # 임베딩 모델 캐시
+      - hf_cache:/root/.cache/huggingface
+
+volumes:
+  chroma_data:
+  hf_cache:
