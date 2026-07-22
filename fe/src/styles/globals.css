@@ -433,6 +433,10 @@ a {
   animation: label-enter var(--duration-base) var(--easing-standard) 720ms forwards;
 }
 
+.survey-step {
+  animation: list-enter var(--duration-slow) var(--easing-emphasized) both;
+}
+
 .accordion-content {
   display: grid;
   grid-template-rows: 0fr;
