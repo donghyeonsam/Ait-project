@@ -1,5 +1,6 @@
 import { ChevronDown, Flame, UsersRound } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { InterviewRecordItem } from '@/components/dashboard/InterviewRecordItem'
 import { ReportModal } from '@/components/dashboard/ReportModal'
 import { ScoreTrendChart } from '@/components/dashboard/ScoreTrendChart'
@@ -8,6 +9,12 @@ import { PageLayout } from '@/components/layout/PageLayout'
 import { Button } from '@/components/ui/button'
 import { interviewRecords, type InterviewRecord, type InterviewType, type JobType } from '@/mocks/dashboard'
 import { cn } from '@/lib/utils'
+
+const ANALYSIS_DURATION_MS = 6000
+
+interface DashboardNavState {
+  newAnalyzingRecord?: InterviewRecord
+}
 
 const interviewTypes: Array<'전체' | InterviewType> = [
   '전체',
@@ -34,21 +41,51 @@ const jobTypes: Array<'전체 분야' | JobType> = [
 const RECORD_PAGE_SIZE = 4
 
 export function DashboardInterviewsPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [records, setRecords] = useState<InterviewRecord[]>(interviewRecords)
   const [activeType, setActiveType] = useState<'전체' | InterviewType>('전체')
   const [activeField, setActiveField] = useState<'전체 분야' | JobType>('전체 분야')
   const [sortOrder, setSortOrder] = useState<'latest' | 'oldest'>('latest')
   const [visibleRecordCount, setVisibleRecordCount] = useState(RECORD_PAGE_SIZE)
   const [selectedRecord, setSelectedRecord] = useState(interviewRecords[0])
   const [reportOpen, setReportOpen] = useState(false)
+  const consumedNavState = useRef(false)
+
+  useEffect(() => {
+    const incoming = (location.state as DashboardNavState | null)?.newAnalyzingRecord
+    if (!incoming || consumedNavState.current) {
+      return
+    }
+    consumedNavState.current = true
+
+    setRecords((previous) => [incoming, ...previous])
+    navigate(location.pathname, { replace: true, state: null })
+
+    const timer = window.setTimeout(() => {
+      setRecords((previous) =>
+        previous.map((record) =>
+          record.id === incoming.id
+            ? { ...record, status: 'completed', score: 7.6, delta: 0.6 }
+            : record,
+        ),
+      )
+    }, ANALYSIS_DURATION_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [location.pathname, location.state, navigate])
 
   const filteredRecords = useMemo(() => {
-    const filtered = interviewRecords.filter(
+    const analyzing = records.filter((record) => record.status === 'analyzing')
+    const completed = records.filter(
       (record) =>
+        record.status !== 'analyzing' &&
         (activeType === '전체' || record.type === activeType) &&
         (activeField === '전체 분야' || record.field === activeField),
     )
-    return sortOrder === 'latest' ? filtered : [...filtered].reverse()
-  }, [activeField, activeType, sortOrder])
+    const sortedCompleted = sortOrder === 'latest' ? completed : [...completed].reverse()
+    return [...analyzing, ...sortedCompleted]
+  }, [records, activeField, activeType, sortOrder])
 
   const visibleRecords = filteredRecords.slice(0, visibleRecordCount)
   const hasMoreRecords = visibleRecordCount < filteredRecords.length

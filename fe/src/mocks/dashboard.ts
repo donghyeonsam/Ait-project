@@ -20,6 +20,8 @@ export interface InterviewRecord {
   score: number
   delta: number
   duration: string
+  /** 생략 시 분석이 완료된 기록으로 취급한다. */
+  status?: 'analyzing' | 'completed'
 }
 
 export const scoreTrend = [

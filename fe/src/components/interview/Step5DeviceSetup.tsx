@@ -1,6 +1,8 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef } from 'react'
+import { useLatestCallback } from '@/lib/useLatestCallback'
 import { Camera, Mic, RotateCcw, Video, Volume2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { MasterVolumeSlider } from '@/components/interview/MasterVolumeSlider'
 import { useAudioLevel } from '@/components/interview/useAudioLevel'
 import { useMediaDevices } from '@/components/interview/useMediaDevices'
 import { useSoundTest } from '@/components/interview/useSoundTest'
@@ -23,57 +25,6 @@ interface Step5DeviceSetupProps {
 const selectClass =
   'w-full rounded-ait-s border border-border-default bg-surface-default px-3 py-2 text-body-2 text-text-primary focus:border-action-primary focus:outline-none focus:ring-3 focus:ring-action-primary/25 disabled:cursor-not-allowed disabled:text-text-secondary'
 
-const thumbClass = cn(
-  '[&::-webkit-slider-thumb]:mt-[-5px] [&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none',
-  '[&::-webkit-slider-thumb]:rounded-ait-pill [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-surface-default',
-  '[&::-webkit-slider-thumb]:bg-action-primary [&::-webkit-slider-thumb]:shadow-elevation-1',
-  '[&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:rounded-ait-pill [&::-moz-range-thumb]:border-2',
-  '[&::-moz-range-thumb]:border-surface-default [&::-moz-range-thumb]:bg-action-primary [&::-moz-range-thumb]:shadow-elevation-1',
-)
-
-const trackClass = cn(
-  '[&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-ait-pill [&::-webkit-slider-runnable-track]:bg-transparent',
-  '[&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-ait-pill [&::-moz-range-track]:bg-transparent',
-)
-
-function MasterVolumeSlider({
-  icon,
-  gain,
-  level,
-  onChange,
-  label,
-}: {
-  icon: ReactNode
-  gain: number
-  level: number
-  onChange: (value: number) => void
-  label: string
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="shrink-0 text-text-secondary" aria-hidden="true">{icon}</span>
-      <div className="relative flex h-4 flex-1 items-center">
-        <div className="absolute inset-x-0 h-1.5 rounded-ait-pill bg-status-neutral-surface" aria-hidden="true" />
-        <div
-          className="absolute left-0 h-1.5 rounded-ait-pill bg-action-primary/60 transition-[width] ease-standard duration-(--duration-fast)"
-          style={{ width: `${level}%` }}
-          aria-hidden="true"
-        />
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={gain}
-          onChange={(event) => onChange(Number(event.target.value))}
-          aria-label={label}
-          className={cn('relative z-10 h-4 w-full cursor-pointer appearance-none bg-transparent', trackClass, thumbClass)}
-        />
-      </div>
-      <span className="w-8 shrink-0 text-right text-body-2 tabular-nums text-text-secondary">{gain}</span>
-    </div>
-  )
-}
-
 export function Step5DeviceSetup({
   cameraDeviceId,
   speakerDeviceId,
@@ -91,10 +42,11 @@ export function Step5DeviceSetup({
   const videoRef = useRef<HTMLVideoElement>(null)
   const micLevel = useAudioLevel(stream, micGain)
   const soundTest = useSoundTest(speakerDeviceId, speakerVolume)
+  const notifyReadyChange = useLatestCallback(onReadyChange)
 
   useEffect(() => {
-    onReadyChange(permission === 'granted')
-  }, [onReadyChange, permission])
+    notifyReadyChange(permission === 'granted')
+  }, [notifyReadyChange, permission])
 
   useEffect(() => {
     if (videoRef.current) {

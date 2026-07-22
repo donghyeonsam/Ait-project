@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type {
   CsTopic,
   Difficulty,
@@ -84,20 +84,25 @@ export function useInterviewSurvey() {
   const [currentStep, setCurrentStep] = useState(1)
   const [state, setState] = useState<SurveyState>(initialState)
 
-  const update = <K extends keyof SurveyState>(key: K, value: SurveyState[K]) => {
-    setState((previous) => ({ ...previous, [key]: value }))
-  }
+  const update = useCallback(<K extends keyof SurveyState>(key: K, value: SurveyState[K]) => {
+    setState((previous) => {
+      if (Object.is(previous[key], value)) {
+        return previous
+      }
+      return { ...previous, [key]: value }
+    })
+  }, [])
 
-  const toggleRepository = (id: string) => {
+  const toggleRepository = useCallback((id: string) => {
     setState((previous) => ({
       ...previous,
       repositoryIds: previous.repositoryIds.includes(id)
         ? previous.repositoryIds.filter((repositoryId) => repositoryId !== id)
         : [...previous.repositoryIds, id],
     }))
-  }
+  }, [])
 
-  const toggleCsTopic = (topic: CsTopic) => {
+  const toggleCsTopic = useCallback((topic: CsTopic) => {
     setState((previous) => {
       const isSelected = previous.csTopics.includes(topic)
       if (isSelected) {
@@ -108,29 +113,26 @@ export function useInterviewSurvey() {
       }
       return { ...previous, csTopics: [...previous.csTopics, topic] }
     })
-  }
+  }, [])
 
-  const selectInterviewType = (type: InterviewGoalType) => {
+  const selectInterviewType = useCallback((type: InterviewGoalType) => {
     setState((previous) => ({
       ...previous,
       interviewType: type,
       ...(needsApplyInfo(type) ? {} : { position: '', careerLevel: '', resumeId: null, repositoryIds: [] }),
       ...(needsCsTopics(type) ? {} : { csTopics: [] }),
     }))
-  }
+  }, [])
 
   const currentStepValid = useMemo(() => isStepValid(currentStep, state), [currentStep, state])
 
-  const goNext = () => {
-    if (!currentStepValid || currentStep >= SURVEY_STEP_COUNT) {
-      return
-    }
-    setCurrentStep((step) => step + 1)
-  }
+  const goNext = useCallback(() => {
+    setCurrentStep((step) => (isStepValid(step, state) && step < SURVEY_STEP_COUNT ? step + 1 : step))
+  }, [state])
 
-  const goPrevious = () => {
+  const goPrevious = useCallback(() => {
     setCurrentStep((step) => Math.max(1, step - 1))
-  }
+  }, [])
 
   return {
     currentStep,

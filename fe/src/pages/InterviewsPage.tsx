@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Step1InterviewType } from '@/components/interview/Step1InterviewType'
 import { Step2ApplyInfo } from '@/components/interview/Step2ApplyInfo'
@@ -10,13 +11,20 @@ import { SurveyStepper } from '@/components/interview/SurveyStepper'
 import { SURVEY_STEP_COUNT, useInterviewSurvey } from '@/components/interview/useInterviewSurvey'
 
 export function InterviewsPage() {
+  const navigate = useNavigate()
   const survey = useInterviewSurvey()
   const { currentStep, state, showApplyInfo, showCsTopics } = survey
   const isLastStep = currentStep === SURVEY_STEP_COUNT
 
   const handleNext = () => {
     if (isLastStep) {
-      // 면접 세션 시작 로직은 현재 UI 범위 밖이며, 이후 대기실 흐름에서 연결한다.
+      navigate('/interviews/session', {
+        state: {
+          interviewType: state.interviewType,
+          position: state.position,
+          difficulty: state.difficulty,
+        },
+      })
       return
     }
     survey.goNext()
@@ -92,6 +100,7 @@ export function InterviewsPage() {
           canGoNext={survey.currentStepValid}
           onPrevious={survey.goPrevious}
           onNext={handleNext}
+          disabledHint={isLastStep ? '카메라·마이크 접근을 허용해야 면접을 시작할 수 있어요.' : undefined}
         />
       </div>
     </PageLayout>

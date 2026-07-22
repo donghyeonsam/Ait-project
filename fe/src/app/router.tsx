@@ -3,6 +3,7 @@ import { CommunityPage } from '@/pages/CommunityPage'
 import { DashboardInterviewsPage } from '@/pages/DashboardInterviewsPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { DashboardStudyPage } from '@/pages/DashboardStudyPage'
+import { InterviewSessionPage } from '@/pages/InterviewSessionPage'
 import { InterviewsPage } from '@/pages/InterviewsPage'
 import { LandingPage } from '@/pages/LandingPage'
 import { LoginPage } from '@/pages/LoginPage'
@@ -22,6 +23,7 @@ export function AppRouter() {
       <Route path="/dashboard/interviews" element={<DashboardInterviewsPage />} />
       <Route path="/dashboard/study" element={<DashboardStudyPage />} />
       <Route path="/interviews" element={<InterviewsPage />} />
+      <Route path="/interviews/session" element={<InterviewSessionPage />} />
       <Route path="/study" element={<StudyPage />} />
       <Route path="/community" element={<CommunityPage />} />
       <Route path="/community/posts/:postId" element={<CommunityPage />} />
