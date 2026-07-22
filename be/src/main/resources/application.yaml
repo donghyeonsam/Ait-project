@@ -1,3 +1,12 @@
+logging:
+  level:
+    com.aitserver: DEBUG
+
+jwt:
+  secret: ${JWT_SECRET_KEY:aitProjectSecretKeyForJwtTokenAuthentication1234567890!}
+  access-token-expiration: 3600000      # 1시간 (밀리초)
+  refresh-token-expiration: 604800000   # 7일 (밀리초)
+
 spring:
   application:
     name: aitServer
@@ -35,3 +44,10 @@ spring:
   jackson:
     mapper:
       sort-properties-alphabetically: false
+
+  gms:
+    base-url: ${GMS_BASE_URL}
+    api-key: ${GMS_API_KEY}
+    model: ${GMS_MODEL}
+
+# http://localhost:8080/swagger-ui/index.html#/

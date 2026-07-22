@@ -13,8 +13,6 @@ services:
       - "127.0.0.1:3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-#      - ./db/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
-#      - ./db/data.sql:/docker-entrypoint-initdb.d/2-data.sql
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
