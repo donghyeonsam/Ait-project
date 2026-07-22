@@ -13,6 +13,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -63,12 +65,28 @@ public class AuthController {
 
     // 일반 로그아웃
     @PostMapping("/logout")
-    ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request) {
-        // @AuthenticationPrincipal을 통해서 Long userId를 받아와라
-        // 그런데 그거 하려면 filter 거쳐야 한다.
-        // 받아왔으면 refreshToken 블랙 리스트에 넣어라
+    ResponseEntity<ApiResponse<Void>> logout(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            @AuthenticationPrincipal Long userId) {
+        String bearerToken = request.getHeader("Authorization");
+        String accessToken = null;
 
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
+            accessToken = bearerToken.substring(7);
+        }
+        // 로그아웃 로직 수행
+        authService.logout(userId, accessToken);
+        // 브라우저의 refreshToken 쿠키 삭제
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", "")
+                .httpOnly(true)
+                .secure(true) // HTTPS 환경인 경우 true
+                .path("/")
+                .maxAge(0) // 빈 값에 유효시간도 0으로 하면 도착하자마자 만료
+                .sameSite("Strict")
+                .build();
 
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
         return ResponseEntity.status(HttpStatus.OK)
                 .body(ApiResponse.success(
                         HttpStatus.OK,

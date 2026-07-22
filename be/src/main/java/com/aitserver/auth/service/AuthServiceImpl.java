@@ -86,4 +86,30 @@ public class AuthServiceImpl implements AuthService{
         );
         return LoginResponse.of(accessToken, refreshToken, expireTime, user);
     }
+
+    // 로그아웃 로직 수행
+    @Override
+    public void logout(Long userId, String accessToken) {
+        // 로그아웃 -> 리프레시 토큰 삭제 -> 엑세스 토큰 블랙 리스트 등록
+        log.info("[AuthService, logout] 로그아웃 시도 사용자: {}, accessToken: {}", userId, accessToken);
+
+        // 1. Redis에서 RefreshToken 삭제
+        String refreshTokenKey = "RT:" + userId;
+        if(Boolean.TRUE.equals(redisTemplate.hasKey(refreshTokenKey))) { // 사용자의 RefreshToken이 존재하면 삭제 처리
+            redisTemplate.delete(refreshTokenKey);
+            log.info("[AuthService, logout] RefreshToken 삭제 완료");
+        }
+        // 남은 유효시간 계산
+        long expiration = jwtTokenProvider.getExpiration(accessToken);
+
+        if(expiration > 0) { // 아직 시간이 남아있을 경우
+            redisTemplate.opsForValue().set(
+                    "BL:" + accessToken,
+                    "logout",
+                    expiration,
+                    TimeUnit.MILLISECONDS
+            );
+            log.info("[AuthService, logout] accessToken 블랙 리스트 등록 완료: {}", accessToken);
+        }
+    }
 }
