@@ -1,4 +1,4 @@
-package com.aitserver.resume.analysis.dto;
+package com.aitserver.global.gms.dto;
 
 import java.util.List;
 

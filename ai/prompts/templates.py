@@ -1,5 +1,5 @@
 """GMS LLM 프롬프트 템플릿"""
-from schemas.common import InterviewType, Difficulty
+from schemas.common import InterviewType, Difficulty, CSCategory, CS_CATEGORY_LABEL
 
 
 INTERVIEW_TYPE_GUIDE: dict[InterviewType, str] = {
@@ -57,6 +57,9 @@ def build_question_prompt(
     rubric_min_count: int,
     rubric_max_count: int,
     context: str,
+    career: str | None = None,
+    skills: list[str] | None = None,
+    cs_category: CSCategory | None = None,
 ) -> str:
     type_guide = INTERVIEW_TYPE_GUIDE[interview_type]
     diff_guide = DIFFICULTY_GUIDE[difficulty]
@@ -65,7 +68,27 @@ def build_question_prompt(
         target.append(f"지원 기업: {company_name}")
     if position:
         target.append(f"지원 직무/포지션: {position}")
+    # [경력/보유 스킬 반영 - 신규] BE가 전달한 지원자 프로필 정보를 프롬프트에 노출해,
+    # RAG 컨텍스트가 부족한 경우에도 LLM이 지원자 연차/기술 스택을 감안해 질문 난이도와
+    # 소재를 조정할 수 있게 한다.
+    if career:
+        target.append(f"경력: {career}")
+    if skills:
+        target.append(f"보유 기술 스킬: {', '.join(skills)}")
     target_str = "\n".join(target) if target else "(지정 없음)"
+
+    # [CS 카테고리 제한 기능 - 신규] cs_category 가 있으면 "반드시 이 범위 내에서만
+    # 질문하라"는 지시를 별도 섹션으로 명시한다. RAG 컨텍스트(CS 지식 검색 결과)가
+    # 이미 해당 카테고리로 필터링돼 있지만, 컨텍스트가 부족하거나 비어 있는 경우에도
+    # (예: 시드 데이터가 없는 카테고리) LLM이 카테고리 범위를 벗어나지 않도록 하는
+    # 이중 안전장치다.
+    cs_category_section = ""
+    if cs_category is not None:
+        cs_category_section = f"""
+## CS 카테고리 (반드시 이 범위 내에서만 질문)
+{CS_CATEGORY_LABEL[cs_category]}
+- 위 카테고리에 속하지 않는 다른 CS 주제(예: 전혀 다른 분야의 개념)로 질문을 만들지 마세요.
+"""
 
     # [루브릭 아키텍처 전환] rubric_min_count~rubric_max_count(config.py, 기본 2~3개)를
     # 프롬프트에 그대로 노출해 LLM이 질문마다 몇 개의 채점 기준을 만들어야 하는지 명확히 알게 한다.
@@ -79,7 +102,7 @@ def build_question_prompt(
 
 ## 지원 정보
 {target_str}
-
+{cs_category_section}
 ## 지원자 문서 (RAG 검색 결과)
 {context}
 

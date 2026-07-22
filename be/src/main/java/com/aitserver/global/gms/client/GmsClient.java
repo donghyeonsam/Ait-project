@@ -1,8 +1,8 @@
-package com.aitserver.resume.analysis.client;
+package com.aitserver.global.gms.client;
 
-import com.aitserver.resume.analysis.config.GmsProperties;
-import com.aitserver.resume.analysis.dto.GmsChatRequest;
-import com.aitserver.resume.analysis.dto.GmsChatResponse;
+import com.aitserver.global.gms.config.GmsProperties;
+import com.aitserver.global.gms.dto.GmsChatRequest;
+import com.aitserver.global.gms.dto.GmsChatResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -24,7 +24,7 @@ public class GmsClient {
         this.properties = properties;
     }
 
-    public String summarizeResume(
+    public String generate(
             String developerPrompt,
             String userPrompt
     ) {

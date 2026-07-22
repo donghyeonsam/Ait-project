@@ -270,7 +270,7 @@ CREATE TABLE `cover_letter` (
                                 `role` VARCHAR(50) NOT NULL,
                                 `analysis_content` TEXT DEFAULT NULL,
                                 `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                                `updated_at` DATETIME DEFAULT NULL,
+                                `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                 `deleted_at` DATETIME DEFAULT NULL,
 
                                 PRIMARY KEY (`id`),

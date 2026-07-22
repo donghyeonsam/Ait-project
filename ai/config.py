@@ -37,6 +37,16 @@ class Settings(BaseSettings):
     rubric_max_count: int = 3
     rag_top_k: int = 5
     cs_top_k: int = 4  # CS 면접 시 CS 지식에서 가져올 개수
+    # [CS 카테고리 제한 기능 - 신규] CS 면접에서 "사용자가 고른 CS 카테고리"와 "지원자
+    # 개인 문서(이력서/자소서/GitHub)"의 관련도를 판단하는 코사인 거리 임계값.
+    # services/rag_service.py 의 retrieve_context() 결과 중 최상위 문서의 distance 가
+    # 이 값보다 크면(=유사도가 낮으면) "개인 문서가 이 카테고리와 무관하다"고 보고
+    # services/question_service.py 가 개인 문서 컨텍스트를 버린 뒤, 해당 카테고리
+    # CS 지식에서 랜덤으로 뽑아 질문을 생성하도록 폴백한다.
+    # (Chroma는 hnsw:space=cosine 설정이라 distance = 1 - cosine_similarity, 0에 가까울수록
+    #  유사. 0.45는 "느슨하게라도 관련은 있다" 수준의 경험적 기본값 — 실제 서비스 운영하며
+    #  데이터를 보고 튜닝 필요.)
+    cs_relevance_distance_threshold: float = 0.45
 
     # ── 서버 ──
     app_env: str = "development"
