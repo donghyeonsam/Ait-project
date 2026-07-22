@@ -13,9 +13,9 @@ export function Footer() {
         <div className="flex flex-wrap items-center justify-between gap-8">
           <div className="flex flex-wrap items-center gap-4">
             <Link
-              to="/dashboard"
+              to="/"
               className="-m-3 p-3"
-              aria-label="Ait 대시보드"
+              aria-label="Ait 홈"
             >
               <img
                 src="/Logo_Assets/primary/ait-logo-horizontal.svg"
