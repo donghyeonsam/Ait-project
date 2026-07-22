@@ -1,6 +1,6 @@
 -- users 테이블 더미 데이터 3개 삽입
 INSERT INTO users (email, password, name, nickname)
-VALUES ('hong@ssafy.com', '1234', '홍길동', '길동이'),
+VALUES ('hong@ssafy.com', '$2a$10$h5KFhYAebvWyXUX0ndOkEuRkuMI1gZaJX1CMo4T.RZdR2AT.7k.xu', '홍길동', '길동이'),
        ('kim@ssafy.com', '1234', '김철수', '철수야'),
        ('lee@ssafy.com', '1234', '이영희', '영희짱');
 
@@ -442,3 +442,51 @@ INSERT INTO cover_letter_contents (
           '빠르게 학습하여 문제를 해결한 경험을 작성해 주세요.',
           '프로젝트에서 처음으로 Redis를 사용해야 했습니다. 공식 문서와 예제 코드를 통해 자료구조와 만료 정책을 학습한 뒤 리프레시 토큰 저장과 실시간 접속 상태 관리 기능에 적용했습니다.'
       );
+
+-- =========================================================
+-- 1. GitHub App 연동 정보 (user_id = 1)
+-- =========================================================
+INSERT INTO github_apps (id, user_id, installation_id, github_username, created_at)
+VALUES (1, 1, '12345678', 'hong-gildong', NOW());
+
+
+-- =========================================================
+-- 2. GitHub 레포지토리 정보 (github_app_id = 1 기준 3개)
+-- =========================================================
+INSERT INTO github_repos (
+    github_app_id,
+    repo_id,
+    repo_name,
+    repo_nickname,
+    analysis_content,
+    is_private,
+    created_at
+)
+VALUES
+    (
+        1,
+        101,
+        'Ait-backend',
+        'Ait 서비스 백엔드 메인 프로젝트',
+        'Spring Boot 기반 RESTful API 구현 및 JPA/MySQL 연동 완료. OAuth2 및 JWT 기반 인증 구조 설계.',
+        FALSE,
+        NOW()
+    ),
+    (
+        1,
+        102,
+        'algorithm-study',
+        '알고리즘 및 코딩테스트 대비',
+        '주요 자료구조(스택, 큐, 해시) 및 DP, DFS/BFS 알고리즘 문제 풀이 모음.',
+        FALSE,
+        NOW()
+    ),
+    (
+        1,
+        103,
+        'fastapi-ai-service',
+        'AI 모의면접 피드백 서비스',
+        'FastAPI 및 LLM 프롬프트 연동을 통한 면접 질문/피드백 비동기 생성 파이프라인 구축.',
+        TRUE,
+        NOW()
+    );

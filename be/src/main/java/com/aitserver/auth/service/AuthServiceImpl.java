@@ -68,6 +68,10 @@ public class AuthServiceImpl implements AuthService{
         User user = userRepository.findByEmail(loginRequest.email())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
+
+        String encodedPassword = passwordEncoder.encode(loginRequest.password());
+        log.info("사용자 비밀번호 암호화: {}", encodedPassword);
+
         // 이메일은 존재하지만, 비밀번호가 다를 경우 에러 던지기
         if(!passwordEncoder.matches(loginRequest.password(), user.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD);
