@@ -12,4 +12,6 @@ public interface AuthService {
     LoginResponse login(@Valid LoginRequest loginRequest);
 
     void logout(Long userId, String accessToken);
+
+    String reissue(String refreshToken);
 }
