@@ -46,8 +46,8 @@ spring:
       sort-properties-alphabetically: false
 
   gms:
-    base-url: ${GMS_BASE_URL:https://gms.ssafy.io/gmsapi/api.openai.com/v1}
+    base-url: ${GMS_BASE_URL}
     api-key: ${GMS_API_KEY}
-    model: ${GMS_MODEL:gpt-5.4-mini}
+    model: ${GMS_MODEL}
 
 # http://localhost:8080/swagger-ui/index.html#/

@@ -1,4 +1,10 @@
-"""임베딩 관련 요청/응답 스키마"""
+"""
+임베딩 관련 요청/응답 스키마
+
+[전체 서비스 흐름에서의 역할] routers/embedding.py ↔ services/embedding_service.py
+사이를 오가는 데이터 형태를 정의한다. BE가 analyses(이력서/자소서/GitHub 분석) 테이블에
+행을 저장할 때마다, 그 내용을 이 스키마 형태로 감싸서 AI 서비스에 넘겨준다.
+"""
 from pydantic import BaseModel, Field
 
 from schemas.common import DocType

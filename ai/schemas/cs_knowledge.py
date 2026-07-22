@@ -1,4 +1,11 @@
-"""CS 전역 지식 임베딩 관련 스키마 (category / concept / content)"""
+"""
+CS 전역 지식 임베딩 관련 스키마 (category / concept / content)
+
+[전체 서비스 흐름에서의 역할] routers/cs_knowledge.py ↔ services/cs_embedding_service.py
+사이를 오가는 데이터 형태. schemas/embedding.py(개인 문서)와 구조가 비슷해 보이지만
+user_id/target_id 가 없다 — CS 지식은 특정 사용자나 특정 analyses 행에 속하지 않는
+전역 공용 데이터이기 때문이다.
+"""
 from pydantic import BaseModel, Field
 
 
