@@ -3,6 +3,8 @@
 - RAG 검색 → GMS LLM 프롬프트 구성 → 질문 N개 + rubric(채점 기준) 생성
 - [루브릭 아키텍처 재설계] expected_answer(사전 예상 답안) 생성은 제거됨.
   답변 보완(ai_answer)은 사용자가 실제로 답변을 제출한 뒤 services/answer_service.py 가 담당한다.
+- [CS 카테고리 제한 기능 / 경력·스킬 반영 - 신규] CS 면접은 사용자가 고른 CS 카테고리
+  내부로만 질문을 제한하고, 경력/보유 스킬을 RAG 쿼리와 프롬프트에 반영한다.
 """
 import logging
 
@@ -14,46 +16,115 @@ from schemas.interview import (
     QuestionGenerateResponse,
     GeneratedQuestion,
 )
-from schemas.common import InterviewType
-from services.rag_service import retrieve_context, retrieve_cs_knowledge, format_context
+from schemas.common import InterviewType, CS_CATEGORY_LABEL
+from services.rag_service import (
+    retrieve_context,
+    retrieve_cs_knowledge,
+    retrieve_cs_knowledge_random,
+    format_context,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def _build_rag_query(req: QuestionGenerateRequest) -> str:
-    """RAG 검색용 쿼리 문자열. 지원 정보 + 면접 유형으로 관련 문서 유도."""
+    """
+    RAG 검색용 쿼리 문자열. 지원 정보 + 면접 유형으로 관련 문서 유도.
+    [경력/보유 스킬 반영 - 신규] career/skills 가 있으면 쿼리에 포함시켜, 지원자의
+    연차/기술 스택과 실제로 관련된 문서 청크가 더 잘 검색되도록 한다.
+    """
     parts = [f"{req.interview_type.value} 면접"]
     if req.position:
         parts.append(req.position)
     if req.company_name:
         parts.append(req.company_name)
+    if req.career:
+        parts.append(req.career)
+    if req.skills:
+        parts.append(" ".join(req.skills))
     parts.append("프로젝트 경험 기술 스택 역량")
+    return " ".join(parts)
+
+
+def _build_cs_query(req: QuestionGenerateRequest) -> str:
+    """
+    [CS 카테고리 제한 기능 - 신규] CS 면접 전용 RAG 쿼리.
+    "사용자가 고른 CS 카테고리"를 쿼리의 중심에 두고, 있다면 직무/스킬 정보도 덧붙여
+    "이 카테고리 안에서 지원자와 관련 있는 내용"을 검색하도록 유도한다.
+    """
+    label = CS_CATEGORY_LABEL[req.cs_category]
+    parts = [label, "CS 면접"]
+    if req.position:
+        parts.append(req.position)
+    if req.skills:
+        parts.append(" ".join(req.skills))
     return " ".join(parts)
 
 
 async def generate_questions(req: QuestionGenerateRequest) -> QuestionGenerateResponse:
     count = req.question_count or settings.question_count
 
-    # 1. RAG 검색
-    query = _build_rag_query(req)
-    contexts = retrieve_context(req.user_id, query, req.interview_type)
+    if req.interview_type == InterviewType.CS:
+        # [CS 카테고리 제한 기능 - 신규]
+        # schemas/interview.py 의 model_validator 가 이미 cs_category 존재를 보장하므로
+        # 여기서는 None 체크 없이 바로 사용해도 안전하다.
+        cs_query = _build_cs_query(req)
 
-    # 1-2. CS/종합 면접이면 CS 전역 지식도 함께 검색해서 합침
-    if req.interview_type in (InterviewType.CS, InterviewType.COMPREHENSIVE):
-        cs_query = req.position or "컴퓨터공학 기초 CS 면접"
-        cs_contexts = retrieve_cs_knowledge(cs_query)
+        # 1. 개인 문서(이력서/자소서/GitHub)를 "선택한 CS 카테고리" 기준으로 검색.
+        #    DOC_TYPE_WEIGHTS(rag_service.py)에 정의된 CS 면접 비율(이력서10/자소서40/GitHub50)이
+        #    retrieve_context() 내부에서 그대로 적용된다.
+        personal_contexts = retrieve_context(req.user_id, cs_query, req.interview_type)
+
+        # 2. 관련도 판단: 최상위 검색 결과의 코사인 거리가 임계값보다 크면(=유사도가 낮으면)
+        #    "지원자 문서가 이 카테고리와 사실상 무관하다"고 보고 개인 문서를 버린다.
+        #    (예: '보안' 카테고리를 골랐는데 문서에는 프론트엔드 경험만 있는 경우)
+        top_distance = personal_contexts[0]["distance"] if personal_contexts else None
+        is_relevant = (
+            top_distance is not None and top_distance <= settings.cs_relevance_distance_threshold
+        )
+
+        if is_relevant:
+            contexts = personal_contexts
+            cs_contexts = retrieve_cs_knowledge(cs_query, cs_category=req.cs_category)
+        else:
+            # 개인 문서가 무관하므로 사용하지 않고, 선택한 카테고리 안에서 무작위로
+            # CS 지식을 뽑아 질문 생성 근거로 삼는다("카테고리 내에서라면 무엇이든 OK").
+            contexts = []
+            cs_contexts = retrieve_cs_knowledge_random(req.cs_category)
+
         contexts = contexts + cs_contexts
+        logger.info(
+            "CS 질문 생성 RAG: category=%s personal_relevant=%s top_distance=%s",
+            req.cs_category.value, is_relevant, top_distance,
+        )
+    else:
+        # 1. RAG 검색 (JOB/TECH/PORTFOLIO/COMPREHENSIVE)
+        query = _build_rag_query(req)
+        contexts = retrieve_context(req.user_id, query, req.interview_type)
+
+        # 1-2. 종합 면접이면 CS 전역 지식도 함께 검색해서 합침.
+        #      cs_category 가 함께 왔으면(선택 사항) 그 카테고리로 제한하고,
+        #      없으면 기존처럼 전체 CS 지식에서 검색한다.
+        if req.interview_type == InterviewType.COMPREHENSIVE:
+            cs_query = req.position or "컴퓨터공학 기초 CS 면접"
+            cs_contexts = retrieve_cs_knowledge(cs_query, cs_category=req.cs_category)
+            contexts = contexts + cs_contexts
 
     context_text = format_context(contexts)
 
     # 2. 프롬프트 구성
     # [루브릭 아키텍처 전환] rubric 개수 범위(config.py, 기본 2~3개)를 프롬프트에 전달해
     # 질문마다 채점 기준을 함께 생성하도록 지시한다.
+    # [CS 카테고리 제한 기능 / 경력·스킬 반영] cs_category/career/skills 를 그대로 넘겨
+    # RAG 컨텍스트가 부족해도 프롬프트 문구 자체가 범위를 명시하도록 한다.
     prompt = build_question_prompt(
         interview_type=req.interview_type,
         difficulty=req.difficulty,
         company_name=req.company_name,
         position=req.position,
+        career=req.career,
+        skills=req.skills,
+        cs_category=req.cs_category,
         question_count=count,
         rubric_min_count=settings.rubric_min_count,
         rubric_max_count=settings.rubric_max_count,

@@ -1,7 +1,7 @@
 """면접 질문/꼬리질문 관련 요청·응답 스키마"""
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
-from schemas.common import InterviewType, Difficulty
+from schemas.common import InterviewType, Difficulty, CSCategory
 
 
 # ────────────────────────────
@@ -15,12 +15,38 @@ class QuestionGenerateRequest(BaseModel):
     # 직무/기술/포폴/종합 면접에서 사용자가 폼으로 입력한 값
     company_name: str | None = Field(None, description="지원 기업")
     position: str | None = Field(None, description="지원 직무/포지션")
+    # [CS 카테고리 제한 기능 - 신규] CS 면접일 때 프론트 GUI에서 사용자가 고르는
+    # 9가지 CS 카테고리 중 하나(schemas.common.CSCategory). interview_type=CS 이면 필수이며,
+    # 아래 model_validator(_validate_cs_category)가 누락 시 422로 막는다.
+    # services/question_service.py 가 이 값으로 CS 지식 검색 범위를 "이 카테고리 내부"로
+    # 강제 제한하고, prompts/templates.py 가 프롬프트에도 명시적으로 노출한다.
+    cs_category: CSCategory | None = Field(
+        None, description="CS 면접일 때 사용자가 선택한 CS 카테고리 (interview_type=cs 이면 필수)"
+    )
+    # [경력/보유 스킬 반영 - 신규] BE가 사용자 프로필에서 가져와 전달하는 값.
+    # services/question_service.py 의 RAG 검색 쿼리 구성과 prompts/templates.py 의
+    # 프롬프트 "지원 정보" 섹션에 함께 반영되어, "경력 3년차 백엔드, Spring/JPA 보유"
+    # 같은 맥락을 질문 생성 시 참고할 수 있게 한다.
+    career: str | None = Field(None, description="지원자 경력 (예: '신입', '3년차' 등)")
+    skills: list[str] | None = Field(None, description="지원자 보유 기술 스킬 목록")
     question_count: int | None = Field(
         # [루브릭 아키텍처 전환] 기본 질문 수를 10 → 5로 축소.
         # 대신 질문마다 rubric(채점 기준)을 함께 받아, 면접 중 답변 품질에 따라
         # 부족한 부분만 동적 꼬리질문으로 파고드는 방식(Phase 2, 별도 작업)으로 깊이를 보완한다.
         None, description="생성할 질문 수 (미지정 시 서버 기본값 5)"
     )
+
+    @model_validator(mode="after")
+    def _validate_cs_category(self) -> "QuestionGenerateRequest":
+        """
+        CS 면접인데 cs_category 가 없으면 요청 자체를 거부한다(422).
+        [CS 카테고리 제한 기능] "선택한 카테고리 내에서만 질문을 만든다"는 요구사항은
+        cs_category 없이는 애초에 성립할 수 없으므로, 서비스 로직까지 가기 전에
+        스키마 단계에서 막아 BE가 누락을 바로 알아챌 수 있게 한다.
+        """
+        if self.interview_type == InterviewType.CS and self.cs_category is None:
+            raise ValueError("interview_type이 'cs'인 경우 cs_category는 필수입니다.")
+        return self
 
 
 class GeneratedQuestion(BaseModel):

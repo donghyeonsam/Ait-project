@@ -2,16 +2,23 @@
 
 이력서/자소서/GitHub 분석 데이터를 **Chroma DB**에 임베딩하고, 면접 시작 시 **RAG**로
 관련 문서를 검색해 **GMS LLM(gpt-5.4-nano)**으로 질문과 꼬리질문을 생성하는 AI 서비스.
+CS 면접은 사용자가 고른 CS 카테고리(9종) 범위 내에서만 질문을 생성하고, 면접 유형별로
+이력서/자소서/GitHub 참고 비율을 다르게 적용한다.
 
 ## 아키텍처
 
 ```
 Spring Boot (BE)
    │  ① 이력서/자소서/깃허브 분석(analyses) 저장 후
-   │     POST /api/v1/embeddings         ──► Chroma 임베딩
+   │     POST /api/v1/embeddings         ──► Chroma 임베딩(user_documents 컬렉션)
+   │
+   │  (서버 최초 기동 시 1회, BE 호출 아님) CS 지식 시드 데이터 자동 임베딩
+   │     → Chroma(cs_knowledge 컬렉션). 원본 갱신 시에만 관리용
+   │     POST/DELETE /api/v1/cs-knowledge 로 수동 재구축.
    │
    │  ② 면접 시작 (ai_interviews 세션 생성 후)
-   │     POST /api/v1/interviews/questions ──► RAG 검색 + GMS ──► 질문 5개 + rubric(채점 기준)
+   │     POST /api/v1/interviews/questions ──► RAG 검색(문서 참고 비율 적용,
+   │       CS면접은 cs_category 로 검색 범위 제한) + GMS ──► 질문 5개 + rubric(채점 기준)
    │
    │  ③ 사용자 답변 저장 후 (동기)
    │     POST /api/v1/interviews/followup  ──► GMS ──► rubric 채점 + 동적 꼬리질문
@@ -25,7 +32,54 @@ FastAPI (AI)  ── Chroma(영속) + GMS gpt-5.4-nano
 BE는 결과를 `ai_interview_questions`(question/user_answer/ai_answer/feedback) 테이블에 저장한다.
 `ai_answer`는 질문 생성 시점이 아니라, 사용자가 실제로 답변을 제출한 뒤 ③에서 얻은
 rubric 채점 결과를 참고해 ④가 비동기로 채워 넣는다(루브릭 아키텍처, 자세한 내용은
-`docs/rubric_architecture_migration.md` 참고).
+`docs/AI_작업일지_0722.md` 1절 참고). CS 카테고리 제한/문서 참고 비율 기능은 같은 문서
+3절 참고.
+
+## 아키텍처 스타일 & 디자인 패턴
+
+### 전체 스타일
+- **레이어드 아키텍처(Layered Architecture)**: `routers/`(HTTP 요청/응답, 예외를
+  상태 코드로 변환) → `services/`(면접 규칙/RAG 조합/응답 정규화 등 실제 비즈니스 로직)
+  → `core/`, `db/`(GMS LLM·Chroma 벡터DB 등 외부 시스템 연동 게이트웨이) 3계층으로
+  책임을 분리한다. 라우터는 얇게 유지하고, 실제 판단 로직은 전부 services에 있다.
+- **RAG(Retrieval-Augmented Generation) 파이프라인**: "색인(임베딩)"과 "검색+생성"
+  단계를 분리한 전형적인 RAG 구조. `services/embedding_service.py`/
+  `cs_embedding_service.py`가 색인을, `services/rag_service.py`가 검색(Retrieval)을,
+  `services/question_service.py` 등이 검색 결과를 프롬프트에 넣어 LLM 생성을
+  담당한다(Retrieval → Augment → Generate).
+- **비동기(async I/O)**: FastAPI 엔드포인트와 GMS 호출(`httpx.AsyncClient`)이 모두
+  `async/await` 기반 — LLM 응답을 기다리는 동안 다른 요청을 블로킹하지 않는다.
+
+### 사용 중인 디자인 패턴
+- **Singleton(지연 초기화)**: `db/chroma.py`의 Chroma 클라이언트/임베딩 함수/컬렉션
+  객체(`_client`, `_embedding_fn`, `_collections`), `core/gms_client.py`의
+  `gms_client`, `config.py`의 `get_settings()`(`@lru_cache`)가 전부 모듈 전역에
+  단 한 번만 생성되어 재사용된다 — SentenceTransformer 모델처럼 로딩 비용이 큰
+  리소스를 매 요청마다 새로 만들지 않기 위함.
+- **Gateway(단일 접근 창구)**: `db/chroma.py`가 벡터DB에 대한 유일한 접근 창구다.
+  다른 서비스는 Chroma 클라이언트를 직접 만들지 않고 반드시
+  `get_collection()`/`get_cs_collection()`을 통해서만 컬렉션을 얻는다.
+- **Adapter/Facade**: `core/gms_client.py`가 GMS(OpenAI 호환) HTTP API의 프로토콜
+  세부사항(payload 형식, 재시도, 에러 변환)을 감춰, 서비스 계층은 `chat_json()`
+  호출 하나만 알면 되게 한다.
+- **Retry(재시도)**: `tenacity`로 GMS 호출의 일시적 장애(5xx/네트워크 오류)만
+  지수 백오프로 최대 3회 재시도하고, 4xx는 즉시 실패시킨다(`gms_client.py`).
+- **테이블 기반 전략(Table-driven Strategy)**: `InterviewType`/`CSCategory` enum을
+  키로 하는 dict(`INTERVIEW_TYPE_GUIDE`, `DOC_TYPE_WEIGHTS`, `CS_CATEGORY_RAW_MAP`)로
+  "면접 유형/카테고리별 동작"을 분기한다. if/else 분기 대신 표 하나로 정책을
+  정의해두어, 코드 흐름을 몰라도 표의 값만 바꿔 정책을 조정할 수 있게 한다
+  (예: 문서 참고 비율 조정은 `DOC_TYPE_WEIGHTS` 숫자만 바꾸면 됨).
+- **DTO 기반 경계 검증**: 모든 요청/응답을 `schemas/`의 Pydantic 모델로 검증한다 —
+  API 경계(`routers/`)에서만 유효성 검사를 하고, 통과한 이후 내부 로직은 타입을
+  그대로 신뢰한다(예: CS 면접인데 `cs_category`가 없으면 서비스 로직 진입 전
+  스키마 단계에서 422로 차단).
+- **방어적 폴백(Graceful Degradation)**: Chroma 조회 실패/빈 컬렉션 시 빈 리스트
+  반환(`rag_service.py`), LLM 응답 파싱 실패 시 코드펜스 방어 파서 재시도
+  (`gms_client.py`), 답변 보완 결과가 비면 사용자 원문으로 폴백(`answer_service.py`)
+  등 — 부분 실패가 전체 요청 실패로 번지지 않도록 각 단계에서 안전한 기본값을 반환한다.
+- **One-Call JSON Mode**: 꼬리질문 생성(`followup_service.py`)에서 "rubric 채점"과
+  "꼬리질문 생성"을 LLM 호출 1회로 동시에 처리하는 이 서비스만의 설계 기법 —
+  왕복 호출을 줄이고 채점 근거와 질문이 서로 일관되게 만든다.
 
 ## 실행
 
@@ -41,22 +95,29 @@ docker compose up --build
 
 ```
 ai/
-├── main.py                     # FastAPI 엔트리포인트
+├── main.py                     # FastAPI 엔트리포인트 + lifespan(모델/컬렉션 프리로딩, CS 시드)
+├── config.py                   # 환경변수 설정 (.env 로드)
 ├── requirements.txt
 ├── Dockerfile / docker-compose.yml / .env.example
-└── app/
-    ├── config.py               # 환경변수 설정
-    ├── core/gms_client.py      # GMS LLM (gpt-5.4-nano) async 클라이언트
-    ├── db/chroma.py            # Chroma 영속 클라이언트 + 한국어 임베딩
-    ├── schemas/               # Pydantic 요청/응답
-    ├── prompts/templates.py    # 면접 유형별 프롬프트
-    ├── services/
-    │   ├── embedding_service.py  # 청킹 + Chroma 저장
-    │   ├── rag_service.py         # user_id 필터 유사도 검색
-    │   ├── question_service.py    # 질문 5개 + rubric(채점 기준) 생성
-    │   ├── followup_service.py    # rubric 채점 + 동적 꼬리질문 (횟수 상한은 안전장치)
-    │   └── answer_service.py      # 답변 보완(ai_answer) 생성 — 답변 제출 후 비동기 호출
-    └── routers/               # 엔드포인트
+├── data/cs_knowledge.json      # CS 지식 시드 데이터 (gyoogle 기반, 서버 기동 시 자동 임베딩)
+├── cs_knowledge_dataset.md     # 위 시드 데이터 생성 경위 설명
+├── docs/                       # 작업 문서 (api_reference.md, AI_작업일지_0722.md)
+├── core/gms_client.py          # GMS LLM (gpt-5.4-nano) async 클라이언트
+├── db/chroma.py                 # Chroma 영속 클라이언트 + 한국어 임베딩 (컬렉션 2개 관리)
+├── schemas/                     # Pydantic 요청/응답
+│   ├── common.py                  # InterviewType/DocType/Difficulty/CSCategory enum
+│   ├── embedding.py                # 개인 문서 임베딩 요청/응답
+│   ├── cs_knowledge.py              # CS 지식 임베딩 요청/응답
+│   └── interview.py                 # 질문/꼬리질문/답변보완 요청·응답
+├── prompts/templates.py         # 면접 유형별 프롬프트 (질문/꼬리질문/답변보완)
+├── services/
+│   ├── embedding_service.py       # 청킹 + Chroma 저장 (개인 문서)
+│   ├── cs_embedding_service.py     # 청킹 + Chroma 저장 (CS 전역 지식) + 서버 기동 시 자동 시딩
+│   ├── rag_service.py              # 유사도 검색 + 면접 유형별 문서 참고 비율 + CS 카테고리 필터
+│   ├── question_service.py         # 질문 5개 + rubric(채점 기준) 생성, CS 카테고리 제한 로직
+│   ├── followup_service.py         # rubric 채점 + 동적 꼬리질문 (횟수 상한은 안전장치)
+│   └── answer_service.py           # 답변 보완(ai_answer) 생성 — 답변 제출 후 비동기 호출
+└── routers/                     # 엔드포인트 (health/embedding/interview/cs_knowledge)
 ```
 
 ## API
@@ -90,7 +151,28 @@ BE가 `analyses` 저장 후 호출. `replace=true`면 해당 user_id 기존 임�
   "interview_type": "tech",
   "difficulty": "normal",
   "company_name": "삼성전자",
-  "position": "백엔드 개발자"
+  "position": "백엔드 개발자",
+  "career": "3년차",
+  "skills": ["Java", "Spring", "MySQL"]
+}
+```
+
+- `career`(경력), `skills`(보유 기술 스킬)는 선택 필드이며, RAG 검색 쿼리와 프롬프트
+  "지원 정보" 섹션에 반영된다.
+- `interview_type`이 `cs`이면 `cs_category`가 **필수**다(없으면 422). 9종 중 하나:
+  `data_structure_algorithm`(자료구조/알고리즘) / `operating_system`(운영체제) /
+  `network`(네트워크) / `web`(WEB) / `database`(데이터베이스) / `security`(보안) /
+  `software_engineering`(소프트웨어 공학) / `ai`(AI) / `language_framework`(언어 및 프레임워크).
+  질문은 이 카테고리 범위 내에서만 생성되며, 지원자 개인 문서가 해당 카테고리와
+  무관하다고 판단되면(코사인 거리 임계값 초과) 카테고리 내 CS 지식에서 무작위로
+  근거를 뽑아 질문을 만든다(자세한 로직은 `docs/AI_작업일지_0722.md` 3절 참고).
+
+```json
+{
+  "user_id": 2,
+  "ai_interview_id": 101,
+  "interview_type": "cs",
+  "cs_category": "database"
 }
 ```
 
@@ -141,31 +223,62 @@ BE가 `analyses` 저장 후 호출. `replace=true`면 해당 user_id 기존 임�
 
 ### 5. 임베딩 삭제 — `DELETE /api/v1/embeddings/{user_id}`
 
-## 면접 규칙 (설정값 — `.env`)
+### 6. CS 지식 관리 — `POST` / `DELETE /api/v1/cs-knowledge`
+
+CS 전역 지식(`cs_knowledge` 컬렉션, user_id 없이 모든 사용자 공유)을 관리하는 API.
+서버 최초 기동 시 `data/cs_knowledge.json`으로 자동 시딩되므로(컬렉션이 비어있을 때만),
+평상시에는 호출할 일이 없다. CS 지식 원본이 갱신되어 전량 재구축이 필요할 때만
+운영자/BE가 수동으로 호출하는 관리용 엔드포인트다.
+
+```json
+// POST /api/v1/cs-knowledge
+{
+  "items": [
+    { "category": "Computer Science > Database", "concept": "인덱스", "content": "..." }
+  ],
+  "replace": false
+}
+```
+
+`DELETE /api/v1/cs-knowledge`는 컬렉션 전체를 비운다(전량 재구축 전 사용, 파라미터 없음).
+
+## 면접 규칙 (설정값 — `.env` / `config.py`)
 
 | 항목 | 기본값 | 환경변수 |
 |---|---|---|
 | 질문 개수 | 5 | `QUESTION_COUNT` |
 | 질문당 rubric 개수 | 2~3 | `RUBRIC_MIN_COUNT` / `RUBRIC_MAX_COUNT` |
 | 질문당 꼬리질문 최대(안전장치) | 2 | `MAX_FOLLOWUP_PER_QUESTION` |
-| RAG top-k | 5 | `RAG_TOP_K` |
+| 개인 문서 RAG top-k | 5 | `RAG_TOP_K` |
+| CS 지식 RAG top-k | 4 | (`config.py`의 `cs_top_k`, `.env.example` 미등록) |
+| CS 카테고리-개인 문서 관련도 임계값(코사인 거리) | 0.45 | (`config.py`의 `cs_relevance_distance_threshold`) |
 
-## 면접 유형별 RAG 문서 우선순위
+## 면접 유형별 문서 참고 비율
 
-| 유형 | 참고 문서 |
-|---|---|
-| job (직무) | 이력서 + 자소서 |
-| tech (기술) | GitHub + 이력서 |
-| portfolio (포폴) | GitHub + 이력서 |
-| cs (CS) | (개인 문서 미사용 — CS 지식 임베딩 추후 추가) |
-| comprehensive (종합) | 전체 |
+`services/rag_service.py`의 `DOC_TYPE_WEIGHTS` 표 하나로 관리하며, 숫자만 바꾸면 즉시
+반영된다(100 기준 %):
 
-> **CS 면접**: `rag_service.py`의 `INTERVIEW_DOC_PREFERENCE`에서 CS는 개인 문서를 검색하지 않도록
-> 비워둠. 추후 CS 지식 데이터를 별도 doc_type으로 임베딩하면 자동 연동된다.
+| 면접 유형 | 이력서 | 자소서 | GitHub |
+|---|---|---|---|
+| job (직무) | 50 | 40 | 10 |
+| cs (CS) | 10 | 40 | 50 |
+| tech (기술) | 10 | 40 | 50 |
+| portfolio (포폴) | 10 | 30 | 60 |
+| comprehensive (종합) | 고정 비율 없음 — 질문 특성/유사도에 맡김 |
+
+전체 top_k를 doc_type(이력서/자소서/GitHub)별로 비율만큼 쪼개 각각 따로 검색한 뒤
+합치는 방식이라(최대 나머지법으로 배분), 위 표의 비율이 실제로 보장된다. 이 배분은
+질문 생성뿐 아니라 꼬리질문 채점(`followup_service.py`)·답변 보완(`answer_service.py`)의
+RAG 검색에도 동일하게 적용된다.
+
+**CS 면접**: 위 비율과 별개로, `cs_category`로 CS 지식 검색 범위 자체를 해당 카테고리로
+하드 제한한다(`retrieve_cs_knowledge`의 category `$in` 필터). 개인 문서가 선택한
+카테고리와 무관하면(코사인 거리가 임계값 초과) 개인 문서를 버리고 카테고리 내에서
+무작위로 CS 지식을 뽑는다. 자세한 내용/카테고리 매핑 표는 `docs/AI_작업일지_0722.md`
+3절 참고. (⚠️ 현재 "보안" 카테고리는 시드 데이터가 없어 CS 지식 검색이 항상 0건이다.)
 
 ## GMS 연동 메모
 
 - gpt-5 계열이라 지시문을 `system`이 아닌 **`developer` role**로 전송한다 (`gms_client.py`).
 - `response_format: json_object`로 JSON 강제 + 코드펜스 방어 파서 내장.
 - 실패 시 tenacity로 최대 3회 지수 백오프 재시도.
-```
