@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -31,14 +32,11 @@ public class GithubController {
     @GetMapping("/callback")
     public ResponseEntity<ApiResponse<Void>> githubCallback(
             @RequestParam("installation_id") String installationId,
+            @AuthenticationPrincipal Long userId,
             HttpServletRequest request) {
         log.info("깃허브 콜백 도착 - Installation ID: {}", installationId);
 
-
-        // TODO: MVP 테스트용 유저 ID (추후 JWT/Session 에서 추출하도록 변경)
-        Long currentUserId = 1L;
-
-        githubDataService.syncGithubRepositories(currentUserId, installationId);
+        githubDataService.syncGithubRepositories(userId, installationId);
 
         log.info("레포지토리 동기화 및 DB 저장 성공");
 
@@ -54,10 +52,11 @@ public class GithubController {
      * 내 깃허브 레포지토리 목록 조회 API
      */
     @GetMapping("/repos")
-    public ResponseEntity<ApiResponse<List<GithubRepoResponseDto>>> getMyRepos(HttpServletRequest request) {
-        Long currentUserId = 1L;
+    public ResponseEntity<ApiResponse<List<GithubRepoResponseDto>>> getMyRepos(
+            @AuthenticationPrincipal Long userId,
+            HttpServletRequest request) {
 
-        List<GithubRepoResponseDto> repoList = githubDataService.getSavedRepos(currentUserId);
+        List<GithubRepoResponseDto> repoList = githubDataService.getSavedRepos(userId);
 
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK,
