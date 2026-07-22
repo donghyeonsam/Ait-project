@@ -13,9 +13,13 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -91,6 +95,25 @@ public class AuthController {
                 .body(ApiResponse.success(
                         HttpStatus.OK,
                         "로그아웃 성공",
+                        request
+                ));
+    }
+
+    // 토큰 재발급
+    @PostMapping("/reissue")
+    public ResponseEntity<ApiResponse<Map<String, String>>> reissue(
+            HttpServletRequest request,
+            @CookieValue(value = "refreshToken", required = false) String refreshToken) {
+        String newAccessToken = authService.reissue(refreshToken);
+        // 새로 발급된 토큰 담기
+        Map<String, String> responseData = new HashMap<>();
+        responseData.put("accessToken", newAccessToken);
+
+        return ResponseEntity.status(HttpStatus.OK)
+                .body(ApiResponse.success(
+                        HttpStatus.OK,
+                        "토큰 재발급 성공",
+                        responseData,
                         request
                 ));
     }
