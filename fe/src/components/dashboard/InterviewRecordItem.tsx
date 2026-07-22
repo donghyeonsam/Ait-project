@@ -1,5 +1,6 @@
-import SpecularButton from '@/components/SpecularButton'
+import BorderGlow from '@/components/BorderGlow'
 import { TagBadge } from '@/components/dashboard/TagBadge'
+import { Button } from '@/components/ui/button'
 import { useInView } from '@/lib/useInView'
 import type { InterviewRecord } from '@/mocks/dashboard'
 import { cn } from '@/lib/utils'
@@ -22,13 +23,27 @@ export function InterviewRecordItem({
   })
 
   return (
-    <article
-      ref={ref}
+    <BorderGlow
+      observeRef={ref}
+      borderRadius={10}
+      edgeSensitivity={24}
+      glowColor="var(--color-action-primary)"
+      backgroundColor="var(--color-surface-default)"
+      glowRadius={20}
+      glowIntensity={0.3}
+      coneSpread={12}
+      colors={[
+        'var(--color-action-primary)',
+        'var(--color-status-info)',
+        'var(--color-status-info-border)',
+      ]}
+      fillOpacity={0.1}
       className={cn(
-        'record-item grid min-h-28 grid-cols-[1fr_auto_auto] items-center rounded-ait-s border border-chart-axis bg-background-default px-8 py-4 transition-[transform,box-shadow] duration-150 ease-standard hover:-translate-y-0.5 hover:shadow-elevation-2',
+        'record-item shadow-elevation-1 transition-[transform,box-shadow] duration-150 ease-standard hover:-translate-y-0.5 hover:shadow-elevation-2',
         isInView && 'is-visible',
       )}
-      style={{ '--record-delay': `${index * 70}ms` } as React.CSSProperties}
+      contentClassName="grid min-h-28 grid-cols-[1fr_auto_auto] items-center px-8 py-4"
+      style={{ '--record-delay': `${index * 50}ms` } as React.CSSProperties}
     >
       <div className="min-w-0 pr-8">
         <div className="flex items-center gap-4">
@@ -57,26 +72,16 @@ export function InterviewRecordItem({
       </div>
 
       <div className="pl-8">
-        <SpecularButton
+        <Button
           type="button"
-          size="sm"
-          radius={8}
-          tint="var(--color-surface-default)"
-          tintOpacity={1}
-          textColor="var(--color-action-primary)"
-          lineColor="var(--color-surface-default)"
-          baseColor="var(--color-action-primary)"
-          intensity={1.4}
-          shineSize={16}
-          shineFade={32}
-          proximity={180}
+          variant="secondary"
           className="min-w-28"
           onClick={() => onOpenReport(record)}
           aria-label={`${record.title} 리포트 보기`}
         >
           리포트 보기
-        </SpecularButton>
+        </Button>
       </div>
-    </article>
+    </BorderGlow>
   )
 }
