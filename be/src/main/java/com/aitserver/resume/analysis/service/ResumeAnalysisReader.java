@@ -2,6 +2,7 @@ package com.aitserver.resume.analysis.service;
 
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
+import com.aitserver.resume.analysis.dto.ResumeAnalysisContext;
 import com.aitserver.resume.analysis.dto.ResumeAnalysisSource;
 import com.aitserver.resume.entity.Resume;
 import com.aitserver.resume.repository.ResumeRepository;
@@ -16,7 +17,7 @@ public class ResumeAnalysisReader {
     private final ResumeRepository resumeRepository;
 
     @Transactional(readOnly = true)
-    public ResumeAnalysisSource read(Long resumeId) {
+    public ResumeAnalysisContext read(Long resumeId) {
         Resume resume = resumeRepository.findById(resumeId)
                 .orElseThrow(() ->
                         new BusinessException(
@@ -24,6 +25,9 @@ public class ResumeAnalysisReader {
                         )
                 );
 
-        return ResumeAnalysisSource.from(resume);
+        return new ResumeAnalysisContext(
+                resume.getUser().getId(),
+                ResumeAnalysisSource.from(resume)
+        );
     }
 }

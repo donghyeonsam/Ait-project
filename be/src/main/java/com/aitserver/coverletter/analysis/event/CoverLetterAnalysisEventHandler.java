@@ -1,6 +1,6 @@
-package com.aitserver.resume.analysis.event;
+package com.aitserver.coverletter.analysis.event;
 
-import com.aitserver.resume.analysis.service.ResumeAnalysisProcessor;
+import com.aitserver.coverletter.analysis.service.CoverLetterAnalysisProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -11,31 +11,36 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ResumeAnalysisEventHandler {
+public class CoverLetterAnalysisEventHandler {
 
-    private final ResumeAnalysisProcessor analysisProcessor;
+    private final CoverLetterAnalysisProcessor analysisProcessor;
 
     @Async("aiAnalysisExecutor")
     @TransactionalEventListener(
             phase = TransactionPhase.AFTER_COMMIT
     )
     public void handle(
-            ResumeAnalysisRequestedEvent event
+            CoverLetterAnalysisRequestedEvent event
     ) {
         try {
+            log.info(
+                    "자기소개서 분석 시작. coverLetterId={}",
+                    event.coverLetterId()
+            );
+
             analysisProcessor.analyzeAndSave(
-                    event.resumeId()
+                    event.coverLetterId()
             );
 
             log.info(
-                    "이력서 AI 분석 완료. resumeId={}",
-                    event.resumeId()
+                    "자기소개서 분석 완료. coverLetterId={}",
+                    event.coverLetterId()
             );
 
         } catch (Exception exception) {
             log.error(
-                    "이력서 AI 분석 실패. resumeId={}",
-                    event.resumeId(),
+                    "자기소개서 분석 실패. coverLetterId={}",
+                    event.coverLetterId(),
                     exception
             );
         }

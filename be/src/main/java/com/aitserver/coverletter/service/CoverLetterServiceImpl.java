@@ -2,6 +2,8 @@ package com.aitserver.coverletter.service;
 
 import com.aitserver.auth.entity.User;
 import com.aitserver.auth.repository.UserRepository;
+import com.aitserver.coverletter.analysis.event.CoverLetterAnalysisRequestedEvent;
+import com.aitserver.coverletter.analysis.service.CoverLetterChangeDetector;
 import com.aitserver.coverletter.dto.*;
 import com.aitserver.coverletter.entity.CoverLetter;
 import com.aitserver.coverletter.entity.CoverLetterContent;
@@ -10,6 +12,7 @@ import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -23,6 +26,8 @@ public class CoverLetterServiceImpl implements CoverLetterService{
 
     private final CoverLetterRepository coverLetterRepository;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
+    private final CoverLetterChangeDetector coverLetterChangeDetector;
 
     @Override
     public CoverLetterListResponse getList(Long userId) {
@@ -79,7 +84,7 @@ public class CoverLetterServiceImpl implements CoverLetterService{
     }
 
 
-
+    // 자소서 생성
     @Transactional
     public CoverLetterDetailResponse createCoverLetter(
             Long userId,
@@ -123,19 +128,24 @@ public class CoverLetterServiceImpl implements CoverLetterService{
             coverLetter.addContent(content);
         }
 
-//        String analysisContent =
-//                coverLetterAnalysisService.analyze(request);
-//
-//        coverLetter.updateAnalysisContent(analysisContent);
+
 
         // 저장
         CoverLetter savedCoverLetter =
                 coverLetterRepository.save(coverLetter);
 
+        coverLetterRepository.flush();
+
+        eventPublisher.publishEvent(
+                new CoverLetterAnalysisRequestedEvent(
+                        savedCoverLetter.getId()
+                )
+        );
+
         return CoverLetterDetailResponse.from(savedCoverLetter);
     }
 
-    // 자소서 업데이트
+    // 자소서 업데이트, 레빈슈타인 추가
     @Transactional
     public CoverLetterDetailResponse updateCoverLetter(
             Long userId,
@@ -155,11 +165,24 @@ public class CoverLetterServiceImpl implements CoverLetterService{
 
         validateContentOrders(request.getCoverLetterContents());
 
+        // 변경이 필요한지 검사
+        boolean significantChange = coverLetterChangeDetector.isSignificantChange(coverLetter, request);
+
+
+        // 만약 분석 컬럼이 비어있거나 검사 결과가 true이면 검사 필요
+        boolean analysisRequired = coverLetter.getAnalysisContent() == null || coverLetter.getAnalysisContent().isBlank() || significantChange;
+
+
         coverLetter.updateBasicInfo(
                 request.getTitle(),
                 request.getCompanyName(),
                 request.getRole()
         );
+
+        // 만약 검사가 필요하다면 기존 검사결과 삭제
+        if (analysisRequired) {
+            coverLetter.clearAnalysisContent();
+        }
 
         // 기존 문항 전체 제거
         coverLetter.clearContents();
@@ -183,18 +206,21 @@ public class CoverLetterServiceImpl implements CoverLetterService{
         }
 
 
-         //교체된 내용을 기준으로 AI 분석 결과를 다시 생성
-
-//        String analysisContent =
-//                coverLetterAnalysisService.analyze(coverLetter);
-//
-//        coverLetter.updateAnalysisContent(analysisContent);
 
         /*
          * 새 문항 INSERT와 updatedAt 갱신을 반영한다.
          * IDENTITY 전략인 새 문항의 contentId도 이 시점에 생성된다.
          */
         coverLetterRepository.flush();
+
+        // 검사가 필요하다면 이벤트 발생
+        if (analysisRequired) {
+            eventPublisher.publishEvent(
+                    new CoverLetterAnalysisRequestedEvent(
+                            coverLetter.getId()
+                    )
+            );
+        }
 
         return CoverLetterDetailResponse.from(coverLetter);
     }

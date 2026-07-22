@@ -126,5 +126,11 @@ public class CoverLetter {
         }
     }
 
+    public void clearAnalysisContent() {
+        this.analysisContent = null;
+    }
+
+
+
 
 }

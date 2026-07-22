@@ -1,4 +1,4 @@
-package com.aitserver.resume.analysis.config;
+package com.aitserver.global.gms.config;
 
 
 
