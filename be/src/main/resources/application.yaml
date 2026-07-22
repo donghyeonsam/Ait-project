@@ -1,0 +1,53 @@
+logging:
+  level:
+    com.aitserver: DEBUG
+
+jwt:
+  secret: ${JWT_SECRET_KEY:aitProjectSecretKeyForJwtTokenAuthentication1234567890!}
+  access-token-expiration: 3600000      # 1시간 (밀리초)
+  refresh-token-expiration: 604800000   # 7일 (밀리초)
+
+spring:
+  application:
+    name: aitServer
+
+  datasource:
+    url: jdbc:mysql://localhost:3307/${MYSQL_DATABASE}?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ${REDIS_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: update # 혹은 create, validate 등 팀 컨벤션에 맞게 설정
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+
+  sql:
+    init:
+      mode: always
+
+  docker:
+    compose:
+      file: "./infra/docker-compose.yml"
+      lifecycle-management: none
+
+  jackson:
+    mapper:
+      sort-properties-alphabetically: false
+
+  gms:
+    base-url: ${GMS_BASE_URL}
+    api-key: ${GMS_API_KEY}
+    model: ${GMS_MODEL}
+
+# http://localhost:8080/swagger-ui/index.html#/

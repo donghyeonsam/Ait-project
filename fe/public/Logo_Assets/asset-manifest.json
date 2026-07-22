@@ -1,0 +1,41 @@
+{
+  "brand": "Ait",
+  "version": "1.0",
+  "colors": {
+    "primaryNavy": "#1A2A4A",
+    "accentGold": "#C9A96E"
+  },
+  "primary": [
+    "primary/ait-logo-horizontal.svg",
+    "primary/ait-logo-horizontal-2048.png",
+    "primary/ait-logo-horizontal-1024.png",
+    "primary/ait-logo-horizontal-512.png"
+  ],
+  "symbol": [
+    "symbol/ait-symbol.svg",
+    "symbol/ait-symbol-512.png",
+    "symbol/ait-symbol-256.png",
+    "symbol/ait-symbol-128.png",
+    "symbol/ait-symbol-64.png"
+  ],
+  "wordmark": [
+    "wordmark/ait-wordmark.svg",
+    "wordmark/ait-wordmark-1024.png",
+    "wordmark/ait-wordmark-512.png"
+  ],
+  "favicon": [
+    "favicon/favicon.ico",
+    "favicon/favicon-16.png",
+    "favicon/favicon-32.png",
+    "favicon/favicon-48.png",
+    "favicon/favicon-64.png"
+  ],
+  "appIcon": [
+    "app-icon/ait-app-icon-192.png",
+    "app-icon/ait-app-icon-512.png"
+  ],
+  "web": [
+    "web/ait-logo-horizontal.webp",
+    "web/ait-symbol.webp"
+  ]
+}
