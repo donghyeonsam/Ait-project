@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react'
+import { Check, Trash2 } from 'lucide-react'
 import type { FormEvent, ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -154,6 +154,46 @@ export function DynamicCard({
       onAnimationEnd={onAnimationEnd}
     >
       {children}
+    </div>
+  )
+}
+
+interface ListRowProps {
+  title: string
+  subtitle?: string
+  deleteLabel: string
+  onSelect: () => void
+  onDelete: () => void
+  isRemoving?: boolean
+  onAnimationEnd?: () => void
+}
+
+export function ListRow({
+  title,
+  subtitle,
+  deleteLabel,
+  onSelect,
+  onDelete,
+  isRemoving,
+  onAnimationEnd,
+}: ListRowProps) {
+  return (
+    <div
+      className={cn(
+        'dynamic-card flex items-center justify-between gap-3 rounded-ait-m border border-border-default bg-background-default p-4 transition-colors duration-150 ease-standard hover:border-action-primary',
+        isRemoving && 'is-removing',
+      )}
+      onAnimationEnd={onAnimationEnd}
+    >
+      <button type="button" className="min-w-0 flex-1 text-left" onClick={onSelect}>
+        <p className="truncate text-body-1 font-medium text-text-primary">{title}</p>
+        {subtitle ? (
+          <p className="mt-1 truncate text-caption text-text-secondary">{subtitle}</p>
+        ) : null}
+      </button>
+      <Button type="button" variant="text" size="icon" aria-label={deleteLabel} onClick={onDelete}>
+        <Trash2 aria-hidden="true" />
+      </Button>
     </div>
   )
 }

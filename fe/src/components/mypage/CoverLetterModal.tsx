@@ -6,7 +6,7 @@ import {
   DynamicCard,
   FormField,
 } from '@/components/mypage/DocumentModalShell'
-import { LineSidebar } from '@/components/reactbits/LineSidebar'
+import { CoverLetterPicker } from '@/components/mypage/CoverLetterPicker'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -95,6 +95,7 @@ function today() {
 export function CoverLetterModal({ open, onOpenChange }: CoverLetterModalProps) {
   const [documents, setDocuments] = useState(initialDocuments)
   const [activeDocumentIndex, setActiveDocumentIndex] = useState(0)
+  const [editorOpen, setEditorOpen] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [pendingRemoval, setPendingRemoval] = useState<number | null>(null)
   const [newItem, setNewItem] = useState<number | null>(null)
@@ -117,6 +118,7 @@ export function CoverLetterModal({ open, onOpenChange }: CoverLetterModalProps) 
     setPendingRemoval(null)
     setNewItem(null)
     setSaved(false)
+    setEditorOpen(true)
   }
 
   const clearError = (key: string) => {
@@ -178,33 +180,23 @@ export function CoverLetterModal({ open, onOpenChange }: CoverLetterModalProps) 
   }
 
   return (
-    <DocumentModalShell
-      open={open}
-      onOpenChange={onOpenChange}
-      title="자기소개서 작성"
-      description="지원하는 기업과 직무에 맞게 자신의 경험을 정리해주세요."
-      lastModified={activeDocument.lastModified}
-      saved={saved}
-      onSubmit={handleSubmit}
-    >
-      <div className="cover-letter-editor-layout grid gap-8">
-        <aside className="cover-letter-sidebar" aria-labelledby="cover-letter-list-title">
-          <div className="mb-3">
-            <h3 id="cover-letter-list-title" className="text-body-1 font-semibold text-action-primary">
-              자기소개서 목록
-            </h3>
-            <p className="mt-1 text-caption text-text-secondary">
-              저장된 자기소개서 {documents.length}개
-            </p>
-          </div>
-          <LineSidebar
-            items={documents.map((document) => document.basic.title)}
-            activeIndex={activeDocumentIndex}
-            ariaLabel="저장된 자기소개서"
-            onItemClick={selectDocument}
-          />
-        </aside>
+    <>
+      <CoverLetterPicker
+        open={open}
+        onOpenChange={onOpenChange}
+        items={documents.map((document) => document.basic.title)}
+        onSelect={selectDocument}
+      />
 
+      <DocumentModalShell
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        title="자기소개서 작성"
+        description="지원하는 기업과 직무에 맞게 자신의 경험을 정리해주세요."
+        lastModified={activeDocument.lastModified}
+        saved={saved}
+        onSubmit={handleSubmit}
+      >
         <div className="min-w-0">
           <DocumentSection
             title="기본 정보"
@@ -360,8 +352,8 @@ export function CoverLetterModal({ open, onOpenChange }: CoverLetterModalProps) 
             </Button>
           </DocumentSection>
         </div>
-      </div>
-    </DocumentModalShell>
+      </DocumentModalShell>
+    </>
   )
 }
 
