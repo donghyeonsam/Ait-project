@@ -1,19 +1,263 @@
--- 사용자 정보 관련
-DROP TABLE IF EXISTS users;
+-- =========================================================
+-- 외래키 관계를 고려한 테이블 삭제
+-- 자식 테이블부터 부모 테이블 순서로 삭제
+-- =========================================================
 
--- 사용자 정보 관련
-CREATE TABLE IF NOT EXISTS users (
-                     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                  email VARCHAR(255) NOT NULL UNIQUE,
-               password VARCHAR(255) NOT NULL, -- 비밀번호 암호화(BCrypt 등)를 고려해 넉넉하게 255로 설정하는 것이 좋습니다.
-                   name VARCHAR(20) NOT NULL,
-               nickname VARCHAR(20) NOT NULL,
-                   role VARCHAR(20) NOT NULL DEFAULT 'USER', -- 앞서 논의한 확장성을 위해 VARCHAR 사용 추천
-     first_job_interest VARCHAR(30) DEFAULT NULL,
-    second_job_interest VARCHAR(30) DEFAULT NULL,
-          profile_image VARCHAR(255) DEFAULT NULL,
-             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-             updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP, -- 수정될 때 자동으로 현재 시간 갱신
-             deleted_at DATETIME DEFAULT NULL
+DROP TABLE IF EXISTS `resume_projects`;
+DROP TABLE IF EXISTS `resume_trainings`;
+DROP TABLE IF EXISTS `resume_careers`;
+DROP TABLE IF EXISTS `notifications`;
+DROP TABLE IF EXISTS `github_repos`;
+DROP TABLE IF EXISTS `github_apps`;
+DROP TABLE IF EXISTS `resumes`;
+DROP TABLE IF EXISTS `users`;
 
-);
+
+-- =========================================================
+-- 사용자 정보
+-- =========================================================
+
+CREATE TABLE `users` (
+                         `id` BIGINT NOT NULL AUTO_INCREMENT,
+                         `email` VARCHAR(255) NOT NULL,
+                         `password` VARCHAR(255) NOT NULL,
+                         `name` VARCHAR(20) NOT NULL,
+                         `nickname` VARCHAR(20) NOT NULL,
+                         `role` VARCHAR(20) NOT NULL DEFAULT 'USER',
+                         `first_job_interest` VARCHAR(30) DEFAULT NULL,
+                         `second_job_interest` VARCHAR(30) DEFAULT NULL,
+                         `profile_image` VARCHAR(255) DEFAULT NULL,
+                         `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                         `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                         `deleted_at` DATETIME DEFAULT NULL,
+
+                         PRIMARY KEY (`id`),
+                         UNIQUE KEY `uk_users_email` (`email`)
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='사용자 정보';
+
+
+-- =========================================================
+-- GitHub App 연동 정보
+-- users 참조
+-- =========================================================
+
+CREATE TABLE `github_apps` (
+                               `id` BIGINT NOT NULL AUTO_INCREMENT,
+                               `user_id` BIGINT NOT NULL,
+                               `installation_id` VARCHAR(255) NOT NULL,
+                               `github_username` VARCHAR(30) NOT NULL,
+                               `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                               `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+
+                               PRIMARY KEY (`id`),
+
+                               UNIQUE KEY `uk_github_apps_installation_id` (`installation_id`),
+                               KEY `idx_github_apps_user_id` (`user_id`),
+
+                               CONSTRAINT `fk_github_apps_user`
+                                   FOREIGN KEY (`user_id`)
+                                       REFERENCES `users` (`id`)
+                                       ON DELETE CASCADE
+                                       ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='깃허브 앱 연동 정보';
+
+
+-- =========================================================
+-- GitHub 레포지토리 정보
+-- github_apps 참조
+-- =========================================================
+
+CREATE TABLE `github_repos` (
+                                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                `github_app_id` BIGINT NOT NULL,
+                                `repo_id` BIGINT NOT NULL,
+                                `repo_name` VARCHAR(100) NOT NULL,
+                                `repo_nickname` VARCHAR(100) NOT NULL,
+                                `analysis_content` TEXT DEFAULT NULL,
+                                `is_private` BOOLEAN NOT NULL DEFAULT FALSE,
+                                `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+
+                                PRIMARY KEY (`id`),
+
+                                UNIQUE KEY `uk_github_repos_app_repo`
+                                    (`github_app_id`, `repo_id`),
+
+                                KEY `idx_github_repos_github_app_id`
+                                    (`github_app_id`),
+
+                                CONSTRAINT `fk_github_repos_github_app`
+                                    FOREIGN KEY (`github_app_id`)
+                                        REFERENCES `github_apps` (`id`)
+                                        ON DELETE CASCADE
+                                        ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='깃허브 레포지토리 정보';
+
+
+-- =========================================================
+-- 이력서 정보
+-- users 참조
+-- =========================================================
+
+CREATE TABLE `resumes` (
+                           `id` BIGINT NOT NULL AUTO_INCREMENT,
+                           `user_id` BIGINT NOT NULL,
+                           `analysis_content` TEXT DEFAULT NULL,
+                           `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                           `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+
+                           PRIMARY KEY (`id`),
+
+                           KEY `idx_resumes_user_id` (`user_id`),
+
+                           CONSTRAINT `fk_resumes_user`
+                               FOREIGN KEY (`user_id`)
+                                   REFERENCES `users` (`id`)
+                                   ON DELETE CASCADE
+                                   ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='이력서 정보';
+
+
+-- =========================================================
+-- 학력 및 교육 이수 내역
+-- resumes 참조
+-- =========================================================
+
+CREATE TABLE `resume_trainings` (
+                                    `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                    `resume_id` BIGINT NOT NULL,
+                                    `start_date` DATE NOT NULL,
+                                    `end_date` DATE NOT NULL,
+                                    `organization` VARCHAR(50) NOT NULL,
+                                    `course` VARCHAR(50) NOT NULL,
+                                    `description` TEXT NOT NULL,
+
+                                    PRIMARY KEY (`id`),
+
+                                    KEY `idx_resume_trainings_resume_id` (`resume_id`),
+
+                                    CONSTRAINT `fk_resume_trainings_resume`
+                                        FOREIGN KEY (`resume_id`)
+                                            REFERENCES `resumes` (`id`)
+                                            ON DELETE CASCADE
+                                            ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='학력 및 교육 이수 내역';
+
+
+-- =========================================================
+-- 기타 경력 사항
+-- resumes 참조
+-- =========================================================
+
+CREATE TABLE `resume_careers` (
+                                  `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                  `resume_id` BIGINT NOT NULL,
+                                  `start_date` DATE NOT NULL,
+                                  `end_date` DATE DEFAULT NULL,
+                                  `company_name` VARCHAR(100) NOT NULL,
+                                  `role` VARCHAR(50) NOT NULL,
+                                  `description` TEXT NOT NULL,
+
+                                  PRIMARY KEY (`id`),
+
+                                  KEY `idx_resume_careers_resume_id` (`resume_id`),
+
+                                  CONSTRAINT `fk_resume_careers_resume`
+                                      FOREIGN KEY (`resume_id`)
+                                          REFERENCES `resumes` (`id`)
+                                          ON DELETE CASCADE
+                                          ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='이력서 기타 경력 사항';
+
+
+-- =========================================================
+-- 이력서 프로젝트 경험
+-- resumes, github_repos 참조
+-- =========================================================
+
+CREATE TABLE `resume_projects` (
+                                   `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                   `resume_id` BIGINT NOT NULL,
+                                   `github_repo_id` BIGINT DEFAULT NULL,
+                                   `project_name` VARCHAR(50) NOT NULL,
+                                   `tech_stacks` VARCHAR(255) NOT NULL,
+                                   `role` VARCHAR(50) NOT NULL,
+                                   `description` TEXT NOT NULL,
+
+                                   PRIMARY KEY (`id`),
+
+                                   KEY `idx_resume_projects_resume_id`
+                                       (`resume_id`),
+
+                                   KEY `idx_resume_projects_github_repo_id`
+                                       (`github_repo_id`),
+
+                                   CONSTRAINT `fk_resume_projects_resume`
+                                       FOREIGN KEY (`resume_id`)
+                                           REFERENCES `resumes` (`id`)
+                                           ON DELETE CASCADE
+                                           ON UPDATE CASCADE,
+
+                                   CONSTRAINT `fk_resume_projects_github_repo`
+                                       FOREIGN KEY (`github_repo_id`)
+                                           REFERENCES `github_repos` (`id`)
+                                           ON DELETE SET NULL
+                                           ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='이력서에 포함되는 프로젝트 경험';
+
+
+-- =========================================================
+-- 사용자 알림
+-- users 참조
+-- target_id는 type에 따라 참조 대상이 달라지므로 FK 미설정
+-- =========================================================
+
+CREATE TABLE `notifications` (
+                                 `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                 `user_id` BIGINT NOT NULL,
+                                 `type` VARCHAR(30) NOT NULL,
+                                 `target_id` BIGINT NOT NULL,
+                                 `content` TEXT NOT NULL,
+                                 `is_checked` BOOLEAN NOT NULL DEFAULT FALSE,
+                                 `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                 `deleted_at` DATETIME DEFAULT NULL,
+
+                                 PRIMARY KEY (`id`),
+
+                                 KEY `idx_notifications_user_id`
+                                     (`user_id`),
+
+                                 KEY `idx_notifications_user_checked_created`
+                                     (`user_id`, `is_checked`, `created_at`),
+
+                                 CONSTRAINT `fk_notifications_user`
+                                     FOREIGN KEY (`user_id`)
+                                         REFERENCES `users` (`id`)
+                                         ON DELETE CASCADE
+                                         ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='사용자 알림';
+

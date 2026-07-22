@@ -1,14 +1,21 @@
 package com.aitserver.auth.service;
 
+import com.aitserver.auth.dto.LoginRequest;
+import com.aitserver.auth.dto.LoginResponse;
 import com.aitserver.auth.dto.SignupRequest;
 import com.aitserver.auth.entity.User;
 import com.aitserver.auth.repository.UserRepository;
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
+import com.aitserver.global.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -17,7 +24,10 @@ public class AuthServiceImpl implements AuthService{
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final StringRedisTemplate redisTemplate;
 
+    // 일반 회원가입 로직
     @Override
     public void insert(SignupRequest signupRequest) {
         // 이메일 중복 확인
@@ -46,8 +56,6 @@ public class AuthServiceImpl implements AuthService{
         User savedUser = userRepository.save(user); // 사용자
         log.info("[AuthService, insert] 회원가입 성공 - Email: {}", savedUser.getEmail());
     }
-<<<<<<< Updated upstream
-=======
 
     // 일반 로그인
     @Override
@@ -104,5 +112,4 @@ public class AuthServiceImpl implements AuthService{
             log.info("[AuthService, logout] accessToken 블랙 리스트 등록 완료: {}", accessToken);
         }
     }
->>>>>>> Stashed changes
 }
