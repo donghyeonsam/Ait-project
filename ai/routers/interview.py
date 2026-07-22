@@ -86,7 +86,7 @@ async def create_answer_supplement(req: AnswerSupplementRequest):
     생성된 ai_answer 는 ai_interview_questions.ai_answer 컬럼에 저장되어, 면접
     최종 완료 화면에서 (질문, 사용자 답변, ai_answer) 목록으로 노출하는 데 쓰인다.
     "면접 전체에 대한 총평/피드백" 생성은 별도 엔드포인트(아직 미구현,
-    docs/rubric_architecture_remaining_work.md 참고) 이 담당한다.
+    docs/AI_작업일지_0722.md 2절 참고) 이 담당한다.
     """
     try:
         return await generate_answer_supplement(req)

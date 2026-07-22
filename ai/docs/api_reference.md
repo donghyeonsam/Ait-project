@@ -3,8 +3,7 @@
 > 이 문서는 `ai/` FastAPI 서비스가 노출하는 **모든 엔드포인트**를 BE(Spring Boot) 개발자가
 > 연동 체크리스트로 쓸 수 있도록 정리한 것이다. 각 엔드포인트의 호출 시점, 요청/응답
 > 파라미터, 에러 케이스, BE가 저장/전달해야 할 상태를 전부 포함한다.
-> 아키텍처 배경은 [`rubric_architecture_migration.md`](./rubric_architecture_migration.md),
-> 남은 작업은 [`rubric_architecture_remaining_work.md`](./rubric_architecture_remaining_work.md) 참고.
+> 아키텍처 배경/남은 작업은 [`AI_작업일지_0722.md`](./AI_작업일지_0722.md)의 1절/2절 참고.
 
 ---
 
@@ -386,7 +385,7 @@ else:
 
 면접 종료 후 "전체 대화를 아우르는 총평/피드백"을 생성하는 엔드포인트(가칭
 `POST /api/v1/interviews/report`)는 **아직 구현되지 않았다.**
-자세한 설계 방향은 [`rubric_architecture_remaining_work.md`](./rubric_architecture_remaining_work.md)
+자세한 설계 방향은 [`AI_작업일지_0722.md`](./AI_작업일지_0722.md)의
 2절 참고.
 
 ---
