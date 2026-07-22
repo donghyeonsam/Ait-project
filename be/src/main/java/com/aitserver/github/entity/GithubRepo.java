@@ -44,6 +44,11 @@ public class GithubRepo {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+
+    public void updateAnalysisContent(String analysisContent) {
+        this.analysisContent = analysisContent;
+    }
+
     @Builder
     public GithubRepo(GithubApp githubApp, Long repoId, String repoName, String repoNickname, String analysisContent, Boolean isPrivate) {
         this.githubApp = githubApp;
