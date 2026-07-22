@@ -1,6 +1,8 @@
 """
 질문 생성 서비스
-- RAG 검색 → GMS LLM 프롬프트 구성 → 질문 N개 + 예상답안 생성
+- RAG 검색 → GMS LLM 프롬프트 구성 → 질문 N개 + rubric(채점 기준) 생성
+- [루브릭 아키텍처 재설계] expected_answer(사전 예상 답안) 생성은 제거됨.
+  답변 보완(ai_answer)은 사용자가 실제로 답변을 제출한 뒤 services/answer_service.py 가 담당한다.
 """
 import logging
 
@@ -45,12 +47,16 @@ async def generate_questions(req: QuestionGenerateRequest) -> QuestionGenerateRe
     context_text = format_context(contexts)
 
     # 2. 프롬프트 구성
+    # [루브릭 아키텍처 전환] rubric 개수 범위(config.py, 기본 2~3개)를 프롬프트에 전달해
+    # 질문마다 채점 기준을 함께 생성하도록 지시한다.
     prompt = build_question_prompt(
         interview_type=req.interview_type,
         difficulty=req.difficulty,
         company_name=req.company_name,
         position=req.position,
         question_count=count,
+        rubric_min_count=settings.rubric_min_count,
+        rubric_max_count=settings.rubric_max_count,
         context=context_text,
     )
 
@@ -66,11 +72,26 @@ async def generate_questions(req: QuestionGenerateRequest) -> QuestionGenerateRe
     for i, q in enumerate(raw_questions[:count], start=1):
         if not isinstance(q, dict) or not q.get("question"):
             continue
+
+        # [루브릭 아키텍처 전환] LLM이 반환한 rubric 리스트를 정규화.
+        # - 리스트가 아니거나 문자열이 아닌 항목은 버리고,
+        # - 개수가 rubric_max_count를 넘으면 앞에서부터 잘라 상한을 지킨다.
+        #   (LLM이 지시보다 많이 생성하는 경우에 대한 방어적 트리밍이며,
+        #    개수가 min에 못 미치는 경우는 그대로 두어 BE/프론트가 실제 개수를 알 수 있게 한다.)
+        raw_rubric = q.get("rubric", [])
+        rubric = [
+            str(item).strip()
+            for item in raw_rubric
+            if isinstance(raw_rubric, list) and isinstance(item, (str, int, float)) and str(item).strip()
+        ][: settings.rubric_max_count]
+
+        # [루브릭 아키텍처 재설계] expected_answer 필드는 더 이상 파싱하지 않는다.
+        # LLM이 옛 프롬프트 습관으로 여전히 expected_answer를 보내더라도 무시한다.
         questions.append(
             GeneratedQuestion(
                 order=q.get("order", i),
                 question=str(q["question"]).strip(),
-                expected_answer=str(q.get("expected_answer", "")).strip(),
+                rubric=rubric,
                 topic=q.get("topic"),
                 source=q.get("source"),
             )
@@ -80,9 +101,12 @@ async def generate_questions(req: QuestionGenerateRequest) -> QuestionGenerateRe
     for idx, q in enumerate(questions, start=1):
         q.order = idx
 
+    # [루브릭 아키텍처 전환] rubric이 비어있는 질문이 있는지 로그로 남겨 모니터링한다.
+    # (LLM이 rubric 생성 지시를 무시한 경우 조기에 알아채기 위함)
+    missing_rubric = sum(1 for q in questions if not q.rubric)
     logger.info(
-        "질문 생성 완료: interview=%s type=%s count=%s rag=%s",
-        req.ai_interview_id, req.interview_type.value, len(questions), bool(contexts),
+        "질문 생성 완료: interview=%s type=%s count=%s rag=%s rubric_missing=%s",
+        req.ai_interview_id, req.interview_type.value, len(questions), bool(contexts), missing_rubric,
     )
 
     return QuestionGenerateResponse(

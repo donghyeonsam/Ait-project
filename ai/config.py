@@ -26,8 +26,15 @@ class Settings(BaseSettings):
     embedding_model: str = "jhgan/ko-sroberta-multitask"
 
     # ── 면접 규칙 ──
-    question_count: int = 10
+    # [루브릭 아키텍처 전환] 기존에는 질문 10개를 한 번에 생성해 전체 면접 흐름을 미리 확정했으나,
+    # 새 아키텍처는 "질문 5개 + 질문당 루브릭"만 미리 세팅해두고, 실제 꼬리질문은 답변을 채점하며
+    # 실시간으로 동적 생성한다(Phase 2, 이번 커밋 범위 아님). 그래서 기본 질문 수를 5개로 축소한다.
+    question_count: int = 5
     max_followup_per_question: int = 2
+    # 질문 1개당 생성할 채점 기준(rubric) 개수 범위. LLM에게 "최소~최대 몇 개" 형태로 지시하고,
+    # question_service 에서 응답을 이 범위로 검증/트리밍하는 데 사용한다.
+    rubric_min_count: int = 2
+    rubric_max_count: int = 3
     rag_top_k: int = 5
     cs_top_k: int = 4  # CS 면접 시 CS 지식에서 가져올 개수
 
