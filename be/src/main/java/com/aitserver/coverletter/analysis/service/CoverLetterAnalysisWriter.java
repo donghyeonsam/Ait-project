@@ -7,7 +7,6 @@ import com.aitserver.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 @Service
 @RequiredArgsConstructor
 public class CoverLetterAnalysisWriter {
@@ -19,16 +18,16 @@ public class CoverLetterAnalysisWriter {
             Long coverLetterId,
             String analysisContent
     ) {
-        CoverLetter coverLetter = coverLetterRepository
-                .findByIdAndDeletedAtIsNull(coverLetterId)
-                .orElseThrow(() ->
-                        new BusinessException(
-                                ErrorCode.COVER_LETTER_NOT_FOUND
-                        )
+        int updatedCount =
+                coverLetterRepository.updateAnalysisContentOnly(
+                        coverLetterId,
+                        analysisContent
                 );
 
-        coverLetter.updateAnalysisContent(
-                analysisContent
-        );
+        if (updatedCount == 0) {
+            throw new BusinessException(
+                    ErrorCode.COVER_LETTER_NOT_FOUND
+            );
+        }
     }
 }

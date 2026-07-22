@@ -114,7 +114,7 @@ CREATE TABLE `resumes` (
                            `user_id` BIGINT NOT NULL,
                            `analysis_content` TEXT DEFAULT NULL,
                            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                           `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                           `updated_at` DATETIME DEFAULT NULL,
 
                            PRIMARY KEY (`id`),
 

@@ -4,6 +4,7 @@ import com.aitserver.coverletter.entity.CoverLetter;
 import io.lettuce.core.dynamic.annotation.Param;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
@@ -50,5 +51,22 @@ public interface CoverLetterRepository extends JpaRepository<CoverLetter, Long> 
 
     Optional<CoverLetter> findByIdAndDeletedAtIsNull(
             Long coverLetterId
+    );
+
+
+    // 분석 결과 업데이트용 (분석시 updated at 최신화 방지)
+    @Modifying(
+            flushAutomatically = true,
+            clearAutomatically = true
+    )
+    @Query("""
+            update CoverLetter cl
+            set cl.analysisContent = :analysisContent
+            where cl.id = :coverLetterId
+              and cl.deletedAt is null
+            """)
+    int updateAnalysisContentOnly(
+            @Param("coverLetterId") Long coverLetterId,
+            @Param("analysisContent") String analysisContent
     );
 }
