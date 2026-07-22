@@ -25,25 +25,21 @@ export function InterviewRecordItem({
   return (
     <BorderGlow
       observeRef={ref}
-      borderRadius={10}
-      edgeSensitivity={24}
-      glowColor="var(--color-action-primary)"
-      backgroundColor="var(--color-surface-default)"
-      glowRadius={20}
-      glowIntensity={0.3}
-      coneSpread={12}
-      colors={[
-        'var(--color-action-primary)',
-        'var(--color-status-info)',
-        'var(--color-status-info-border)',
-      ]}
-      fillOpacity={0.1}
+      borderRadius={28}
+      edgeSensitivity={30}
+      glowColor="40 80 80"
+      backgroundColor="#F8FAFC"
+      glowRadius={40}
+      glowIntensity={1}
+      coneSpread={25}
+      colors={['#c084fc', '#f472b6', '#38bdf8']}
+      fillOpacity={1}
       className={cn(
         'record-item shadow-elevation-1 transition-[transform,box-shadow] duration-150 ease-standard hover:-translate-y-0.5 hover:shadow-elevation-2',
         isInView && 'is-visible',
       )}
       contentClassName="grid min-h-28 grid-cols-[1fr_auto_auto] items-center px-8 py-4"
-      style={{ '--record-delay': `${index * 50}ms` } as React.CSSProperties}
+      style={{ '--record-delay': `${index * 10}ms` } as React.CSSProperties}
     >
       <div className="min-w-0 pr-8">
         <div className="flex items-center gap-4">
