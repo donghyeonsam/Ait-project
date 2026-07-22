@@ -10,4 +10,6 @@ public interface AuthService {
     void insert(SignupRequest signupRequest);
 
     LoginResponse login(@Valid LoginRequest loginRequest);
+
+    void logout(Long userId, String accessToken);
 }
