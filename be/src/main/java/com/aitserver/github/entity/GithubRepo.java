@@ -1,9 +1,10 @@
 package com.aitserver.github.entity;
 
 import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -12,14 +13,12 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "github_repos")
 @Getter
-@Setter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class GithubRepo {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 외래키 설정: github_app_id 컬럼이 GithubApp 테이블의 id를 참조함
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "github_app_id", nullable = false)
     private GithubApp githubApp;
@@ -34,7 +33,7 @@ public class GithubRepo {
     private String repoNickname;
 
     @Column(columnDefinition = "TEXT")
-    private String analysisContent; //비동기처리
+    private String analysisContent;
 
     @Column(nullable = false)
     private Boolean isPrivate = false;
@@ -44,4 +43,15 @@ public class GithubRepo {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    @Builder
+    public GithubRepo(GithubApp githubApp, Long repoId, String repoName, String repoNickname, String analysisContent, Boolean isPrivate) {
+        this.githubApp = githubApp;
+        this.repoId = repoId;
+        this.repoName = repoName;
+        this.repoNickname = repoNickname;
+        this.analysisContent = analysisContent;
+        // null 값이 들어올 경우 기본값 false 유지
+        this.isPrivate = isPrivate != null ? isPrivate : false;
+    }
 }
