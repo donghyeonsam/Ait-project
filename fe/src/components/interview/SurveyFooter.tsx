@@ -1,0 +1,36 @@
+import { ArrowRight } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { SURVEY_STEP_COUNT } from '@/components/interview/useInterviewSurvey'
+
+interface SurveyFooterProps {
+  currentStep: number
+  canGoNext: boolean
+  onPrevious: () => void
+  onNext: () => void
+}
+
+export function SurveyFooter({ currentStep, canGoNext, onPrevious, onNext }: SurveyFooterProps) {
+  const isFirstStep = currentStep === 1
+  const isLastStep = currentStep === SURVEY_STEP_COUNT
+
+  return (
+    <div className="mt-8 flex items-center justify-between border-t border-border-default pt-6">
+      <p className="text-body-2 text-text-secondary">
+        <span className="font-medium text-text-primary">{currentStep} / {SURVEY_STEP_COUNT}</span> 단계
+        <span className="ml-2">선택내용은 자동 저장됩니다.</span>
+      </p>
+
+      <div className="flex items-center gap-3">
+        {!isFirstStep ? (
+          <Button type="button" variant="secondary" onClick={onPrevious}>
+            이전으로
+          </Button>
+        ) : null}
+        <Button type="button" variant="primary" disabled={!canGoNext} onClick={onNext}>
+          {isLastStep ? '면접 시작' : '다음 단계로'}
+          {isLastStep ? null : <ArrowRight className="size-4" aria-hidden="true" />}
+        </Button>
+      </div>
+    </div>
+  )
+}
