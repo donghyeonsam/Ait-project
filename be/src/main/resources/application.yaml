@@ -40,4 +40,12 @@ spring:
     mapper:
       sort-properties-alphabetically: false
 
+<<<<<<< Updated upstream
+=======
+  gms:
+    base-url: ${GMS_BASE_URL}
+    api-key: ${GMS_API_KEY}
+    model: ${GMS_MODEL}
+
+>>>>>>> Stashed changes
 # http://localhost:8080/swagger-ui/index.html#/

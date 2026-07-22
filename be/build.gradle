@@ -25,6 +25,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-client'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 
+<<<<<<< Updated upstream
+=======
+    implementation 'org.springframework.boot:spring-boot-starter-restclient'
+>>>>>>> Stashed changes
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
 
     compileOnly 'org.projectlombok:lombok'
