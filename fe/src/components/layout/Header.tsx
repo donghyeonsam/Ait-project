@@ -1,4 +1,4 @@
-import { Bell, Menu, UserRound } from 'lucide-react'
+import { Bell, Menu } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -13,16 +13,16 @@ const navigationItems = [
 
 const navigationLinkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    'rounded-ait-s px-3 py-2 text-body-2 transition-colors [transition-duration:var(--duration-fast)] [transition-timing-function:var(--easing-standard)]',
+    'rounded-ait-s px-4 py-2 text-body-1 transition-colors [transition-duration:var(--duration-fast)] [transition-timing-function:var(--easing-standard)]',
     isActive
-      ? 'bg-status-neutral-surface font-semibold text-action-primary'
+      ? 'font-semibold text-action-primary'
       : 'text-text-secondary hover:bg-status-neutral-surface hover:text-action-primary',
   )
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-[var(--z-index-sticky)] h-[var(--header-height-compact)] border-b border-border-default bg-surface-default lg:h-[var(--header-height-wide)]">
-      <div className="mx-auto grid h-full max-w-content grid-cols-[1fr_auto] items-center px-4 lg:grid-cols-[1fr_auto_1fr] lg:px-6">
+    <header className="sticky top-0 z-[var(--z-index-sticky)] h-[var(--header-height-compact)] border-b border-border-default bg-surface-default shadow-elevation-1 lg:h-[var(--header-height-wide)]">
+      <div className="mx-auto grid h-full max-w-dashboard grid-cols-[1fr_auto] items-center px-8 lg:grid-cols-[1fr_auto_1fr]">
         <Link
           to="/dashboard"
           className="-ml-3 w-fit p-3"
@@ -31,13 +31,18 @@ export function Header() {
           <img
             src="/Logo_Assets/primary/ait-logo-horizontal.svg"
             alt="Ait"
-            className="h-6 w-auto"
+            className="h-12 w-auto"
           />
         </Link>
 
-        <nav className="hidden items-center gap-2 lg:flex" aria-label="주요 메뉴">
+        <nav className="hidden items-center gap-8 lg:flex" aria-label="주요 메뉴">
           {navigationItems.map((item) => (
-            <NavLink key={item.to} to={item.to} className={navigationLinkClass}>
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to !== '/dashboard'}
+              className={navigationLinkClass}
+            >
               {item.label}
             </NavLink>
           ))}
@@ -56,9 +61,9 @@ export function Header() {
           <Button type="button" variant="text" size="icon" aria-label="알림">
             <Bell aria-hidden="true" />
           </Button>
-          <Avatar aria-label="프로필">
-            <AvatarFallback>
-              <UserRound className="size-6" aria-hidden="true" />
+          <Avatar className="size-10" aria-label="프로필">
+            <AvatarFallback className="border-0 bg-profile-avatar">
+              <span className="sr-only">OO님 프로필</span>
             </AvatarFallback>
           </Avatar>
         </div>

@@ -27,6 +27,54 @@
   --color-surface-default: #ffffff;
   --color-border-default: #e2e8f0;
 
+  --color-chart-axis: #94a3b8;
+  --color-chart-grid: #dbe4ee;
+  --color-chart-area: #93c5fd;
+  --color-radar-fill: rgba(201, 169, 110, 0.24);
+  --color-radar-stroke: #c9a96e;
+  --color-stat-up: #e45f62;
+  --color-stat-down: #3b82c4;
+  --color-profile-avatar: #dedede;
+
+  --color-tag-role: #2647a1;
+  --color-tag-role-surface: #dfe8ff;
+  --color-tag-tech: #6b2796;
+  --color-tag-tech-surface: #eadcf8;
+  --color-tag-portfolio: #946318;
+  --color-tag-portfolio-surface: #fff1bf;
+  --color-tag-cs: #a82419;
+  --color-tag-cs-surface: #f7dada;
+  --color-tag-neutral: #858585;
+  --color-tag-fe: #ae302b;
+  --color-tag-fe-surface: #f7dada;
+  --color-tag-be: #29469c;
+  --color-tag-be-surface: #dbe5fc;
+  --color-tag-ai: #6b2796;
+  --color-tag-ai-surface: #eadcf8;
+  --color-tag-data: #245c20;
+  --color-tag-infra: #8123d4;
+  --color-tag-security: #ad2419;
+  --color-tag-mobile: #62b3ba;
+  --color-tag-pm: #404040;
+  --color-tag-pm-surface: #eceeee;
+  --color-difficulty-easy: #5c8a28;
+  --color-difficulty-easy-surface: #dcf4cf;
+  --color-difficulty-normal: #a56516;
+  --color-difficulty-normal-surface: #f8e0aa;
+  --color-difficulty-hard: #aa2f29;
+  --color-difficulty-hard-surface: #f4d7d7;
+
+  --color-calendar-sunday: #ed3737;
+  --color-calendar-saturday: #2f60e5;
+  --color-calendar-today: #ef4444;
+  --color-calendar-muted: #a4afc1;
+  --color-calendar-dot: #8fb5ff;
+
+  --color-feedback-success: #f8fdf8;
+  --color-feedback-improve: #fffaf8;
+  --color-feedback-improve-border: #efae92;
+  --color-feedback-improve-text: #eb7f50;
+
   --color-status-achievement: #c9a96e;
   --color-status-achievement-surface: #f8f3e8;
   --color-status-achievement-border: #e4d2ae;
@@ -75,7 +123,14 @@
   --text-caption--font-weight: 400;
   --text-caption--letter-spacing: 0;
 
+  --text-report-score: 3.5rem;
+  --text-report-score--line-height: 1;
+  --text-report-score--font-weight: 700;
+
   --container-content: 62.5rem;
+  --container-dashboard: 75rem;
+  --container-interviews: 69.25rem;
+
 }
 
 :root {
@@ -107,7 +162,7 @@
   --z-index-toast: 500;
 
   --header-height-compact: 3.5rem;
-  --header-height-wide: 4rem;
+  --header-height-wide: 5rem;
   --button-padding-block: 0.625rem;
 
   /* shadcn/ui compatibility aliases. Ait semantic tokens remain the source. */
@@ -219,6 +274,251 @@ a {
 
 /* Tailwind spacing remains intact, but Ait code uses only 1/2/3/4/6/8/10. */
 
+.dashboard-panel {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-m);
+  background: var(--color-background-default);
+  padding: 1.5rem;
+  box-shadow: var(--elevation-1);
+  transition:
+    transform var(--duration-fast) var(--easing-standard),
+    box-shadow var(--duration-fast) var(--easing-standard);
+}
+
+.dashboard-panel:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--elevation-2);
+}
+
+.dashboard-chart-panel,
+.interview-chart-panel {
+  padding-bottom: 0.75rem;
+}
+
+.dashboard-main-grid {
+  grid-template-columns: minmax(18rem, 1fr) minmax(0, 2.35fr);
+}
+
+.interview-summary-grid {
+  grid-template-columns: 16.5rem minmax(0, 1fr);
+}
+
+.stat-card {
+  opacity: 0;
+  transform: translateY(0.75rem);
+}
+
+.stat-card.is-visible {
+  animation: card-enter var(--duration-slow) var(--easing-emphasized) both;
+  animation-delay: var(--stagger-delay);
+}
+
+.stat-delta {
+  opacity: 0;
+  transform: scale(0.85);
+}
+
+.stat-delta.is-visible {
+  animation: delta-pop var(--duration-base) var(--easing-emphasized) both;
+  animation-delay: calc(var(--stagger-delay) + 800ms);
+}
+
+.recent-list-item {
+  opacity: 0;
+  animation: list-enter var(--duration-slow) var(--easing-emphasized) both;
+  animation-delay: var(--record-delay);
+}
+
+.record-item {
+  opacity: 0;
+  transform: translateY(0.5rem);
+}
+
+.record-item.is-visible {
+  animation: list-enter var(--duration-slow) var(--easing-emphasized) both;
+  animation-delay: var(--record-delay);
+}
+
+.trend-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+
+.trend-line.is-visible {
+  animation: draw-line 1.2s ease-out forwards;
+}
+
+.trend-point {
+  opacity: 0;
+  transform: translateY(0.25rem);
+}
+
+.trend-point.is-visible {
+  animation: point-enter var(--duration-base) var(--easing-emphasized) forwards;
+  animation-delay: var(--point-delay);
+}
+
+.trend-area {
+  opacity: 0;
+  transform: translateY(0.75rem);
+}
+
+.trend-area.is-visible {
+  animation: area-enter var(--duration-slow) var(--easing-emphasized) forwards;
+  animation-delay: 1.15s;
+}
+
+.report-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-index-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden;
+  padding: 2rem;
+  background: color-mix(in srgb, var(--color-text-primary) 42%, transparent);
+  opacity: 0;
+  backdrop-filter: blur(0);
+  transition:
+    opacity var(--duration-base) var(--easing-standard),
+    backdrop-filter var(--duration-base) var(--easing-standard),
+    visibility 0s linear var(--duration-base);
+}
+
+.report-overlay.is-open {
+  visibility: visible;
+  opacity: 1;
+  backdrop-filter: blur(2px);
+  transition-delay: 0s;
+}
+
+.report-dialog {
+  display: flex;
+  width: 60rem;
+  max-width: calc(100vw - 4rem);
+  height: 88vh;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-l);
+  background: var(--color-surface-default);
+  box-shadow: var(--elevation-3);
+  opacity: 0;
+  transform: scale(0.96);
+  transition:
+    opacity var(--duration-base) var(--easing-emphasized),
+    transform var(--duration-base) var(--easing-emphasized);
+}
+
+.report-dialog.is-open {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.radar-polygon {
+  transform: scale(0);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.radar-polygon.is-visible {
+  animation: radar-grow 800ms cubic-bezier(0.2, 1.25, 0.35, 1) forwards;
+}
+
+.radar-label {
+  opacity: 0;
+}
+
+.radar-label.is-visible {
+  animation: label-enter var(--duration-base) var(--easing-standard) 720ms forwards;
+}
+
+.accordion-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows var(--duration-base) var(--easing-standard),
+    opacity var(--duration-base) var(--easing-standard);
+}
+
+.accordion-content.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+@keyframes card-enter {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes delta-pop {
+  70% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes list-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes draw-line {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes point-enter {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes area-enter {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes radar-grow {
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes label-enter {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 63.999rem) {
+  .dashboard-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-main-grid,
+  .interview-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -226,5 +526,24 @@ a {
     scroll-behavior: auto !important;
     animation: none !important;
     transition: none !important;
+  }
+
+  .stat-card,
+  .stat-delta,
+  .recent-list-item,
+  .record-item,
+  .trend-point,
+  .trend-area,
+  .radar-label {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .trend-line {
+    stroke-dashoffset: 0 !important;
+  }
+
+  .radar-polygon {
+    transform: scale(1) !important;
   }
 }
