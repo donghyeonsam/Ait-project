@@ -8,7 +8,11 @@ interface PasswordInputProps extends Omit<ComponentProps<'input'>, 'type'> {
   error?: string
   helperText?: string
   labelAction?: ReactNode
+<<<<<<< HEAD
   // 페이지가 외부에 자체 label을 배치할 때 내부 label 중복 렌더링을 막는다.
+=======
+  /** 라벨을 렌더링하지 않는다. 외부에서 별도로 <label htmlFor={id}>를 제공할 때 사용한다. */
+>>>>>>> 581e8dccd92165180d9b829d29bb89c4eda48acd
   hideLabel?: boolean
 }
 

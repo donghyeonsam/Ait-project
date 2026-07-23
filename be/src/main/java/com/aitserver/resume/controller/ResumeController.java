@@ -41,10 +41,10 @@ public class ResumeController {
     // 내 이력서 조회
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<ResumeResponse>> getResume(
-            HttpServletRequest request
-            // jwt
+            HttpServletRequest request,
+            @AuthenticationPrincipal Long userId
     ){
-        Long userId = 1L;   // 차후에는 토큰에서 추출
+
         ResumeResponse resumeResponse = resumeService.getMyResume(userId);
         return ResponseEntity
                 .status(HttpStatus.OK)
@@ -59,14 +59,14 @@ public class ResumeController {
     @PutMapping("/{resumeId}")
     public ResponseEntity<ApiResponse<ResumeResponse>> updateResume(
             @PathVariable Long resumeId,
-            // jwt
+            @AuthenticationPrincipal Long userId,
             @Valid @RequestBody ResumeUpdateRequest updateRequest,
             HttpServletRequest request
     ) {
         ResumeResponse response = resumeService.updateResume(
                 resumeId,
                 //userDetails.getUserId(),
-                1L,// 임시
+                userId,
                 updateRequest
         );
 
