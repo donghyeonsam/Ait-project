@@ -25,7 +25,7 @@ from config import settings
 from core.gms_client import gms_client, GMSError
 from prompts.templates import FOLLOWUP_SYSTEM, build_followup_prompt
 from schemas.interview import FollowupRequest, FollowupResponse, RubricResult
-from services.rag_service import retrieve_context, format_context
+from services.rag_service import retrieve_context, format_context, build_target_ids
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +53,16 @@ async def generate_followup(req: FollowupRequest) -> FollowupResponse:
         )
 
     # 2. 답변 + 질문 기반 RAG 검색 (관련 근거 보강)
+    # [BE 요청 형식 개편 - 2026-07-23, 세션 전체로 확장] 질문 생성(/questions) 때
+    # BE가 지정한 문서(resume_id/cover_letter_id/github_repo_id)를 FollowupRequest에도
+    # 그대로 받아 target_ids로 넘긴다 — 이걸 빼먹으면 꼬리질문 단계에서는 사용자의
+    # 다른 이력서/자소서/GitHub까지 다시 검색 대상에 섞여, 같은 면접 세션 안에서
+    # 참고 문서가 질문 생성 때와 달라지는 비일관성이 생긴다.
     query = f"{req.parent_question} {req.user_answer}"
-    contexts = retrieve_context(req.user_id, query, req.interview_type, top_k=3)
+    target_ids = build_target_ids(req.resume_id, req.cover_letter_id, req.github_repo_id)
+    contexts = retrieve_context(
+        req.user_id, query, req.interview_type, top_k=3, target_ids=target_ids
+    )
     context_text = format_context(contexts)
 
     # 3. 프롬프트 구성 & GMS 호출

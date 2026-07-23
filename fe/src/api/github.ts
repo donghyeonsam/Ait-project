@@ -12,3 +12,9 @@ export interface GithubRepository {
 export function getMyGithubRepositories() {
   return backendRequest<GithubRepository[]>('/api/github/repos')
 }
+
+export function confirmGithubInstallation(installationId: string) {
+  return backendRequest<void>(
+    `/api/github/callback?installation_id=${encodeURIComponent(installationId)}`,
+  )
+}

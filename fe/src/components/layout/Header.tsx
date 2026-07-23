@@ -87,11 +87,7 @@ export function Header() {
                 <Menu aria-hidden="true" />
               </Button>
               <Button asChild variant="text" size="icon" aria-label="GitHub 앱 설치">
-                <a
-                  href="https://github.com/apps/Ait-ai-interview/installations/new"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+                <a href="https://github.com/apps/Ait-ai-interview/installations/new">
                   <GitHubIcon className="size-5" aria-hidden="true" />
                 </a>
               </Button>

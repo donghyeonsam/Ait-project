@@ -22,6 +22,7 @@ from services.rag_service import (
     retrieve_cs_knowledge,
     retrieve_cs_knowledge_random,
     format_context,
+    build_target_ids,
 )
 
 logger = logging.getLogger(__name__)
@@ -48,12 +49,13 @@ def _build_rag_query(req: QuestionGenerateRequest) -> str:
 
 def _build_cs_query(req: QuestionGenerateRequest) -> str:
     """
-    [CS 카테고리 제한 기능 - 신규] CS 면접 전용 RAG 쿼리.
-    "사용자가 고른 CS 카테고리"를 쿼리의 중심에 두고, 있다면 직무/스킬 정보도 덧붙여
-    "이 카테고리 안에서 지원자와 관련 있는 내용"을 검색하도록 유도한다.
+    [CS 카테고리 제한 기능 - 신규 / BE 요청 형식 개편 - 다중 선택 대응] CS 면접 전용
+    RAG 쿼리. "사용자가 고른 CS 카테고리(들)"을 쿼리의 중심에 두고, 있다면 직무/스킬
+    정보도 덧붙여 "이 카테고리 안에서 지원자와 관련 있는 내용"을 검색하도록 유도한다.
+    카테고리를 여러 개 골랐으면 라벨을 쉼표로 이어붙여 하나의 쿼리 문자열로 합친다.
     """
-    label = CS_CATEGORY_LABEL[req.cs_category]
-    parts = [label, "CS 면접"]
+    labels = [CS_CATEGORY_LABEL[c] for c in req.cs_categories]
+    parts = [", ".join(labels), "CS 면접"]
     if req.position:
         parts.append(req.position)
     if req.skills:
@@ -64,16 +66,24 @@ def _build_cs_query(req: QuestionGenerateRequest) -> str:
 async def generate_questions(req: QuestionGenerateRequest) -> QuestionGenerateResponse:
     count = req.question_count or settings.question_count
 
+    # [BE 요청 형식 개편 - 신규] resume_id/cover_letter_id/github_repo_id 가 지정된
+    # doc_type만 target_id로 좁혀 검색하도록 retrieve_context() 전 호출에 공통으로 넘긴다.
+    # (build_target_ids() 는 followup_service.py/answer_service.py 도 함께 쓰는 공용
+    # 헬퍼로, 세 서비스가 각자 동일한 변환 로직을 중복 구현하지 않도록 rag_service.py 에 둠)
+    target_ids = build_target_ids(req.resume_id, req.cover_letter_id, req.github_repo_id)
+
     if req.interview_type == InterviewType.CS:
-        # [CS 카테고리 제한 기능 - 신규]
-        # schemas/interview.py 의 model_validator 가 이미 cs_category 존재를 보장하므로
-        # 여기서는 None 체크 없이 바로 사용해도 안전하다.
+        # [CS 카테고리 제한 기능 - 신규 / BE 요청 형식 개편 - 다중 선택 대응]
+        # schemas/interview.py 의 model_validator 가 이미 cs_categories 최소 1개 존재를
+        # 보장하므로 여기서는 빈 리스트 체크 없이 바로 사용해도 안전하다.
         cs_query = _build_cs_query(req)
 
-        # 1. 개인 문서(이력서/자소서/GitHub)를 "선택한 CS 카테고리" 기준으로 검색.
-        #    DOC_TYPE_WEIGHTS(rag_service.py)에 정의된 CS 면접 비율(이력서10/자소서40/GitHub50)이
-        #    retrieve_context() 내부에서 그대로 적용된다.
-        personal_contexts = retrieve_context(req.user_id, cs_query, req.interview_type)
+        # 1. 개인 문서(이력서/자소서/GitHub)를 "선택한 CS 카테고리(들)" 기준으로 검색.
+        #    DOC_TYPE_WEIGHTS(rag_service.py)에 정의된 CS 면접 비율(이력서10/자소서40/GitHub50)과
+        #    target_ids(지정된 특정 문서 필터)가 retrieve_context() 내부에서 그대로 적용된다.
+        personal_contexts = retrieve_context(
+            req.user_id, cs_query, req.interview_type, target_ids=target_ids
+        )
 
         # 2. 관련도 판단: 최상위 검색 결과의 코사인 거리가 임계값보다 크면(=유사도가 낮으면)
         #    "지원자 문서가 이 카테고리와 사실상 무관하다"고 보고 개인 문서를 버린다.
@@ -85,29 +95,29 @@ async def generate_questions(req: QuestionGenerateRequest) -> QuestionGenerateRe
 
         if is_relevant:
             contexts = personal_contexts
-            cs_contexts = retrieve_cs_knowledge(cs_query, cs_category=req.cs_category)
+            cs_contexts = retrieve_cs_knowledge(cs_query, cs_categories=req.cs_categories)
         else:
-            # 개인 문서가 무관하므로 사용하지 않고, 선택한 카테고리 안에서 무작위로
+            # 개인 문서가 무관하므로 사용하지 않고, 선택한 카테고리(들) 안에서 무작위로
             # CS 지식을 뽑아 질문 생성 근거로 삼는다("카테고리 내에서라면 무엇이든 OK").
             contexts = []
-            cs_contexts = retrieve_cs_knowledge_random(req.cs_category)
+            cs_contexts = retrieve_cs_knowledge_random(req.cs_categories)
 
         contexts = contexts + cs_contexts
         logger.info(
-            "CS 질문 생성 RAG: category=%s personal_relevant=%s top_distance=%s",
-            req.cs_category.value, is_relevant, top_distance,
+            "CS 질문 생성 RAG: categories=%s personal_relevant=%s top_distance=%s",
+            [c.value for c in req.cs_categories], is_relevant, top_distance,
         )
     else:
         # 1. RAG 검색 (JOB/TECH/PORTFOLIO/COMPREHENSIVE)
         query = _build_rag_query(req)
-        contexts = retrieve_context(req.user_id, query, req.interview_type)
+        contexts = retrieve_context(req.user_id, query, req.interview_type, target_ids=target_ids)
 
         # 1-2. 종합 면접이면 CS 전역 지식도 함께 검색해서 합침.
-        #      cs_category 가 함께 왔으면(선택 사항) 그 카테고리로 제한하고,
-        #      없으면 기존처럼 전체 CS 지식에서 검색한다.
+        #      cs_categories 가 함께 왔으면(선택 사항) 그 카테고리(들)로 제한하고,
+        #      비어있으면(기본값) 기존처럼 전체 CS 지식에서 검색한다.
         if req.interview_type == InterviewType.COMPREHENSIVE:
             cs_query = req.position or "컴퓨터공학 기초 CS 면접"
-            cs_contexts = retrieve_cs_knowledge(cs_query, cs_category=req.cs_category)
+            cs_contexts = retrieve_cs_knowledge(cs_query, cs_categories=req.cs_categories)
             contexts = contexts + cs_contexts
 
     context_text = format_context(contexts)
@@ -117,14 +127,24 @@ async def generate_questions(req: QuestionGenerateRequest) -> QuestionGenerateRe
     # 질문마다 채점 기준을 함께 생성하도록 지시한다.
     # [CS 카테고리 제한 기능 / 경력·스킬 반영] cs_category/career/skills 를 그대로 넘겨
     # RAG 컨텍스트가 부족해도 프롬프트 문구 자체가 범위를 명시하도록 한다.
+    # [면접관 스타일 반영 기능] req.ai_attitude_style(BE 요청 형식 개편으로 필드명이
+    # interviewer_style → ai_attitude_style 로 바뀜, 값 타입은 기존 InterviewerStyle
+    # enum 그대로)을 그대로 프롬프트 빌더에 전달한다. build_question_prompt() 자체의
+    # 파라미터명은 interviewer_style 그대로 두었다 — 프롬프트 내부 로직은 "면접관
+    # 스타일"이라는 개념을 다루는 것이지 BE wire 필드명과는 무관하기 때문. 질문
+    # "내용"에 영향을 주는 다른 인자(difficulty, cs_categories 등)와 달리 이 값은
+    # build_question_prompt() 내부에서 오직 어조 지시문(INTERVIEWER_STYLE_GUIDE)
+    # 섹션에만 쓰인다. followup_service.py/answer_service.py 프롬프트에는 아직 반영하지
+    # 않음(범위 밖 — 별도 논의 후 결정).
     prompt = build_question_prompt(
         interview_type=req.interview_type,
         difficulty=req.difficulty,
+        interviewer_style=req.ai_attitude_style,
         company_name=req.company_name,
         position=req.position,
         career=req.career,
         skills=req.skills,
-        cs_category=req.cs_category,
+        cs_categories=req.cs_categories,
         question_count=count,
         rubric_min_count=settings.rubric_min_count,
         rubric_max_count=settings.rubric_max_count,
