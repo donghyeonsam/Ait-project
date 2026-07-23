@@ -41,8 +41,7 @@ public class AiInterviewController {
     public ResponseEntity<ApiResponse<AiInterviewQuestionResponse>> insertAndGenerate(
             @AuthenticationPrincipal Long userId,
             @RequestBody @Valid AiInterviewQuestionRequest aiInterviewQuestionRequest,
-            HttpServletRequest request
-    ) {
+            HttpServletRequest request) {
 
         AiInterviewQuestionResponse response = aiInterviewService.insertAndGenerate(userId, aiInterviewQuestionRequest);
 

@@ -6,5 +6,5 @@ public record GithubRepoInfoForAiInterview(
         Long id,
         String repoName,
         String repoNickname,
-        LocalDateTime createdAt
+        LocalDateTime updatedAt
 ) {}

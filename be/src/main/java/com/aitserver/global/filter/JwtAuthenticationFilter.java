@@ -29,6 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         // 1. 헤더에서 토큰 추출
         String token = resolveToken(request);
+        log.info("[JWT Filter] 사용자 토큰 확인 시작");
 
         if(token != null && jwtTokenProvider.validateToken(token)) {
             // 2. Redis 블랙리스트 등록 여부 확인 (로그아웃된 토큰인지 체크)
