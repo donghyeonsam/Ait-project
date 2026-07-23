@@ -37,6 +37,11 @@ const signupSchema = z
 
 type SignupFormValues = z.infer<typeof signupSchema>
 
+const TOTAL_STEPS = 2
+
+const CUSTOM_DOMAIN_OPTION = '직접입력'
+const emailDomainOptions = ['gmail.com', 'naver.com', 'daum.net', 'kakao.com', 'nate.com', CUSTOM_DOMAIN_OPTION]
+
 const stepDescriptions = {
   1: '이용약관에 동의하고 시작해보세요.',
   2: '가입에 필요한 정보를 입력해주세요.',
@@ -70,16 +75,33 @@ export function SignupPage() {
     control,
     name: ['termsAccepted', 'privacyAccepted', 'emailVerified'],
   })
-  const emailRegistration = register('email')
 
-  const verifyEmail = async () => {
-    const isEmailValid = await trigger('email')
-    setValue('emailVerified', isEmailValid, { shouldValidate: true })
-    if (isEmailValid) console.log('이메일 인증 요청')
-    // await verifyEmail()
+  const [emailLocalPart, setEmailLocalPart] = useState('')
+  const [emailDomain, setEmailDomain] = useState(emailDomainOptions[0])
+  const [customDomain, setCustomDomain] = useState('')
+  const [verificationCode, setVerificationCode] = useState('')
+  const isCustomDomain = emailDomain === CUSTOM_DOMAIN_OPTION
+
+  const updateEmail = (localPart: string, domain: string) => {
+    setValue('email', localPart ? `${localPart}@${domain}` : '', { shouldValidate: false })
+    setValue('emailVerified', false)
+    setVerificationCode('')
   }
 
-  const goToNextStep = async () => {
+  const requestVerificationCode = async () => {
+    const isEmailValid = await trigger('email')
+    if (isEmailValid) console.log('인증번호 발송 요청')
+    // await sendVerificationCode(...)
+  }
+
+  const confirmVerificationCode = () => {
+    if (!verificationCode.trim()) return
+    setValue('emailVerified', true, { shouldValidate: true })
+    console.log('인증번호 확인 요청', verificationCode)
+    // await confirmVerificationCode(...)
+  }
+
+  const goToStep2 = async () => {
     const isAgreementValid = await trigger(['termsAccepted', 'privacyAccepted'])
     if (isAgreementValid) setStep(2)
   }
@@ -98,12 +120,12 @@ export function SignupPage() {
     <AuthLayout>
       <AuthCard title="Ait 회원가입" description={stepDescriptions[step]}>
         <p className="text-body-2 font-medium text-text-secondary">
-          <span className="text-action-primary">{step}</span> / 2 단계
+          <span className="text-action-primary">{step}</span> / {TOTAL_STEPS} 단계
         </p>
 
-        <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-4">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-4 flex min-h-96 flex-col">
           {step === 1 ? (
-            <div className="mx-auto max-w-md">
+            <div key={step} className="survey-step mx-auto flex w-full max-w-md flex-1 flex-col justify-center">
               <fieldset className="space-y-3">
                 <legend className="sr-only">약관 동의</legend>
                 <div>
@@ -158,7 +180,7 @@ export function SignupPage() {
                 </label>
               </fieldset>
 
-              <Button type="button" className="mt-6 w-full" onClick={goToNextStep}>
+              <Button type="button" className="mt-6 w-full" onClick={goToStep2}>
                 다음
               </Button>
 
@@ -187,14 +209,16 @@ export function SignupPage() {
                 </Link>
               </p>
             </div>
-          ) : (
-            <div>
-              <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
-                <div className="space-y-4">
+          ) : null}
+
+          {step === 2 ? (
+            <div key={step} className="survey-step mx-auto flex w-full max-w-xl flex-1 flex-col">
+              <div className="flex flex-1 flex-col justify-center">
+                <div className="grid grid-cols-[6.5rem_1fr] items-start gap-x-6 gap-y-5">
+                  <label htmlFor="signup-name" className="pt-2.5 text-body-2 font-semibold">
+                    이름
+                  </label>
                   <div>
-                    <label htmlFor="signup-name" className="mb-2 block text-body-2 font-semibold">
-                      이름
-                    </label>
                     <Input
                       id="signup-name"
                       autoComplete="name"
@@ -210,10 +234,10 @@ export function SignupPage() {
                     ) : null}
                   </div>
 
+                  <label htmlFor="signup-nickname" className="pt-2.5 text-body-2 font-semibold">
+                    닉네임
+                  </label>
                   <div>
-                    <label htmlFor="signup-nickname" className="mb-2 block text-body-2 font-semibold">
-                      닉네임
-                    </label>
                     <Input
                       id="signup-nickname"
                       autoComplete="off"
@@ -229,55 +253,115 @@ export function SignupPage() {
                     ) : null}
                   </div>
 
+                  <label htmlFor="signup-email-local" className="pt-2.5 text-body-2 font-semibold">
+                    이메일
+                  </label>
                   <div>
-                    <label htmlFor="signup-email" className="mb-2 block text-body-2 font-semibold">
-                      이메일
-                    </label>
-                    <div className="flex gap-3">
+                    <div className="flex items-center gap-2">
                       <Input
-                        id="signup-email"
-                        type="email"
-                        autoComplete="email"
-                        placeholder="example@email.com"
+                        id="signup-email-local"
+                        className="min-w-0 flex-1"
+                        autoComplete="off"
+                        placeholder="이메일"
                         aria-invalid={Boolean(errors.email)}
                         aria-describedby={errors.email ? 'signup-email-error' : undefined}
-                        {...emailRegistration}
+                        value={emailLocalPart}
                         onChange={(event) => {
-                          emailRegistration.onChange(event)
-                          setValue('emailVerified', false)
+                          setEmailLocalPart(event.target.value)
+                          updateEmail(event.target.value, isCustomDomain ? customDomain : emailDomain)
                         }}
                       />
+                      <span className="shrink-0 text-body-2 text-text-secondary">@</span>
+                      <select
+                        value={emailDomain}
+                        onChange={(event) => {
+                          const nextDomain = event.target.value
+                          setEmailDomain(nextDomain)
+                          updateEmail(emailLocalPart, nextDomain === CUSTOM_DOMAIN_OPTION ? customDomain : nextDomain)
+                        }}
+                        className="h-11 shrink-0 rounded-ait-s border border-border-default bg-surface-default px-3 text-body-2"
+                      >
+                        {emailDomainOptions.map((domain) => (
+                          <option key={domain} value={domain}>
+                            {domain}
+                          </option>
+                        ))}
+                      </select>
                       <Button
                         type="button"
                         variant="secondary"
                         className="shrink-0"
-                        aria-pressed={emailVerified}
-                        onClick={verifyEmail}
+                        onClick={requestVerificationCode}
                       >
                         인증하기
                       </Button>
                     </div>
+                    {isCustomDomain ? (
+                      <Input
+                        className="mt-2"
+                        autoComplete="off"
+                        placeholder="도메인을 직접 입력하세요 (예: naver.com)"
+                        value={customDomain}
+                        onChange={(event) => {
+                          setCustomDomain(event.target.value)
+                          updateEmail(emailLocalPart, event.target.value)
+                        }}
+                      />
+                    ) : null}
                     {errors.email ? (
                       <p id="signup-email-error" className="mt-2 text-caption text-status-error">
                         {errors.email.message}
                       </p>
                     ) : null}
                   </div>
-                </div>
 
-                <div className="space-y-4">
+                  <label htmlFor="signup-verification-code" className="pt-2.5 text-body-2 font-semibold">
+                    인증번호
+                  </label>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="signup-verification-code"
+                        className="min-w-0 flex-1"
+                        autoComplete="off"
+                        placeholder="인증번호를 입력하세요"
+                        value={verificationCode}
+                        onChange={(event) => setVerificationCode(event.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="shrink-0"
+                        onClick={confirmVerificationCode}
+                      >
+                        확인
+                      </Button>
+                    </div>
+                    {emailVerified ? (
+                      <p className="mt-2 text-caption text-status-success">이메일 인증이 완료됐어요.</p>
+                    ) : null}
+                  </div>
+
+                  <label htmlFor="signup-password" className="pt-2.5 text-body-2 font-semibold">
+                    비밀번호
+                  </label>
                   <PasswordInput
                     id="signup-password"
                     label="비밀번호"
-                    placeholder="8자 이상 입력"
+                    hideLabel
+                    placeholder="영문, 숫자, 특수문자 포함 8자 이상"
                     autoComplete="new-password"
                     error={errors.password?.message}
-                    helperText="영문, 숫자, 특수문자 포함 8자 이상"
                     {...register('password')}
                   />
+
+                  <label htmlFor="signup-password-confirm" className="pt-2.5 text-body-2 font-semibold">
+                    비밀번호 확인
+                  </label>
                   <PasswordInput
                     id="signup-password-confirm"
                     label="비밀번호 확인"
+                    hideLabel
                     placeholder="비밀번호 재입력"
                     autoComplete="new-password"
                     error={errors.passwordConfirm?.message}
@@ -286,7 +370,7 @@ export function SignupPage() {
                 </div>
               </div>
 
-              <div className="mx-auto mt-6 flex max-w-md gap-3">
+              <div className="mt-auto flex gap-3 pt-6">
                 <Button type="button" variant="secondary" className="w-full" onClick={goToPreviousStep}>
                   이전으로
                 </Button>
@@ -295,7 +379,7 @@ export function SignupPage() {
                 </Button>
               </div>
             </div>
-          )}
+          ) : null}
         </form>
       </AuthCard>
     </AuthLayout>
