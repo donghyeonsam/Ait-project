@@ -4,30 +4,55 @@ import com.aitserver.github.entity.GithubRepo;
 import com.aitserver.github.repository.GithubRepoRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClient;
 
+import java.net.http.HttpClient;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class GithubAnalysisService {
 
     private final GithubRepoRepository githubRepoRepository;
     private final GithubTokenService githubTokenService;
+    private final RestClient restClient;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final RestTemplate restTemplate = new RestTemplate();
+
+    public GithubAnalysisService(
+            GithubRepoRepository githubRepoRepository,
+            GithubTokenService githubTokenService,
+            RestClient.Builder restClientBuilder
+    ) {
+        this.githubRepoRepository = githubRepoRepository;
+        this.githubTokenService = githubTokenService;
+
+        HttpClient httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
+                .build();
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+
+        this.restClient = restClientBuilder
+                .requestFactory(requestFactory)
+                .requestInterceptor((httpRequest, body, execution) -> {
+                    log.info("[API 요청] method={}, uri={}, contentType={}, bodyLength={}",
+                            httpRequest.getMethod(),
+                            httpRequest.getURI(),
+                            httpRequest.getHeaders().getContentType(),
+                            body.length
+                    );
+                    return execution.execute(httpRequest, body);
+                })
+                .build();
+    }
 
     /**
      * FastAPI에 분석을 요청하고 결과를 DB에 저장하는 비동기 메서드
@@ -38,20 +63,17 @@ public class GithubAnalysisService {
         log.info("[비동기 분석 시작] 레포지토리: {}, 사용자: {}", repoName, githubUsername);
 
         try {
-            // 1. 깃허브 토큰 발급
             String accessToken = githubTokenService.getInstallationAccessToken(installationId);
             HttpHeaders headers = new HttpHeaders();
             headers.setBearerAuth(accessToken);
 
-            // 2. README.md 가져오기 (Raw 텍스트 포맷으로 요청)
             String readmeContent = fetchReadme(githubUsername, repoName, headers);
 
-            // 3. 내 커밋 내역(메시지) 가져오기 (author 파라미터로 내 커밋만 필터링)
             List<String> commitMessages = fetchMyCommits(githubUsername, repoName, headers);
 
             log.info("수집 완료 - README 길이: {}, 커밋 개수: {}", readmeContent.length(), commitMessages.size());
 
-            String fastApiUrl = "http://localhost:8000/api/v1/embeddings";
+            String fastApiUrl = "http://192.168.100.210:8000/api/v1/embeddings";
 
             Map<String, Object> githubItem = Map.of(
                     "doc_type", "github",
@@ -63,13 +85,15 @@ public class GithubAnalysisService {
             Map<String, Object> requestBody = Map.of(
                     "user_id", userId,
                     "replace", true,
-                    "items", List.of(githubItem) // 배열(List) 형태로 감싸서 전달
+                    "items", List.of(githubItem)
             );
 
-            ResponseEntity<String> response = restTemplate.postForEntity(fastApiUrl, requestBody, String.class);
-            String analysisResult = response.getBody();
+            String analysisResult = restClient.post()
+                    .uri(fastApiUrl)
+                    .body(requestBody)
+                    .retrieve()
+                    .body(String.class);
 
-            // 5. 분석이 끝나면 DB 업데이트
             GithubRepo githubRepo = githubRepoRepository.findById(repoId)
                     .orElseThrow(() -> new RuntimeException("레포지토리를 찾을 수 없습니다."));
 
@@ -86,31 +110,33 @@ public class GithubAnalysisService {
     private String fetchReadme(String owner, String repo, HttpHeaders baseHeaders) {
         String url = String.format("https://api.github.com/repos/%s/%s/readme", owner, repo);
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.addAll(baseHeaders);
-        // 원본 텍스트(마크다운) 그대로 달라고 깃허브 API에 명시
-        headers.set("Accept", "application/vnd.github.v3.raw");
-
-        HttpEntity<String> entity = new HttpEntity<>(headers);
-
         try {
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-            return response.getBody() != null ? response.getBody() : "";
+            return restClient.get()
+                    .uri(url)
+                    .headers(httpHeaders -> {
+                        httpHeaders.addAll(baseHeaders);
+                        httpHeaders.set("Accept", "application/vnd.github.v3.raw");
+                    })
+                    .retrieve()
+                    .body(String.class);
         } catch (Exception e) {
             log.warn("README가 없거나 가져올 수 없습니다. 레포지토리: {}", repo);
             return "";
         }
     }
 
-    private List<String> fetchMyCommits(String owner, String repo, HttpHeaders headers) {
+    private List<String> fetchMyCommits(String owner, String repo, HttpHeaders baseHeaders) {
         String url = String.format("https://api.github.com/repos/%s/%s/commits?author=%s", owner, repo, owner);
-        HttpEntity<String> entity = new HttpEntity<>(headers);
         List<String> messages = new ArrayList<>();
 
         try {
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-            JsonNode rootNode = objectMapper.readTree(response.getBody());
+            String responseBody = restClient.get()
+                    .uri(url)
+                    .headers(httpHeaders -> httpHeaders.addAll(baseHeaders))
+                    .retrieve()
+                    .body(String.class);
 
+            JsonNode rootNode = objectMapper.readTree(responseBody);
             for (JsonNode node : rootNode) {
                 JsonNode commitNode = node.get("commit");
                 if (commitNode != null && commitNode.has("message")) {
