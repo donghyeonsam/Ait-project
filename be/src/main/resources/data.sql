@@ -1,6 +1,6 @@
 -- users 테이블 더미 데이터 3개 삽입
 INSERT INTO users (email, password, name, nickname)
-VALUES ('hong@ssafy.com', '1234', '홍길동', '길동이'),
+VALUES ('hong@ssafy.com', '$2a$10$h5KFhYAebvWyXUX0ndOkEuRkuMI1gZaJX1CMo4T.RZdR2AT.7k.xu', '홍길동', '길동이'),
        ('kim@ssafy.com', '1234', '김철수', '철수야'),
        ('lee@ssafy.com', '1234', '이영희', '영희짱');
 
@@ -275,4 +275,218 @@ INSERT INTO `resume_careers` (
         '미래대학교 AI 연구실',
         '학부 연구생',
         '추천 시스템 관련 데이터 전처리와 모델 성능 평가 실험을 수행했습니다.'
+    );
+
+-- 자기소개서 더미데이터 4개 추가
+-- userId는 1로 고정
+
+-- 1. 삼성전자 자기소개서
+INSERT INTO cover_letter (
+    user_id,
+    title,
+    company_name,
+    role,
+    analysis_content,
+    created_at,
+    updated_at
+) VALUES (
+             1,
+             '삼성전자 DX 부문 자기소개서',
+             '삼성전자',
+             '백엔드 개발자',
+             '지원자의 프로젝트 경험과 문제 해결 역량이 잘 드러납니다. 다만 지원 동기에서 삼성전자와 직무의 연관성을 조금 더 구체적으로 작성할 필요가 있습니다.',
+             NOW(),
+             NOW()
+         );
+
+SET @cover_letter_id_1 = LAST_INSERT_ID();
+
+INSERT INTO cover_letter_contents (
+    cover_letter_id,
+    content_order,
+    question,
+    answer
+) VALUES
+      (
+          @cover_letter_id_1,
+          1,
+          '삼성전자를 지원한 이유와 입사 후 이루고 싶은 꿈을 기술하십시오.',
+          '저는 안정적이고 확장 가능한 백엔드 시스템을 개발하여 사용자에게 신뢰할 수 있는 서비스를 제공하고 싶어 삼성전자에 지원했습니다. 프로젝트에서 Spring Boot와 MySQL을 활용해 REST API를 개발한 경험을 바탕으로 DX 부문의 서비스 품질 향상에 기여하겠습니다.'
+      ),
+      (
+          @cover_letter_id_1,
+          2,
+          '본인의 성장 과정을 간략히 기술하되 현재의 자신에게 가장 큰 영향을 끼친 사건을 포함하여 기술하십시오.',
+          '대학교 팀 프로젝트에서 백엔드 개발을 담당하며 협업의 중요성을 배웠습니다. 초기에는 각자 맡은 기능만 구현했지만 API 명세가 일치하지 않아 문제가 발생했습니다. 이후 팀원들과 명세를 표준화하고 정기적인 코드 리뷰를 진행하면서 협업 역량을 키웠습니다.'
+      );
+
+
+-- 2. 카카오 자기소개서
+INSERT INTO cover_letter (
+    user_id,
+    title,
+    company_name,
+    role,
+    analysis_content,
+    created_at,
+    updated_at
+) VALUES (
+             1,
+             '카카오 백엔드 개발자 자기소개서',
+             '카카오',
+             '서버 개발자',
+             '기술적인 경험은 구체적으로 작성되어 있으나 서비스 관점에서 어떤 가치를 만들었는지에 대한 설명을 보완하면 좋습니다.',
+             NOW(),
+             NOW()
+         );
+
+SET @cover_letter_id_2 = LAST_INSERT_ID();
+
+INSERT INTO cover_letter_contents (
+    cover_letter_id,
+    content_order,
+    question,
+    answer
+) VALUES
+      (
+          @cover_letter_id_2,
+          1,
+          '카카오에 지원한 동기와 입사 후 목표를 작성해 주세요.',
+          '카카오는 다양한 서비스를 통해 많은 사용자의 일상에 직접적인 가치를 제공하고 있습니다. 저는 대규모 트래픽에도 안정적으로 동작하는 서버를 개발하며 사용자 경험 향상에 기여하고 싶어 지원했습니다.'
+      ),
+      (
+          @cover_letter_id_2,
+          2,
+          '기술적으로 어려운 문제를 해결했던 경험을 작성해 주세요.',
+          '여행 경로 추천 프로젝트에서 외부 API 호출 증가로 응답 시간이 길어지는 문제가 발생했습니다. 호출 결과를 캐싱하고 후보 경로를 먼저 필터링한 후 외부 API를 호출하도록 개선하여 평균 응답 시간을 줄였습니다.'
+      );
+
+
+-- 3. 네이버 자기소개서
+INSERT INTO cover_letter (
+    user_id,
+    title,
+    company_name,
+    role,
+    analysis_content,
+    created_at,
+    updated_at
+) VALUES (
+             1,
+             '네이버 신입 개발자 자기소개서',
+             '네이버',
+             '백엔드 개발자',
+             '문제 해결 과정과 기술 선택 이유가 비교적 명확합니다. 성과를 수치로 표현하면 더욱 설득력 있는 자기소개서가 될 수 있습니다.',
+             NOW(),
+             NOW()
+         );
+
+SET @cover_letter_id_3 = LAST_INSERT_ID();
+
+INSERT INTO cover_letter_contents (
+    cover_letter_id,
+    content_order,
+    question,
+    answer
+) VALUES
+      (
+          @cover_letter_id_3,
+          1,
+          '본인이 가장 열정적으로 수행했던 프로젝트를 소개해 주세요.',
+          'AI 모의 면접 플랫폼 프로젝트에서 백엔드 개발을 담당했습니다. 사용자 인증, 자기소개서 관리, 면접 질문 생성 기능을 구현했으며 Spring Boot, JPA, MySQL, Redis를 사용해 시스템을 구성했습니다.'
+      ),
+      (
+          @cover_letter_id_3,
+          2,
+          '협업 과정에서 발생한 갈등과 해결 과정을 작성해 주세요.',
+          'API 응답 형식을 두고 프론트엔드 개발자와 의견 차이가 있었습니다. 각 방식의 장단점을 정리하고 실제 사용 시나리오를 기준으로 논의하여 공통 응답 형식을 결정했습니다. 이후 API 명세서를 최신 상태로 관리하여 추가적인 혼선을 줄였습니다.'
+      );
+
+
+-- 4. 토스 자기소개서
+INSERT INTO cover_letter (
+    user_id,
+    title,
+    company_name,
+    role,
+    analysis_content,
+    created_at,
+    updated_at
+) VALUES (
+             1,
+             '토스 서버 개발자 자기소개서',
+             '비바리퍼블리카',
+             'Server Developer',
+             NULL,
+             NOW(),
+             NOW()
+         );
+
+SET @cover_letter_id_4 = LAST_INSERT_ID();
+
+INSERT INTO cover_letter_contents (
+    cover_letter_id,
+    content_order,
+    question,
+    answer
+) VALUES
+      (
+          @cover_letter_id_4,
+          1,
+          '토스에 지원한 이유를 작성해 주세요.',
+          '토스가 복잡한 금융 서비스를 사용자가 쉽게 이용할 수 있도록 개선해 온 과정에 관심을 가지고 있습니다. 저도 기술을 통해 복잡한 문제를 단순하게 해결하고 사용자에게 편리한 경험을 제공하는 개발자가 되고 싶습니다.'
+      ),
+      (
+          @cover_letter_id_4,
+          2,
+          '빠르게 학습하여 문제를 해결한 경험을 작성해 주세요.',
+          '프로젝트에서 처음으로 Redis를 사용해야 했습니다. 공식 문서와 예제 코드를 통해 자료구조와 만료 정책을 학습한 뒤 리프레시 토큰 저장과 실시간 접속 상태 관리 기능에 적용했습니다.'
+      );
+
+-- =========================================================
+-- 1. GitHub App 연동 정보 (user_id = 1)
+-- =========================================================
+INSERT INTO github_apps (id, user_id, installation_id, github_username, created_at)
+VALUES (1, 1, '12345678', 'hong-gildong', NOW());
+
+
+-- =========================================================
+-- 2. GitHub 레포지토리 정보 (github_app_id = 1 기준 3개)
+-- =========================================================
+INSERT INTO github_repos (
+    github_app_id,
+    repo_id,
+    repo_name,
+    repo_nickname,
+    analysis_content,
+    is_private,
+    created_at
+)
+VALUES
+    (
+        1,
+        101,
+        'Ait-backend',
+        'Ait 서비스 백엔드 메인 프로젝트',
+        'Spring Boot 기반 RESTful API 구현 및 JPA/MySQL 연동 완료. OAuth2 및 JWT 기반 인증 구조 설계.',
+        FALSE,
+        NOW()
+    ),
+    (
+        1,
+        102,
+        'algorithm-study',
+        '알고리즘 및 코딩테스트 대비',
+        '주요 자료구조(스택, 큐, 해시) 및 DP, DFS/BFS 알고리즘 문제 풀이 모음.',
+        FALSE,
+        NOW()
+    ),
+    (
+        1,
+        103,
+        'fastapi-ai-service',
+        'AI 모의면접 피드백 서비스',
+        'FastAPI 및 LLM 프롬프트 연동을 통한 면접 질문/피드백 비동기 생성 파이프라인 구축.',
+        TRUE,
+        NOW()
     );

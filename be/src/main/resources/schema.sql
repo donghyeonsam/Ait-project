@@ -2,7 +2,8 @@
 -- 외래키 관계를 고려한 테이블 삭제
 -- 자식 테이블부터 부모 테이블 순서로 삭제
 -- =========================================================
-
+DROP TABLE IF EXISTS `cover_letter_contents`;
+DROP TABLE IF EXISTS `cover_letter`;
 DROP TABLE IF EXISTS `resume_projects`;
 DROP TABLE IF EXISTS `resume_trainings`;
 DROP TABLE IF EXISTS `resume_careers`;
@@ -113,7 +114,7 @@ CREATE TABLE `resumes` (
                            `user_id` BIGINT NOT NULL,
                            `analysis_content` TEXT DEFAULT NULL,
                            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                           `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                           `updated_at` DATETIME DEFAULT NULL,
 
                            PRIMARY KEY (`id`),
 
@@ -261,3 +262,54 @@ CREATE TABLE `notifications` (
   COLLATE=utf8mb4_unicode_ci
   COMMENT='사용자 알림';
 
+CREATE TABLE `cover_letter` (
+                                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                `user_id` BIGINT NOT NULL,
+                                `title` VARCHAR(50) NOT NULL,
+                                `company_name` VARCHAR(100) NOT NULL,
+                                `role` VARCHAR(50) NOT NULL,
+                                `analysis_content` TEXT DEFAULT NULL,
+                                `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                `deleted_at` DATETIME DEFAULT NULL,
+
+                                PRIMARY KEY (`id`),
+
+                                KEY `idx_cover_letter_user_id` (`user_id`),
+                                KEY `idx_cover_letter_deleted_at` (`deleted_at`),
+
+                                CONSTRAINT `fk_cover_letter_user`
+                                    FOREIGN KEY (`user_id`)
+                                        REFERENCES `users` (`id`)
+                                        ON DELETE CASCADE
+                                        ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='자기소개서 기본 정보';
+
+
+CREATE TABLE `cover_letter_contents` (
+                                         `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                         `cover_letter_id` BIGINT NOT NULL,
+                                         `content_order` INT NOT NULL,
+                                         `question` VARCHAR(255) NOT NULL,
+                                         `answer` TEXT NOT NULL,
+
+                                         PRIMARY KEY (`id`),
+
+                                         UNIQUE KEY `uk_cover_letter_contents_order`
+                                             (`cover_letter_id`, `content_order`),
+
+                                         KEY `idx_cover_letter_contents_cover_letter_id`
+                                             (`cover_letter_id`),
+
+                                         CONSTRAINT `fk_cover_letter_contents_cover_letter`
+                                             FOREIGN KEY (`cover_letter_id`)
+                                                 REFERENCES `cover_letter` (`id`)
+                                                 ON DELETE CASCADE
+                                                 ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='자기소개서 문항 및 답변';

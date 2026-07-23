@@ -36,19 +36,11 @@ export function LandingHeader() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <Button
-            type="button"
-            variant="text"
-            className="px-2 py-2 font-normal text-text-secondary"
-          >
-            로그인
+          <Button asChild variant="text" className="px-2 py-2 font-normal text-text-secondary">
+            <Link to="/login">로그인</Link>
           </Button>
-          <Button
-            type="button"
-            variant="text"
-            className="px-2 py-2 font-normal text-text-secondary"
-          >
-            회원가입
+          <Button asChild variant="text" className="px-2 py-2 font-normal text-text-secondary">
+            <Link to="/signup">회원가입</Link>
           </Button>
         </div>
       </div>
