@@ -41,7 +41,7 @@ export function AuthLayout({
               <div className="mx-auto w-full max-w-md lg:max-w-none">{children}</div>
             </div>
           ) : (
-            <div className="w-full">{children}</div>
+            <div className="mx-auto w-full max-w-2xl">{children}</div>
           )}
 
           {showFooter ? (
