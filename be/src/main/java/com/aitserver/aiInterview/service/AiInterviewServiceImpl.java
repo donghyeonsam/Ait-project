@@ -1,6 +1,8 @@
 package com.aitserver.aiInterview.service;
 
-import com.aitserver.aiInterview.dto.*;
+import com.aitserver.aiInterview.dto.AiInterviewPreparationResponse;
+import com.aitserver.aiInterview.dto.CoverLetterInfoForAiInterview;
+import com.aitserver.aiInterview.dto.GithubRepoInfoForAiInterview;
 import com.aitserver.aiInterview.repository.AiInterviewCoverLetterRepository;
 import com.aitserver.aiInterview.repository.AiInterviewGithubRepoRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,17 +30,5 @@ public class AiInterviewServiceImpl implements AiInterviewService{
         List<GithubRepoInfoForAiInterview> githubRepos = githubRepoRepository.findGithubRepoInfoByUserId(userId);
 
         return new AiInterviewPreparationResponse(userId, coverLetters, githubRepos);
-    }
-
-
-    @Override
-    public AiInterviewQuestionResponse insertAndGenerate(Long userId, AiInterviewQuestionRequest aiInterviewQuestionRequest) {
-        // 디비에 값들 저장
-        // 디비에 사용자 skills 가져오기
-        // fastAPI로 정보들 전달
-        // 생성된 질문 리스트 프론트로 전달
-
-
-        return null;
     }
 }

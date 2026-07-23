@@ -1,5 +1,13 @@
 import { Plus, Trash2 } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
+import {
+  getCoverLetter,
+  getMyCoverLetters,
+  updateCoverLetter,
+  type CoverLetterDetail,
+  type CoverLetterListItem,
+} from '@/api/cover-letters'
+import { toErrorMessage } from '@/api/http'
 import {
   DocumentModalShell,
   DocumentSection,
@@ -16,328 +24,200 @@ interface CoverLetterModalProps {
   onOpenChange: (open: boolean) => void
 }
 
-interface CoverQuestion {
-  id: number
-  prompt: string
-  answer: string
-}
-
-interface CoverDocument {
-  id: number
-  basic: {
-    title: string
-    company: string
-    role: string
-  }
-  questions: CoverQuestion[]
-  lastModified: string
-}
-
-const initialDocuments: CoverDocument[] = [
-  {
-    id: 1,
-    basic: {
-      title: '백엔드 개발자로 성장해 온 과정',
-      company: '삼성전자',
-      role: 'SW 개발',
-    },
-    questions: [
-      {
-        id: 1,
-        prompt: '지원 동기와 입사 후 포부를 작성해주세요.',
-        answer:
-          '문제를 작게 나누고 끝까지 해결하는 개발자입니다. 팀과 함께 안정적인 서비스를 만들고, 사용자의 면접 준비 과정을 더 나은 경험으로 바꾸고 싶습니다.',
-      },
-    ],
-    lastModified: '2026. 07. 09',
-  },
-  {
-    id: 2,
-    basic: {
-      title: '문제를 끝까지 해결하는 개발자',
-      company: '네이버',
-      role: '백엔드 개발',
-    },
-    questions: [
-      {
-        id: 1,
-        prompt: '가장 도전적이었던 문제와 해결 과정을 설명해주세요.',
-        answer:
-          '복잡한 문제를 현상과 원인으로 나누고, 로그와 지표를 기준으로 가설을 검증했습니다. 팀원과 검증 결과를 공유하며 안정적인 해결책을 적용했습니다.',
-      },
-    ],
-    lastModified: '2026. 06. 28',
-  },
-  {
-    id: 3,
-    basic: {
-      title: '사용자 경험을 개선한 프로젝트',
-      company: '카카오',
-      role: '서버 개발',
-    },
-    questions: [
-      {
-        id: 1,
-        prompt: '협업을 통해 사용자 경험을 개선한 사례를 작성해주세요.',
-        answer:
-          '사용자 피드백을 기능 단위로 분류하고 기획·디자인·개발 팀과 우선순위를 조율했습니다. 작은 단위로 반영하고 반응을 확인하며 이탈 구간을 개선했습니다.',
-      },
-    ],
-    lastModified: '2026. 06. 14',
-  },
-]
-
-function today() {
-  const date = new Date()
-  return `${date.getFullYear()}. ${String(date.getMonth() + 1).padStart(2, '0')}. ${String(date.getDate()).padStart(2, '0')}`
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleDateString('ko-KR')
 }
 
 export function CoverLetterModal({ open, onOpenChange }: CoverLetterModalProps) {
-  const [documents, setDocuments] = useState(initialDocuments)
-  const [activeDocumentIndex, setActiveDocumentIndex] = useState(0)
+  const [items, setItems] = useState<CoverLetterListItem[]>([])
+  const [document, setDocument] = useState<CoverLetterDetail | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const [pendingRemoval, setPendingRemoval] = useState<number | null>(null)
-  const [newItem, setNewItem] = useState<number | null>(null)
+  const [isListLoading, setIsListLoading] = useState(true)
+  const [isDetailLoading, setIsDetailLoading] = useState(false)
+  const [listError, setListError] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
-  const activeDocument = documents[activeDocumentIndex]
 
-  const updateActiveDocument = (
-    update: (document: CoverDocument) => CoverDocument,
-  ) => {
-    setDocuments((current) =>
-      current.map((document, index) =>
-        index === activeDocumentIndex ? update(document) : document,
-      ),
-    )
-  }
+  useEffect(() => {
+    if (!open) return
 
-  const selectDocument = (index: number) => {
-    setActiveDocumentIndex(index)
-    setErrors({})
-    setPendingRemoval(null)
-    setNewItem(null)
+    let active = true
+    getMyCoverLetters()
+      .then((response) => {
+        if (!active) return
+        setItems(response.coverLetters)
+        setListError(null)
+      })
+      .catch((requestError: unknown) => {
+        if (active) setListError(toErrorMessage(requestError))
+      })
+      .finally(() => {
+        if (active) setIsListLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [open])
+
+  const selectDocument = async (index: number) => {
+    const selected = items[index]
+    if (!selected || isDetailLoading) return
+
+    setIsDetailLoading(true)
+    setListError(null)
+    setError(null)
     setSaved(false)
-    setEditorOpen(true)
+    try {
+      const detail = await getCoverLetter(selected.coverLetterId)
+      setDocument(detail)
+      setIsListLoading(true)
+      onOpenChange(false)
+      setEditorOpen(true)
+    } catch (requestError) {
+      setListError(toErrorMessage(requestError))
+    } finally {
+      setIsDetailLoading(false)
+    }
   }
 
-  const clearError = (key: string) => {
-    setErrors((current) => {
-      const next = { ...current }
-      delete next[key]
-      return next
-    })
+  const updateDocument = (update: Partial<CoverLetterDetail>) => {
+    setDocument((current) => current ? { ...current, ...update } : current)
     setSaved(false)
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const nextErrors: Record<string, string> = {}
-    Object.entries(activeDocument.basic).forEach(([key, value]) => {
-      if (!value.trim()) {
-        nextErrors[`cover-${key}`] = '필수 항목을 입력해주세요.'
-      }
-    })
-    activeDocument.questions.forEach((question) => {
-      if (!question.prompt.trim()) {
-        nextErrors[`question-${question.id}-prompt`] =
-          '자기소개서 문항을 입력해주세요.'
-      }
-      if (!question.answer.trim()) {
-        nextErrors[`question-${question.id}-answer`] =
-          '문항에 대한 답변을 입력해주세요.'
-      }
-    })
-    setErrors(nextErrors)
-    if (Object.keys(nextErrors).length > 0) return
-    updateActiveDocument((document) => ({
-      ...document,
-      lastModified: today(),
-    }))
-    setSaved(true)
-  }
+    if (!document) return
 
-  const addQuestion = () => {
-    const id =
-      Math.max(0, ...activeDocument.questions.map((question) => question.id)) +
-      1
-    updateActiveDocument((document) => ({
-      ...document,
-      questions: [...document.questions, { id, prompt: '', answer: '' }],
-    }))
-    setNewItem(id)
-    setSaved(false)
-  }
+    const valid = document.title.trim()
+      && document.companyName.trim()
+      && document.role.trim()
+      && document.coverLetterContents.length > 0
+      && document.coverLetterContents.every((content) => content.question.trim() && content.answer.trim())
+    if (!valid) {
+      setError('필수 항목과 자기소개서 문항을 모두 입력해주세요.')
+      return
+    }
 
-  const finishRemoval = (id: number) => {
-    if (pendingRemoval !== id) return
-    updateActiveDocument((document) => ({
-      ...document,
-      questions: document.questions.filter((question) => question.id !== id),
-    }))
-    setPendingRemoval(null)
-    setSaved(false)
+    setIsSaving(true)
+    setError(null)
+    try {
+      const updated = await updateCoverLetter(document.coverLetterId, {
+        title: document.title,
+        companyName: document.companyName,
+        role: document.role,
+        coverLetterContents: document.coverLetterContents.map((content, index) => ({
+          contentOrder: index + 1,
+          question: content.question,
+          answer: content.answer,
+        })),
+      })
+      setDocument(updated)
+      setItems((current) => current.map((item) =>
+        item.coverLetterId === updated.coverLetterId
+          ? {
+              ...item,
+              title: updated.title,
+              companyName: updated.companyName,
+              role: updated.role,
+              updatedAt: updated.updatedAt,
+            }
+          : item,
+      ))
+      setSaved(true)
+    } catch (requestError) {
+      setError(toErrorMessage(requestError))
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
     <>
       <CoverLetterPicker
         open={open}
-        onOpenChange={onOpenChange}
-        items={documents.map((document) => document.basic.title)}
-        onSelect={selectDocument}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && isDetailLoading) return
+          if (!nextOpen) {
+            setIsListLoading(true)
+            setListError(null)
+          }
+          onOpenChange(nextOpen)
+        }}
+        items={items.map((item) => item.title)}
+        onSelect={(index) => void selectDocument(index)}
+        loading={isListLoading}
+        selectionLoading={isDetailLoading}
+        error={listError}
       />
 
-      <DocumentModalShell
-        open={editorOpen}
-        onOpenChange={setEditorOpen}
-        title="자기소개서 작성"
-        description="지원하는 기업과 직무에 맞게 자신의 경험을 정리해주세요."
-        lastModified={activeDocument.lastModified}
-        saved={saved}
-        onSubmit={handleSubmit}
-      >
-        <div className="min-w-0">
-          <DocumentSection
-            title="기본 정보"
-            description="자기소개서 제목과 지원할 기업·직무를 입력하세요."
-          >
+      {document ? (
+        <DocumentModalShell
+          open={editorOpen}
+          onOpenChange={setEditorOpen}
+          title="자기소개서 작성"
+          description="DB에 저장된 자기소개서를 확인하고 수정할 수 있습니다."
+          lastModified={formatDateTime(document.updatedAt)}
+          saved={saved}
+          onSubmit={handleSubmit}
+        >
+          <DocumentSection title="기본 정보">
             <div className="grid gap-4 sm:grid-cols-2">
-              {(
-                [
-                  ['title', '제목', 'sm:col-span-2'],
-                  ['company', '기업명', ''],
-                  ['role', '지원 직무', ''],
-                ] as const
-              ).map(([key, label, className]) => {
-                const fieldKey = `cover-${key}`
-                return (
-                  <FormField
-                    key={key}
-                    id={fieldKey}
-                    label={label}
-                    required
-                    error={errors[fieldKey]}
-                    className={className}
-                  >
-                    <Input
-                      id={fieldKey}
-                      value={activeDocument.basic[key]}
-                      aria-invalid={Boolean(errors[fieldKey])}
-                      aria-describedby={
-                        errors[fieldKey] ? `${fieldKey}-error` : undefined
-                      }
-                      onChange={(event) => {
-                        updateActiveDocument((document) => ({
-                          ...document,
-                          basic: {
-                            ...document.basic,
-                            [key]: event.target.value,
-                          },
-                        }))
-                        clearError(fieldKey)
-                      }}
-                    />
-                  </FormField>
-                )
-              })}
+              <FormField id="cover-title" label="제목" required className="sm:col-span-2">
+                <Input id="cover-title" value={document.title} maxLength={50} onChange={(event) => updateDocument({ title: event.target.value })} />
+              </FormField>
+              <FormField id="cover-company" label="기업명" required>
+                <Input id="cover-company" value={document.companyName} maxLength={100} onChange={(event) => updateDocument({ companyName: event.target.value })} />
+              </FormField>
+              <FormField id="cover-role" label="지원 직무" required>
+                <Input id="cover-role" value={document.role} maxLength={50} onChange={(event) => updateDocument({ role: event.target.value })} />
+              </FormField>
             </div>
           </DocumentSection>
 
-          <DocumentSection
-            title="자기소개서 문항"
-            description="문항과 답변을 입력하면 자동으로 글자 수를 계산합니다."
-          >
-            {activeDocument.questions.map((question) => (
-              <DynamicCard
-                key={question.id}
-                isNew={newItem === question.id}
-                isRemoving={pendingRemoval === question.id}
-                onAnimationEnd={() => finishRemoval(question.id)}
-              >
-                <div className="mb-3 flex justify-end">
+          <DocumentSection title="자기소개서 문항">
+            {document.coverLetterContents.map((content, index) => (
+              <DynamicCard key={content.contentId}>
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-caption font-semibold text-text-secondary">문항 {index + 1}</span>
                   <Button
                     type="button"
                     variant="text"
                     size="icon"
                     aria-label="자기소개서 문항 삭제"
-                    onClick={() => setPendingRemoval(question.id)}
-                    disabled={activeDocument.questions.length === 1}
+                    disabled={document.coverLetterContents.length === 1}
+                    onClick={() => updateDocument({
+                      coverLetterContents: document.coverLetterContents.filter((item) => item.contentId !== content.contentId),
+                    })}
                   >
                     <Trash2 aria-hidden="true" />
                   </Button>
                 </div>
-                <FormField
-                  id={`question-${question.id}-prompt`}
-                  label="문항"
-                  required
-                  error={errors[`question-${question.id}-prompt`]}
-                >
+                <FormField id={`question-${content.contentId}`} label="문항" required>
                   <Input
-                    id={`question-${question.id}-prompt`}
-                    value={question.prompt}
-                    aria-invalid={Boolean(
-                      errors[`question-${question.id}-prompt`],
-                    )}
-                    aria-describedby={
-                      errors[`question-${question.id}-prompt`]
-                        ? `question-${question.id}-prompt-error`
-                        : undefined
-                    }
-                    onChange={(event) => {
-                      updateActiveDocument((document) => ({
-                        ...document,
-                        questions: document.questions.map((item) =>
-                          item.id === question.id
-                            ? { ...item, prompt: event.target.value }
-                            : item,
-                        ),
-                      }))
-                      clearError(`question-${question.id}-prompt`)
-                    }}
+                    id={`question-${content.contentId}`}
+                    value={content.question}
+                    maxLength={255}
+                    onChange={(event) => updateDocument({
+                      coverLetterContents: document.coverLetterContents.map((item) =>
+                        item.contentId === content.contentId ? { ...item, question: event.target.value } : item,
+                      ),
+                    })}
                   />
                 </FormField>
-                <FormField
-                  id={`question-${question.id}-answer`}
-                  label="답변"
-                  required
-                  error={errors[`question-${question.id}-answer`]}
-                  className="mt-4"
-                >
-                  <div className="relative">
-                    <Textarea
-                      id={`question-${question.id}-answer`}
-                      value={question.answer}
-                      maxLength={1000}
-                      className="min-h-48 pb-10"
-                      aria-invalid={Boolean(
-                        errors[`question-${question.id}-answer`],
-                      )}
-                      aria-describedby={
-                        errors[`question-${question.id}-answer`]
-                          ? `question-${question.id}-answer-error question-${question.id}-count`
-                          : `question-${question.id}-count`
-                      }
-                      onChange={(event) => {
-                        updateActiveDocument((document) => ({
-                          ...document,
-                          questions: document.questions.map((item) =>
-                            item.id === question.id
-                              ? { ...item, answer: event.target.value }
-                              : item,
-                          ),
-                        }))
-                        clearError(`question-${question.id}-answer`)
-                      }}
-                    />
-                    <span
-                      id={`question-${question.id}-count`}
-                      className="absolute bottom-3 right-3 text-caption text-text-secondary"
-                      aria-live="polite"
-                    >
-                      {question.answer.length} / 1000자
-                    </span>
-                  </div>
+                <FormField id={`answer-${content.contentId}`} label="답변" required className="mt-4">
+                  <Textarea
+                    id={`answer-${content.contentId}`}
+                    value={content.answer}
+                    className="min-h-48"
+                    onChange={(event) => updateDocument({
+                      coverLetterContents: document.coverLetterContents.map((item) =>
+                        item.contentId === content.contentId ? { ...item, answer: event.target.value } : item,
+                      ),
+                    })}
+                  />
                 </FormField>
               </DynamicCard>
             ))}
@@ -345,15 +225,26 @@ export function CoverLetterModal({ open, onOpenChange }: CoverLetterModalProps) 
               type="button"
               variant="secondary"
               className="w-full border-dashed"
-              onClick={addQuestion}
+              onClick={() => {
+                const contentId = Math.min(0, ...document.coverLetterContents.map((item) => item.contentId)) - 1
+                updateDocument({
+                  coverLetterContents: [...document.coverLetterContents, {
+                    contentId,
+                    contentOrder: document.coverLetterContents.length + 1,
+                    question: '',
+                    answer: '',
+                  }],
+                })
+              }}
             >
-              <Plus aria-hidden="true" />
-              문항 추가
+              <Plus aria-hidden="true" /> 문항 추가
             </Button>
           </DocumentSection>
-        </div>
-      </DocumentModalShell>
+
+          {error ? <p className="mt-4 text-body-2 text-status-error" role="alert">{error}</p> : null}
+          {isSaving ? <p className="mt-2 text-caption text-text-secondary" role="status">저장 중입니다.</p> : null}
+        </DocumentModalShell>
+      ) : null}
     </>
   )
 }
-

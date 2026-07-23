@@ -1,8 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
+<<<<<<< HEAD
+import { signup } from '@/api/auth'
+import { toErrorMessage } from '@/api/http'
+import signupIllustration from '@/assets/images/auth/signup-illustration.svg'
+=======
+>>>>>>> 8b96c7653deaa70aa3188cb9bc501278d88dffd4
 import { AuthCard } from '@/components/auth/AuthCard'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { PasswordInput } from '@/components/auth/PasswordInput'
@@ -43,12 +49,17 @@ const stepDescriptions = {
 } as const
 
 export function SignupPage() {
+<<<<<<< HEAD
+  const navigate = useNavigate()
+=======
   const [step, setStep] = useState<1 | 2>(1)
+>>>>>>> 8b96c7653deaa70aa3188cb9bc501278d88dffd4
   const {
     control,
     register,
     handleSubmit,
     setValue,
+    setError,
     trigger,
     formState: { errors, isSubmitting },
   } = useForm<SignupFormValues>({
@@ -72,13 +83,26 @@ export function SignupPage() {
   })
   const emailRegistration = register('email')
 
+  // TODO: 실제 API 연동 필요 - BE에 이메일 인증 엔드포인트가 없어 형식 검사만 통과하면 인증된 것으로 처리한다.
   const verifyEmail = async () => {
     const isEmailValid = await trigger('email')
     setValue('emailVerified', isEmailValid, { shouldValidate: true })
-    if (isEmailValid) console.log('이메일 인증 요청')
-    // await verifyEmail()
   }
 
+<<<<<<< HEAD
+  const onSubmit = async (values: SignupFormValues) => {
+    try {
+      await signup({
+        email: values.email,
+        password: values.password,
+        name: values.name,
+        nickname: values.nickname,
+      })
+      navigate('/login', { replace: true })
+    } catch (error) {
+      setError('root', { message: toErrorMessage(error) })
+    }
+=======
   const goToNextStep = async () => {
     const isAgreementValid = await trigger(['termsAccepted', 'privacyAccepted'])
     if (isAgreementValid) setStep(2)
@@ -89,6 +113,7 @@ export function SignupPage() {
   const onSubmit = (values: SignupFormValues) => {
     console.log('회원가입 폼 제출', values)
     // await signup(values)
+>>>>>>> 8b96c7653deaa70aa3188cb9bc501278d88dffd4
   }
 
   const isSubmitDisabled =
@@ -295,7 +320,55 @@ export function SignupPage() {
                 </Button>
               </div>
             </div>
+<<<<<<< HEAD
+
+            <label className="flex cursor-pointer items-center gap-2 text-body-2">
+              <input
+                type="checkbox"
+                className="size-4 accent-action-primary"
+                {...register('marketingAccepted')}
+              />
+              [선택] 면접 정보와 이벤트 소식을 받겠습니다.
+            </label>
+          </fieldset>
+
+          <Button type="submit" className="mt-6 w-full" disabled={isSubmitDisabled}>
+            {isSubmitting ? '가입 중...' : '가입하기'}
+          </Button>
+
+          {errors.root ? (
+            <p className="mt-3 text-center text-caption text-status-error" role="alert">
+              {errors.root.message}
+            </p>
+          ) : null}
+
+          <div className="my-6 flex items-center gap-4 text-caption text-text-secondary" aria-hidden="true">
+            <span className="h-px flex-1 bg-border-default" />
+            또는 간편 회원가입
+            <span className="h-px flex-1 bg-border-default" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <SocialButton provider="google" onClick={() => console.log('Google 회원가입')}>
+              Google
+            </SocialButton>
+            <SocialButton provider="github" onClick={() => console.log('GitHub 회원가입')}>
+              GitHub
+            </SocialButton>
+          </div>
+
+          <p className="mt-6 text-center text-body-2 text-text-secondary">
+            이미 계정이 있으신가요?{' '}
+            <Link
+              to="/login"
+              className="font-bold text-action-primary decoration-status-achievement underline decoration-2 underline-offset-4"
+            >
+              로그인
+            </Link>
+          </p>
+=======
           )}
+>>>>>>> 8b96c7653deaa70aa3188cb9bc501278d88dffd4
         </form>
       </AuthCard>
     </AuthLayout>

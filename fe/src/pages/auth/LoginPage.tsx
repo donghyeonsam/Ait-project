@@ -3,6 +3,8 @@ import { Check, Mail } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
+import { login } from '@/api/auth'
+import { toErrorMessage } from '@/api/http'
 import loginIllustration from '@/assets/images/auth/login-illustration.svg'
 import { AuthCard } from '@/components/auth/AuthCard'
 import { AuthLayout } from '@/components/auth/AuthLayout'
@@ -74,23 +76,27 @@ export function LoginPage() {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: '',
+      email: 'hong@ssafy.com',
       password: '',
       rememberMe: false,
     },
   })
 
-  const onSubmit = (values: LoginFormValues) => {
-    console.log('로그인 폼 제출', values)
-    // await login(values)
-    signIn(values.rememberMe)
+  const onSubmit = async (values: LoginFormValues) => {
+    try {
+      const response = await login(values.email, values.password)
+      signIn(response.accessToken, response.user, values.rememberMe)
 
-    const routeState = location.state as { from?: string } | null
-    navigate(routeState?.from ?? '/dashboard', { replace: true })
+      const routeState = location.state as { from?: string } | null
+      navigate(routeState?.from ?? '/dashboard', { replace: true })
+    } catch (error) {
+      setError('root', { message: toErrorMessage(error) })
+    }
   }
 
   return (
@@ -152,11 +158,25 @@ export function LoginPage() {
             로그인 상태 유지
           </label>
 
+<<<<<<< HEAD
+          <Button type="submit" className="mt-6 w-full" disabled={isSubmitting}>
+            {isSubmitting ? '로그인 중...' : '로그인'}
+          </Button>
+
+          {errors.root ? (
+            <p className="mt-3 text-center text-caption text-status-error" role="alert">
+              {errors.root.message}
+            </p>
+          ) : null}
+
+          <div className="my-6 flex items-center gap-4 text-caption text-text-secondary" aria-hidden="true">
+=======
           <Button type="submit" className="mt-4 w-full" disabled={isSubmitting}>
             로그인
           </Button>
 
           <div className="my-4 flex items-center gap-4 text-caption text-text-secondary" aria-hidden="true">
+>>>>>>> 8b96c7653deaa70aa3188cb9bc501278d88dffd4
             <span className="h-px flex-1 bg-border-default" />
             또는
             <span className="h-px flex-1 bg-border-default" />

@@ -1,97 +1,186 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { getMyGithubRepositories, type GithubRepository } from '@/api/github'
+import { toErrorMessage } from '@/api/http'
+import { getMyPageData } from '@/api/my-page'
+import type { Resume } from '@/api/resume'
 import { ActivityTabs } from '@/components/mypage/ActivityTabs'
 import { CoverLetterModal } from '@/components/mypage/CoverLetterModal'
 import { ProfileCard } from '@/components/mypage/ProfileCard'
 import { ProfileInfo } from '@/components/mypage/ProfileInfo'
 import { ResumeModal } from '@/components/mypage/ResumeModal'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { initialProfile, type ProfileData } from '@/mocks/mypage'
+import { Button } from '@/components/ui/button'
+import { useAuth } from '@/lib/useAuth'
+import type { ProfileData } from '@/types/profile'
 
-function cloneProfile(profile: ProfileData): ProfileData {
+function unique(values: string[]) {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))]
+}
+
+function githubProfile(repositories: GithubRepository[]) {
+  const repository = repositories[0]
+  if (!repository) return ''
+
+  try {
+    const url = new URL(repository.url)
+    const owner = url.pathname.split('/').filter(Boolean)[0]
+    return owner ? `${url.hostname}/${owner}` : ''
+  } catch {
+    return ''
+  }
+}
+
+function createProfile(
+  resume: Resume,
+  repositories: GithubRepository[],
+  nickname: string,
+  email: string,
+): ProfileData {
+  const roles = unique([
+    ...resume.projects.map((project) => project.role),
+    ...resume.careers.map((career) => career.role),
+  ])
+  const skills = unique(
+    resume.projects.flatMap((project) => project.techStacks.split(',')),
+  )
+
   return {
-    ...profile,
-    roles: [...profile.roles],
-    repositories: profile.repositories.map((repository) => ({ ...repository })),
-    skills: [...profile.skills],
+    name: resume.userName,
+    nickname,
+    email,
+    github: githubProfile(repositories),
+    roles,
+    repositories: repositories.map((repository) => ({
+      id: repository.githubRepoId,
+      name: repository.nickname || repository.name,
+      url: repository.url,
+    })),
+    skills,
   }
 }
 
 export function MyPage() {
-  const [profile, setProfile] = useState(() => cloneProfile(initialProfile))
-  const [draft, setDraft] = useState(() => cloneProfile(initialProfile))
-  const [skillsInput, setSkillsInput] = useState(initialProfile.skills.join(', '))
-  const [isEditing, setIsEditing] = useState(false)
+  const { user } = useAuth()
+  const [resume, setResume] = useState<Resume | null>(null)
+  const [repositories, setRepositories] = useState<GithubRepository[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [repositoryError, setRepositoryError] = useState<string | null>(null)
+  const [isRepositoryLoading, setIsRepositoryLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [resumeOpen, setResumeOpen] = useState(false)
   const [coverLetterOpen, setCoverLetterOpen] = useState(false)
 
-  const startEditing = () => {
-    const nextDraft = cloneProfile(profile)
-    setDraft(nextDraft)
-    setSkillsInput(nextDraft.skills.join(', '))
-    setIsEditing(true)
+  useEffect(() => {
+    let active = true
+
+    getMyPageData()
+      .then((data) => {
+        if (!active) return
+        setResume(data.resume)
+        setRepositories(data.repositories)
+        setRepositoryError(data.repositoryError)
+      })
+      .catch((requestError: unknown) => {
+        if (active) setError(toErrorMessage(requestError))
+      })
+      .finally(() => {
+        if (active) setIsLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const retry = () => {
+    setIsLoading(true)
+    setError(null)
+    setRepositoryError(null)
+    getMyPageData()
+      .then((data) => {
+        setResume(data.resume)
+        setRepositories(data.repositories)
+        setRepositoryError(data.repositoryError)
+      })
+      .catch((requestError: unknown) => setError(toErrorMessage(requestError)))
+      .finally(() => setIsLoading(false))
   }
 
-  const cancelEditing = () => {
-    setDraft(cloneProfile(profile))
-    setSkillsInput(profile.skills.join(', '))
-    setIsEditing(false)
+  const retryRepositories = () => {
+    setIsRepositoryLoading(true)
+    setRepositoryError(null)
+    getMyGithubRepositories()
+      .then(setRepositories)
+      .catch((requestError: unknown) => {
+        setRepositoryError(toErrorMessage(requestError))
+      })
+      .finally(() => setIsRepositoryLoading(false))
   }
 
-  const saveProfile = () => {
-    const skills = skillsInput
-      .split(',')
-      .map((skill) => skill.trim())
-      .filter(Boolean)
-    const nextProfile = { ...cloneProfile(draft), skills }
-    setProfile(nextProfile)
-    setDraft(cloneProfile(nextProfile))
-    setSkillsInput(skills.join(', '))
-    setIsEditing(false)
-  }
-
-  const currentProfile = isEditing ? draft : profile
+  const profile = useMemo(() => {
+    if (!resume || !repositories || !user) return null
+    return createProfile(resume, repositories, user.nickname, user.email)
+  }, [repositories, resume, user])
 
   return (
     <PageLayout>
       <section className="pb-10 pt-10" aria-labelledby="mypage-title">
-        <h1 id="mypage-title" className="text-h1 text-action-primary">
-          마이페이지
-        </h1>
+        <h1 id="mypage-title" className="text-h1 text-action-primary">마이페이지</h1>
         <p className="mt-2 text-body-2 text-text-secondary">
-          프로필과 활동 내역을 한눈에 관리하세요.
+          프로필과 등록된 면접 자료를 한눈에 확인하세요.
         </p>
       </section>
 
-      <section
-        className="mypage-panel mypage-enter"
-        style={{ '--section-order': 0 } as React.CSSProperties}
-        aria-labelledby="profile-section-title"
-      >
-        <h2 id="profile-section-title" className="sr-only">내 정보</h2>
-        <div className="profile-layout grid gap-8">
-          <ProfileCard profile={currentProfile} isEditing={isEditing} onChange={setDraft} />
-          <ProfileInfo
-            profile={currentProfile}
-            isEditing={isEditing}
-            skillsInput={skillsInput}
-            onChange={setDraft}
-            onSkillsInputChange={setSkillsInput}
-            onEdit={startEditing}
-            onSave={saveProfile}
-            onCancel={cancelEditing}
-            onOpenResume={() => setResumeOpen(true)}
-            onOpenCoverLetter={() => setCoverLetterOpen(true)}
-          />
-        </div>
-      </section>
+      {isLoading ? (
+        <section className="mypage-panel py-16 text-center" role="status">
+          <p className="text-body-1 text-text-secondary">
+            {user?.nickname ?? '사용자'}님의 정보를 불러오는 중입니다.
+          </p>
+        </section>
+      ) : error ? (
+        <section className="mypage-panel py-16 text-center" role="alert">
+          <p className="text-body-1 text-status-error">{error}</p>
+          <Button type="button" variant="secondary" className="mt-4" onClick={retry}>
+            다시 시도
+          </Button>
+        </section>
+      ) : profile && resume ? (
+        <>
+          <section
+            className="mypage-panel mypage-enter"
+            style={{ '--section-order': 0 } as React.CSSProperties}
+            aria-labelledby="profile-section-title"
+          >
+            <h2 id="profile-section-title" className="sr-only">내 정보</h2>
+            <div className="profile-layout grid gap-8">
+              <ProfileCard profile={profile} />
+              <ProfileInfo
+                profile={profile}
+                repositoryError={repositoryError}
+                repositoryLoading={isRepositoryLoading}
+                onRetryRepositories={retryRepositories}
+                onOpenResume={() => setResumeOpen(true)}
+                onOpenCoverLetter={() => setCoverLetterOpen(true)}
+              />
+            </div>
+          </section>
 
-      <div className="py-10">
-        <ActivityTabs />
-      </div>
+          <div className="py-10">
+            <ActivityTabs />
+          </div>
 
-      <ResumeModal open={resumeOpen} onOpenChange={setResumeOpen} />
-      <CoverLetterModal open={coverLetterOpen} onOpenChange={setCoverLetterOpen} />
+          {resumeOpen ? (
+            <ResumeModal
+              open
+              onOpenChange={setResumeOpen}
+              resume={resume}
+              email={profile.email}
+              onUpdated={setResume}
+            />
+          ) : null}
+          <CoverLetterModal open={coverLetterOpen} onOpenChange={setCoverLetterOpen} />
+        </>
+      ) : null}
     </PageLayout>
   )
 }
-

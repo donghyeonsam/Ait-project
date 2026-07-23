@@ -20,6 +20,7 @@ interface DocumentModalShellProps {
   lastModified: string
   saved: boolean
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  topBar?: ReactNode
   children: ReactNode
 }
 
@@ -31,6 +32,7 @@ export function DocumentModalShell({
   lastModified,
   saved,
   onSubmit,
+  topBar,
   children,
 }: DocumentModalShellProps) {
   return (
@@ -46,6 +48,12 @@ export function DocumentModalShell({
             </div>
             <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
+
+          {topBar ? (
+            <div className="shrink-0 border-b border-border-default bg-surface-default px-8">
+              {topBar}
+            </div>
+          ) : null}
 
           <div className="document-dialog-body overflow-y-auto px-8 py-6">
             {children}

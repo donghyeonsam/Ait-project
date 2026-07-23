@@ -1,8 +1,10 @@
 import { createContext } from 'react'
+import type { AuthUser } from '@/api/auth-storage'
 
 export interface AuthContextValue {
   isAuthenticated: boolean
-  signIn: (persist: boolean) => void
+  user: AuthUser | null
+  signIn: (accessToken: string, user: AuthUser, persist: boolean) => void
   signOut: () => void
 }
 
