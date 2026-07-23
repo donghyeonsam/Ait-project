@@ -28,7 +28,8 @@ FE 연동 작업(2026-07-23, `FE/feature/api` 브랜치) 중 발견한, FE에서
   - `POST /api/v1/interviews/followup` — 답변 rubric 채점 + 꼬리질문 생성
   - `POST /api/v1/interviews/answers/supplement` — 답변 보완(ai_answer) 생성
 - 요청: 위 3개를 감싸는 BE API 스펙(URL, 요청/응답 DTO)을 정해서 FE에 공유. 면접 결과(질문·답변·점수) DB 저장 정책도 함께.
-- FE 상태: 면접 세션 화면(`src/pages/InterviewSessionPage.tsx`)은 목업(`src/mocks/interview-session`)으로 동작 중. 스펙 확정 시 바로 교체 가능.
+- FE 상태: 질문 생성(`POST /api/ai-interviews`)과 답변 제출(`POST /api/ai-interviews/{id}/answers`)은 연동 완료. 답변 제출 응답(꼬리질문) 스펙이 확정되면 꼬리질문 UI를 연결한다.
+- 추가 이슈: 질문 생성 응답의 `aiInterviewId`가 snake_case 역직렬화 문제로 null이 올 수 있다. null이면 FE는 답변 제출을 건너뛰므로 BE 수정이 필요하다.
 
 ### 🟡 P1. 분석 결과 → AI 임베딩 전달 경로 수정 (BE↔AI 간 이슈)
 
@@ -66,6 +67,6 @@ FE 연동 작업(2026-07-23, `FE/feature/api` 브랜치) 중 발견한, FE에서
 | 회원가입 | ✅ 연동 완료 (2026-07-23) | 이메일 인증만 임시 처리 |
 | 마이페이지 (이력서·자소서·깃허브) | ✅ 연동 완료 | BE userId 하드코딩 해결 필요 |
 | 면접 준비 정보 (`GET /api/ai-interviews`) | ✅ 연동 완료 | |
-| 면접 세션 (질문/채점) | ⏸ 목업 | BE 중계 API 대기 |
+| 면접 세션 (질문 생성·답변 제출) | 🔶 부분 연동 | 답변 응답(꼬리질문) 스펙 확정 대기 |
 | 대시보드 | ⏸ 빈 상태 | BE API 대기 |
 | 소셜 로그인 / 이메일 인증 | ⏸ UI만 | BE API 대기 |
