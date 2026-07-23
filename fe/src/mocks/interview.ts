@@ -42,26 +42,3 @@ export const csTopicOptions: CsTopic[] = [
 export const difficultyOptions: Difficulty[] = ['쉬움', '보통', '어려움']
 export const interviewStyleOptions: InterviewStyle[] = ['평화형', '밸런스형', '압박형']
 
-export interface ResumeOption {
-  id: string
-  title: string
-  updatedAt: string
-}
-
-export const resumeOptions: ResumeOption[] = [
-  { id: 'resume-hynix', title: '하이닉스 자소서입니다.', updatedAt: '2026. 07. 21' },
-  { id: 'resume-samsung', title: '삼성전자DX 자소서입니다.', updatedAt: '2026. 07. 18' },
-  { id: 'resume-kakao', title: '카카오 자소서입니다.', updatedAt: '2026. 07. 12' },
-]
-
-export interface RepositoryOption {
-  id: string
-  name: string
-}
-
-export const repositoryOptions: RepositoryOption[] = [
-  { id: 'repo-1', name: 'Project 1' },
-  { id: 'repo-2', name: 'Project 2' },
-  { id: 'repo-3', name: 'Project 3' },
-]
-

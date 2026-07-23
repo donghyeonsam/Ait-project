@@ -3,7 +3,7 @@ import BorderGlow from '@/components/BorderGlow'
 import { TagBadge } from '@/components/dashboard/TagBadge'
 import { Button } from '@/components/ui/button'
 import { useInView } from '@/lib/useInView'
-import type { InterviewRecord } from '@/mocks/dashboard'
+import type { InterviewRecord } from '@/types/dashboard'
 import { cn } from '@/lib/utils'
 
 interface InterviewRecordItemProps {

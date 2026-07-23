@@ -14,7 +14,7 @@ export interface SurveyState {
   interviewType: InterviewGoalType | null
   position: string
   careerLevel: string
-  resumeId: string | null
+  coverLetterId: string | null
   repositoryIds: string[]
   csTopics: CsTopic[]
   difficulty: Difficulty | null
@@ -31,7 +31,7 @@ const initialState: SurveyState = {
   interviewType: null,
   position: '',
   careerLevel: '',
-  resumeId: null,
+  coverLetterId: null,
   repositoryIds: [],
   csTopics: [],
   difficulty: null,
@@ -53,7 +53,7 @@ function needsCsTopics(type: InterviewGoalType | null) {
 }
 
 function isApplyInfoValid(state: SurveyState) {
-  return state.position.trim().length > 0 && state.careerLevel.trim().length > 0 && state.resumeId !== null
+  return state.position.trim().length > 0 && state.careerLevel.trim().length > 0 && state.coverLetterId !== null
 }
 
 function isCsTopicsValid(state: SurveyState) {
@@ -119,7 +119,7 @@ export function useInterviewSurvey() {
     setState((previous) => ({
       ...previous,
       interviewType: type,
-      ...(needsApplyInfo(type) ? {} : { position: '', careerLevel: '', resumeId: null, repositoryIds: [] }),
+      ...(needsApplyInfo(type) ? {} : { position: '', careerLevel: '', coverLetterId: null, repositoryIds: [] }),
       ...(needsCsTopics(type) ? {} : { csTopics: [] }),
     }))
   }, [])

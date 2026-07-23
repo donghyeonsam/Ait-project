@@ -8,11 +8,13 @@ interface PasswordInputProps extends Omit<ComponentProps<'input'>, 'type'> {
   error?: string
   helperText?: string
   labelAction?: ReactNode
+  /** 라벨을 렌더링하지 않는다. 외부에서 별도로 <label htmlFor={id}>를 제공할 때 사용한다. */
+  hideLabel?: boolean
 }
 
 export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
   function PasswordInput(
-    { id, label, error, helperText, labelAction, className, ...props },
+    { id, label, error, helperText, labelAction, hideLabel = false, className, ...props },
     ref,
   ) {
     const [isVisible, setIsVisible] = useState(false)
@@ -20,12 +22,14 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
 
     return (
       <div>
-        <div className="mb-2 flex items-center justify-between gap-4">
-          <label htmlFor={id} className="text-body-2 font-semibold text-text-primary">
-            {label}
-          </label>
-          {labelAction}
-        </div>
+        {hideLabel ? null : (
+          <div className="mb-2 flex items-center justify-between gap-4">
+            <label htmlFor={id} className="text-body-2 font-semibold text-text-primary">
+              {label}
+            </label>
+            {labelAction}
+          </div>
+        )}
         <div className="relative">
           <LockKeyhole
             className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-text-secondary"
