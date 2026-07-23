@@ -26,9 +26,8 @@ public enum ErrorCode {
     COVER_LETTER_NOT_FOUND(HttpStatus.NOT_FOUND, "COVER_LETTER_001", "자기소개서를 찾을 수 없습니다."),
     DUPLICATE_COVER_LETTER_CONTENT_ORDER(HttpStatus.BAD_REQUEST, "COVER_LETTER_002", "자기소개서 문항 순서는 중복될 수 없습니다."),
 
-
-    // 테스트용 임시
-//    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "TEST_001", "테스트용 USER_NOT_FOUND입니다");
+    // AI 모의 면접 관련 에러
+    FASTAPI_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "AI_INTERVIEW_001", "AI 질문 생성 중 서버 에러 발생"),
 
     //GITHUB 관련 에러
     GITHUB_APP_NOT_FOUND(HttpStatus.NOT_FOUND, "GITHUB_001", "깃허브 연동 정보가 존재하지 않습니다."),

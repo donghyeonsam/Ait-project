@@ -2,6 +2,7 @@
 -- 외래키 관계를 고려한 테이블 삭제
 -- 자식 테이블부터 부모 테이블 순서로 삭제
 -- =========================================================
+DROP TABLE IF EXISTS `ai_interviews`;
 DROP TABLE IF EXISTS `cover_letter_contents`;
 DROP TABLE IF EXISTS `cover_letter`;
 DROP TABLE IF EXISTS `resume_projects`;
@@ -11,6 +12,7 @@ DROP TABLE IF EXISTS `notifications`;
 DROP TABLE IF EXISTS `github_repos`;
 DROP TABLE IF EXISTS `github_apps`;
 DROP TABLE IF EXISTS `resumes`;
+DROP TABLE IF EXISTS `user_skills`;
 DROP TABLE IF EXISTS `users`;
 
 
@@ -39,6 +41,27 @@ CREATE TABLE `users` (
   COLLATE=utf8mb4_unicode_ci
   COMMENT='사용자 정보';
 
+CREATE TABLE `user_skills` (
+                               `id` BIGINT NOT NULL AUTO_INCREMENT,
+                               `user_id` BIGINT NOT NULL,
+                               `skill` VARCHAR(20) NOT NULL,
+
+                               PRIMARY KEY (`id`),
+
+    -- 동일 사용자가 중복된 스킬을 등록하는 것을 방지
+                               UNIQUE KEY `uk_user_skills_user_skill` (`user_id`, `skill`),
+
+                               KEY `idx_user_skills_user_id` (`user_id`),
+
+                               CONSTRAINT `fk_user_skills_user`
+                                   FOREIGN KEY (`user_id`)
+                                       REFERENCES `users` (`id`)
+                                       ON DELETE CASCADE
+                                       ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='사용자의 보유 스킬';
 
 -- =========================================================
 -- GitHub App 연동 정보
@@ -313,3 +336,27 @@ CREATE TABLE `cover_letter_contents` (
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci
   COMMENT='자기소개서 문항 및 답변';
+
+CREATE TABLE `ai_interviews` (
+                                 `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                 `user_id` BIGINT NOT NULL,
+                                 `interview_type` VARCHAR(30) NOT NULL,
+                                 `difficulty` VARCHAR(30) NOT NULL,
+                                 `ai_attitude_style` VARCHAR(30) NOT NULL,
+                                 `status` VARCHAR(30) NOT NULL,
+                                 `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                 `ended_at` DATETIME DEFAULT NULL,
+
+                                 PRIMARY KEY (`id`),
+
+                                 KEY `idx_ai_interviews_user_id` (`user_id`),
+
+                                 CONSTRAINT `fk_ai_interviews_user`
+                                     FOREIGN KEY (`user_id`)
+                                         REFERENCES `users` (`id`)
+                                         ON DELETE CASCADE
+                                         ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='AI 모의 면접 기본 정보';

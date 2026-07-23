@@ -42,7 +42,7 @@ public class AiInterviewController {
             @AuthenticationPrincipal Long userId,
             @RequestBody @Valid AiInterviewQuestionRequest aiInterviewQuestionRequest,
             HttpServletRequest request) {
-
+        // 사용자가 입력한 정보를 토대로 질문 생성
         AiInterviewQuestionResponse response = aiInterviewService.insertAndGenerate(userId, aiInterviewQuestionRequest);
 
         return ResponseEntity.status(HttpStatus.OK).body(
