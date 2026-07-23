@@ -8,11 +8,13 @@ interface PasswordInputProps extends Omit<ComponentProps<'input'>, 'type'> {
   error?: string
   helperText?: string
   labelAction?: ReactNode
+  // 페이지가 외부에 자체 label을 배치할 때 내부 label 중복 렌더링을 막는다.
+  hideLabel?: boolean
 }
 
 export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
   function PasswordInput(
-    { id, label, error, helperText, labelAction, className, ...props },
+    { id, label, error, helperText, labelAction, hideLabel = false, className, ...props },
     ref,
   ) {
     const [isVisible, setIsVisible] = useState(false)
@@ -20,12 +22,14 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
 
     return (
       <div>
-        <div className="mb-2 flex items-center justify-between gap-4">
-          <label htmlFor={id} className="text-body-2 font-semibold text-text-primary">
-            {label}
-          </label>
-          {labelAction}
-        </div>
+        {hideLabel ? null : (
+          <div className="mb-2 flex items-center justify-between gap-4">
+            <label htmlFor={id} className="text-body-2 font-semibold text-text-primary">
+              {label}
+            </label>
+            {labelAction}
+          </div>
+        )}
         <div className="relative">
           <LockKeyhole
             className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-text-secondary"

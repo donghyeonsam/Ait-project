@@ -1,4 +1,4 @@
-import { FilePenLine, FileText } from 'lucide-react'
+import { FilePenLine } from 'lucide-react'
 import { RepoAccordion } from '@/components/mypage/RepoAccordion'
 import { SkillTags } from '@/components/mypage/SkillTags'
 import { Button } from '@/components/ui/button'
@@ -9,8 +9,7 @@ interface ProfileInfoProps {
   repositoryError?: string | null
   repositoryLoading?: boolean
   onRetryRepositories?: () => void
-  onOpenResume: () => void
-  onOpenCoverLetter: () => void
+  onOpenDocuments: () => void
 }
 
 const profileFields = [
@@ -24,8 +23,7 @@ export function ProfileInfo({
   repositoryError,
   repositoryLoading,
   onRetryRepositories,
-  onOpenResume,
-  onOpenCoverLetter,
+  onOpenDocuments,
 }: ProfileInfoProps) {
   return (
     <div className="min-w-0 flex-1">
@@ -51,13 +49,9 @@ export function ProfileInfo({
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-border-default pt-4">
-        <Button type="button" variant="secondary" onClick={onOpenResume}>
-          <FileText aria-hidden="true" />
-          이력서
-        </Button>
-        <Button type="button" variant="secondary" onClick={onOpenCoverLetter}>
+        <Button type="button" variant="secondary" onClick={onOpenDocuments}>
           <FilePenLine aria-hidden="true" />
-          자소서
+          서류함
         </Button>
         <p className="ml-auto text-caption text-text-secondary">
           기본 정보는 서버에 저장된 값을 표시합니다.

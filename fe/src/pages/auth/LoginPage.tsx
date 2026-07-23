@@ -158,7 +158,6 @@ export function LoginPage() {
             로그인 상태 유지
           </label>
 
-<<<<<<< HEAD
           <Button type="submit" className="mt-6 w-full" disabled={isSubmitting}>
             {isSubmitting ? '로그인 중...' : '로그인'}
           </Button>
@@ -170,13 +169,6 @@ export function LoginPage() {
           ) : null}
 
           <div className="my-6 flex items-center gap-4 text-caption text-text-secondary" aria-hidden="true">
-=======
-          <Button type="submit" className="mt-4 w-full" disabled={isSubmitting}>
-            로그인
-          </Button>
-
-          <div className="my-4 flex items-center gap-4 text-caption text-text-secondary" aria-hidden="true">
->>>>>>> 8b96c7653deaa70aa3188cb9bc501278d88dffd4
             <span className="h-px flex-1 bg-border-default" />
             또는
             <span className="h-px flex-1 bg-border-default" />

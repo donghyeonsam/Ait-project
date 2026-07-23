@@ -1,13 +1,9 @@
 import { Bell, LogOut, Menu } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-<<<<<<< HEAD
 import { logout } from '@/api/auth'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-=======
 import { GitHubIcon } from '@/components/icons/GitHubIcon'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
->>>>>>> 8b96c7653deaa70aa3188cb9bc501278d88dffd4
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/useAuth'

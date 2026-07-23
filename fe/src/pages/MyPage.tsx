@@ -4,10 +4,9 @@ import { toErrorMessage } from '@/api/http'
 import { getMyPageData } from '@/api/my-page'
 import type { Resume } from '@/api/resume'
 import { ActivityTabs } from '@/components/mypage/ActivityTabs'
-import { CoverLetterModal } from '@/components/mypage/CoverLetterModal'
+import { DocumentBoxDialog } from '@/components/mypage/DocumentBoxDialog'
 import { ProfileCard } from '@/components/mypage/ProfileCard'
 import { ProfileInfo } from '@/components/mypage/ProfileInfo'
-import { ResumeModal } from '@/components/mypage/ResumeModal'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/useAuth'
@@ -67,8 +66,7 @@ export function MyPage() {
   const [repositoryError, setRepositoryError] = useState<string | null>(null)
   const [isRepositoryLoading, setIsRepositoryLoading] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [resumeOpen, setResumeOpen] = useState(false)
-  const [coverLetterOpen, setCoverLetterOpen] = useState(false)
+  const [documentBoxOpen, setDocumentBoxOpen] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -159,8 +157,7 @@ export function MyPage() {
                 repositoryError={repositoryError}
                 repositoryLoading={isRepositoryLoading}
                 onRetryRepositories={retryRepositories}
-                onOpenResume={() => setResumeOpen(true)}
-                onOpenCoverLetter={() => setCoverLetterOpen(true)}
+                onOpenDocuments={() => setDocumentBoxOpen(true)}
               />
             </div>
           </section>
@@ -169,16 +166,13 @@ export function MyPage() {
             <ActivityTabs />
           </div>
 
-          {resumeOpen ? (
-            <ResumeModal
+          {documentBoxOpen ? (
+            <DocumentBoxDialog
               open
-              onOpenChange={setResumeOpen}
+              onOpenChange={setDocumentBoxOpen}
               resume={resume}
-              email={profile.email}
-              onUpdated={setResume}
             />
           ) : null}
-          <CoverLetterModal open={coverLetterOpen} onOpenChange={setCoverLetterOpen} />
         </>
       ) : null}
     </PageLayout>
