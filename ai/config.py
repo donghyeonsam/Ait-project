@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     # ── GMS LLM ──
     gms_key: str = ""
     gms_base_url: str = "https://gms.ssafy.io/gmsapi/api.openai.com/v1"
-    gms_model: str = "gpt-5.4-nano"
+    gms_model: str = "gpt-5.4-mini"
     gms_timeout: float = 60.0
 
     # ── Chroma DB ──
