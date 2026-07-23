@@ -401,14 +401,13 @@ function ActiveInterviewSession({
         <VoiceAnswerPanel
           status={voiceAnswer.status}
           transcript={voiceAnswer.transcript}
-          interimTranscript={voiceAnswer.interimTranscript}
           audioBlob={voiceAnswer.audioBlob}
           error={voiceAnswer.error}
           speechError={questionSpeech.error}
-          recognitionSupported={voiceAnswer.recognitionSupported}
           mediaPermission={permission}
           onChangeTranscript={voiceAnswer.setTranscript}
           onReplayQuestion={questionSpeech.replay}
+          onRetryTranscription={voiceAnswer.retryTranscription}
           onRetryMediaAccess={() => {
             void requestAccess(
               devices.cameraDeviceId ?? undefined,

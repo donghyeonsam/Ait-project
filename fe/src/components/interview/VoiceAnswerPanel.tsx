@@ -7,15 +7,14 @@ import { Textarea } from '@/components/ui/textarea'
 interface VoiceAnswerPanelProps {
   status: VoiceAnswerStatus
   transcript: string
-  interimTranscript: string
   audioBlob: Blob | null
   error: string | null
   speechError: string | null
-  recognitionSupported: boolean
   mediaPermission: MediaPermissionState
   onChangeTranscript: (value: string) => void
   onReplayQuestion: () => void
   onRetryMediaAccess: () => void
+  onRetryTranscription: () => void
   replayDisabled: boolean
 }
 
@@ -27,20 +26,20 @@ function formatFileSize(size: number) {
 export function VoiceAnswerPanel({
   status,
   transcript,
-  interimTranscript,
   audioBlob,
   error,
   speechError,
-  recognitionSupported,
   mediaPermission,
   onChangeTranscript,
   onReplayQuestion,
   onRetryMediaAccess,
+  onRetryTranscription,
   replayDisabled,
 }: VoiceAnswerPanelProps) {
   const isRecording = status === 'recording'
   const isProcessing = status === 'processing'
   const canEdit = status === 'review'
+  const canRetryTranscription = status === 'review' && Boolean(error && audioBlob)
   const mediaPermissionError =
     mediaPermission === 'denied'
       ? '카메라와 마이크 권한이 차단되었습니다. 브라우저 권한을 허용한 뒤 다시 시도해주세요.'
@@ -98,12 +97,11 @@ export function VoiceAnswerPanel({
       <div className="mt-5 rounded-ait-s border border-status-info-border bg-status-info-surface p-4">
         <p className="flex items-center gap-2 text-body-2 font-medium text-status-info">
           <ShieldCheck className="size-5" aria-hidden="true" />
-          현재 녹음 파일과 답변 텍스트는 서버에 저장되지 않습니다.
+          녹음 파일은 음성 인식 처리에만 사용되고 별도로 저장되지 않습니다.
         </p>
         <p className="mt-1 text-caption text-text-secondary">
-          이 면접 화면의 메모리에만 보관되며 화면을 나가면 폐기됩니다.
-          브라우저 음성 인식 사용 시 해당 브라우저 제공업체의 처리 정책이 적용될 수 있습니다.
-          현재 질문과 답변 제출 흐름은 화면 테스트용입니다.
+          녹음이 끝나면 음성 인식 처리를 위해 녹음 파일이 서버로 전송되며,
+          답변 텍스트는 이 면접 화면의 메모리에만 보관되고 화면을 나가면 폐기됩니다.
         </p>
       </div>
 
@@ -116,13 +114,7 @@ export function VoiceAnswerPanel({
 
       {isProcessing ? (
         <p className="mt-5 text-body-2 text-text-secondary" role="status">
-          녹음 파일과 음성 인식 결과를 정리하고 있습니다.
-        </p>
-      ) : null}
-
-      {interimTranscript ? (
-        <p className="mt-5 text-body-2 text-text-secondary" aria-live="polite">
-          인식 중: {interimTranscript}
+          답변을 텍스트로 변환하고 있어요…
         </p>
       ) : null}
 
@@ -136,11 +128,7 @@ export function VoiceAnswerPanel({
             value={transcript}
             onChange={(event) => onChangeTranscript(event.target.value)}
             className="mt-2 min-h-36"
-            placeholder={
-              recognitionSupported
-                ? '인식된 답변을 확인하고 필요한 부분을 수정해주세요.'
-                : '자동 음성 인식을 지원하지 않아 답변을 직접 입력해주세요.'
-            }
+            placeholder="인식된 답변을 확인하고 필요한 부분을 수정해주세요."
           />
           {audioBlob ? (
             <p className="mt-2 text-caption text-text-secondary">
@@ -158,6 +146,16 @@ export function VoiceAnswerPanel({
               {message}
             </p>
           ))}
+          {canRetryTranscription ? (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onRetryTranscription}
+            >
+              <RotateCcw aria-hidden="true" />
+              변환 다시 시도
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </section>
