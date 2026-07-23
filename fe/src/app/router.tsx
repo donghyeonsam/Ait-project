@@ -25,6 +25,7 @@ export function AppRouter() {
       <Route path="/dashboard/interviews" element={<ProtectedRoute><DashboardInterviewsPage /></ProtectedRoute>} />
       <Route path="/dashboard/study" element={<ProtectedRoute><DashboardStudyPage /></ProtectedRoute>} />
       <Route path="/interviews" element={<ProtectedRoute><InterviewsPage /></ProtectedRoute>} />
+      <Route path="/interviews/session" element={<ProtectedRoute><InterviewSessionPage /></ProtectedRoute>} />
       <Route path="/study" element={<ProtectedRoute><StudyPage /></ProtectedRoute>} />
       <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
       <Route path="/community/posts/:postId" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
