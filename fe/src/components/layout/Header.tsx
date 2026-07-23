@@ -1,6 +1,8 @@
 import { Bell, LogOut, Menu } from 'lucide-react'
+import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { logout } from '@/api/auth'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/useAuth'
@@ -22,11 +24,21 @@ const navigationLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 export function Header() {
   const navigate = useNavigate()
-  const { isAuthenticated, signOut } = useAuth()
+  const { isAuthenticated, user, signOut } = useAuth()
+  const [isSigningOut, setIsSigningOut] = useState(false)
 
-  const handleSignOut = () => {
-    signOut()
-    navigate('/', { replace: true })
+  const handleSignOut = async () => {
+    if (isSigningOut) return
+
+    setIsSigningOut(true)
+    try {
+      await logout()
+    } catch {
+      // 서버 요청 실패 여부와 관계없이 브라우저의 인증 정보는 정리한다.
+    } finally {
+      signOut()
+      navigate('/', { replace: true })
+    }
   }
 
   return (
@@ -78,13 +90,20 @@ export function Header() {
               </Button>
               <Link to="/mypage" className="rounded-ait-pill" aria-label="마이페이지로 이동">
                 <Avatar className="size-10">
-                  <AvatarImage src="/mypage/profile-kimssafy.png" alt="" className="object-cover" />
                   <AvatarFallback className="border-0 bg-profile-avatar">
-                    김
+                    {user?.nickname.slice(0, 1) ?? '홍'}
                   </AvatarFallback>
                 </Avatar>
               </Link>
-              <Button type="button" variant="text" size="icon" onClick={handleSignOut} aria-label="로그아웃">
+              <Button
+                type="button"
+                variant="text"
+                size="icon"
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+                aria-busy={isSigningOut}
+                aria-label={isSigningOut ? '로그아웃 중' : '로그아웃'}
+              >
                 <LogOut aria-hidden="true" />
               </Button>
             </>

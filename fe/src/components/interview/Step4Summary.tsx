@@ -1,8 +1,9 @@
+import type { InterviewPreparation } from '@/api/ai-interviews'
 import type { SurveyState } from '@/components/interview/useInterviewSurvey'
-import { repositoryOptions, resumeOptions } from '@/mocks/interview'
 
 interface Step4SummaryProps {
   state: SurveyState
+  preparation: InterviewPreparation | null
 }
 
 interface SummaryRow {
@@ -10,11 +11,12 @@ interface SummaryRow {
   value: string
 }
 
-export function Step4Summary({ state }: Step4SummaryProps) {
-  const resumeTitle = resumeOptions.find((resume) => resume.id === state.resumeId)?.title ?? '-'
-  const repositoryNames = repositoryOptions
-    .filter((repository) => state.repositoryIds.includes(repository.id))
-    .map((repository) => repository.name)
+export function Step4Summary({ state, preparation }: Step4SummaryProps) {
+  const coverLetterTitle = preparation?.coverLetters
+    .find((coverLetter) => String(coverLetter.id) === state.coverLetterId)?.title ?? '-'
+  const repositoryNames = (preparation?.githubRepositories ?? [])
+    .filter((repository) => state.repositoryIds.includes(String(repository.id)))
+    .map((repository) => repository.repoNickname)
     .join(', ')
 
   const showApplyInfo = state.interviewType !== null && state.interviewType !== 'CS 면접'
@@ -23,7 +25,7 @@ export function Step4Summary({ state }: Step4SummaryProps) {
   const rows: SummaryRow[] = [
     { label: '면접 유형', value: state.interviewType ?? '-' },
     { label: '지원 직무', value: showApplyInfo ? state.position || '-' : '-' },
-    { label: '자소서', value: showApplyInfo ? resumeTitle : '-' },
+    { label: '자소서', value: showApplyInfo ? coverLetterTitle : '-' },
     {
       label: '난이도 · 스타일',
       value: state.difficulty && state.style ? `${state.difficulty} · ${state.style}` : '-',

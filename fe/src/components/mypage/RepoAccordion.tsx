@@ -1,18 +1,20 @@
 import { ChevronDown, ExternalLink, GitFork } from 'lucide-react'
 import { useState } from 'react'
-import { Input } from '@/components/ui/input'
-import type { Repository } from '@/mocks/mypage'
+import { Button } from '@/components/ui/button'
+import type { ProfileRepository } from '@/types/profile'
 
 interface RepoAccordionProps {
-  repositories: Repository[]
-  isEditing: boolean
-  onNameChange: (id: number, name: string) => void
+  repositories: ProfileRepository[]
+  error?: string | null
+  loading?: boolean
+  onRetry?: () => void
 }
 
 export function RepoAccordion({
   repositories,
-  isEditing,
-  onNameChange,
+  error,
+  loading = false,
+  onRetry,
 }: RepoAccordionProps) {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -28,9 +30,7 @@ export function RepoAccordion({
         <span className="flex items-center gap-2">
           <GitFork className="size-4" aria-hidden="true" />
           등록 레포지토리
-          <span className="text-caption font-normal text-text-secondary">
-            {repositories.length}
-          </span>
+          <span className="text-caption font-normal text-text-secondary">{repositories.length}</span>
         </span>
         <ChevronDown
           aria-hidden="true"
@@ -38,35 +38,33 @@ export function RepoAccordion({
         />
       </button>
 
-      <div
-        id="registered-repositories"
-        className={`repo-accordion-content ${isOpen ? 'is-open' : ''}`}
-      >
+      <div id="registered-repositories" className={`repo-accordion-content ${isOpen ? 'is-open' : ''}`}>
         <div className="overflow-hidden">
-          <ul className="space-y-2 pt-3">
-            {repositories.map((repository, index) => (
-              <li
-                key={repository.id}
-                className="repo-list-item rounded-ait-s bg-status-neutral-surface p-3"
-                style={{ '--repo-order': index } as React.CSSProperties}
-              >
-                {isEditing ? (
-                  <label className="block text-caption font-medium text-text-secondary">
-                    표시 이름
-                    <Input
-                      value={repository.name}
-                      onChange={(event) =>
-                        onNameChange(repository.id, event.target.value)
-                      }
-                      className="mt-1"
-                    />
-                    <span className="mt-1 block truncate font-normal">
-                      {repository.url}
-                    </span>
-                  </label>
-                ) : (
+          {loading ? (
+            <p className="pt-3 text-caption text-text-secondary" role="status">
+              GitHub 저장소를 다시 불러오는 중입니다.
+            </p>
+          ) : error ? (
+            <div className="pt-3" role="alert">
+              <p className="text-caption text-status-error">
+                GitHub 저장소를 불러오지 못했습니다. 다른 프로필 정보는 계속 이용할 수 있습니다.
+              </p>
+              {onRetry ? (
+                <Button type="button" variant="secondary" className="mt-3" onClick={onRetry}>
+                  GitHub 저장소 다시 불러오기
+                </Button>
+              ) : null}
+            </div>
+          ) : repositories.length ? (
+            <ul className="space-y-2 pt-3">
+              {repositories.map((repository, index) => (
+                <li
+                  key={repository.id}
+                  className="repo-list-item rounded-ait-s bg-status-neutral-surface p-3"
+                  style={{ '--repo-order': index } as React.CSSProperties}
+                >
                   <a
-                    href={`https://${repository.url}`}
+                    href={repository.url}
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-center justify-between gap-3 text-body-2 font-medium text-action-primary"
@@ -74,13 +72,14 @@ export function RepoAccordion({
                     <span className="truncate">{repository.name}</span>
                     <ExternalLink className="size-4 shrink-0" aria-hidden="true" />
                   </a>
-                )}
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="pt-3 text-caption text-text-secondary">등록된 레포지토리가 없습니다.</p>
+          )}
         </div>
       </div>
     </div>
   )
 }
-

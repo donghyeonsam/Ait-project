@@ -1,7 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, useWatch } from 'react-hook-form'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
+import { signup } from '@/api/auth'
+import { toErrorMessage } from '@/api/http'
 import signupIllustration from '@/assets/images/auth/signup-illustration.svg'
 import { AuthCard } from '@/components/auth/AuthCard'
 import { AuthLayout } from '@/components/auth/AuthLayout'
@@ -71,11 +73,13 @@ function SignupAside() {
 }
 
 export function SignupPage() {
+  const navigate = useNavigate()
   const {
     control,
     register,
     handleSubmit,
     setValue,
+    setError,
     trigger,
     formState: { errors, isSubmitting },
   } = useForm<SignupFormValues>({
@@ -99,16 +103,24 @@ export function SignupPage() {
   })
   const emailRegistration = register('email')
 
+  // TODO: 실제 API 연동 필요 - BE에 이메일 인증 엔드포인트가 없어 형식 검사만 통과하면 인증된 것으로 처리한다.
   const verifyEmail = async () => {
     const isEmailValid = await trigger('email')
     setValue('emailVerified', isEmailValid, { shouldValidate: true })
-    if (isEmailValid) console.log('이메일 인증 요청')
-    // await verifyEmail()
   }
 
-  const onSubmit = (values: SignupFormValues) => {
-    console.log('회원가입 폼 제출', values)
-    // await signup(values)
+  const onSubmit = async (values: SignupFormValues) => {
+    try {
+      await signup({
+        email: values.email,
+        password: values.password,
+        name: values.name,
+        nickname: values.nickname,
+      })
+      navigate('/login', { replace: true })
+    } catch (error) {
+      setError('root', { message: toErrorMessage(error) })
+    }
   }
 
   const isSubmitDisabled =
@@ -266,8 +278,14 @@ export function SignupPage() {
           </fieldset>
 
           <Button type="submit" className="mt-6 w-full" disabled={isSubmitDisabled}>
-            가입하기
+            {isSubmitting ? '가입 중...' : '가입하기'}
           </Button>
+
+          {errors.root ? (
+            <p className="mt-3 text-center text-caption text-status-error" role="alert">
+              {errors.root.message}
+            </p>
+          ) : null}
 
           <div className="my-6 flex items-center gap-4 text-caption text-text-secondary" aria-hidden="true">
             <span className="h-px flex-1 bg-border-default" />

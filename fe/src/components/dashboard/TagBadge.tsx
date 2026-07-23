@@ -1,4 +1,4 @@
-import type { InterviewType, JobType } from '@/mocks/dashboard'
+import type { InterviewType, JobType } from '@/types/dashboard'
 import { cn } from '@/lib/utils'
 
 type Difficulty = '쉬움' | '보통' | '어려움'

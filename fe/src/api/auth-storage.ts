@@ -60,3 +60,11 @@ export function clearStoredAuth() {
 export function getStoredAccessToken() {
   return readStoredAuth()?.accessToken ?? null
 }
+
+export function updateStoredAccessToken(accessToken: string) {
+  const storedAuth = readStoredAuth()
+  if (!storedAuth) return false
+
+  writeStoredAuth(accessToken, storedAuth.user, storedAuth.persist)
+  return true
+}

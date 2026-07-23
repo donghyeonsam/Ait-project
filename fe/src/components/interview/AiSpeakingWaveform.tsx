@@ -1,20 +1,6 @@
-import { useEffect, useState } from 'react'
-
 const BAR_COUNT = 20
-const SPEAKING_DURATION_MS = 2600
 
 export function AiSpeakingWaveform() {
-  const [visible, setVisible] = useState(true)
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setVisible(false), SPEAKING_DURATION_MS)
-    return () => window.clearTimeout(timer)
-  }, [])
-
-  if (!visible) {
-    return null
-  }
-
   return (
     <div
       className="flex items-center gap-2 rounded-ait-pill border border-border-default bg-surface-default px-4 py-2 shadow-elevation-1"

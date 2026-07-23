@@ -3,7 +3,7 @@ import { ChevronDown, Play, ThumbsUp, TrendingUp } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useAnimatedNumber } from '@/components/dashboard/useAnimatedNumber'
-import type { InterviewRecord } from '@/mocks/dashboard'
+import type { InterviewRecord } from '@/types/dashboard'
 import { cn } from '@/lib/utils'
 
 interface ReportModalProps {

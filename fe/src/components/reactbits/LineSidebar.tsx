@@ -30,6 +30,7 @@ export interface LineSidebarProps {
   onItemClick?: (index: number, label: string) => void
   ariaLabel?: string
   className?: string
+  disabled?: boolean
 }
 
 const falloffCurves: Record<Falloff, (progress: number) => number> = {
@@ -74,6 +75,7 @@ export function LineSidebar({
   onItemClick,
   ariaLabel = '목록',
   className = '',
+  disabled = false,
 }: LineSidebarProps) {
   const listRef = useRef<HTMLUListElement>(null)
   const itemRefs = useRef<Array<HTMLLIElement | null>>([])
@@ -232,6 +234,7 @@ export function LineSidebar({
               type="button"
               className="line-sidebar-button"
               aria-current={activeIndex === index ? 'page' : undefined}
+              disabled={disabled}
               onClick={() => handleItemClick(index, label)}
             >
               {showIndex ? (

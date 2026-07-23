@@ -1,4 +1,7 @@
-import { getStoredAccessToken } from '@/api/auth-storage'
+import {
+  getStoredAccessToken,
+  updateStoredAccessToken,
+} from '@/api/auth-storage'
 import type { ApiRequestOptions, ApiResponse } from '@/api/types'
 
 const backendBaseUrl = (import.meta.env.VITE_BE_API_URL ?? '/backend').replace(
@@ -8,6 +11,12 @@ const backendBaseUrl = (import.meta.env.VITE_BE_API_URL ?? '/backend').replace(
 const aiBaseUrl = (import.meta.env.VITE_AI_API_URL ?? '/ai').replace(/\/$/, '')
 
 export const unauthorizedEvent = 'ait:unauthorized'
+
+interface ReissueResponse {
+  accessToken: string
+}
+
+let reissuePromise: Promise<boolean> | null = null
 
 export class ApiError extends Error {
   readonly status: number
@@ -44,10 +53,39 @@ async function parseBody(response: Response) {
   return text || null
 }
 
+async function performReissue() {
+  try {
+    const response = await fetch(`${backendBaseUrl}/api/auth/reissue`, {
+      method: 'POST',
+      credentials: 'include',
+    })
+    const payload = await parseBody(response)
+    if (!response.ok || !payload || typeof payload !== 'object') return false
+
+    const accessToken = (payload as ApiResponse<ReissueResponse>).data?.accessToken
+    return typeof accessToken === 'string' && Boolean(accessToken)
+      ? updateStoredAccessToken(accessToken)
+      : false
+  } catch {
+    return false
+  }
+}
+
+function reissueAccessToken() {
+  if (!reissuePromise) {
+    reissuePromise = performReissue().finally(() => {
+      reissuePromise = null
+    })
+  }
+  return reissuePromise
+}
+
 async function request<T>(
   baseUrl: string,
   path: string,
   options: ApiRequestOptions = {},
+  retryUnauthorized = false,
+  hasRetried = false,
 ): Promise<T> {
   const { authenticated = true, headers: suppliedHeaders, ...init } = options
   const headers = new Headers(suppliedHeaders)
@@ -68,6 +106,16 @@ async function request<T>(
   const payload = await parseBody(response)
 
   if (!response.ok) {
+    if (
+      response.status === 401 &&
+      authenticated &&
+      retryUnauthorized &&
+      !hasRetried &&
+      (await reissueAccessToken())
+    ) {
+      return request<T>(baseUrl, path, options, retryUnauthorized, true)
+    }
+
     if (response.status === 401 && authenticated) {
       window.dispatchEvent(new Event(unauthorizedEvent))
     }
@@ -85,7 +133,15 @@ export async function backendRequest<T>(
   path: string,
   options?: ApiRequestOptions,
 ) {
-  const response = await request<ApiResponse<T>>(backendBaseUrl, path, options)
+  const response = await request<ApiResponse<T>>(
+    backendBaseUrl,
+    path,
+    {
+      ...options,
+      credentials: options?.credentials ?? 'include',
+    },
+    true,
+  )
   return response.data
 }
 

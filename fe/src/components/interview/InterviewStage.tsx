@@ -1,17 +1,22 @@
 import { useRef, useState } from 'react'
-import { BarChart3, CheckCircle2, UserRound } from 'lucide-react'
+import { LoaderCircle, Mic, Send, Square, UserRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AiSpeakingWaveform } from '@/components/interview/AiSpeakingWaveform'
 import { DeviceControlBar } from '@/components/interview/DeviceControlBar'
 import { FloatingSelfView } from '@/components/interview/FloatingSelfView'
+import type { VoiceAnswerStatus } from '@/components/interview/useVoiceAnswer'
 
 const AI_INTERVIEWER_IMAGE_SRC = '/interview/ai-interviewer.png'
 
 interface InterviewStageProps {
   stream: MediaStream | null
   questionIndex: number
-  isLastQuestion: boolean
+  question: string
+  answerStatus: VoiceAnswerStatus
+  primaryActionLabel: string
+  primaryActionDisabled: boolean
   onPrimaryAction: () => void
+  isAiSpeaking: boolean
   micMuted: boolean
   micGain: number
   onToggleMicMuted: () => void
@@ -25,8 +30,12 @@ interface InterviewStageProps {
 export function InterviewStage({
   stream,
   questionIndex,
-  isLastQuestion,
+  question,
+  answerStatus,
+  primaryActionLabel,
+  primaryActionDisabled,
   onPrimaryAction,
+  isAiSpeaking,
   micMuted,
   micGain,
   onToggleMicMuted,
@@ -38,6 +47,13 @@ export function InterviewStage({
 }: InterviewStageProps) {
   const frameRef = useRef<HTMLDivElement>(null)
   const [imageFailed, setImageFailed] = useState(false)
+  const actionIcon = answerStatus === 'recording'
+    ? <Square className="size-5 text-status-error" aria-hidden="true" />
+    : answerStatus === 'processing'
+      ? <LoaderCircle className="size-5 animate-spin text-action-primary" aria-hidden="true" />
+      : answerStatus === 'review'
+        ? <Send className="size-5 text-action-primary" aria-hidden="true" />
+        : <Mic className="size-5 text-action-primary" aria-hidden="true" />
 
   return (
     <div>
@@ -62,7 +78,14 @@ export function InterviewStage({
         <FloatingSelfView stream={stream} boundsRef={frameRef} />
       </div>
 
-      <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+      <div className="mt-4 rounded-ait-m border border-border-default bg-surface-default p-5 shadow-elevation-1">
+        <p className="text-caption font-semibold text-text-secondary">
+          질문 {questionIndex + 1}
+        </p>
+        <p className="mt-2 text-body-1 font-medium text-text-primary">{question}</p>
+      </div>
+
+      <div className="mt-4 grid items-center gap-4 sm:grid-cols-[1fr_auto_1fr]">
         <DeviceControlBar
           micStream={stream}
           micMuted={micMuted}
@@ -81,19 +104,17 @@ export function InterviewStage({
             variant="secondary"
             className="gap-2 rounded-ait-pill border-none bg-surface-default px-6 py-3 text-text-primary shadow-elevation-2 hover:shadow-elevation-2"
             onClick={onPrimaryAction}
+            disabled={primaryActionDisabled}
+            aria-busy={answerStatus === 'processing'}
           >
-            {isLastQuestion ? (
-              <BarChart3 className="size-5 text-action-primary" aria-hidden="true" />
-            ) : (
-              <CheckCircle2 className="size-5 text-status-success" aria-hidden="true" />
-            )}
-            {isLastQuestion ? '결과 보기' : '답변 완료'}
+            {actionIcon}
+            {primaryActionLabel}
           </Button>
           <p className="text-caption text-text-secondary">Space 키로도 실행할 수 있어요</p>
         </div>
 
         <div className="flex justify-end">
-          <AiSpeakingWaveform key={questionIndex} />
+          {isAiSpeaking ? <AiSpeakingWaveform /> : null}
         </div>
       </div>
     </div>

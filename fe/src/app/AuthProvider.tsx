@@ -1,40 +1,40 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import {
+  clearStoredAuth,
+  readStoredAuth,
+  writeStoredAuth,
+  type AuthUser,
+} from '@/api/auth-storage'
+import { unauthorizedEvent } from '@/api/http'
 import { AuthContext } from '@/app/auth-context'
-
-const authStorageKey = 'ait.authenticated'
-
-function readAuthentication() {
-  return (
-    window.localStorage.getItem(authStorageKey) === 'true' ||
-    window.sessionStorage.getItem(authStorageKey) === 'true'
-  )
-}
 
 interface AuthProviderProps {
   children: ReactNode
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [isAuthenticated, setIsAuthenticated] = useState(readAuthentication)
+  const [user, setUser] = useState<AuthUser | null>(
+    () => readStoredAuth()?.user ?? null,
+  )
 
-  const signIn = useCallback((persist: boolean) => {
-    window.localStorage.removeItem(authStorageKey)
-    window.sessionStorage.removeItem(authStorageKey)
-
-    const storage = persist ? window.localStorage : window.sessionStorage
-    storage.setItem(authStorageKey, 'true')
-    setIsAuthenticated(true)
+  const signIn = useCallback((accessToken: string, nextUser: AuthUser, persist: boolean) => {
+    writeStoredAuth(accessToken, nextUser, persist)
+    setUser(nextUser)
   }, [])
 
   const signOut = useCallback(() => {
-    window.localStorage.removeItem(authStorageKey)
-    window.sessionStorage.removeItem(authStorageKey)
-    setIsAuthenticated(false)
+    clearStoredAuth()
+    setUser(null)
   }, [])
 
+  useEffect(() => {
+    window.addEventListener(unauthorizedEvent, signOut)
+    return () => window.removeEventListener(unauthorizedEvent, signOut)
+  }, [signOut])
+
   const value = useMemo(
-    () => ({ isAuthenticated, signIn, signOut }),
-    [isAuthenticated, signIn, signOut],
+    () => ({ isAuthenticated: user !== null, user, signIn, signOut }),
+    [signIn, signOut, user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
