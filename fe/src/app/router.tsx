@@ -5,6 +5,7 @@ import { CoverLetterPage } from '@/pages/CoverLetterPage'
 import { DashboardInterviewsPage } from '@/pages/DashboardInterviewsPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { DashboardStudyPage } from '@/pages/DashboardStudyPage'
+import { GithubCallbackPage } from '@/pages/GithubCallbackPage'
 import { InterviewSessionPage } from '@/pages/InterviewSessionPage'
 import { InterviewsPage } from '@/pages/InterviewsPage'
 import { LoginPage } from '@/pages/auth/LoginPage'
@@ -31,6 +32,7 @@ export function AppRouter() {
       <Route path="/study" element={<ProtectedRoute><StudyPage /></ProtectedRoute>} />
       <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
       <Route path="/community/posts/:postId" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
+      <Route path="/github/callback" element={<ProtectedRoute><GithubCallbackPage /></ProtectedRoute>} />
       <Route path="/mypage" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
       <Route path="/mypage/documents" element={<Navigate to="/mypage" replace />} />
       <Route path="/mypage/documents/resume" element={<ProtectedRoute><ResumePage /></ProtectedRoute>} />
