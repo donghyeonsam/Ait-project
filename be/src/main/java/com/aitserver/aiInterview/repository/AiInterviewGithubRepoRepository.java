@@ -11,9 +11,9 @@ import java.util.List;
 public interface AiInterviewGithubRepoRepository extends JpaRepository<GithubRepo, Long> {
 
     @Query("SELECT new com.aitserver.aiInterview.dto.GithubRepoInfoForAiInterview(" +
-            "g.id, g.repoName, g.repoNickname, g.createdAt) " +
+            "g.id, g.repoName, g.repoNickname, g.updatedAt) " +
             "FROM GithubRepo g " +
             "WHERE g.githubApp.userId = :userId " +
-            "ORDER BY g.createdAt DESC")
+            "ORDER BY g.updatedAt DESC")
     List<GithubRepoInfoForAiInterview> findGithubRepoInfoByUserId(@Param("userId") Long userId);
 }
