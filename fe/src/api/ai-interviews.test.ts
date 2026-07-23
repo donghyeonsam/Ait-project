@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { generateInterviewQuestions } from '@/api/ai-interviews'
+import {
+  generateInterviewQuestions,
+  submitInterviewAnswer,
+} from '@/api/ai-interviews'
 import type { InterviewInputContract } from '@/lib/interview-session'
 
 const input: InterviewInputContract = {
@@ -78,6 +81,57 @@ describe('generateInterviewQuestions', () => {
       csCategories: ['network', 'web'],
       difficulty: 'hard',
       aiAttitudeStyle: 'pressure',
+    })
+  })
+})
+
+describe('submitInterviewAnswer', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('질문과 답변을 답변 저장 엔드포인트에 전송한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 200,
+          timestamp: '2026-07-23T00:00:00Z',
+          path: '/api/ai-interviews/101/answers',
+          message: '사용자 답변 분석 완료',
+          data: { a: 'placeholder' },
+          error: null,
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const question = {
+      order: 1,
+      question: 'TCP 연결 과정을 설명해주세요.',
+      rubric: ['3-way handshake를 설명한다.'],
+      topic: '네트워크',
+      source: 'general',
+    }
+    await submitInterviewAnswer({
+      aiInterviewId: 101,
+      question,
+      answer: '3-way handshake로 연결을 수립합니다.',
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/backend/api/ai-interviews/101/answers',
+    )
+
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit
+    expect(request.method).toBe('POST')
+    expect(JSON.parse(String(request.body))).toEqual({
+      question,
+      answer: '3-way handshake로 연결을 수립합니다.',
     })
   })
 })

@@ -3,6 +3,7 @@ import { AlertCircle, LoaderCircle } from 'lucide-react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import {
   generateInterviewQuestions,
+  submitInterviewAnswer,
   type GeneratedInterviewQuestion,
   type InterviewQuestionGenerationResponse,
 } from '@/api/ai-interviews'
@@ -314,7 +315,16 @@ function ActiveInterviewSession({
       transcript,
       audioBlob: voiceAnswer.audioBlob,
     })
-    // TODO: BE 답변 저장 API가 제공되면 녹음 파일 업로드와 /followup 호출을 이 지점에 연결한다.
+    // BE snake_case 역직렬화 버그로 aiInterviewId가 null이면 저장을 건너뛴다.
+    // 답변은 로컬에도 누적되므로 저장 실패가 면접 진행을 막지 않게 결과를 기다리지 않는다.
+    if (aiInterviewId !== null) {
+      void submitInterviewAnswer({
+        aiInterviewId,
+        question,
+        answer: transcript,
+      }).catch(() => {})
+    }
+    // TODO: 실제 API 연동 필요 — 녹음 파일 업로드, 응답 스펙 확정 시 꼬리질문 삽입
     voiceAnswer.reset()
 
     if (isLastQuestion) {
@@ -324,7 +334,14 @@ function ActiveInterviewSession({
     setQuestionIndex((index) =>
       Math.min(index + 1, questions.length - 1),
     )
-  }, [handleViewResults, isLastQuestion, question, questions.length, voiceAnswer])
+  }, [
+    aiInterviewId,
+    handleViewResults,
+    isLastQuestion,
+    question,
+    questions.length,
+    voiceAnswer,
+  ])
 
   const primaryActionDisabled =
     questionSpeech.isSpeaking ||

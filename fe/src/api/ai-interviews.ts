@@ -111,3 +111,30 @@ export function generateInterviewQuestions({
     },
   )
 }
+
+// TODO: BE 응답 스펙 확정 시 실제 타입으로 교체 (꼬리질문 정보가 담길 예정, 현재는 placeholder)
+export type InterviewAnswerSubmissionResponse = unknown
+
+interface SubmitInterviewAnswerOptions {
+  aiInterviewId: number
+  question: GeneratedInterviewQuestion
+  answer: string
+  signal?: AbortSignal
+}
+
+// 사용자 답변을 BE에 제출한다. 응답은 스펙 확정 전이라 아직 사용하지 않는다.
+export function submitInterviewAnswer({
+  aiInterviewId,
+  question,
+  answer,
+  signal,
+}: SubmitInterviewAnswerOptions) {
+  return backendRequest<InterviewAnswerSubmissionResponse>(
+    `/api/ai-interviews/${aiInterviewId}/answers`,
+    {
+      method: 'POST',
+      signal,
+      body: JSON.stringify({ question, answer }),
+    },
+  )
+}
