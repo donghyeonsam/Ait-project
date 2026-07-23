@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { transcribeAnswer } from '@/api/speech'
 
 const AUDIO_MIME_TYPES = [
   'audio/webm;codecs=opus',
@@ -13,10 +14,6 @@ export type VoiceAnswerStatus =
   | 'review'
   | 'error'
 
-function appendTranscript(current: string, addition: string) {
-  return `${current} ${addition}`.replace(/\s+/g, ' ').trim()
-}
-
 export function getSupportedAudioMimeType() {
   if (typeof MediaRecorder === 'undefined') return ''
   return (
@@ -26,33 +23,60 @@ export function getSupportedAudioMimeType() {
   )
 }
 
+// 답변 음성을 녹음하고 서버 STT로 전사해 검토 가능한 텍스트로 만든다.
 export function useVoiceAnswer(stream: MediaStream | null) {
   const [status, setStatus] = useState<VoiceAnswerStatus>('idle')
   const [transcript, setTranscript] = useState('')
-  const [interimTranscript, setInterimTranscript] = useState('')
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const [error, setError] = useState<string | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
-  const recognitionRef = useRef<AitSpeechRecognition | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const generationRef = useRef(0)
+  const abortRef = useRef<AbortController | null>(null)
 
-  const recognitionSupported = Boolean(
-    typeof window !== 'undefined' &&
-      (window.SpeechRecognition || window.webkitSpeechRecognition),
+  const runTranscription = useCallback(
+    async (blob: Blob, generation: number) => {
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
+      setStatus('processing')
+      setError(null)
+
+      try {
+        const { text } = await transcribeAnswer(blob, {
+          signal: controller.signal,
+        })
+        if (generationRef.current !== generation) return
+        setTranscript(text)
+        setStatus('review')
+      } catch (transcriptionError) {
+        if (generationRef.current !== generation) return
+        if (
+          transcriptionError instanceof DOMException &&
+          transcriptionError.name === 'AbortError'
+        ) {
+          return
+        }
+        // 전사 실패가 면접을 막지 않도록 review로 진입시켜 수동 입력 경로를 보존한다.
+        setStatus('review')
+        setError(
+          '음성을 텍스트로 변환하지 못했습니다. 다시 시도하거나 답변을 직접 입력해주세요.',
+        )
+      }
+    },
+    [],
   )
 
   const reset = useCallback(() => {
     generationRef.current += 1
     const recorder = recorderRef.current
     if (recorder?.state === 'recording') recorder.stop()
-    recognitionRef.current?.abort()
+    abortRef.current?.abort()
+    abortRef.current = null
     recorderRef.current = null
-    recognitionRef.current = null
     chunksRef.current = []
     setStatus('idle')
     setTranscript('')
-    setInterimTranscript('')
     setAudioBlob(null)
     setError(null)
   }, [])
@@ -74,9 +98,10 @@ export function useVoiceAnswer(stream: MediaStream | null) {
 
     const generation = generationRef.current + 1
     generationRef.current = generation
+    abortRef.current?.abort()
+    abortRef.current = null
     chunksRef.current = []
     setTranscript('')
-    setInterimTranscript('')
     setAudioBlob(null)
     setError(null)
 
@@ -106,81 +131,43 @@ export function useVoiceAnswer(stream: MediaStream | null) {
         })
         recorderRef.current = null
         setAudioBlob(blob)
-        setStatus('review')
-      }
-
-      const Recognition =
-        window.SpeechRecognition ?? window.webkitSpeechRecognition
-      if (Recognition) {
-        const recognition = new Recognition()
-        recognition.continuous = true
-        recognition.interimResults = true
-        recognition.lang = 'ko-KR'
-        recognition.onresult = (event) => {
-          if (generationRef.current !== generation) return
-          let finalText = ''
-          let interimText = ''
-
-          for (let index = event.resultIndex; index < event.results.length; index += 1) {
-            const result = event.results[index]
-            const text = result?.[0]?.transcript ?? ''
-            if (result?.isFinal) finalText = appendTranscript(finalText, text)
-            else interimText = appendTranscript(interimText, text)
-          }
-
-          if (finalText) {
-            setTranscript((current) => appendTranscript(current, finalText))
-          }
-          setInterimTranscript(interimText)
-        }
-        recognition.onerror = () => {
-          if (generationRef.current !== generation) return
-          setError('자동 음성 인식이 원활하지 않습니다. 녹음 후 답변 내용을 직접 수정할 수 있습니다.')
-        }
-        recognition.onend = () => {
-          if (generationRef.current === generation) {
-            setInterimTranscript('')
-          }
-        }
-        recognitionRef.current = recognition
-        recognition.start()
-      } else {
-        setError('이 브라우저는 자동 음성 인식을 지원하지 않습니다. 녹음 후 답변 내용을 직접 입력해주세요.')
+        void runTranscription(blob, generation)
       }
 
       recorder.start(250)
       setStatus('recording')
     } catch {
       recorderRef.current = null
-      recognitionRef.current = null
       setStatus('error')
       setError('음성 녹음을 시작하지 못했습니다. 마이크 권한을 다시 확인해주세요.')
     }
-  }, [status, stream])
+  }, [runTranscription, status, stream])
 
   const stopRecording = useCallback(() => {
     if (status !== 'recording') return
     setStatus('processing')
-    recognitionRef.current?.stop()
-    recognitionRef.current = null
 
     const recorder = recorderRef.current
     if (recorder?.state === 'recording') recorder.stop()
     else setStatus('review')
   }, [status])
 
+  const retryTranscription = useCallback(() => {
+    if (status !== 'review' || !audioBlob) return
+    void runTranscription(audioBlob, generationRef.current)
+  }, [audioBlob, runTranscription, status])
+
   useEffect(() => reset, [reset])
 
   return {
     status,
     transcript,
-    interimTranscript,
     audioBlob,
     error,
-    recognitionSupported,
     setTranscript,
     startRecording,
     stopRecording,
+    retryTranscription,
     reset,
   }
 }
