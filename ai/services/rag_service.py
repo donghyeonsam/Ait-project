@@ -86,6 +86,37 @@ def _allocate_top_k(total_top_k: int, weights: dict[DocType, int]) -> dict[DocTy
     return allocation
 
 
+def build_target_ids(
+    resume_id: int | None,
+    cover_letter_id: int | None,
+    github_repo_id: int | None,
+) -> dict[DocType, int]:
+    """
+    [BE 요청 형식 개편 - 2026-07-23, 세션 전체로 확장] resume_id/cover_letter_id/
+    github_repo_id 중 값이 있는 것만 모아 retrieve_context() 가 기대하는
+    dict[DocType, int] 형태로 변환하는 공용 헬퍼.
+
+    처음엔 question_service.py 안에 로컬 함수로만 있었으나, "면접 시작 시 지정한
+    문서를 그 이후 꼬리질문(/followup)·답변 보완(/answers/supplement) 단계에서도
+    계속 참고해야 한다"는 요구사항에 따라 QuestionGenerateRequest 뿐 아니라
+    FollowupRequest/AnswerSupplementRequest 에도 동일한 3개 필드가 추가되면서,
+    3곳의 서비스(question_service.py/followup_service.py/answer_service.py)가
+    똑같은 변환 로직을 중복 구현하지 않도록 여기(retrieve_context()와 같은 모듈)로
+    옮겼다. 개별 인자를 받게 한 이유는 특정 request 스키마 타입에 결합되지 않기
+    위함이다(세 요청 스키마 모두 이 세 필드를 갖고 있지만 서로 다른 클래스다).
+
+    셋 다 선택 값(문서 종류에 따라 없을 수 있음 - 예: 아직 GitHub 연동 안 한 사용자).
+    """
+    target_ids: dict[DocType, int] = {}
+    if resume_id is not None:
+        target_ids[DocType.RESUME] = resume_id
+    if cover_letter_id is not None:
+        target_ids[DocType.COVER_LETTER] = cover_letter_id
+    if github_repo_id is not None:
+        target_ids[DocType.GITHUB] = github_repo_id
+    return target_ids
+
+
 def _rows_to_contexts(docs: list[str], metas: list[dict], dists: list[float]) -> list[dict]:
     """Chroma query() 응답 3종 리스트(documents/metadatas/distances)를 컨텍스트 dict로 변환."""
     contexts: list[dict] = []
@@ -130,6 +161,7 @@ def retrieve_context(
     query: str,
     interview_type: InterviewType,
     top_k: int | None = None,
+    target_ids: dict[DocType, int] | None = None,
 ) -> list[dict]:
     """
     개인 문서(user_documents 컬렉션)에서 관련 문서 청크 조회.
@@ -147,14 +179,53 @@ def retrieve_context(
     쿼리로 재검색해 더 좁고 정확한 근거를 찾음) — 즉 면접 진행 상황에 따라 쿼리 문자열만
     바뀌고 이 함수 자체는 동일하게 재사용된다.
 
+    [BE 요청 형식 개편 - 신규, 세션 전체로 확장] target_ids 가 주어지면(예:
+    {DocType.RESUME: 10}), 해당 doc_type 검색 시 "이 사용자의 해당 타입 문서 전체"가
+    아니라 "이 특정 target_id 문서"로 범위를 좁힌다. BE가 면접마다 참고할 이력서/
+    자소서/GitHub 레포를 명시적으로 지정할 수 있게 된 것(QuestionGenerateRequest.
+    resume_id 등)에 대응 — 사용자가 이력서를 여러 개 등록해둔 경우 이번 면접과
+    무관한 이력서가 섞여 들어가는 것을 방지한다. target_ids 에 없는 doc_type 은
+    기존처럼 user_id(+doc_type)만으로 검색한다.
+    question_service.py(질문 생성) 뿐 아니라 followup_service.py(꼬리질문)/
+    answer_service.py(답변 보완)도 build_target_ids() 로 만든 동일한 target_ids를
+    넘겨, 같은 면접 세션 안에서는 세 단계 모두 질문 생성 시 지정한 문서를 일관되게
+    계속 참고한다. 기본값 None 은 target_ids 자체가 없는(즉 이 파라미터를 아예 모르는)
+    호출부를 위한 하위 호환 장치다.
+
     Returns:
         [{"content": str, "doc_type": str, "title": str, "distance": float}, ...]
         (distance 는 코사인 거리 — 값이 작을수록 쿼리와 더 유사한 문서)
     """
     top_k = top_k or settings.rag_top_k
+    target_ids = target_ids or {}
     weights = DOC_TYPE_WEIGHTS.get(interview_type, {})
 
     if not weights:
+        # [BE 요청 형식 개편] 비율 없는 분기(COMPREHENSIVE 등)는 원래 "문서 종류 구분
+        # 없이 유사도 순으로만" 통으로 조회하는 게 목적이라 doc_type별 쿼리를 분리하지
+        # 않는다. 하지만 target_ids 가 주어졌는데 그냥 무시하면 "이 면접엔 이 이력서만
+        # 참고하라"는 BE 지정이 조용히 씹히게 되므로, target_ids 가 있을 때만 예외적으로
+        # doc_type별로 나눠 조회한다(각 doc_type에 target_id 필터를 걸고, top_k는
+        # 균등 분배 대신 doc_type마다 전체 top_k로 조회한 뒤 이어붙인다 — 지정된 문서가
+        # 소수이므로 개수 배분보다 "지정한 문서가 반드시 포함되는지"가 더 중요하다).
+        if target_ids:
+            contexts: list[dict] = []
+            for doc_type, target_id in target_ids.items():
+                where = {
+                    "$and": [
+                        {"user_id": user_id},
+                        {"doc_type": doc_type.value},
+                        {"target_id": target_id},
+                    ]
+                }
+                contexts.extend(_query_personal(user_id, query, where, top_k))
+            logger.info(
+                "RAG 조회(비율 없음, target_ids 지정): user=%s type=%s target_ids=%s hits=%s",
+                user_id, interview_type.value,
+                {dt.value: tid for dt, tid in target_ids.items()}, len(contexts),
+            )
+            return contexts
+
         where = {"user_id": user_id}
         contexts = _query_personal(user_id, query, where, top_k)
         logger.info("RAG 조회(비율 없음): user=%s type=%s hits=%s",
@@ -166,13 +237,18 @@ def retrieve_context(
     for doc_type, n in allocation.items():
         if n <= 0:
             continue
-        where = {"$and": [{"user_id": user_id}, {"doc_type": doc_type.value}]}
+        where_and = [{"user_id": user_id}, {"doc_type": doc_type.value}]
+        target_id = target_ids.get(doc_type)
+        if target_id is not None:
+            where_and.append({"target_id": target_id})
+        where = {"$and": where_and}
         contexts.extend(_query_personal(user_id, query, where, n))
 
     logger.info(
-        "RAG 조회(비율 적용): user=%s type=%s allocation=%s hits=%s",
+        "RAG 조회(비율 적용): user=%s type=%s allocation=%s target_ids=%s hits=%s",
         user_id, interview_type.value,
-        {dt.value: n for dt, n in allocation.items()}, len(contexts),
+        {dt.value: n for dt, n in allocation.items()},
+        {dt.value: tid for dt, tid in target_ids.items()}, len(contexts),
     )
     return contexts
 
@@ -233,46 +309,63 @@ CS_CATEGORY_RAW_MAP: dict[CSCategory, list[str]] = {
 }
 
 
-def _cs_category_where(cs_category: CSCategory | None) -> dict | None:
-    """cs_category가 지정됐으면 Chroma category $in 필터를, 없으면 None(무제한)을 반환."""
-    if cs_category is None:
-        return None
-    raw_categories = CS_CATEGORY_RAW_MAP.get(cs_category, [])
-    return {"category": {"$in": raw_categories}}
-
-
-def _has_no_seed_data(cs_category: CSCategory | None) -> bool:
+def _cs_category_where(cs_categories: list[CSCategory]) -> dict | None:
     """
-    CS_CATEGORY_RAW_MAP 에서 이 카테고리에 매핑된 원본 category 문자열이 하나도 없는지 여부.
-    (예: SECURITY — 시드 데이터 자체가 없음, rag_service.py 상단 CS_CATEGORY_RAW_MAP 주석 참고)
+    [BE 요청 형식 개편 - 다중 선택 대응] cs_categories(최대 3개)에 매핑된 원본 category
+    문자열을 전부 합쳐(union) Chroma "category" $in 필터를 만든다. 카테고리가 여러 개여도
+    "이 중 하나라도 매칭되면 검색 대상"이 되는 것이 자연스러운 동작이므로 합집합으로
+    처리한다. 리스트가 비어있으면 None(무제한)을 반환한다.
+    """
+    if not cs_categories:
+        return None
+    raw: list[str] = []
+    for c in cs_categories:
+        raw.extend(CS_CATEGORY_RAW_MAP.get(c, []))
+    if not raw:
+        return None
+    return {"category": {"$in": raw}}
+
+
+def _has_no_seed_data(cs_categories: list[CSCategory]) -> bool:
+    """
+    [BE 요청 형식 개편 - 다중 선택 대응] 선택된 카테고리 전부의 CS_CATEGORY_RAW_MAP
+    매핑을 합쳤을 때 원본 category 문자열이 하나도 없는지 여부.
+    (예: SECURITY 만 선택 — 시드 데이터 자체가 없음, 상단 CS_CATEGORY_RAW_MAP 주석 참고)
     Chroma의 where 절은 "$in": [] (빈 리스트) 를 유효하지 않은 필터로 보고 예외를 던지므로,
     Chroma를 호출하기 전에 미리 걸러내 "조회 실패"가 아니라 "애초에 검색 대상이 없음"으로
     명확히 로그를 남기고 빈 리스트를 반환한다.
     """
-    return cs_category is not None and not CS_CATEGORY_RAW_MAP.get(cs_category, [])
+    if not cs_categories:
+        return True
+    return not any(CS_CATEGORY_RAW_MAP.get(c, []) for c in cs_categories)
 
 
 def retrieve_cs_knowledge(
     query: str,
-    cs_category: CSCategory | None = None,
+    cs_categories: list[CSCategory] | None = None,
     top_k: int | None = None,
 ) -> list[dict]:
     """
     CS 전역 지식(cs_knowledge) 검색. user_id 필터 없음 (모든 사용자 공용).
 
-    [CS 카테고리 제한 기능] cs_category 가 주어지면 CS_CATEGORY_RAW_MAP 으로 변환한
-    category $in 필터를 강제로 걸어, "사용자가 고른 카테고리 밖의 지식"은 애초에 검색
-    후보에 오르지 않게 한다(단순 우선순위가 아니라 하드 필터).
+    [CS 카테고리 제한 기능 / BE 요청 형식 개편 - 다중 선택 대응] cs_categories 가
+    주어지면 CS_CATEGORY_RAW_MAP 으로 변환한 category $in 필터(선택된 카테고리들의
+    합집합)를 강제로 걸어, "사용자가 고른 카테고리들 밖의 지식"은 애초에 검색 후보에
+    오르지 않게 한다(단순 우선순위가 아니라 하드 필터).
     question_service.py 가 CS/종합 면접일 때만 retrieve_context() 결과에 이 함수의
     결과를 이어붙여, "지원자 개인 문서 근거 + CS 일반 지식 근거"를 함께 프롬프트에 담는다.
     """
-    if _has_no_seed_data(cs_category):
-        logger.info("CS 지식 조회 스킵: category=%s 매핑된 시드 데이터 없음", cs_category.value)
+    cs_categories = cs_categories or []
+    if _has_no_seed_data(cs_categories):
+        logger.info(
+            "CS 지식 조회 스킵: categories=%s 매핑된 시드 데이터 없음",
+            [c.value for c in cs_categories],
+        )
         return []
 
     collection = get_cs_collection()
     top_k = top_k or settings.cs_top_k
-    where = _cs_category_where(cs_category)
+    where = _cs_category_where(cs_categories)
     try:
         result = collection.query(query_texts=[query], n_results=top_k, where=where)
     except Exception as e:  # noqa: BLE001
@@ -290,36 +383,41 @@ def retrieve_cs_knowledge(
             "category": meta.get("category", ""), "concept": meta.get("concept", ""),
             "title": meta.get("concept", ""), "distance": dist,
         })
-    logger.info("CS 지식 조회: category=%s hits=%s",
-                cs_category.value if cs_category else None, len(contexts))
+    logger.info("CS 지식 조회: categories=%s hits=%s", [c.value for c in cs_categories], len(contexts))
     return contexts
 
 
 def retrieve_cs_knowledge_random(
-    cs_category: CSCategory,
+    cs_categories: list[CSCategory],
     top_k: int | None = None,
 ) -> list[dict]:
     """
-    [CS 카테고리 제한 기능 - 신규] 쿼리 유사도가 아니라, 선택한 카테고리 내부에서
-    "무작위로" CS 지식 청크를 뽑는다.
+    [CS 카테고리 제한 기능 / BE 요청 형식 개편 - 다중 선택 대응] 쿼리 유사도가 아니라,
+    선택한 카테고리들 내부에서 "무작위로" CS 지식 청크를 뽑는다.
 
     사용 시점: services/question_service.py 가 "사용자의 개인 문서(이력서/자소서/GitHub)가
     선택한 CS 카테고리와 유사도가 너무 낮다"고 판단했을 때(예: '보안' 카테고리를 골랐는데
     지원자 문서에는 프론트엔드 얘기만 있는 경우). 이럴 때 개인 문서 기반 질문을 억지로
     만드는 대신, "선택한 카테고리 안에서라면 어떤 질문이든 괜찮다"는 요구사항에 따라
     카테고리 전체 풀에서 무작위로 뽑아 다양성을 확보한다(매번 같은 상위 유사도 문서만
-    반복해서 뽑히는 것을 피함).
+    반복해서 뽑히는 것을 피함). 카테고리를 여러 개 선택한 경우 _cs_category_where() 가
+    이미 합집합 풀을 만들어주므로, 그 풀에서 무작위로 뽑는 것만으로 자연스럽게 여러
+    카테고리를 아우르게 된다 — 카테고리별로 균등 배분하는 로직은 이번 범위에 포함하지
+    않는다(필요하면 나중에 DOC_TYPE_WEIGHTS처럼 별도 개선).
 
     Chroma의 query()는 쿼리 임베딩과의 유사도 순으로만 반환하므로 "무작위 추출"에는
     맞지 않아, 대신 get()으로 카테고리 내 전체 후보를 가져온 뒤 random.sample로 뽑는다.
     """
-    if _has_no_seed_data(cs_category):
-        logger.info("CS 지식 랜덤 조회 스킵: category=%s 매핑된 시드 데이터 없음", cs_category.value)
+    if _has_no_seed_data(cs_categories):
+        logger.info(
+            "CS 지식 랜덤 조회 스킵: categories=%s 매핑된 시드 데이터 없음",
+            [c.value for c in cs_categories],
+        )
         return []
 
     collection = get_cs_collection()
     top_k = top_k or settings.cs_top_k
-    where = _cs_category_where(cs_category)
+    where = _cs_category_where(cs_categories)
     try:
         result = collection.get(where=where, include=["documents", "metadatas"])
     except Exception as e:  # noqa: BLE001
@@ -330,7 +428,10 @@ def retrieve_cs_knowledge_random(
     docs = result.get("documents", []) or []
     metas = result.get("metadatas", []) or []
     if not ids:
-        logger.info("CS 지식 랜덤 조회: category=%s 후보 없음(시드 데이터 부족)", cs_category.value)
+        logger.info(
+            "CS 지식 랜덤 조회: categories=%s 후보 없음(시드 데이터 부족)",
+            [c.value for c in cs_categories],
+        )
         return []
 
     indices = list(range(len(ids)))
@@ -346,8 +447,8 @@ def retrieve_cs_knowledge_random(
             "title": meta.get("concept", ""),
             "distance": None,  # 유사도 검색이 아니라 무작위 추출이므로 거리 개념이 없음
         })
-    logger.info("CS 지식 랜덤 조회: category=%s pool=%s hits=%s",
-                cs_category.value, len(ids), len(contexts))
+    logger.info("CS 지식 랜덤 조회: categories=%s pool=%s hits=%s",
+                [c.value for c in cs_categories], len(ids), len(contexts))
     return contexts
 
 

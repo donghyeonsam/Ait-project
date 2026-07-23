@@ -18,7 +18,7 @@ Spring Boot (BE)
    │
    │  ② 면접 시작 (ai_interviews 세션 생성 후)
    │     POST /api/v1/interviews/questions ──► RAG 검색(문서 참고 비율 적용,
-   │       CS면접은 cs_category 로 검색 범위 제한) + GMS ──► 질문 5개 + rubric(채점 기준)
+   │       CS면접은 cs_categories 로 검색 범위 제한) + GMS ──► 질문 5개 + rubric(채점 기준)
    │
    │  ③ 사용자 답변 저장 후 (동기)
    │     POST /api/v1/interviews/followup  ──► GMS ──► rubric 채점 + 동적 꼬리질문
@@ -71,7 +71,7 @@ rubric 채점 결과를 참고해 ④가 비동기로 채워 넣는다(루브릭
   (예: 문서 참고 비율 조정은 `DOC_TYPE_WEIGHTS` 숫자만 바꾸면 됨).
 - **DTO 기반 경계 검증**: 모든 요청/응답을 `schemas/`의 Pydantic 모델로 검증한다 —
   API 경계(`routers/`)에서만 유효성 검사를 하고, 통과한 이후 내부 로직은 타입을
-  그대로 신뢰한다(예: CS 면접인데 `cs_category`가 없으면 서비스 로직 진입 전
+  그대로 신뢰한다(예: CS 면접인데 `cs_categories`가 비어있으면 서비스 로직 진입 전
   스키마 단계에서 422로 차단).
 - **방어적 폴백(Graceful Degradation)**: Chroma 조회 실패/빈 컬렉션 시 빈 리스트
   반환(`rag_service.py`), LLM 응답 파싱 실패 시 코드펜스 방어 파서 재시도
@@ -142,42 +142,61 @@ BE가 `analyses` 저장 후 호출. `replace=true`면 해당 user_id 기존 임�
 
 ### 2. 질문 생성 — `POST /api/v1/interviews/questions`
 
-면접 시작 시 호출. `interview_type`: `job` / `cs` / `tech` / `portfolio` / `comprehensive`.
+면접 시작 시 호출. `interview_type`: `job` / `cs` / `tech` / `portfolio` / `comprehensive`
+(대소문자 무관 — `"CS"`로 와도 내부에서 소문자로 정규화한다).
+
+> ⚠️ **요청 형식 변경 (2026-07-23)**: BE가 실제로 보내는 값이 한글 라벨/대문자인 필드가
+> 있다(`difficulty`, `ai_attitude_style`, `cs_categories`). 아래 예시는 BE가 실제로 보내는
+> wire 포맷 기준이며, 서버가 내부적으로 영문 enum으로 변환한다. 자세한 매핑 근거와
+> "BE 확인 필요" 항목은 `docs/AI_작업일지_0723.md` 2절 참고.
 
 ```json
 {
-  "user_id": 1,
-  "ai_interview_id": 100,
-  "interview_type": "tech",
-  "difficulty": "normal",
-  "company_name": "삼성전자",
+  "user_id": "1",
+  "ai_interview_id": "100",
   "position": "백엔드 개발자",
-  "career": "3년차",
-  "skills": ["Java", "Spring", "MySQL"]
+  "career": "신입",
+  "skills": ["Java", "Spring Boot", "MySQL", "Redis"],
+  "resume_id": "1",
+  "cover_letter_id": "1",
+  "github_repo_id": "1",
+  "interview_type": "CS",
+  "cs_categories": ["자료구조", "네트워크", "운영체제"],
+  "difficulty": "중",
+  "ai_attitude_style": "압박면접"
 }
 ```
 
+- `user_id`/`ai_interview_id`/`resume_id`/`cover_letter_id`/`github_repo_id`는 숫자
+  문자열(`"1"`)로 와도 pydantic이 자동으로 int로 변환한다.
+- `difficulty`: 한글 라벨(`하`/`중`/`상`)로 온다 → 내부적으로 `easy`/`normal`/`hard`로
+  매핑(`schemas/common.py`의 `DIFFICULTY_KOREAN_INPUT_MAP`). 미지정 시 `중`(normal) 기본값.
+- `ai_attitude_style`(면접관 스타일/태도, **필드명이 기존 `interviewer_style`에서
+  변경됨** — Breaking Change): 한글 라벨(`편안한 면접`/`실전 면접`/`압박면접`)로 온다 →
+  내부적으로 `comfortable`/`realistic`/`pressure`로 매핑
+  (`schemas/common.py`의 `INTERVIEWER_STYLE_KOREAN_INPUT_MAP`). 미지정 시 `실전 면접`
+  (realistic) 기본값. 질문의 내용/난이도/rubric에는 영향을 주지 않고 오직 질문의
+  말투/어조에만 반영된다. 현재는 질문 생성(`/questions`)에만 적용되며 꼬리질문
+  (`/followup`)/답변 보완(`/answers/supplement`)에는 아직 반영되지 않는다.
 - `career`(경력), `skills`(보유 기술 스킬)는 선택 필드이며, RAG 검색 쿼리와 프롬프트
   "지원 정보" 섹션에 반영된다.
-- `interview_type`이 `cs`이면 `cs_category`가 **필수**다(없으면 422). 9종 중 하나:
-  `data_structure_algorithm`(자료구조/알고리즘) / `operating_system`(운영체제) /
-  `network`(네트워크) / `web`(WEB) / `database`(데이터베이스) / `security`(보안) /
-  `software_engineering`(소프트웨어 공학) / `ai`(AI) / `language_framework`(언어 및 프레임워크).
-  질문은 이 카테고리 범위 내에서만 생성되며, 지원자 개인 문서가 해당 카테고리와
-  무관하다고 판단되면(코사인 거리 임계값 초과) 카테고리 내 CS 지식에서 무작위로
-  근거를 뽑아 질문을 만든다(자세한 로직은 `docs/AI_작업일지_0722.md` 3절 참고).
-
-```json
-{
-  "user_id": 2,
-  "ai_interview_id": 101,
-  "interview_type": "cs",
-  "cs_category": "database"
-}
-```
+- `resume_id`/`cover_letter_id`/`github_repo_id`(신규, 선택 필드): 이 면접에서 참고할
+  "특정" 문서의 `analyses.target_id`. 지정하면 RAG 검색 범위가 "이 사용자의 전체 문서"가
+  아니라 "이 특정 문서"로 좁혀진다. 지정하지 않은 문서 종류는 기존처럼 사용자의 해당
+  타입 문서 전체에서 유사도 검색한다.
+- `interview_type`이 `cs`(대소문자 무관)이면 `cs_categories`가 **최소 1개 필수**다
+  (없으면 422). 그 외 유형이면 빈 배열(`[]`)로 보내면 된다. **기존 단일 선택
+  `cs_category` 필드를 완전히 대체**하는 Breaking Change이며, 최대 3개까지 배열로
+  받는다. 값은 한글 라벨(`자료구조`/`네트워크`/`운영체제` 등)로 오며 내부적으로
+  9종 `CSCategory` enum으로 매핑된다(`schemas/common.py`의
+  `CS_CATEGORY_KOREAN_INPUT_MAP` — 현재 3개 라벨만 BE에서 확인됨, 나머지는 확인 필요).
+  질문은 선택한 카테고리(들) 범위 내에서만 생성되며, 지원자 개인 문서가 해당
+  카테고리와 무관하다고 판단되면(코사인 거리 임계값 초과) 카테고리 내 CS 지식에서
+  무작위로 근거를 뽑아 질문을 만든다(자세한 로직은 `docs/AI_작업일지_0722.md` 3절 참고).
 
 응답: `questions[]` 각 항목에 `question`, `rubric`(채점 기준 2~3개), `topic`, `source`.
 (`expected_answer`는 더 이상 생성하지 않는다 — 답변 보완은 답변 제출 후 4번 API가 담당)
+응답 스키마 자체는 이번 요청 형식 변경과 무관하게 그대로다.
 
 ### 3. 꼬리질문 — `POST /api/v1/interviews/followup`
 
@@ -193,9 +212,17 @@ BE가 `analyses` 저장 후 호출. `replace=true`면 해당 user_id 기존 임�
   "rubric": ["Redux 도입 이유를 설명했는가", "다른 대안과 비교했는가"],
   "user_answer": "Redux를 썼습니다.",
   "interview_type": "tech",
-  "followup_depth": 0
+  "followup_depth": 0,
+  "resume_id": 1,
+  "cover_letter_id": 1,
+  "github_repo_id": 1
 }
 ```
+
+- `resume_id`/`cover_letter_id`/`github_repo_id`(신규, 선택 필드): 2번 API(질문 생성)
+  요청 때 지정한 값과 **동일한 값을 그대로** 넘겨야 한다. AI 서비스는 세션 상태를
+  저장하지 않으므로, 이 값을 안 보내면 꼬리질문 RAG 검색이 이번 면접에서 지정한
+  문서가 아니라 사용자의 해당 타입 문서 전체를 대상으로 이뤄진다.
 
 응답: `rubric_results`(항목별 pass/fail), `all_passed`, `followup_question`, `followup_depth`(누적), `capped`.
 `all_passed=true`면 BE는 다음 기본 질문으로 진행, `false`면 `followup_question`을 다음 차례로 제시.
@@ -215,9 +242,16 @@ BE가 `analyses` 저장 후 호출. `replace=true`면 해당 user_id 기존 임�
     {"criterion": "Redux 도입 이유를 설명했는가", "passed": false, "reason": "이유 언급 없음"}
   ],
   "user_answer": "Redux를 썼습니다.",
-  "interview_type": "tech"
+  "interview_type": "tech",
+  "resume_id": 1,
+  "cover_letter_id": 1,
+  "github_repo_id": 1
 }
 ```
+
+- `resume_id`/`cover_letter_id`/`github_repo_id`(신규, 선택 필드): 3번 API와 동일 —
+  이번 면접에서 지정한 문서 id를 그대로 넘겨야 답변 보완 RAG 검색도 같은 문서를
+  근거로 삼는다.
 
 응답: `question`, `ai_answer`(`ai_interview_questions.ai_answer` 저장용, 사용자 답변을 보완한 결과).
 
@@ -271,11 +305,12 @@ CS 전역 지식(`cs_knowledge` 컬렉션, user_id 없이 모든 사용자 공�
 질문 생성뿐 아니라 꼬리질문 채점(`followup_service.py`)·답변 보완(`answer_service.py`)의
 RAG 검색에도 동일하게 적용된다.
 
-**CS 면접**: 위 비율과 별개로, `cs_category`로 CS 지식 검색 범위 자체를 해당 카테고리로
-하드 제한한다(`retrieve_cs_knowledge`의 category `$in` 필터). 개인 문서가 선택한
-카테고리와 무관하면(코사인 거리가 임계값 초과) 개인 문서를 버리고 카테고리 내에서
-무작위로 CS 지식을 뽑는다. 자세한 내용/카테고리 매핑 표는 `docs/AI_작업일지_0722.md`
-3절 참고. (⚠️ 현재 "보안" 카테고리는 시드 데이터가 없어 CS 지식 검색이 항상 0건이다.)
+**CS 면접**: 위 비율과 별개로, `cs_categories`(최대 3개)로 CS 지식 검색 범위 자체를
+해당 카테고리(들)의 합집합으로 하드 제한한다(`retrieve_cs_knowledge`의 category `$in`
+필터). 개인 문서가 선택한 카테고리(들)와 무관하면(코사인 거리가 임계값 초과) 개인
+문서를 버리고 카테고리 내에서 무작위로 CS 지식을 뽑는다. 자세한 내용/카테고리 매핑
+표는 `docs/AI_작업일지_0722.md` 3절, 다중 선택으로 바뀐 배경은 `docs/AI_작업일지_0723.md`
+2절 참고. (⚠️ 현재 "보안" 카테고리는 시드 데이터가 없어 CS 지식 검색이 항상 0건이다.)
 
 ## GMS 연동 메모
 

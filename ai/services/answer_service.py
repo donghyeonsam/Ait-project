@@ -17,15 +17,21 @@ import logging
 from core.gms_client import gms_client, GMSError
 from prompts.templates import ANSWER_SUPPLEMENT_SYSTEM, build_answer_supplement_prompt
 from schemas.interview import AnswerSupplementRequest, AnswerSupplementResponse
-from services.rag_service import retrieve_context, format_context
+from services.rag_service import retrieve_context, format_context, build_target_ids
 
 logger = logging.getLogger(__name__)
 
 
 async def generate_answer_supplement(req: AnswerSupplementRequest) -> AnswerSupplementResponse:
     # 1. 질문 + 답변 기반 RAG 검색 (보완 시 지원자 실제 경험을 근거로 삼기 위함)
+    # [BE 요청 형식 개편 - 2026-07-23, 세션 전체로 확장] followup_service.py와 동일한
+    # 이유로 target_ids를 반영 — 답변 보완도 질문 생성/꼬리질문 때와 같은 문서를
+    # 근거로 삼아야 면접 전체에서 참고 자료가 일관된다.
     query = f"{req.question} {req.user_answer}"
-    contexts = retrieve_context(req.user_id, query, req.interview_type, top_k=3)
+    target_ids = build_target_ids(req.resume_id, req.cover_letter_id, req.github_repo_id)
+    contexts = retrieve_context(
+        req.user_id, query, req.interview_type, top_k=3, target_ids=target_ids
+    )
     context_text = format_context(contexts)
 
     # 2. rubric_results 가 있으면 프롬프트 모듈이 기대하는 dict 형태로 변환.

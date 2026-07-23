@@ -1,5 +1,5 @@
 """GMS LLM 프롬프트 템플릿"""
-from schemas.common import InterviewType, Difficulty, CSCategory, CS_CATEGORY_LABEL
+from schemas.common import InterviewType, Difficulty, CSCategory, CS_CATEGORY_LABEL, InterviewerStyle
 
 
 INTERVIEW_TYPE_GUIDE: dict[InterviewType, str] = {
@@ -31,6 +31,29 @@ DIFFICULTY_GUIDE: dict[Difficulty, str] = {
     Difficulty.HARD: "난이도는 높게 - 심화 원리, 트레이드오프, 엣지케이스를 파고드는 수준.",
 }
 
+# [면접관 스타일 반영 기능 - 신규] DIFFICULTY_GUIDE와 동일한 "enum → 지시문" 테이블
+# 기반 전략 패턴. difficulty가 질문의 "내용/깊이"를 결정하는 것과 달리, 이 가이드는
+# 오직 질문의 "말투/어조"만 결정한다 — 이 구분을 build_question_prompt()의 프롬프트
+# 섹션 설명에도 명시해, LLM이 스타일 지시를 rubric/주제 난이도까지 바꾸는 데
+# 잘못 적용하지 않도록 한다.
+INTERVIEWER_STYLE_GUIDE: dict[InterviewerStyle, str] = {
+    InterviewerStyle.COMFORTABLE: (
+        "면접관 말투는 편안하고 친근하게 - 지원자가 긴장하지 않고 편하게 이야기할 "
+        "수 있도록 부드러운 존댓말과 격려하는 뉘앙스를 사용하세요. "
+        "예: '~에 대해 편하게 말씀해주시겠어요?'"
+    ),
+    InterviewerStyle.REALISTIC: (
+        "면접관 말투는 실제 면접장처럼 담백하고 표준적인 존댓말로 - 과도한 격려나 "
+        "압박 없이 사실적이고 절제된 톤으로 질문하세요."
+    ),
+    InterviewerStyle.PRESSURE: (
+        "면접관 말투는 날카롭고 압박감 있게 - 답변의 허점을 짚고 더 깊이 캐묻는 "
+        "듯한 도전적인 뉘앙스를 사용하세요. 단, 무례하거나 인신공격성 표현은 "
+        "금지하며 어디까지나 '질문의 날카로움'으로만 압박감을 표현하세요. "
+        "예: '그 방식이 최선이었다고 확신하십니까? 다른 대안은 검토해보셨나요?'"
+    ),
+}
+
 
 # ────────────────────────────
 # 질문 생성
@@ -51,6 +74,7 @@ def build_question_prompt(
     *,
     interview_type: InterviewType,
     difficulty: Difficulty,
+    interviewer_style: InterviewerStyle,
     company_name: str | None,
     position: str | None,
     question_count: int,
@@ -59,10 +83,11 @@ def build_question_prompt(
     context: str,
     career: str | None = None,
     skills: list[str] | None = None,
-    cs_category: CSCategory | None = None,
+    cs_categories: list[CSCategory] | None = None,
 ) -> str:
     type_guide = INTERVIEW_TYPE_GUIDE[interview_type]
     diff_guide = DIFFICULTY_GUIDE[difficulty]
+    style_guide = INTERVIEWER_STYLE_GUIDE[interviewer_style]
     target = []
     if company_name:
         target.append(f"지원 기업: {company_name}")
@@ -77,17 +102,21 @@ def build_question_prompt(
         target.append(f"보유 기술 스킬: {', '.join(skills)}")
     target_str = "\n".join(target) if target else "(지정 없음)"
 
-    # [CS 카테고리 제한 기능 - 신규] cs_category 가 있으면 "반드시 이 범위 내에서만
-    # 질문하라"는 지시를 별도 섹션으로 명시한다. RAG 컨텍스트(CS 지식 검색 결과)가
-    # 이미 해당 카테고리로 필터링돼 있지만, 컨텍스트가 부족하거나 비어 있는 경우에도
-    # (예: 시드 데이터가 없는 카테고리) LLM이 카테고리 범위를 벗어나지 않도록 하는
-    # 이중 안전장치다.
+    # [CS 카테고리 제한 기능 - 신규 / BE 요청 형식 개편 - 다중 선택 대응] cs_categories 가
+    # 있으면 "반드시 이 범위 내에서만 질문하라"는 지시를 별도 섹션으로 명시한다.
+    # RAG 컨텍스트(CS 지식 검색 결과)가 이미 해당 카테고리(들)로 필터링돼 있지만,
+    # 컨텍스트가 부족하거나 비어 있는 경우에도(예: 시드 데이터가 없는 카테고리) LLM이
+    # 카테고리 범위를 벗어나지 않도록 하는 이중 안전장치다. 카테고리가 여러 개(최대 3개)
+    # 주어질 수 있으므로, 한쪽에만 질문이 몰리지 않도록 "골고루 다루라"는 지시를 추가했다.
     cs_category_section = ""
-    if cs_category is not None:
+    if cs_categories:
+        labels = ", ".join(CS_CATEGORY_LABEL[c] for c in cs_categories)
         cs_category_section = f"""
 ## CS 카테고리 (반드시 이 범위 내에서만 질문)
-{CS_CATEGORY_LABEL[cs_category]}
-- 위 카테고리에 속하지 않는 다른 CS 주제(예: 전혀 다른 분야의 개념)로 질문을 만들지 마세요.
+{labels}
+- 위 카테고리들에 속하지 않는 다른 CS 주제로 질문을 만들지 마세요.
+- 여러 카테고리가 주어졌으니, 가능하면 서로 다른 카테고리를 골고루 다루세요(하나의
+  카테고리에만 질문이 몰리지 않도록 하세요).
 """
 
     # [루브릭 아키텍처 전환] rubric_min_count~rubric_max_count(config.py, 기본 2~3개)를
@@ -99,6 +128,11 @@ def build_question_prompt(
 
 ## 난이도
 {diff_guide}
+
+## 면접관 스타일
+{style_guide}
+(위 스타일은 질문의 "말투/어조"에만 적용하세요 — 질문의 내용/주제/rubric/난이도는
+위 "면접 유형"/"난이도" 지침을 그대로 따르고, 이 스타일 지시로 바꾸지 마세요.)
 
 ## 지원 정보
 {target_str}
