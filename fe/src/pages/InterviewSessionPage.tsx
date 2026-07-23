@@ -15,6 +15,10 @@ import { useQuestionSpeech } from '@/components/interview/useQuestionSpeech'
 import { useVoiceAnswer } from '@/components/interview/useVoiceAnswer'
 import { Button } from '@/components/ui/button'
 import {
+  clearInterviewQuestionCache,
+  getCachedInterviewQuestions,
+} from '@/lib/interview-question-cache'
+import {
   isInterviewSessionConfiguration,
   type InterviewSessionNavigationState,
 } from '@/lib/interview-session'
@@ -114,9 +118,10 @@ function InterviewSessionContent({
     let active = true
 
     if (questionRequestRef.current?.attempt !== attempt) {
+      const cachedPromise = attempt === 0 ? getCachedInterviewQuestions(config.input) : null
       questionRequestRef.current = {
         attempt,
-        promise: generateInterviewQuestions({
+        promise: cachedPromise ?? generateInterviewQuestions({
           input: config.input,
         }),
       }
@@ -160,6 +165,7 @@ function InterviewSessionContent({
   }
 
   const handleRetry = () => {
+    clearInterviewQuestionCache()
     questionRequestRef.current = null
     setQuestionError(null)
     setAttempt((value) => value + 1)
