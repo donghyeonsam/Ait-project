@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AlertCircle, LoaderCircle } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import {
   generateInterviewQuestions,
@@ -10,6 +10,7 @@ import {
 import { toErrorMessage } from '@/api/http'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { InterviewStage } from '@/components/interview/InterviewStage'
+import { QuestionGenerationStage } from '@/components/interview/QuestionGenerationStage'
 import { VoiceAnswerPanel } from '@/components/interview/VoiceAnswerPanel'
 import { useMediaDevices } from '@/components/interview/useMediaDevices'
 import { useQuestionSpeech } from '@/components/interview/useQuestionSpeech'
@@ -178,8 +179,8 @@ function InterviewSessionContent({
         className="flex min-h-[60vh] items-center justify-center py-12"
         aria-labelledby="question-generation-title"
       >
-        <div className="w-full max-w-2xl rounded-ait-l border border-border-default bg-surface-default p-8 text-center shadow-elevation-1">
-          {questionError ? (
+        {questionError ? (
+          <div className="w-full max-w-2xl rounded-ait-l border border-border-default bg-surface-default p-8 text-center shadow-elevation-1">
             <>
               <AlertCircle
                 className="mx-auto size-12 text-status-error"
@@ -207,28 +208,10 @@ function InterviewSessionContent({
                 </Button>
               </div>
             </>
-          ) : (
-            <>
-              <LoaderCircle
-                className="mx-auto size-12 animate-spin text-action-primary"
-                aria-hidden="true"
-              />
-              <h1
-                id="question-generation-title"
-                className="mt-4 text-h2 text-text-primary"
-              >
-                AI가 맞춤 질문을 만들고 있어요
-              </h1>
-              <p
-                className="mt-2 text-body-2 text-text-secondary"
-                role="status"
-                aria-live="polite"
-              >
-                선택한 면접 조건과 문서를 바탕으로 질문을 구성하고 있습니다.
-              </p>
-            </>
-          )}
-        </div>
+          </div>
+        ) : (
+          <QuestionGenerationStage input={config.input} />
+        )}
       </section>
     </PageLayout>
   )
