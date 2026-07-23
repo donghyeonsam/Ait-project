@@ -16,6 +16,11 @@ const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).{8,}$/
 const signupSchema = z
   .object({
     name: z.string().trim().min(1, '이름을 입력해주세요.'),
+    nickname: z
+      .string()
+      .trim()
+      .min(2, '닉네임은 2자 이상 입력해주세요.')
+      .max(12, '닉네임은 12자 이하로 입력해주세요.'),
     email: z.string().trim().email('올바른 이메일 형식을 입력해주세요.'),
     emailVerified: z.boolean().refine(Boolean, '이메일 인증을 완료해주세요.'),
     password: z
@@ -77,6 +82,7 @@ export function SignupPage() {
     resolver: zodResolver(signupSchema),
     defaultValues: {
       name: '',
+      nickname: '',
       email: '',
       emailVerified: false,
       password: '',
@@ -127,6 +133,25 @@ export function SignupPage() {
             {errors.name ? (
               <p id="signup-name-error" className="mt-2 text-caption text-status-error">
                 {errors.name.message}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="mt-4">
+            <label htmlFor="signup-nickname" className="mb-2 block text-body-2 font-semibold">
+              닉네임
+            </label>
+            <Input
+              id="signup-nickname"
+              autoComplete="off"
+              placeholder="다른 사용자에게 보여질 닉네임을 입력하세요"
+              aria-invalid={Boolean(errors.nickname)}
+              aria-describedby={errors.nickname ? 'signup-nickname-error' : undefined}
+              {...register('nickname')}
+            />
+            {errors.nickname ? (
+              <p id="signup-nickname-error" className="mt-2 text-caption text-status-error">
+                {errors.nickname.message}
               </p>
             ) : null}
           </div>
