@@ -2,6 +2,7 @@
 -- 외래키 관계를 고려한 테이블 삭제
 -- 자식 테이블부터 부모 테이블 순서로 삭제
 -- =========================================================
+DROP TABLE IF EXISTS `ai_interviews`;
 DROP TABLE IF EXISTS `cover_letter_contents`;
 DROP TABLE IF EXISTS `cover_letter`;
 DROP TABLE IF EXISTS `resume_projects`;
