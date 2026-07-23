@@ -61,7 +61,7 @@ function LoginAside() {
         src={loginIllustration}
         alt=""
         aria-hidden="true"
-        className="absolute bottom-0 right-4 z-[var(--z-index-base)] w-3/5 max-w-lg"
+        className="absolute bottom-0 right-4 z-[var(--z-index-base)] w-2/5 max-w-xs"
       />
     </>
   )
@@ -152,11 +152,11 @@ export function LoginPage() {
             로그인 상태 유지
           </label>
 
-          <Button type="submit" className="mt-6 w-full" disabled={isSubmitting}>
+          <Button type="submit" className="mt-4 w-full" disabled={isSubmitting}>
             로그인
           </Button>
 
-          <div className="my-6 flex items-center gap-4 text-caption text-text-secondary" aria-hidden="true">
+          <div className="my-4 flex items-center gap-4 text-caption text-text-secondary" aria-hidden="true">
             <span className="h-px flex-1 bg-border-default" />
             또는
             <span className="h-px flex-1 bg-border-default" />
@@ -171,7 +171,7 @@ export function LoginPage() {
             </SocialButton>
           </div>
 
-          <p className="mt-6 text-center text-body-2 text-text-secondary">
+          <p className="mt-4 text-center text-body-2 text-text-secondary">
             Ait가 처음이신가요?{' '}
             <Link
               to="/signup"
