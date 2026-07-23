@@ -34,7 +34,6 @@ public class AiInterviewController {
                 ));
     }
 
-
     @PostMapping
     public ResponseEntity<ApiResponse<AiInterviewQuestionResponse>> insertAndGenerate(
             @AuthenticationPrincipal Long userId,
@@ -59,7 +58,7 @@ public class AiInterviewController {
             @PathVariable Long aiInterviewId,
             @RequestBody FollowUpQuestionRequest answerRequest,
             HttpServletRequest request) {
-
+        // 질문과 사용자의 답변을 전달해서, 꼬리 질문을 생성
         FollowUpQuestionResponse response = aiInterviewService.answerCheckForfollowUp(userId, aiInterviewId, answerRequest);
 
         return ResponseEntity.status(HttpStatus.OK).body(
