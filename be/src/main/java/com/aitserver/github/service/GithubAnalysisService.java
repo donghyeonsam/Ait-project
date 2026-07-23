@@ -17,6 +17,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -33,7 +34,7 @@ public class GithubAnalysisService {
      */
     @Async
     @Transactional
-    public void requestAnalysisToFastApi(Long repoId, String installationId, String githubUsername, String repoName) {
+    public void requestAnalysisToFastApi(Long userId, Long repoId, String installationId, String githubUsername, String repoName) {
         log.info("[비동기 분석 시작] 레포지토리: {}, 사용자: {}", repoName, githubUsername);
 
         try {
@@ -50,25 +51,30 @@ public class GithubAnalysisService {
 
             log.info("수집 완료 - README 길이: {}, 커밋 개수: {}", readmeContent.length(), commitMessages.size());
 
-            // 4. TODO: FastAPI로 비동기 HTTP POST 요청 보내기
-            // 예시:
-            // String fastApiUrl = "http://fastapi-server/api/analyze";
-            // Map<String, Object> requestBody = Map.of(
-            //     "readme", readmeContent,
-            //     "commits", commitMessages
-            // );
-            // ResponseEntity<String> response = restTemplate.postForEntity(fastApiUrl, requestBody, String.class);
-            // String analysisResult = response.getBody();
+            String fastApiUrl = "http://localhost:8000/api/v1/embeddings";
 
-            // 임시 모의(Mock) 데이터
-            String analysisResult = "FastAPI 분석 결과 임시 텍스트입니다. (README 및 " + commitMessages.size() + "개의 커밋 분석 완료)";
+            Map<String, Object> githubItem = Map.of(
+                    "doc_type", "github",
+                    "target_id", repoId,
+                    "title", repoName,
+                    "content", "Readme: " + readmeContent + "\nCommits: " + commitMessages
+            );
+
+            Map<String, Object> requestBody = Map.of(
+                    "user_id", userId,
+                    "replace", true,
+                    "items", List.of(githubItem) // 배열(List) 형태로 감싸서 전달
+            );
+
+            ResponseEntity<String> response = restTemplate.postForEntity(fastApiUrl, requestBody, String.class);
+            String analysisResult = response.getBody();
 
             // 5. 분석이 끝나면 DB 업데이트
             GithubRepo githubRepo = githubRepoRepository.findById(repoId)
                     .orElseThrow(() -> new RuntimeException("레포지토리를 찾을 수 없습니다."));
 
             githubRepo.updateAnalysisContent(analysisResult);
-            githubRepoRepository.save(githubRepo); // Transactional에 의해 자동 반영되지만 명시적 호출
+            githubRepoRepository.save(githubRepo);
 
             log.info("[비동기 분석 완료] 레포지토리 ID: {} 분석 내용 저장 성공", repoId);
 
