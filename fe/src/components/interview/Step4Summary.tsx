@@ -14,10 +14,9 @@ interface SummaryRow {
 export function Step4Summary({ state, preparation }: Step4SummaryProps) {
   const coverLetterTitle = preparation?.coverLetters
     .find((coverLetter) => String(coverLetter.id) === state.coverLetterId)?.title ?? '-'
-  const repositoryNames = (preparation?.githubRepositories ?? [])
-    .filter((repository) => state.repositoryIds.includes(String(repository.id)))
-    .map((repository) => repository.repoNickname)
-    .join(', ')
+  const repositoryName = preparation?.githubRepositories
+    .find((repository) => String(repository.id) === state.repositoryId)
+    ?.repoNickname ?? ''
 
   const showApplyInfo = state.interviewType !== null && state.interviewType !== 'CS 면접'
   const showCsTopics = state.interviewType === 'CS 면접' || state.interviewType === '종합'
@@ -30,7 +29,7 @@ export function Step4Summary({ state, preparation }: Step4SummaryProps) {
       label: '난이도 · 스타일',
       value: state.difficulty && state.style ? `${state.difficulty} · ${state.style}` : '-',
     },
-    { label: '레포지토리', value: showApplyInfo && repositoryNames ? repositoryNames : '-' },
+    { label: '레포지토리', value: showApplyInfo && repositoryName ? repositoryName : '-' },
     { label: 'CS 주제', value: showCsTopics && state.csTopics.length > 0 ? state.csTopics.join(', ') : '-' },
   ]
 

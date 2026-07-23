@@ -8,7 +8,6 @@ const backendBaseUrl = (import.meta.env.VITE_BE_API_URL ?? '/backend').replace(
   /\/$/,
   '',
 )
-const aiBaseUrl = (import.meta.env.VITE_AI_API_URL ?? '/ai').replace(/\/$/, '')
 
 export const unauthorizedEvent = 'ait:unauthorized'
 
@@ -143,13 +142,6 @@ export async function backendRequest<T>(
     true,
   )
   return response.data
-}
-
-export function aiRequest<T>(path: string, options?: ApiRequestOptions) {
-  return request<T>(aiBaseUrl, path, {
-    ...options,
-    authenticated: false,
-  })
 }
 
 export function toErrorMessage(error: unknown) {

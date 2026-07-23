@@ -13,11 +13,12 @@ import {
   type InterviewStyle,
 } from '@/mocks/interview'
 
-export const INTERVIEW_INPUT_CONTRACT_VERSION = 1 as const
+export const INTERVIEW_INPUT_CONTRACT_VERSION = 2 as const
 
 export interface InterviewReferenceSelection {
+  resumeId: number | null
   coverLetterId: number | null
-  repositoryIds: number[]
+  repositoryId: number | null
   retrievalScope: 'selected'
 }
 
@@ -83,6 +84,7 @@ function isVolume(value: unknown) {
 
 export function createInterviewInputContract(
   state: SurveyState,
+  resumeId: number | null = null,
 ): InterviewInputContract {
   if (!state.interviewType || !state.difficulty || !state.style) {
     throw new Error('면접 유형, 난이도와 스타일을 모두 선택해주세요.')
@@ -101,13 +103,16 @@ export function createInterviewInputContract(
     // 단일 cs_category로 축소하지 않고 사용자가 선택한 주제를 모두 보존한다.
     csCategories: [...state.csTopics],
     references: {
+      resumeId:
+        resumeId === null ? null : toDocumentId(String(resumeId), '이력서 ID'),
       coverLetterId:
         state.coverLetterId === null
           ? null
           : toDocumentId(state.coverLetterId, '자기소개서 ID'),
-      repositoryIds: state.repositoryIds.map((id) =>
-        toDocumentId(id, '레포지토리 ID'),
-      ),
+      repositoryId:
+        state.repositoryId === null
+          ? null
+          : toDocumentId(state.repositoryId, '레포지토리 ID'),
       retrievalScope: 'selected',
     },
   }
@@ -115,6 +120,7 @@ export function createInterviewInputContract(
 
 export function createInterviewSessionNavigationState(
   state: SurveyState,
+  resumeId: number | null = null,
 ): InterviewSessionNavigationState {
   if (!state.deviceReady) {
     throw new Error('카메라와 마이크 환경 점검을 완료해주세요.')
@@ -122,7 +128,7 @@ export function createInterviewSessionNavigationState(
 
   return {
     interviewConfig: {
-      input: createInterviewInputContract(state),
+      input: createInterviewInputContract(state, resumeId),
       devices: {
         cameraDeviceId: state.cameraDeviceId,
         speakerDeviceId: state.speakerDeviceId,
@@ -158,10 +164,12 @@ export function isInterviewSessionConfiguration(
         isOneOf(category, csTopicOptions),
       ) &&
       input.references?.retrievalScope === 'selected' &&
+      (input.references.resumeId === null ||
+        isPositiveId(input.references.resumeId)) &&
       (input.references.coverLetterId === null ||
         isPositiveId(input.references.coverLetterId)) &&
-      Array.isArray(input.references.repositoryIds) &&
-      input.references.repositoryIds.every(isPositiveId) &&
+      (input.references.repositoryId === null ||
+        isPositiveId(input.references.repositoryId)) &&
       devices &&
       isNullableString(devices.cameraDeviceId) &&
       isNullableString(devices.speakerDeviceId) &&

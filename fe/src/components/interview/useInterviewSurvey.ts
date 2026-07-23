@@ -15,7 +15,7 @@ export interface SurveyState {
   position: string
   careerLevel: string
   coverLetterId: string | null
-  repositoryIds: string[]
+  repositoryId: string | null
   csTopics: CsTopic[]
   difficulty: Difficulty | null
   style: InterviewStyle | null
@@ -32,7 +32,7 @@ const initialState: SurveyState = {
   position: '',
   careerLevel: '',
   coverLetterId: null,
-  repositoryIds: [],
+  repositoryId: null,
   csTopics: [],
   difficulty: null,
   style: null,
@@ -93,12 +93,10 @@ export function useInterviewSurvey() {
     })
   }, [])
 
-  const toggleRepository = useCallback((id: string) => {
+  const selectRepository = useCallback((id: string) => {
     setState((previous) => ({
       ...previous,
-      repositoryIds: previous.repositoryIds.includes(id)
-        ? previous.repositoryIds.filter((repositoryId) => repositoryId !== id)
-        : [...previous.repositoryIds, id],
+      repositoryId: previous.repositoryId === id ? null : id,
     }))
   }, [])
 
@@ -119,7 +117,7 @@ export function useInterviewSurvey() {
     setState((previous) => ({
       ...previous,
       interviewType: type,
-      ...(needsApplyInfo(type) ? {} : { position: '', careerLevel: '', coverLetterId: null, repositoryIds: [] }),
+      ...(needsApplyInfo(type) ? {} : { position: '', careerLevel: '', coverLetterId: null, repositoryId: null }),
       ...(needsCsTopics(type) ? {} : { csTopics: [] }),
     }))
   }, [])
@@ -138,7 +136,7 @@ export function useInterviewSurvey() {
     currentStep,
     state,
     update,
-    toggleRepository,
+    selectRepository,
     toggleCsTopic,
     selectInterviewType,
     currentStepValid,

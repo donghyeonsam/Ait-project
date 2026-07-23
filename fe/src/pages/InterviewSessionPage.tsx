@@ -1,24 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { AlertCircle, LoaderCircle } from 'lucide-react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import {
+  generateInterviewQuestions,
+  type GeneratedInterviewQuestion,
+  type InterviewQuestionGenerationResponse,
+} from '@/api/ai-interviews'
+import { toErrorMessage } from '@/api/http'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { InterviewStage } from '@/components/interview/InterviewStage'
 import { VoiceAnswerPanel } from '@/components/interview/VoiceAnswerPanel'
 import { useMediaDevices } from '@/components/interview/useMediaDevices'
 import { useQuestionSpeech } from '@/components/interview/useQuestionSpeech'
 import { useVoiceAnswer } from '@/components/interview/useVoiceAnswer'
+import { Button } from '@/components/ui/button'
 import {
   isInterviewSessionConfiguration,
   type InterviewSessionNavigationState,
 } from '@/lib/interview-session'
 import type { Difficulty, InterviewGoalType } from '@/mocks/interview'
-import {
-  mockInterviewQuestions,
-  type MockInterviewQuestion,
-} from '@/mocks/interview-session'
 import type { InterviewRecord, InterviewType, JobType } from '@/types/dashboard'
 
 interface SubmittedVoiceAnswer {
-  question: MockInterviewQuestion
+  question: GeneratedInterviewQuestion
   transcript: string
   audioBlob: Blob | null
 }
@@ -90,11 +94,153 @@ interface InterviewSessionContentProps {
   config: NonNullable<InterviewSessionNavigationState['interviewConfig']>
 }
 
-function InterviewSessionContent({ config }: InterviewSessionContentProps) {
+interface QuestionRequest {
+  attempt: number
+  promise: ReturnType<typeof generateInterviewQuestions>
+}
+
+// 세션 진입 시 실제 AI 질문을 준비하고 로딩·오류 상태를 관리한다.
+function InterviewSessionContent({
+  config,
+}: InterviewSessionContentProps) {
+  const navigate = useNavigate()
+  const questionRequestRef = useRef<QuestionRequest | null>(null)
+  const [generatedSession, setGeneratedSession] =
+    useState<InterviewQuestionGenerationResponse | null>(null)
+  const [questionError, setQuestionError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    let active = true
+
+    if (questionRequestRef.current?.attempt !== attempt) {
+      questionRequestRef.current = {
+        attempt,
+        promise: generateInterviewQuestions({
+          input: config.input,
+        }),
+      }
+    }
+
+    questionRequestRef.current.promise
+      .then((response) => {
+        if (!active) return
+        const generatedQuestions = response.questions
+          .filter((item) => item.question.trim())
+          .sort((a, b) => a.order - b.order)
+
+        if (generatedQuestions.length === 0) {
+          setQuestionError(
+            'AI가 질문을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.',
+          )
+          return
+        }
+        setGeneratedSession({
+          ...response,
+          questions: generatedQuestions,
+        })
+      })
+      .catch((error: unknown) => {
+        if (active) setQuestionError(toErrorMessage(error))
+      })
+
+    return () => {
+      active = false
+    }
+  }, [attempt, config.input])
+
+  if (generatedSession) {
+    return (
+      <ActiveInterviewSession
+        config={config}
+        aiInterviewId={generatedSession.aiInterviewId}
+        questions={generatedSession.questions}
+      />
+    )
+  }
+
+  const handleRetry = () => {
+    questionRequestRef.current = null
+    setQuestionError(null)
+    setAttempt((value) => value + 1)
+  }
+
+  return (
+    <PageLayout contentClassName="max-w-content">
+      <section
+        className="flex min-h-[60vh] items-center justify-center py-12"
+        aria-labelledby="question-generation-title"
+      >
+        <div className="w-full max-w-2xl rounded-ait-l border border-border-default bg-surface-default p-8 text-center shadow-elevation-1">
+          {questionError ? (
+            <>
+              <AlertCircle
+                className="mx-auto size-12 text-status-error"
+                aria-hidden="true"
+              />
+              <h1
+                id="question-generation-title"
+                className="mt-4 text-h2 text-text-primary"
+              >
+                질문을 준비하지 못했어요
+              </h1>
+              <p className="mt-2 text-body-2 text-text-secondary" role="alert">
+                {questionError}
+              </p>
+              <div className="mt-6 flex flex-wrap justify-center gap-3">
+                <Button type="button" onClick={handleRetry}>
+                  다시 시도
+                </Button>
+                <Button
+                  type="button"
+                  variant="text"
+                  onClick={() => navigate('/interviews')}
+                >
+                  면접 설정으로 돌아가기
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <LoaderCircle
+                className="mx-auto size-12 animate-spin text-action-primary"
+                aria-hidden="true"
+              />
+              <h1
+                id="question-generation-title"
+                className="mt-4 text-h2 text-text-primary"
+              >
+                AI가 맞춤 질문을 만들고 있어요
+              </h1>
+              <p
+                className="mt-2 text-body-2 text-text-secondary"
+                role="status"
+                aria-live="polite"
+              >
+                선택한 면접 조건과 문서를 바탕으로 질문을 구성하고 있습니다.
+              </p>
+            </>
+          )}
+        </div>
+      </section>
+    </PageLayout>
+  )
+}
+
+interface ActiveInterviewSessionProps {
+  config: NonNullable<InterviewSessionNavigationState['interviewConfig']>
+  aiInterviewId: number | null
+  questions: GeneratedInterviewQuestion[]
+}
+
+// 생성된 질문을 순서대로 제시하고 사용자의 음성 답변을 진행한다.
+function ActiveInterviewSession({
+  config,
+  aiInterviewId,
+  questions,
+}: ActiveInterviewSessionProps) {
   const navigate = useNavigate()
   const { input, devices } = config
-  // TODO: 실제 면접 생성 API 계약이 확정되면 input을 질문 생성 요청에 전달한다.
-
   const { permission, stream, requestAccess } = useMediaDevices()
   const [questionIndex, setQuestionIndex] = useState(0)
   const [micMuted, setMicMuted] = useState(false)
@@ -103,7 +249,7 @@ function InterviewSessionContent({ config }: InterviewSessionContentProps) {
   const [speakerVolume, setSpeakerVolume] = useState(devices.speakerVolume)
   const sessionStartRef = useRef(0)
   const submittedAnswersRef = useRef<SubmittedVoiceAnswer[]>([])
-  const question = mockInterviewQuestions[questionIndex]
+  const question = questions[questionIndex]
   const voiceAnswer = useVoiceAnswer(stream)
   const questionSpeech = useQuestionSpeech({
     text: question.question,
@@ -112,7 +258,7 @@ function InterviewSessionContent({ config }: InterviewSessionContentProps) {
     enabled: Boolean(stream),
   })
 
-  const isLastQuestion = questionIndex === mockInterviewQuestions.length - 1
+  const isLastQuestion = questionIndex === questions.length - 1
 
   useEffect(() => {
     sessionStartRef.current = Date.now()
@@ -138,7 +284,7 @@ function InterviewSessionContent({ config }: InterviewSessionContentProps) {
     const title = position ? `${position} ${interviewType} 면접` : `${interviewType} 면접`
 
     const newAnalyzingRecord: InterviewRecord = {
-      id: Date.now(),
+      id: aiInterviewId ?? Date.now(),
       date: formatDate(new Date()),
       type: interviewTypeMap[interviewType],
       field: toJobType(position),
@@ -151,7 +297,7 @@ function InterviewSessionContent({ config }: InterviewSessionContentProps) {
     }
 
     navigate('/dashboard/interviews', { state: { newAnalyzingRecord } })
-  }, [input, navigate])
+  }, [aiInterviewId, input, navigate])
 
   const handleSubmitAnswer = useCallback(() => {
     const transcript = voiceAnswer.transcript.trim()
@@ -170,9 +316,9 @@ function InterviewSessionContent({ config }: InterviewSessionContentProps) {
       return
     }
     setQuestionIndex((index) =>
-      Math.min(index + 1, mockInterviewQuestions.length - 1),
+      Math.min(index + 1, questions.length - 1),
     )
-  }, [handleViewResults, isLastQuestion, question, voiceAnswer])
+  }, [handleViewResults, isLastQuestion, question, questions.length, voiceAnswer])
 
   const primaryActionDisabled =
     questionSpeech.isSpeaking ||
@@ -228,7 +374,7 @@ function InterviewSessionContent({ config }: InterviewSessionContentProps) {
       <section className="py-10" aria-labelledby="interview-session-title">
         <h1 id="interview-session-title" className="sr-only">AI 모의면접 진행</h1>
         <p className="text-body-2 font-medium text-text-secondary">
-          질문 {questionIndex + 1} / {mockInterviewQuestions.length}
+          질문 {questionIndex + 1} / {questions.length}
         </p>
 
         <div className="mt-4">

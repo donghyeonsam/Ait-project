@@ -5,6 +5,7 @@ import {
   type InterviewPreparation,
 } from '@/api/ai-interviews'
 import { toErrorMessage } from '@/api/http'
+import { getMyResume } from '@/api/resume'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Step1InterviewType } from '@/components/interview/Step1InterviewType'
 import { Step2ApplyInfo } from '@/components/interview/Step2ApplyInfo'
@@ -21,6 +22,7 @@ export function InterviewsPage() {
   const navigate = useNavigate()
   const survey = useInterviewSurvey()
   const [preparation, setPreparation] = useState<InterviewPreparation | null>(null)
+  const [resumeId, setResumeId] = useState<number | null>(null)
   const [preparationError, setPreparationError] = useState<string | null>(null)
   const [isPreparationLoading, setIsPreparationLoading] = useState(true)
   const { currentStep, state, showApplyInfo, showCsTopics } = survey
@@ -29,9 +31,14 @@ export function InterviewsPage() {
   useEffect(() => {
     let active = true
 
-    getInterviewPreparation()
-      .then((response) => {
-        if (active) setPreparation(response)
+    Promise.all([
+      getInterviewPreparation(),
+      getMyResume().catch(() => null),
+    ])
+      .then(([preparationResponse, resumeResponse]) => {
+        if (!active) return
+        setPreparation(preparationResponse)
+        setResumeId(resumeResponse?.resumeId ?? null)
       })
       .catch((error: unknown) => {
         if (active) setPreparationError(toErrorMessage(error))
@@ -48,7 +55,7 @@ export function InterviewsPage() {
   const handleNext = () => {
     if (isLastStep) {
       navigate('/interviews/session', {
-        state: createInterviewSessionNavigationState(state),
+        state: createInterviewSessionNavigationState(state, resumeId),
       })
       return
     }
@@ -79,14 +86,14 @@ export function InterviewsPage() {
                   position={state.position}
                   careerLevel={state.careerLevel}
                   coverLetterId={state.coverLetterId}
-                  repositoryIds={state.repositoryIds}
+                  repositoryId={state.repositoryId}
                   preparation={preparation}
                   isLoading={isPreparationLoading}
                   error={preparationError}
                   onChangePosition={(value) => survey.update('position', value)}
                   onChangeCareerLevel={(value) => survey.update('careerLevel', value)}
                   onSelectCoverLetter={(id) => survey.update('coverLetterId', id)}
-                  onToggleRepository={survey.toggleRepository}
+                  onSelectRepository={survey.selectRepository}
                 />
               ) : null}
               {showCsTopics ? (

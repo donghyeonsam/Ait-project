@@ -27,11 +27,6 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/backend/, ''),
         },
-        '/ai': {
-          target: env.VITE_AI_PROXY_TARGET || 'http://localhost:8000',
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/ai/, ''),
-        },
       },
     },
   }

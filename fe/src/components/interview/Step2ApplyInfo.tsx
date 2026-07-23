@@ -6,14 +6,14 @@ interface Step2ApplyInfoProps {
   position: string
   careerLevel: string
   coverLetterId: string | null
-  repositoryIds: string[]
+  repositoryId: string | null
   preparation: InterviewPreparation | null
   isLoading: boolean
   error: string | null
   onChangePosition: (value: string) => void
   onChangeCareerLevel: (value: string) => void
   onSelectCoverLetter: (id: string) => void
-  onToggleRepository: (id: string) => void
+  onSelectRepository: (id: string) => void
 }
 
 const inputClass =
@@ -23,14 +23,14 @@ export function Step2ApplyInfo({
   position,
   careerLevel,
   coverLetterId,
-  repositoryIds,
+  repositoryId,
   preparation,
   isLoading,
   error,
   onChangePosition,
   onChangeCareerLevel,
   onSelectCoverLetter,
-  onToggleRepository,
+  onSelectRepository,
 }: Step2ApplyInfoProps) {
   return (
     <section aria-labelledby="step2-apply-title">
@@ -110,7 +110,7 @@ export function Step2ApplyInfo({
         <div>
           <span className="text-body-2 font-medium text-text-primary">
             레포지토리 선택
-            <span className="ml-2 text-caption font-normal text-text-secondary">다중선택 가능</span>
+            <span className="ml-2 text-caption font-normal text-text-secondary">1개 선택 가능</span>
           </span>
           <ul className="mt-2 h-56 space-y-2 overflow-y-auto rounded-ait-s border border-border-default p-2" aria-label="레포지토리 선택">
             {isLoading ? (
@@ -123,13 +123,13 @@ export function Step2ApplyInfo({
               </li>
             ) : preparation?.githubRepositories.length ? preparation.githubRepositories.map((repository) => {
               const id = String(repository.id)
-              const isSelected = repositoryIds.includes(id)
+              const isSelected = repositoryId === id
               return (
                 <li key={repository.id}>
                   <button
                     type="button"
                     aria-pressed={isSelected}
-                    onClick={() => onToggleRepository(id)}
+                    onClick={() => onSelectRepository(id)}
                     className={cn(
                       'flex w-full items-center justify-between gap-3 rounded-ait-s px-3 py-2.5 text-left transition-colors ease-standard duration-(--duration-fast)',
                       isSelected ? 'bg-status-success-surface' : 'hover:bg-status-neutral-surface',
