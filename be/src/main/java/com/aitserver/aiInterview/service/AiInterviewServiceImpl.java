@@ -101,4 +101,14 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             throw new RuntimeException(e);
         }
     }
+
+    @Override
+    @Transactional
+    public FollowUpQuestionResponse answerCheckForfollowUp(Long userId, Long aiInterviewId, FollowUpQuestionRequest answerRequest) {
+        // 사용자의 답변을 ai_interview_questions 테이블에 저장
+
+
+
+        return null;
+    }
 }
