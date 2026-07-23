@@ -16,7 +16,8 @@ import { Step5DeviceSetup } from '@/components/interview/Step5DeviceSetup'
 import { SurveyFooter } from '@/components/interview/SurveyFooter'
 import { SurveyStepper } from '@/components/interview/SurveyStepper'
 import { SURVEY_STEP_COUNT, useInterviewSurvey } from '@/components/interview/useInterviewSurvey'
-import { createInterviewSessionNavigationState } from '@/lib/interview-session'
+import { createInterviewInputContract, createInterviewSessionNavigationState } from '@/lib/interview-session'
+import { prefetchInterviewQuestions } from '@/lib/interview-question-cache'
 
 export function InterviewsPage() {
   const navigate = useNavigate()
@@ -51,6 +52,11 @@ export function InterviewsPage() {
       active = false
     }
   }, [])
+
+  useEffect(() => {
+    if (currentStep !== 5 || !state.interviewType || !state.difficulty || !state.style) return
+    void prefetchInterviewQuestions(createInterviewInputContract(state, resumeId))
+  }, [currentStep, state, resumeId])
 
   const handleNext = () => {
     if (isLastStep) {
