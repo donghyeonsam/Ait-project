@@ -1,5 +1,6 @@
 import { Bell, LogOut, Menu } from 'lucide-react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { GitHubIcon } from '@/components/icons/GitHubIcon'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -72,6 +73,15 @@ export function Header() {
                 aria-label="메뉴"
               >
                 <Menu aria-hidden="true" />
+              </Button>
+              <Button asChild variant="text" size="icon" aria-label="GitHub 앱 설치">
+                <a
+                  href="https://github.com/apps/Ait-ai-interview/installations/new"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <GitHubIcon className="size-5" aria-hidden="true" />
+                </a>
               </Button>
               <Button type="button" variant="text" size="icon" aria-label="알림">
                 <Bell aria-hidden="true" />
