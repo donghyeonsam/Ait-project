@@ -5,8 +5,7 @@ import { getMyPageData } from '@/api/my-page'
 import type { Resume } from '@/api/resume'
 import { ActivityTabs } from '@/components/mypage/ActivityTabs'
 import { DocumentBoxDialog } from '@/components/mypage/DocumentBoxDialog'
-import { ProfileCard } from '@/components/mypage/ProfileCard'
-import { ProfileInfo } from '@/components/mypage/ProfileInfo'
+import { ProfileSection } from '@/components/mypage/ProfileSection'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/useAuth'
@@ -150,16 +149,13 @@ export function MyPage() {
             aria-labelledby="profile-section-title"
           >
             <h2 id="profile-section-title" className="sr-only">내 정보</h2>
-            <div className="profile-layout grid gap-8">
-              <ProfileCard profile={profile} />
-              <ProfileInfo
-                profile={profile}
-                repositoryError={repositoryError}
-                repositoryLoading={isRepositoryLoading}
-                onRetryRepositories={retryRepositories}
-                onOpenDocuments={() => setDocumentBoxOpen(true)}
-              />
-            </div>
+            <ProfileSection
+              profile={profile}
+              repositoryError={repositoryError}
+              repositoryLoading={isRepositoryLoading}
+              onRetryRepositories={retryRepositories}
+              onOpenDocuments={() => setDocumentBoxOpen(true)}
+            />
           </section>
 
           <div className="py-10">
