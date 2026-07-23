@@ -61,7 +61,7 @@ function LoginAside() {
         src={loginIllustration}
         alt=""
         aria-hidden="true"
-        className="absolute bottom-0 right-4 z-[var(--z-index-base)] w-3/5 max-w-lg"
+        className="absolute bottom-0 right-4 z-[var(--z-index-base)] w-2/5 max-w-xs"
       />
     </>
   )

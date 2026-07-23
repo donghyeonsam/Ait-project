@@ -20,8 +20,8 @@ export function AuthLayout({
     <div className="flex min-h-svh flex-col bg-background-default text-text-primary">
       <Header />
 
-      <main id="main-content" className="flex flex-1 px-4 py-6 sm:px-8 sm:py-8">
-        <div className="mx-auto flex w-full max-w-screen-2xl flex-col">
+      <main id="main-content" className="flex flex-1 items-start px-4 py-6 sm:px-8 sm:py-8">
+        <div className="mx-auto flex w-full max-w-dashboard flex-col">
           <div className="grid flex-1 gap-6 lg:grid-cols-[11fr_9fr] lg:gap-8">
             <section className="relative hidden overflow-hidden rounded-ait-l border border-border-default bg-status-neutral-surface shadow-elevation-1 lg:flex">
               {showWave ? (
