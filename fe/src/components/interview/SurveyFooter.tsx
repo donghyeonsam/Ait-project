@@ -7,11 +7,13 @@ interface SurveyFooterProps {
   canGoNext: boolean
   onPrevious: () => void
   onNext: () => void
+  disabledHint?: string
 }
 
-export function SurveyFooter({ currentStep, canGoNext, onPrevious, onNext }: SurveyFooterProps) {
+export function SurveyFooter({ currentStep, canGoNext, onPrevious, onNext, disabledHint }: SurveyFooterProps) {
   const isFirstStep = currentStep === 1
   const isLastStep = currentStep === SURVEY_STEP_COUNT
+  const showHint = !canGoNext && Boolean(disabledHint)
 
   return (
     <div className="mt-8 flex items-center justify-between border-t border-border-default pt-6">
@@ -21,12 +23,23 @@ export function SurveyFooter({ currentStep, canGoNext, onPrevious, onNext }: Sur
       </p>
 
       <div className="flex items-center gap-3">
+        {showHint ? (
+          <p id="survey-next-hint" className="text-caption text-status-error">
+            {disabledHint}
+          </p>
+        ) : null}
         {!isFirstStep ? (
           <Button type="button" variant="secondary" onClick={onPrevious}>
             이전으로
           </Button>
         ) : null}
-        <Button type="button" variant="primary" disabled={!canGoNext} onClick={onNext}>
+        <Button
+          type="button"
+          variant="primary"
+          disabled={!canGoNext}
+          aria-describedby={showHint ? 'survey-next-hint' : undefined}
+          onClick={onNext}
+        >
           {isLastStep ? '면접 시작' : '다음 단계로'}
           {isLastStep ? null : <ArrowRight className="size-4" aria-hidden="true" />}
         </Button>

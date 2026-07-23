@@ -1,3 +1,10 @@
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  getInterviewPreparation,
+  type InterviewPreparation,
+} from '@/api/ai-interviews'
+import { toErrorMessage } from '@/api/http'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Step1InterviewType } from '@/components/interview/Step1InterviewType'
 import { Step2ApplyInfo } from '@/components/interview/Step2ApplyInfo'
@@ -8,15 +15,41 @@ import { Step5DeviceSetup } from '@/components/interview/Step5DeviceSetup'
 import { SurveyFooter } from '@/components/interview/SurveyFooter'
 import { SurveyStepper } from '@/components/interview/SurveyStepper'
 import { SURVEY_STEP_COUNT, useInterviewSurvey } from '@/components/interview/useInterviewSurvey'
+import { createInterviewSessionNavigationState } from '@/lib/interview-session'
 
 export function InterviewsPage() {
+  const navigate = useNavigate()
   const survey = useInterviewSurvey()
+  const [preparation, setPreparation] = useState<InterviewPreparation | null>(null)
+  const [preparationError, setPreparationError] = useState<string | null>(null)
+  const [isPreparationLoading, setIsPreparationLoading] = useState(true)
   const { currentStep, state, showApplyInfo, showCsTopics } = survey
   const isLastStep = currentStep === SURVEY_STEP_COUNT
 
+  useEffect(() => {
+    let active = true
+
+    getInterviewPreparation()
+      .then((response) => {
+        if (active) setPreparation(response)
+      })
+      .catch((error: unknown) => {
+        if (active) setPreparationError(toErrorMessage(error))
+      })
+      .finally(() => {
+        if (active) setIsPreparationLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
   const handleNext = () => {
     if (isLastStep) {
-      // 면접 세션 시작 로직은 현재 UI 범위 밖이며, 이후 대기실 흐름에서 연결한다.
+      navigate('/interviews/session', {
+        state: createInterviewSessionNavigationState(state),
+      })
       return
     }
     survey.goNext()
@@ -45,11 +78,14 @@ export function InterviewsPage() {
                 <Step2ApplyInfo
                   position={state.position}
                   careerLevel={state.careerLevel}
-                  resumeId={state.resumeId}
+                  coverLetterId={state.coverLetterId}
                   repositoryIds={state.repositoryIds}
+                  preparation={preparation}
+                  isLoading={isPreparationLoading}
+                  error={preparationError}
                   onChangePosition={(value) => survey.update('position', value)}
                   onChangeCareerLevel={(value) => survey.update('careerLevel', value)}
-                  onSelectResume={(id) => survey.update('resumeId', id)}
+                  onSelectCoverLetter={(id) => survey.update('coverLetterId', id)}
                   onToggleRepository={survey.toggleRepository}
                 />
               ) : null}
@@ -68,7 +104,9 @@ export function InterviewsPage() {
             />
           ) : null}
 
-          {currentStep === 4 ? <Step4Summary state={state} /> : null}
+          {currentStep === 4 ? (
+            <Step4Summary state={state} preparation={preparation} />
+          ) : null}
 
           {currentStep === 5 ? (
             <Step5DeviceSetup
@@ -92,6 +130,7 @@ export function InterviewsPage() {
           canGoNext={survey.currentStepValid}
           onPrevious={survey.goPrevious}
           onNext={handleNext}
+          disabledHint={isLastStep ? '카메라·마이크 접근을 허용해야 면접을 시작할 수 있어요.' : undefined}
         />
       </div>
     </PageLayout>

@@ -1,8 +1,9 @@
+import { Loader2 } from 'lucide-react'
 import BorderGlow from '@/components/BorderGlow'
 import { TagBadge } from '@/components/dashboard/TagBadge'
 import { Button } from '@/components/ui/button'
 import { useInView } from '@/lib/useInView'
-import type { InterviewRecord } from '@/mocks/dashboard'
+import type { InterviewRecord } from '@/types/dashboard'
 import { cn } from '@/lib/utils'
 
 interface InterviewRecordItemProps {
@@ -21,6 +22,28 @@ export function InterviewRecordItem({
     threshold: 0.15,
     rootMargin: '0px 0px -8% 0px',
   })
+
+  if (record.status === 'analyzing') {
+    return (
+      <div
+        className="flex min-h-28 items-center gap-4 rounded-ait-m border border-status-info-border bg-status-info-surface px-8 py-4"
+        role="status"
+        aria-live="polite"
+      >
+        <span className="analyzing-shimmer flex size-12 shrink-0 items-center justify-center rounded-ait-pill">
+          <Loader2 className="size-5 animate-spin text-action-primary" aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-3">
+            <TagBadge variant={record.type} className="bg-surface-default ring-1 ring-border-default" />
+            <span className="text-caption font-medium text-status-info">분석 중</span>
+          </div>
+          <h3 className="mt-2 truncate text-h3 font-semibold">{record.title}</h3>
+          <p className="mt-1 text-body-2 text-text-secondary">AI가 답변을 분석하고 있어요. 완료되면 자동으로 결과가 채워져요.</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <BorderGlow

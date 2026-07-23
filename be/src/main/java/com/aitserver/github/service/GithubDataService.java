@@ -91,6 +91,7 @@ public class GithubDataService {
                         log.info("레포지토리 저장 완료: {}", repoName);
 
                         githubAnalysisService.requestAnalysisToFastApi(
+                                userId,
                                 repo.getId(),
                                 installationId,
                                 ownerId,

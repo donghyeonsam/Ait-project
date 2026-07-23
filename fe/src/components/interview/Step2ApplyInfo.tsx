@@ -1,15 +1,18 @@
 import { Check } from 'lucide-react'
-import { repositoryOptions, resumeOptions } from '@/mocks/interview'
+import type { InterviewPreparation } from '@/api/ai-interviews'
 import { cn } from '@/lib/utils'
 
 interface Step2ApplyInfoProps {
   position: string
   careerLevel: string
-  resumeId: string | null
+  coverLetterId: string | null
   repositoryIds: string[]
+  preparation: InterviewPreparation | null
+  isLoading: boolean
+  error: string | null
   onChangePosition: (value: string) => void
   onChangeCareerLevel: (value: string) => void
-  onSelectResume: (id: string) => void
+  onSelectCoverLetter: (id: string) => void
   onToggleRepository: (id: string) => void
 }
 
@@ -19,11 +22,14 @@ const inputClass =
 export function Step2ApplyInfo({
   position,
   careerLevel,
-  resumeId,
+  coverLetterId,
   repositoryIds,
+  preparation,
+  isLoading,
+  error,
   onChangePosition,
   onChangeCareerLevel,
-  onSelectResume,
+  onSelectCoverLetter,
   onToggleRepository,
 }: Step2ApplyInfoProps) {
   return (
@@ -60,29 +66,44 @@ export function Step2ApplyInfo({
         <div>
           <span className="text-body-2 font-medium text-text-primary">자소서 선택</span>
           <ul className="mt-2 h-56 space-y-2 overflow-y-auto rounded-ait-s border border-border-default p-2" role="radiogroup" aria-label="자소서 선택">
-            {resumeOptions.map((resume) => {
-              const isSelected = resumeId === resume.id
+            {isLoading ? (
+              <li className="px-3 py-8 text-center text-body-2 text-text-secondary" role="status">
+                자소서를 불러오는 중입니다.
+              </li>
+            ) : error ? (
+              <li className="px-3 py-8 text-center text-body-2 text-status-error" role="alert">
+                {error}
+              </li>
+            ) : preparation?.coverLetters.length ? preparation.coverLetters.map((coverLetter) => {
+              const id = String(coverLetter.id)
+              const isSelected = coverLetterId === id
               return (
-                <li key={resume.id}>
+                <li key={coverLetter.id}>
                   <button
                     type="button"
                     role="radio"
                     aria-checked={isSelected}
-                    onClick={() => onSelectResume(resume.id)}
+                    onClick={() => onSelectCoverLetter(id)}
                     className={cn(
                       'flex w-full items-center justify-between gap-3 rounded-ait-s px-3 py-2.5 text-left transition-colors ease-standard duration-(--duration-fast)',
                       isSelected ? 'bg-status-success-surface' : 'hover:bg-status-neutral-surface',
                     )}
                   >
                     <span>
-                      <span className="block text-body-2 text-text-primary">{resume.title}</span>
-                      <span className="block text-caption text-text-secondary">최근 수정일 : {resume.updatedAt}</span>
+                      <span className="block text-body-2 text-text-primary">{coverLetter.title}</span>
+                      <span className="block text-caption text-text-secondary">
+                        {coverLetter.companyName} · 최근 수정일 {new Date(coverLetter.updatedAt).toLocaleDateString('ko-KR')}
+                      </span>
                     </span>
                     {isSelected ? <Check className="size-5 shrink-0 text-status-success" aria-hidden="true" /> : null}
                   </button>
                 </li>
               )
-            })}
+            }) : (
+              <li className="px-3 py-8 text-center text-body-2 text-text-secondary">
+                등록된 자소서가 없습니다.
+              </li>
+            )}
           </ul>
         </div>
 
@@ -92,25 +113,41 @@ export function Step2ApplyInfo({
             <span className="ml-2 text-caption font-normal text-text-secondary">다중선택 가능</span>
           </span>
           <ul className="mt-2 h-56 space-y-2 overflow-y-auto rounded-ait-s border border-border-default p-2" aria-label="레포지토리 선택">
-            {repositoryOptions.map((repository) => {
-              const isSelected = repositoryIds.includes(repository.id)
+            {isLoading ? (
+              <li className="px-3 py-8 text-center text-body-2 text-text-secondary" role="status">
+                레포지토리를 불러오는 중입니다.
+              </li>
+            ) : error ? (
+              <li className="px-3 py-8 text-center text-body-2 text-status-error" role="alert">
+                {error}
+              </li>
+            ) : preparation?.githubRepositories.length ? preparation.githubRepositories.map((repository) => {
+              const id = String(repository.id)
+              const isSelected = repositoryIds.includes(id)
               return (
                 <li key={repository.id}>
                   <button
                     type="button"
                     aria-pressed={isSelected}
-                    onClick={() => onToggleRepository(repository.id)}
+                    onClick={() => onToggleRepository(id)}
                     className={cn(
                       'flex w-full items-center justify-between gap-3 rounded-ait-s px-3 py-2.5 text-left transition-colors ease-standard duration-(--duration-fast)',
                       isSelected ? 'bg-status-success-surface' : 'hover:bg-status-neutral-surface',
                     )}
                   >
-                    <span className="text-body-2 text-text-primary">{repository.name}</span>
+                    <span>
+                      <span className="block text-body-2 text-text-primary">{repository.repoNickname}</span>
+                      <span className="block text-caption text-text-secondary">{repository.repoName}</span>
+                    </span>
                     {isSelected ? <Check className="size-5 shrink-0 text-status-success" aria-hidden="true" /> : null}
                   </button>
                 </li>
               )
-            })}
+            }) : (
+              <li className="px-3 py-8 text-center text-body-2 text-text-secondary">
+                등록된 레포지토리가 없습니다.
+              </li>
+            )}
           </ul>
         </div>
       </div>

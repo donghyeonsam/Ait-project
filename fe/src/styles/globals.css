@@ -437,6 +437,36 @@ a {
   animation: list-enter var(--duration-slow) var(--easing-emphasized) both;
 }
 
+.waveform-bar {
+  height: 20%;
+  animation: waveform-bounce 1.1s ease-in-out infinite;
+}
+
+@keyframes waveform-bounce {
+  0%,
+  100% {
+    height: 20%;
+  }
+  50% {
+    height: 100%;
+  }
+}
+
+.analyzing-shimmer {
+  background: linear-gradient(90deg, #eef2f6 25%, #e2e8f0 37%, #eef2f6 63%);
+  background-size: 400% 100%;
+  animation: shimmer-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer-sweep {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
 .accordion-content {
   display: grid;
   grid-template-rows: 0fr;
@@ -498,7 +528,7 @@ a {
   padding-top: 2rem;
 }
 
-.cover-letter-picker-overlay {
+.document-box-overlay {
   background: color-mix(
     in srgb,
     var(--color-text-primary) 64%,
@@ -507,7 +537,7 @@ a {
   backdrop-filter: none;
 }
 
-.cover-letter-picker-dialog {
+.document-box-dialog {
   top: 0;
   left: 0;
   width: min(24rem, calc(100vw - 2rem));
@@ -518,13 +548,13 @@ a {
   transform-origin: left center;
 }
 
-.ait-dialog-content.cover-letter-picker-dialog[data-state="open"] {
-  animation: cover-letter-picker-in var(--duration-slow)
+.ait-dialog-content.document-box-dialog[data-state="open"] {
+  animation: document-box-in var(--duration-slow)
     var(--easing-emphasized) both;
 }
 
-.ait-dialog-content.cover-letter-picker-dialog[data-state="closed"] {
-  animation: cover-letter-picker-out var(--duration-base)
+.ait-dialog-content.document-box-dialog[data-state="closed"] {
+  animation: document-box-out var(--duration-base)
     var(--easing-standard) both;
 }
 
@@ -635,17 +665,17 @@ a {
   -webkit-line-clamp: 2;
 }
 
-.cover-letter-picker-dialog[data-state='open'] .line-sidebar-item {
+.document-box-dialog[data-state='open'] .line-sidebar-item {
   animation: line-sidebar-item-in var(--duration-base)
     var(--easing-emphasized) both;
 }
 
-.cover-letter-picker-dialog[data-state='open']
+.document-box-dialog[data-state='open']
   .line-sidebar-item:nth-child(2) {
   animation-delay: var(--duration-fast);
 }
 
-.cover-letter-picker-dialog[data-state='open']
+.document-box-dialog[data-state='open']
   .line-sidebar-item:nth-child(n + 3) {
   animation-delay: var(--duration-base);
 }
@@ -866,7 +896,7 @@ a {
   }
 }
 
-@keyframes cover-letter-picker-in {
+@keyframes document-box-in {
   from {
     opacity: 0;
     transform: translateX(-100%);
@@ -877,7 +907,7 @@ a {
   }
 }
 
-@keyframes cover-letter-picker-out {
+@keyframes document-box-out {
   from {
     opacity: 1;
     transform: translateX(0);

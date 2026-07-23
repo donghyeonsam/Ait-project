@@ -2,6 +2,7 @@
 -- 외래키 관계를 고려한 테이블 삭제
 -- 자식 테이블부터 부모 테이블 순서로 삭제
 -- =========================================================
+DROP TABLE IF EXISTS `ai_interviews`;
 DROP TABLE IF EXISTS `cover_letter_contents`;
 DROP TABLE IF EXISTS `cover_letter`;
 DROP TABLE IF EXISTS `resume_projects`;
@@ -313,3 +314,15 @@ CREATE TABLE `cover_letter_contents` (
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci
   COMMENT='자기소개서 문항 및 답변';
+
+CREATE TABLE `ai_interviews` (
+                                 `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                 `user_id` BIGINT NOT NULL,
+                                 `interview_type` VARCHAR(30) NOT NULL,
+                                 `difficulty` VARCHAR(30) NOT NULL,
+                                 `ai_attitude_style` VARCHAR(30) NOT NULL,
+                                 `status` VARCHAR(30) NOT NULL,
+                                 `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                 `ended_at` DATETIME DEFAULT NULL,
+                                 PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 모의 면접 기본 테이블';
