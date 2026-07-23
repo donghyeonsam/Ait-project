@@ -12,6 +12,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -25,11 +27,11 @@ public class CoverLetterController {
     // 내 자소서 목록 조회
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<CoverLetterListResponse>> getMyCoverLetterList(
-            // jwt
+            @AuthenticationPrincipal Long userId,
             HttpServletRequest request
     ){
 
-        Long userId = 1L;   // 일단 하드코딩
+
         CoverLetterListResponse coverLetterListResponse = coverLetterService.getList(userId);
 
         return ResponseEntity
@@ -45,11 +47,11 @@ public class CoverLetterController {
     // 자소서 상세 조회
     @GetMapping("/{coverLetterId}")
     public ResponseEntity<ApiResponse<CoverLetterDetailResponse>> getDetails(
-            // jwt
+            @AuthenticationPrincipal Long userId,
             @PathVariable Long coverLetterId,
             HttpServletRequest request
     ){
-        Long userId = 1L;   // 임시 하드코딩
+
         CoverLetterDetailResponse coverLetterDetailResponse = coverLetterService.getDetail(coverLetterId, userId);
 
         return ResponseEntity
@@ -67,11 +69,11 @@ public class CoverLetterController {
     @PostMapping
     public ResponseEntity<ApiResponse<CoverLetterDetailResponse>>
     createCoverLetter(
-            // jwt
+            @AuthenticationPrincipal Long userId,
             @Valid @RequestBody CoverLetterCreateRequest coverLetterCreateRequest,
             HttpServletRequest request
     ) {
-        Long userId = 1L;
+
 
         CoverLetterDetailResponse response =
                 coverLetterService.createCoverLetter(
@@ -92,12 +94,12 @@ public class CoverLetterController {
     @PutMapping("/{coverLetterId}")
     public ResponseEntity<ApiResponse<CoverLetterDetailResponse>>
     updateCoverLetter(
-            // jwt
+            @AuthenticationPrincipal Long userId,
             @PathVariable Long coverLetterId,
             @Valid @RequestBody CoverLetterUpdateRequest coverLetterUpdateRequest,
             HttpServletRequest request
     ) {
-        Long userId = 1L;   // 임시
+
 
         CoverLetterDetailResponse response =
                 coverLetterService.updateCoverLetter(
@@ -118,11 +120,11 @@ public class CoverLetterController {
 
     @DeleteMapping("/{coverLetterId}")
     public ResponseEntity<ApiResponse<Void>> deleteCoverLetter(
-            // jwt
+            @AuthenticationPrincipal Long userId,
             @PathVariable Long coverLetterId,
             HttpServletRequest request
     ) {
-        Long userId = 1L;
+
 
         coverLetterService.deleteCoverLetter(
                 userId,
