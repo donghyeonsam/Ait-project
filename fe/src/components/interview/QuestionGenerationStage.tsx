@@ -5,17 +5,16 @@ import {
   FileText,
   Gauge,
   Lightbulb,
-  LoaderCircle,
   SlidersHorizontal,
-  UserRound,
 } from 'lucide-react'
+import { ShinyText } from '@/components/reactbits/ShinyText'
 import type { InterviewInputContract } from '@/lib/interview-session'
 
-const AI_INTERVIEWER_IMAGE_SRC = '/interview/ai-interviewer.png'
 const STAGE_VISIBILITY_DELAY_MS = 300
 const STATUS_ROTATION_MS = 2600
-const TIP_ROTATION_MS = 5500
+const TIP_ROTATION_MS = 4500
 const SLOW_REQUEST_NOTICE_MS = 8000
+const ORB_WAVE_BAR_COUNT = 22
 
 interface QuestionGenerationStageProps {
   input: InterviewInputContract
@@ -98,10 +97,12 @@ function createInterviewTips(input: InterviewInputContract) {
     tips.push('답변마다 구체적인 경험이나 근거를 하나씩 덧붙여 보세요.')
   }
 
+  tips.push('한 답변은 30초에서 1분 분량으로 간결하게 유지해 보세요.')
+
   return tips
 }
 
-// 질문 응답을 기다리는 동안 실제 면접 설정과 짧은 준비 팁을 보여준다.
+// 질문 응답을 기다리는 동안 실제 면접 설정과 짧은 준비 팁을 몰입형 다크 화면으로 보여준다.
 export function QuestionGenerationStage({
   input,
 }: QuestionGenerationStageProps) {
@@ -109,7 +110,6 @@ export function QuestionGenerationStage({
   const [statusIndex, setStatusIndex] = useState(0)
   const [tipIndex, setTipIndex] = useState(0)
   const [showSlowRequestNotice, setShowSlowRequestNotice] = useState(false)
-  const [imageFailed, setImageFailed] = useState(false)
   const configurationBadges = createConfigurationBadges(input)
   const statusMessages = createStatusMessages(input)
   const interviewTips = createInterviewTips(input)
@@ -140,118 +140,114 @@ export function QuestionGenerationStage({
 
   return (
     <div
-      className={`w-full max-w-4xl overflow-hidden rounded-ait-l border border-border-default bg-surface-default shadow-elevation-2 transition-opacity duration-(--duration-slow) ${
+      className={`relative flex w-full flex-1 flex-col overflow-hidden transition-opacity duration-(--duration-slow) ${
         isVisible ? 'opacity-100' : 'opacity-0'
       }`}
       aria-hidden={!isVisible}
       aria-busy="true"
     >
-      <div className="grid lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <div className="relative min-h-64 overflow-hidden bg-status-neutral-surface lg:min-h-[32rem]">
-          {imageFailed ? (
-            <div className="flex size-full min-h-64 flex-col items-center justify-center gap-3 text-text-secondary lg:min-h-[32rem]">
-              <UserRound className="size-16" aria-hidden="true" />
-              <p className="text-body-2">AI 면접관이 입장을 준비하고 있어요.</p>
-            </div>
-          ) : (
-            <img
-              src={AI_INTERVIEWER_IMAGE_SRC}
-              alt=""
-              className="absolute inset-0 size-full object-cover object-center"
-              onError={() => setImageFailed(true)}
-            />
-          )}
+      <div className="immersive-aurora" aria-hidden="true">
+        <span className="immersive-aurora-blob" />
+        <span className="immersive-aurora-blob" />
+        <span className="immersive-aurora-blob" />
+      </div>
+      <div className="immersive-vignette" aria-hidden="true" />
 
-          <div
-            className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-action-primary/90 to-transparent px-6 pb-6 pt-16 text-surface-default"
-            aria-hidden="true"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-6 items-center gap-1">
-                {Array.from({ length: 12 }).map((_, index) => (
-                  <span
-                    key={index}
-                    className="waveform-bar w-1 rounded-ait-pill bg-surface-default"
-                    style={{ animationDelay: `${(index % 6) * 100}ms` }}
-                  />
-                ))}
-              </div>
-              <span className="text-body-2 font-semibold">AI 면접관 준비 중</span>
-            </div>
-          </div>
+      <div className="relative flex flex-1 flex-col px-6 py-6 sm:px-9">
+        <div className="flex justify-end">
+          <span className="immersive-glass inline-flex items-center gap-2 rounded-ait-pill px-3 py-1.5 text-caption font-semibold">
+            <span className="immersive-status-dot" aria-hidden="true" />
+            면접 준비 중
+          </span>
         </div>
 
-        <div className="flex min-h-[32rem] flex-col justify-center p-6 text-left sm:p-8 lg:p-10">
-          <div className="inline-flex w-fit items-center gap-2 rounded-ait-pill border border-status-info-border bg-status-info-surface px-3 py-1.5 text-caption font-semibold text-status-info">
-            <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-            면접 준비 중
+        <div className="flex flex-1 flex-col items-center justify-center gap-6 py-10 text-center">
+          <div className="immersive-orb" aria-hidden="true">
+            <span className="immersive-orb-ring" />
+            <span className="immersive-orb-ring immersive-orb-ring-delayed" />
+            <span className="immersive-orb-core">
+              {Array.from({ length: ORB_WAVE_BAR_COUNT }).map((_, index) => (
+                <span
+                  key={index}
+                  className="immersive-orb-wave-bar"
+                  style={{
+                    height: `${28 + (index % 5) * 9}%`,
+                    animationDelay: `${(index % 8) * 90}ms`,
+                  }}
+                />
+              ))}
+            </span>
           </div>
 
-          <h1
-            id="question-generation-title"
-            className="mt-5 text-h2 text-text-primary sm:text-h1"
-          >
-            맞춤 질문을 준비하고 있어요
-          </h1>
-          <p className="mt-2 text-body-2 text-text-secondary">
-            잠시 뒤 AI 면접관이 첫 번째 질문을 시작합니다.
-          </p>
+          <div>
+            <h1
+              id="question-generation-title"
+              className="text-h1 sm:text-display"
+            >
+              <ShinyText text="맞춤 질문을 준비하고 있어요" />
+            </h1>
+            <p className="mt-3 text-body-1 text-immersive-foreground/60">
+              천천히 숨을 고르는 동안 AI 면접관이 첫 질문을 준비합니다.
+            </p>
+          </div>
 
-          <ul className="mt-6 flex flex-wrap gap-2" aria-label="선택한 면접 조건">
+          <ul
+            className="flex flex-wrap justify-center gap-2"
+            aria-label="선택한 면접 조건"
+          >
             {configurationBadges.map(({ label, icon: Icon }) => (
               <li
                 key={label}
-                className="inline-flex items-center gap-1.5 rounded-ait-pill border border-border-default bg-status-neutral-surface px-3 py-1.5 text-caption font-medium text-text-primary"
+                className="immersive-glass inline-flex items-center gap-1.5 rounded-ait-pill px-3 py-1.5 text-caption font-medium"
               >
                 <Icon
-                  className="size-3.5 text-text-secondary"
+                  className="size-3.5 text-immersive-foreground/70"
                   aria-hidden={true}
                 />
                 {label}
               </li>
             ))}
           </ul>
+        </div>
 
-          <div className="mt-8" role="status" aria-live="polite">
+        <div className="flex flex-col gap-3 lg:flex-row">
+          <div className="immersive-glass rounded-ait-l p-5 lg:flex-[1.4]">
+            <p className="flex items-center gap-2 text-caption font-semibold text-immersive-foreground/70">
+              <Lightbulb className="size-4" aria-hidden="true" />
+              기다리는 동안 · 면접 팁 ({tipIndex + 1}/{interviewTips.length})
+            </p>
+            <p
+              key={tipIndex}
+              className="question-generation-message mt-2 text-body-2 text-immersive-foreground"
+            >
+              {interviewTips[tipIndex]}
+            </p>
+          </div>
+
+          <div
+            className="immersive-glass rounded-ait-l p-5 lg:flex-1"
+            role="status"
+            aria-live="polite"
+          >
+            <p className="text-caption font-semibold text-immersive-foreground/70">
+              진행 단계
+            </p>
             <p
               key={statusIndex}
-              className="question-generation-message text-body-2 font-medium text-text-primary"
+              className="question-generation-message mt-2 text-body-2 text-immersive-foreground"
             >
               {statusMessages[statusIndex]}
             </p>
-            <div
-              className="mt-3 h-1.5 overflow-hidden rounded-ait-pill bg-status-neutral-surface"
-              aria-hidden="true"
-            >
-              <div className="question-generation-progress-bar h-full w-1/3 rounded-ait-pill bg-action-primary" />
+            <div className="immersive-progress-track mt-3" aria-hidden="true">
+              <div className="immersive-progress-bar" />
             </div>
+            {showSlowRequestNotice ? (
+              <p className="mt-3 text-caption text-immersive-foreground/60">
+                평소보다 조금 더 걸리고 있어요. 화면을 닫지 않고 잠시만
+                기다려주세요.
+              </p>
+            ) : null}
           </div>
-
-          <div className="mt-8 rounded-ait-m border border-status-info-border bg-status-info-surface p-4">
-            <div className="flex gap-3">
-              <Lightbulb
-                className="mt-0.5 size-5 shrink-0 text-status-info"
-                aria-hidden="true"
-              />
-              <div>
-                <p className="text-caption font-semibold text-status-info">
-                  기다리는 동안 면접 팁
-                </p>
-                <p
-                  key={tipIndex}
-                  className="question-generation-message mt-1 text-body-2 text-text-primary"
-                >
-                  {interviewTips[tipIndex]}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {showSlowRequestNotice ? (
-            <p className="mt-4 text-caption text-text-secondary" role="status">
-              평소보다 조금 더 걸리고 있어요. 화면을 닫지 않고 잠시만 기다려주세요.
-            </p>
-          ) : null}
         </div>
       </div>
     </div>

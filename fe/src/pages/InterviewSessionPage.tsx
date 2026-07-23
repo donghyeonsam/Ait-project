@@ -174,14 +174,14 @@ function InterviewSessionContent({
   }
 
   return (
-    <PageLayout contentClassName="max-w-content">
+    <PageLayout contentClassName="max-w-none px-0" hideFooter>
       <section
-        className="flex min-h-[60vh] items-center justify-center py-12"
+        className="immersive-stage-backdrop flex flex-col"
         aria-labelledby="question-generation-title"
       >
         {questionError ? (
-          <div className="w-full max-w-2xl rounded-ait-l border border-border-default bg-surface-default p-8 text-center shadow-elevation-1">
-            <>
+          <div className="flex flex-1 items-center justify-center px-8 py-12">
+            <div className="w-full max-w-2xl rounded-ait-l border border-border-default bg-surface-default p-8 text-center shadow-elevation-3">
               <AlertCircle
                 className="mx-auto size-12 text-status-error"
                 aria-hidden="true"
@@ -207,7 +207,7 @@ function InterviewSessionContent({
                   면접 설정으로 돌아가기
                 </Button>
               </div>
-            </>
+            </div>
           </div>
         ) : (
           <QuestionGenerationStage input={config.input} />

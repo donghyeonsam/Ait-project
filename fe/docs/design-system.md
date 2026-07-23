@@ -101,6 +101,25 @@
 | Slate / White | `4.8:1` | AA |
 | Gold / White | `2.3:1` | 본문 텍스트 사용 금지 |
 
+### 3.4 몰입형 대기 화면 색상
+
+AI 질문 생성 대기 화면처럼 풀블리드 다크 몰입형 화면에서만 사용하는 전용 팔레트다. 일반 화면의 배경, 카드, 버튼에는 사용하지 않는다.
+
+| 역할 | HEX | 토큰 |
+| --- | --- | --- |
+| 배경 중앙(밝음) | `#141A33` | `color/immersive/background-soft` |
+| 배경 기본 | `#0A0D1C` | `color/immersive/background` |
+| 배경 가장자리(어두움) | `#070A16` | `color/immersive/background-strong` |
+| 텍스트·글래스 기준색 | `#FFFFFF` | `color/immersive/foreground` |
+| 오로라 인디고 | `#5A6BFF` | `color/immersive/aurora-indigo` |
+| 오로라 바이올렛 | `#966EFF` | `color/immersive/aurora-violet` |
+| 오로라 틴트 | `#48C4C4` | `color/immersive/aurora-teal` |
+| 준비 상태 시그널 | `#5FD39A` | `color/immersive/positive` |
+
+- 다크 배경 위 본문은 `foreground` 60% 이상 투명도로만 사용해 AA 대비를 유지한다.
+- 글래스 표면은 `foreground`의 8% 배경과 16% 테두리 `color-mix`로 파생하고 임의 알파 값을 추가하지 않는다.
+- 오로라 색은 장식 배경과 진행바 그라데이션에만 사용하고 텍스트 색상으로 쓰지 않는다.
+
 ## 4. 타이포그래피
 
 기본 폰트는 Pretendard다.

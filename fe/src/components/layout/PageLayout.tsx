@@ -6,9 +6,14 @@ import { cn } from '@/lib/utils'
 interface PageLayoutProps {
   children: ReactNode
   contentClassName?: string
+  hideFooter?: boolean
 }
 
-export function PageLayout({ children, contentClassName }: PageLayoutProps) {
+export function PageLayout({
+  children,
+  contentClassName,
+  hideFooter = false,
+}: PageLayoutProps) {
   return (
     <div className="flex min-h-svh flex-col bg-surface-default text-text-primary">
       <Header />
@@ -17,7 +22,7 @@ export function PageLayout({ children, contentClassName }: PageLayoutProps) {
           {children}
         </div>
       </main>
-      <Footer />
+      {hideFooter ? null : <Footer />}
     </div>
   )
 }

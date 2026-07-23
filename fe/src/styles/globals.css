@@ -94,6 +94,16 @@
   --color-status-neutral-surface: #f1f5f9;
   --color-status-neutral-border: #e2e8f0;
 
+  /* 몰입형 대기 화면 전용 다크 팔레트. docs/design-system.md 3.4 참고. */
+  --color-immersive-background-soft: #141a33;
+  --color-immersive-background: #0a0d1c;
+  --color-immersive-background-strong: #070a16;
+  --color-immersive-foreground: #ffffff;
+  --color-immersive-aurora-indigo: #5a6bff;
+  --color-immersive-aurora-violet: #966eff;
+  --color-immersive-aurora-teal: #48c4c4;
+  --color-immersive-positive: #5fd39a;
+
   --text-display: 2.5rem;
   --text-display--line-height: 1.25;
   --text-display--font-weight: 700;
@@ -478,6 +488,265 @@ a {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* 몰입형 질문 생성 대기 화면 (QuestionGenerationStage) */
+.immersive-stage-backdrop {
+  min-height: calc(100svh - var(--header-height-compact));
+  background: radial-gradient(
+    120% 90% at 50% 18%,
+    var(--color-immersive-background-soft) 0%,
+    var(--color-immersive-background) 55%,
+    var(--color-immersive-background-strong) 100%
+  );
+  color: var(--color-immersive-foreground);
+}
+
+@media (min-width: 64rem) {
+  .immersive-stage-backdrop {
+    min-height: calc(100svh - var(--header-height-wide));
+  }
+}
+
+.immersive-glass {
+  border: 1px solid
+    color-mix(in srgb, var(--color-immersive-foreground) 16%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--color-immersive-foreground) 8%,
+    transparent
+  );
+  backdrop-filter: blur(12px);
+}
+
+.immersive-aurora {
+  position: absolute;
+  inset: -20%;
+  filter: blur(90px);
+  opacity: 0.55;
+}
+
+.immersive-aurora-blob {
+  position: absolute;
+  border-radius: var(--radius-pill);
+}
+
+.immersive-aurora-blob:nth-child(1) {
+  top: 6%;
+  left: 14%;
+  width: 42%;
+  height: 46%;
+  background: var(--color-immersive-aurora-indigo);
+  animation: immersive-aurora-a 16s ease-in-out infinite alternate;
+}
+
+.immersive-aurora-blob:nth-child(2) {
+  top: 22%;
+  right: 8%;
+  width: 38%;
+  height: 44%;
+  background: var(--color-immersive-aurora-violet);
+  animation: immersive-aurora-b 20s ease-in-out infinite alternate;
+}
+
+.immersive-aurora-blob:nth-child(3) {
+  bottom: 4%;
+  left: 30%;
+  width: 34%;
+  height: 38%;
+  background: var(--color-immersive-aurora-teal);
+  opacity: 0.6;
+  animation: immersive-aurora-c 24s ease-in-out infinite alternate;
+}
+
+.immersive-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    72% 62% at 50% 42%,
+    transparent 0%,
+    color-mix(in srgb, var(--color-immersive-background-strong) 82%, transparent)
+      100%
+  );
+}
+
+.immersive-status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-immersive-positive);
+  box-shadow: 0 0 8px 2px
+    color-mix(in srgb, var(--color-immersive-positive) 60%, transparent);
+  animation: immersive-dot-pulse 2s ease-in-out infinite;
+}
+
+.immersive-orb {
+  position: relative;
+  display: flex;
+  width: 8.25rem;
+  height: 8.25rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.immersive-orb-ring {
+  position: absolute;
+  inset: 0;
+  border: 1px solid
+    color-mix(in srgb, var(--color-immersive-aurora-indigo) 65%, transparent);
+  border-radius: var(--radius-pill);
+  animation: immersive-ring-pulse 1.6s var(--easing-standard) infinite;
+}
+
+.immersive-orb-ring-delayed {
+  animation-delay: 0.8s;
+}
+
+.immersive-orb-core {
+  display: flex;
+  width: 5.75rem;
+  height: 5.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: var(--radius-pill);
+  background: radial-gradient(
+    circle at 32% 26%,
+    var(--color-immersive-aurora-violet) 0%,
+    var(--color-immersive-aurora-indigo) 58%,
+    color-mix(
+        in srgb,
+        var(--color-immersive-aurora-indigo) 55%,
+        var(--color-immersive-background)
+      )
+      100%
+  );
+  box-shadow: 0 0 42px 6px
+    color-mix(in srgb, var(--color-immersive-aurora-indigo) 45%, transparent);
+  animation: immersive-orb-breath 3.4s ease-in-out infinite;
+}
+
+.immersive-orb-wave-bar {
+  width: 2px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-immersive-foreground) 90%, transparent);
+  transform-origin: center;
+  animation: immersive-wave 1.2s ease-in-out infinite;
+}
+
+.immersive-progress-track {
+  height: 0.375rem;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-immersive-foreground) 14%, transparent);
+}
+
+.immersive-progress-bar {
+  width: 33%;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    90deg,
+    var(--color-immersive-aurora-indigo),
+    var(--color-immersive-aurora-violet)
+  );
+  animation: question-generation-progress 1.8s var(--easing-standard) infinite;
+}
+
+/* reactbits.dev ShinyText: 반투명 텍스트 뒤로 하이라이트 그라데이션이 흐른다. */
+.shiny-text {
+  display: inline-block;
+  color: color-mix(in srgb, var(--color-immersive-foreground) 86%, transparent);
+  background: linear-gradient(
+    120deg,
+    transparent 40%,
+    color-mix(in srgb, var(--color-immersive-foreground) 85%, transparent) 50%,
+    transparent 60%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: shiny-text-shine linear infinite;
+  animation-duration: var(--shiny-text-duration, 5s);
+}
+
+@keyframes immersive-aurora-a {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(8%, 10%, 0) scale(1.15);
+  }
+}
+
+@keyframes immersive-aurora-b {
+  from {
+    transform: translate3d(0, 0, 0) scale(1.1);
+  }
+  to {
+    transform: translate3d(-10%, 6%, 0) scale(0.95);
+  }
+}
+
+@keyframes immersive-aurora-c {
+  from {
+    transform: translate3d(0, 0, 0) scale(0.95);
+  }
+  to {
+    transform: translate3d(6%, -8%, 0) scale(1.12);
+  }
+}
+
+@keyframes immersive-ring-pulse {
+  from {
+    opacity: 0.9;
+    transform: scale(0.55);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+@keyframes immersive-orb-breath {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.08);
+    filter: brightness(1.15);
+  }
+}
+
+@keyframes immersive-wave {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes immersive-dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes shiny-text-shine {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
   }
 }
 
