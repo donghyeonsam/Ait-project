@@ -2,6 +2,8 @@
 -- 외래키 관계를 고려한 테이블 삭제
 -- 자식 테이블부터 부모 테이블 순서로 삭제
 -- =========================================================
+DROP TABLE IF EXISTS `ai_comprehensive_reports`;
+DROP TABLE IF EXISTS `ai_interview_questions`;
 DROP TABLE IF EXISTS `ai_interviews`;
 DROP TABLE IF EXISTS `cover_letter_contents`;
 DROP TABLE IF EXISTS `cover_letter`;
@@ -14,7 +16,6 @@ DROP TABLE IF EXISTS `github_apps`;
 DROP TABLE IF EXISTS `resumes`;
 DROP TABLE IF EXISTS `user_skills`;
 DROP TABLE IF EXISTS `users`;
-
 
 -- =========================================================
 -- 사용자 정보
@@ -360,3 +361,53 @@ CREATE TABLE `ai_interviews` (
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci
   COMMENT='AI 모의 면접 기본 정보';
+
+CREATE TABLE `ai_interview_questions` (
+                                          `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                          `ai_interview_id` BIGINT NOT NULL,
+                                          `question` TEXT NOT NULL,
+                                          `user_answer` TEXT DEFAULT NULL,
+                                          `ai_answer` TEXT DEFAULT NULL,
+                                          `feedback` TEXT DEFAULT NULL,
+
+                                          PRIMARY KEY (`id`),
+
+    -- 조회 성능 향상을 위한 외래키 인덱스
+                                          KEY `idx_ai_interview_questions_ai_interview_id` (`ai_interview_id`),
+
+    -- ai_interviews 테이블 삭제 시 질문 및 답변도 자동 삭제 처리
+                                          CONSTRAINT `fk_ai_interview_questions_ai_interview`
+                                              FOREIGN KEY (`ai_interview_id`)
+                                                  REFERENCES `ai_interviews` (`id`)
+                                                  ON DELETE CASCADE
+                                                  ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='AI 모의 면접 질문 및 사용자 답변';
+
+CREATE TABLE `ai_comprehensive_reports` (
+                                            `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                            `ai_interview_id` BIGINT NOT NULL,
+                                            `content` TEXT NOT NULL,
+                                            `eye_contact_score` INT NOT NULL,
+                                            `face_score` INT NOT NULL,
+                                            `voice_score` INT NOT NULL,
+                                            `answer_score` INT NOT NULL,
+                                            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                                            PRIMARY KEY (`id`),
+
+    -- 1:1 관계 또는 면접 ID 기반 빠른 조회를 위한 외래키 인덱스
+                                            KEY `idx_ai_comprehensive_reports_ai_interview_id` (`ai_interview_id`),
+
+    -- ai_interviews 테이블 삭제 시 종합 평가 리포트도 자동 삭제 처리
+                                            CONSTRAINT `fk_ai_comprehensive_reports_ai_interview`
+                                                FOREIGN KEY (`ai_interview_id`)
+                                                    REFERENCES `ai_interviews` (`id`)
+                                                    ON DELETE CASCADE
+                                                    ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='AI 최종 평가 리포트';

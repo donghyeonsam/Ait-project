@@ -1,8 +1,6 @@
 package com.aitserver.aiInterview.controller;
 
-import com.aitserver.aiInterview.dto.AiInterviewPreparationResponse;
-import com.aitserver.aiInterview.dto.AiInterviewQuestionRequest;
-import com.aitserver.aiInterview.dto.AiInterviewQuestionResponse;
+import com.aitserver.aiInterview.dto.*;
 import com.aitserver.aiInterview.service.AiInterviewService;
 import com.aitserver.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,7 +34,6 @@ public class AiInterviewController {
                 ));
     }
 
-
     @PostMapping
     public ResponseEntity<ApiResponse<AiInterviewQuestionResponse>> insertAndGenerate(
             @AuthenticationPrincipal Long userId,
@@ -49,6 +46,25 @@ public class AiInterviewController {
                 ApiResponse.success(
                         HttpStatus.OK,
                         "사용자 입력 정보 기반 질문 리스트 생성 완료",
+                        response,
+                        request
+                )
+        );
+    }
+
+    @PostMapping("/{aiInterviewId}/answers")
+    public ResponseEntity<ApiResponse<FollowUpQuestionResponse>> answerCheck(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long aiInterviewId,
+            @RequestBody FollowUpQuestionRequest answerRequest,
+            HttpServletRequest request) {
+        // 질문과 사용자의 답변을 전달해서, 꼬리 질문을 생성
+        FollowUpQuestionResponse response = aiInterviewService.answerCheckForfollowUp(userId, aiInterviewId, answerRequest);
+
+        return ResponseEntity.status(HttpStatus.OK).body(
+                ApiResponse.success(
+                        HttpStatus.OK,
+                        "사용자 답변 분석 완료",
                         response,
                         request
                 )

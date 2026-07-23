@@ -20,7 +20,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class AiInterviewServiceImpl implements AiInterviewService{
+public class AiInterviewServiceImpl implements AiInterviewService {
 
     private final AiInterviewCoverLetterRepository coverLetterRepository;
     private final AiInterviewGithubRepoRepository githubRepoRepository;
@@ -100,5 +100,24 @@ public class AiInterviewServiceImpl implements AiInterviewService{
             log.error("[AiInterviewServiceImpl, FastAPI] 통신 에러 발생", e);
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    @Transactional
+    public FollowUpQuestionResponse answerCheckForfollowUp(Long userId, Long aiInterviewId, FollowUpQuestionRequest answerRequest) {
+        log.info("[AiInterviewServiceImpl, FollowUpQuestion] 사용자 질문 분석해서 꼬리 질문 생성 메서드 진입");
+        // 질문의 order 번호를 확인해서 1번일 때만 진행 상황을 ready에서 doing으로 변경
+        if(answerRequest.question().order() == 1) {
+            aiInterviewsRepository.updateStatus(userId, aiInterviewId);
+        }
+
+        // 사용자의 답변을 ai_interview_questions 테이블에 저장
+
+        // 사용자 답변을 FastAPI의 꼬리 질문 판별 엔드포인트로 전달
+
+        // 사용자 답변을 AI 답변 보완 엔드포인트로 전달(비동기로 처리해서 도착하면 바로 DB에 넣기)
+
+
+        return null;
     }
 }
