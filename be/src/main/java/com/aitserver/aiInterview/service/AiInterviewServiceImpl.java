@@ -20,7 +20,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class AiInterviewServiceImpl implements AiInterviewService{
+public class AiInterviewServiceImpl implements AiInterviewService {
 
     private final AiInterviewCoverLetterRepository coverLetterRepository;
     private final AiInterviewGithubRepoRepository githubRepoRepository;
