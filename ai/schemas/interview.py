@@ -156,6 +156,7 @@ class GeneratedQuestion(BaseModel):
     )
     topic: str | None = Field(None, description="질문 주제 태그")
     source: str | None = Field(None, description="근거가 된 문서 출처 (resume/github 등)")
+    depth: int = Field(0, description="이 질문의 초기 꼬리질문 횟수 (생성 시점엔 항상 0)")
 
 
 class QuestionGenerateResponse(BaseModel):
@@ -215,7 +216,12 @@ class FollowupRequest(BaseModel):
     # [루브릭 아키텍처 전환] 채점 로직 자체는 더 이상 이 값에 의존하지 않지만,
     # rubric이 계속 통과되지 않아 꼬리질문이 무한정 이어지는 것을 막기 위한
     # 안전장치(상한 체크)로만 사용한다. 주 종료 조건은 all_passed 이다.
-    followup_depth: int = Field(
+    # [필드명 통일 - Breaking Change] 기존 followup_depth → depth로 필드명 변경.
+    # GeneratedQuestion.depth(질문 생성 응답의 초기 꼬리질문 횟수, 항상 0)와 개념/이름을
+    # 통일했다. 또한 다단어 snake_case 필드(followup_depth)는 BE의 Jackson 역직렬화 시
+    # camelCase 변환 어노테이션이 누락되면 조용히 null이 되는 문제가 반복적으로 발생했는데,
+    # 한 단어 필드명(depth)은 애초에 그런 변환 자체가 필요 없어 이 문제 자체를 원천 차단한다.
+    depth: int = Field(
         0,
         ge=0,
         description="현재까지 이 질문에 나간 꼬리질문 횟수 (안전장치용 상한 체크 전용)",
@@ -239,7 +245,7 @@ class FollowupResponse(BaseModel):
     # 과 동일한 이유: "질문에 대한 사전 예상 답안"이라는 개념 자체를 없애고, 사용자가
     # 이 꼬리질문에 실제로 답변을 제출한 뒤 AnswerSupplementRequest/Response
     # (services/answer_service.py)로 그 답변을 보완한 ai_answer를 생성하는 흐름으로 통일했다.
-    followup_depth: int = Field(..., description="이번 응답 반영 후 누적 꼬리질문 횟수")
+    depth: int = Field(..., description="이번 응답 반영 후 누적 꼬리질문 횟수")
     capped: bool = Field(
         False,
         description=(

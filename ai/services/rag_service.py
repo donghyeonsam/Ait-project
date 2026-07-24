@@ -13,6 +13,7 @@ RAG(Retrieval-Augmented Generation)의 "R"을 담당한다. LLM에게 질문/꼬
 (꼬리질문 채점), services/answer_service.py(답변 보완) 전부 이 모듈의 retrieve_context()
 또는 retrieve_cs_knowledge()/retrieve_cs_knowledge_random() → format_context() 순서로 사용한다.
 """
+import json
 import logging
 import random
 
@@ -117,6 +118,25 @@ def build_target_ids(
     return target_ids
 
 
+def _parse_json_metadata(raw: str | None) -> list:
+    """
+    [구조화 분석 문서 활용 - 신규] services/embedding_service.py의
+    _build_chunk_metadata()가 json.dumps(ensure_ascii=False)로 문자열화해 저장해둔
+    값(question_topics 등)을 복원한다.
+
+    값이 없거나(기존 평문 청크는 이 메타데이터 자체가 없음) JSON이 아니면 조용히
+    빈 리스트를 반환한다 — RAG 컨텍스트 조립 중 예외로 전체 검색을 막으면 안 되므로,
+    새 포맷/기존 포맷 청크가 섞여 있어도 이 함수 하나로 안전하게 처리한다.
+    """
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    return parsed if isinstance(parsed, list) else []
+
+
 def _rows_to_contexts(docs: list[str], metas: list[dict], dists: list[float]) -> list[dict]:
     """Chroma query() 응답 3종 리스트(documents/metadatas/distances)를 컨텍스트 dict로 변환."""
     contexts: list[dict] = []
@@ -127,6 +147,12 @@ def _rows_to_contexts(docs: list[str], metas: list[dict], dists: list[float]) ->
                 "doc_type": meta.get("doc_type", ""),
                 "title": meta.get("title", ""),
                 "distance": dist,
+                # [구조화 분석 문서 활용 - 신규] 새 포맷으로 저장된 청크만 이 두 키가
+                # 실제 값을 갖는다. 기존 평문 청크는 메타데이터 자체가 없어
+                # _parse_json_metadata()가 빈 리스트를, meta.get()이 빈 문자열을
+                # 돌려주므로 format_context()에서 자연스럽게 건너뛴다.
+                "question_topics": _parse_json_metadata(meta.get("question_topics")),
+                "uncertainties": meta.get("uncertainties", ""),
             }
         )
     return contexts
@@ -463,6 +489,14 @@ def format_context(contexts: list[dict]) -> str:
     검색 결과가 하나도 없으면(신규 가입자라 문서가 아직 없는 경우, 혹은 CS 카테고리에
     매칭되는 시드 데이터가 없는 경우 등) LLM이 근거 문서가 없다는 걸 명확히 인지하고
     "일반적인 질문"으로 대체하도록 안내 문구를 넣어준다.
+
+    [구조화 분석 문서 활용 - 신규] 새 구조화 포맷으로 저장된 청크(services/
+    embedding_service.py 참고)는 question_topics(면접관이 확인하면 좋은 주제)와
+    uncertainties(추가로 확인이 필요한 부분)를 함께 갖고 있다. 이 두 정보가 있으면
+    문서 블록 아래에 덧붙여, prompts/templates.py의 build_question_prompt()/
+    build_followup_prompt()가 "## 지원자 문서 (RAG 검색 결과)" 섹션을 그대로 받아
+    쓸 때 이 힌트까지 자연스럽게 활용하도록 한다. 기존 평문 청크는 이 값이 항상
+    비어 있으므로(_rows_to_contexts() 참고) 아무 영향 없이 그대로 동작한다.
     """
     if not contexts:
         return "(관련 문서 없음 — 일반적인 질문을 생성하세요.)"
@@ -482,5 +516,20 @@ def format_context(contexts: list[dict]) -> str:
             sub = f" - {ctx.get('category', '')}" if ctx.get("category") else ""
         else:
             sub = f" - {ctx['title']}" if ctx.get("title") else ""
-        blocks.append(f"[문서 {i} | {src}{sub}]\n{ctx['content']}")
+        block = f"[문서 {i} | {src}{sub}]\n{ctx['content']}"
+
+        topics = ctx.get("question_topics") or []
+        topic_line = "; ".join(
+            f"{t.get('topic', '')}({t.get('reason', '')})"
+            for t in topics
+            if isinstance(t, dict) and t.get("topic")
+        )
+        if topic_line:
+            block += f"\n(면접관이 확인하면 좋은 주제: {topic_line})"
+
+        uncertainties = ctx.get("uncertainties") or ""
+        if uncertainties:
+            block += f"\n(추가로 확인이 필요한 부분: {uncertainties.replace(',', ', ')})"
+
+        blocks.append(block)
     return "\n\n".join(blocks)

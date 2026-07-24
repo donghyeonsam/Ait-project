@@ -64,7 +64,8 @@ def _build_cs_query(req: QuestionGenerateRequest) -> str:
 
 
 async def generate_questions(req: QuestionGenerateRequest) -> QuestionGenerateResponse:
-    count = req.question_count or settings.question_count
+    # count = req.question_count or settings.question_count
+    count = 7
 
     # [BE 요청 형식 개편 - 신규] resume_id/cover_letter_id/github_repo_id 가 지정된
     # doc_type만 target_id로 좁혀 검색하도록 retrieve_context() 전 호출에 공통으로 넘긴다.

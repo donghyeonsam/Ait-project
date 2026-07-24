@@ -125,6 +125,8 @@ ai/
 ### 1. 임베딩 저장 — `POST /api/v1/embeddings`
 
 BE가 `analyses` 저장 후 호출. `replace=true`면 해당 user_id 기존 임베딩 삭제 후 재삽입.
+**요청 스키마(`EmbedRequest`/`EmbeddingItem`) 자체는 바뀌지 않았다** — `items[].content`는
+여전히 문자열(`str`) 필드다.
 
 ```json
 {
@@ -139,6 +141,15 @@ BE가 `analyses` 저장 후 호출. `replace=true`면 해당 user_id 기존 임�
 ```
 
 > `doc_type`은 ERD `analyses.type`(resume/cover_letter/github), `target_id`는 `analyses.target_id`와 매핑.
+
+> ⚠️ **구조화 분석 문서 포맷 지원 (2026-07-24)**: `items[].content`에 BE의 "분석 LLM"이
+> 만든 구조화된 JSON(`schema_version`/`document_type`/`document_summary`/
+> `embedding_documents[]`/`cross_document_insights`)을 **문자열로** 실어 보내면, AI
+> 서비스가 이를 자동으로 인식해(내용에 `"embedding_documents"` 키가 있는지로 판별)
+> 청크 단위 메타데이터(역량/면접 질문 주제/키워드/불확실한 점 등)까지 함께 Chroma에
+> 저장하고, 질문 생성/꼬리질문 프롬프트에도 활용한다. 기존처럼 평문 텍스트를 보내는
+> 것도 계속 그대로 지원된다(자동 판별 — BE가 별도 마이그레이션할 필요 없음). 상세
+> 스펙/필드 설명/BE 영향은 `docs/AI_작업일지_0724.md` 참고.
 
 ### 2. 질문 생성 — `POST /api/v1/interviews/questions`
 
@@ -201,7 +212,7 @@ BE가 `analyses` 저장 후 호출. `replace=true`면 해당 user_id 기존 임�
 ### 3. 꼬리질문 — `POST /api/v1/interviews/followup`
 
 답변 저장 후 호출. 2번 API에서 받은 해당 질문의 `rubric`을 함께 넘겨야 한다.
-`followup_depth`는 현재까지 나간 꼬리질문 횟수(BE가 관리) — 종료 판단의 주 기준이 아니라
+`depth`는 현재까지 나간 꼬리질문 횟수(BE가 관리) — 종료 판단의 주 기준이 아니라
 무한 반복을 막는 안전장치용 상한(기본 2)이며, 도달 시 LLM 호출 없이 `capped=true`로 종료.
 
 ```json
@@ -212,7 +223,7 @@ BE가 `analyses` 저장 후 호출. `replace=true`면 해당 user_id 기존 임�
   "rubric": ["Redux 도입 이유를 설명했는가", "다른 대안과 비교했는가"],
   "user_answer": "Redux를 썼습니다.",
   "interview_type": "tech",
-  "followup_depth": 0,
+  "depth": 0,
   "resume_id": 1,
   "cover_letter_id": 1,
   "github_repo_id": 1
@@ -224,7 +235,7 @@ BE가 `analyses` 저장 후 호출. `replace=true`면 해당 user_id 기존 임�
   저장하지 않으므로, 이 값을 안 보내면 꼬리질문 RAG 검색이 이번 면접에서 지정한
   문서가 아니라 사용자의 해당 타입 문서 전체를 대상으로 이뤄진다.
 
-응답: `rubric_results`(항목별 pass/fail), `all_passed`, `followup_question`, `followup_depth`(누적), `capped`.
+응답: `rubric_results`(항목별 pass/fail), `all_passed`, `followup_question`, `depth`(누적), `capped`.
 `all_passed=true`면 BE는 다음 기본 질문으로 진행, `false`면 `followup_question`을 다음 차례로 제시.
 
 ### 4. 답변 보완 — `POST /api/v1/interviews/answers/supplement`
