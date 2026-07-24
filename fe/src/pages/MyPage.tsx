@@ -3,10 +3,10 @@ import { getMyGithubRepositories, type GithubRepository } from '@/api/github'
 import { toErrorMessage } from '@/api/http'
 import { getMyPageData } from '@/api/my-page'
 import type { Resume } from '@/api/resume'
-import { ActivityTabs } from '@/components/mypage/ActivityTabs'
-import { DocumentBoxDialog } from '@/components/mypage/DocumentBoxDialog'
-import { ProfileSection } from '@/components/mypage/ProfileSection'
+import { DocumentBoxDialog } from '@/components/documents/DocumentBoxDialog'
 import { PageLayout } from '@/components/layout/PageLayout'
+import { ActivityTabs } from '@/components/mypage/ActivityTabs'
+import { ProfileSection } from '@/components/mypage/ProfileSection'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/useAuth'
 import type { ProfileData } from '@/types/profile'
@@ -163,11 +163,7 @@ export function MyPage() {
           </div>
 
           {documentBoxOpen ? (
-            <DocumentBoxDialog
-              open
-              onOpenChange={setDocumentBoxOpen}
-              resume={resume}
-            />
+            <DocumentBoxDialog open onOpenChange={setDocumentBoxOpen} />
           ) : null}
         </>
       ) : null}

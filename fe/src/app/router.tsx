@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { GuestOnlyRoute, HomeRoute, ProtectedRoute } from '@/app/route-guards'
 import { CommunityPage } from '@/pages/CommunityPage'
+import { CoverLetterCreatePage } from '@/pages/CoverLetterCreatePage'
 import { CoverLetterPage } from '@/pages/CoverLetterPage'
 import { DashboardInterviewsPage } from '@/pages/DashboardInterviewsPage'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -36,6 +37,7 @@ export function AppRouter() {
       <Route path="/mypage" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
       <Route path="/mypage/documents" element={<Navigate to="/mypage" replace />} />
       <Route path="/mypage/documents/resume" element={<ProtectedRoute><ResumePage /></ProtectedRoute>} />
+      <Route path="/mypage/documents/cover-letters/new" element={<ProtectedRoute><CoverLetterCreatePage /></ProtectedRoute>} />
       <Route path="/mypage/documents/cover-letters/:coverLetterId" element={<ProtectedRoute><CoverLetterPage /></ProtectedRoute>} />
       <Route path="/login" element={<GuestOnlyRoute><LoginPage /></GuestOnlyRoute>} />
       <Route path="/signup" element={<GuestOnlyRoute><SignupPage /></GuestOnlyRoute>} />
