@@ -20,7 +20,8 @@ public record AiInterviewQuestionResponse(
             String question,
             List<String> rubric,
             String topic,
-            String source
+            String source,
+            Integer depth
     ) {}
 
     /**
@@ -28,21 +29,24 @@ public record AiInterviewQuestionResponse(
      * 프론트엔드 응답 DTO로 손쉽게 변환해주는 static 메서드
      */
     public static AiInterviewQuestionResponse of(Long userId, FastQuestionGenerateResponse fastResponse) {
-        List<QuestionInfo> questionInfos = fastResponse.questions().stream()
+
+        // FastQuestionGenerateResponse가 클래스로 바뀌었으므로 .getQuestions()로 호출
+        List<QuestionInfo> questionInfos = fastResponse.getQuestions().stream()
                 .map(q -> QuestionInfo.builder()
-                        .order(q.order())
-                        .question(q.question())
-                        .rubric(q.rubric())
-                        .topic(q.topic())
-                        .source(q.source())
+                        .order(q.getOrder())
+                        .question(q.getQuestion())
+                        .rubric(q.getRubric())
+                        .topic(q.getTopic())
+                        .source(q.getSource())
+                        .depth(q.getDepth())
                         .build())
                 .toList();
 
         return AiInterviewQuestionResponse.builder()
                 .userId(userId)
-                .aiInterviewId(fastResponse.aiInterviewId())
-                .interviewType(fastResponse.interviewType())
-                .ragUsed(fastResponse.ragUsed())
+                .aiInterviewId(fastResponse.getAiInterviewId()) // .getAiInterviewId() 사용
+                .interviewType(fastResponse.getInterviewType()) // .getInterviewType() 사용
+                .ragUsed(fastResponse.getRagUsed())             // .getRagUsed() 사용
                 .questions(questionInfos)
                 .build();
     }
