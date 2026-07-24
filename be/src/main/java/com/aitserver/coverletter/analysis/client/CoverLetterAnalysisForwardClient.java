@@ -79,12 +79,12 @@
 //    }
 //}
 
-
 package com.aitserver.coverletter.analysis.client;
 
 import com.aitserver.global.analysis.dto.AnalysisForwardItem;
 import com.aitserver.global.analysis.dto.AnalysisForwardRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -97,9 +97,6 @@ import java.util.List;
 @Component
 public class CoverLetterAnalysisForwardClient {
 
-    private static final String FAST_API_BASE_URL =
-            "http://192.168.100.210:8000";
-
     private static final String COVER_LETTER_ANALYSIS_PATH =
             "/api/v1/embeddings";
 
@@ -109,7 +106,8 @@ public class CoverLetterAnalysisForwardClient {
     private final RestClient restClient;
 
     public CoverLetterAnalysisForwardClient(
-            RestClient.Builder restClientBuilder
+            RestClient.Builder restClientBuilder,
+            @Value("${fastapi.url}") String fastApiBaseUrl
     ) {
         HttpClient httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
@@ -120,7 +118,7 @@ public class CoverLetterAnalysisForwardClient {
 
         this.restClient = restClientBuilder
                 .requestFactory(requestFactory)
-                .baseUrl(FAST_API_BASE_URL)
+                .baseUrl(fastApiBaseUrl)
                 .build();
     }
 

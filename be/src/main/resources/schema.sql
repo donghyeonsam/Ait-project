@@ -136,7 +136,7 @@ CREATE TABLE `github_repos` (
 CREATE TABLE `resumes` (
                            `id` BIGINT NOT NULL AUTO_INCREMENT,
                            `user_id` BIGINT NOT NULL,
-                           `analysis_content` TEXT DEFAULT NULL,
+                           `analysis_content` MEDIUMTEXT DEFAULT NULL,
                            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                            `updated_at` DATETIME DEFAULT NULL,
 
@@ -292,7 +292,7 @@ CREATE TABLE `cover_letter` (
                                 `title` VARCHAR(50) NOT NULL,
                                 `company_name` VARCHAR(100) NOT NULL,
                                 `role` VARCHAR(50) NOT NULL,
-                                `analysis_content` TEXT DEFAULT NULL,
+                                `analysis_content` MEDIUMTEXT DEFAULT NULL,
                                 `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                 `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                 `deleted_at` DATETIME DEFAULT NULL,

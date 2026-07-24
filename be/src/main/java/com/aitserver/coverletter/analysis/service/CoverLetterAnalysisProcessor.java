@@ -30,7 +30,7 @@ public class CoverLetterAnalysisProcessor {
 
         String userPrompt =
                 promptFactory.createUserPrompt(
-                        context.source()
+                        context
                 );
 
         String analysisContent =
@@ -64,4 +64,8 @@ public class CoverLetterAnalysisProcessor {
             );
         }
     }
+
+
+
+
 }
