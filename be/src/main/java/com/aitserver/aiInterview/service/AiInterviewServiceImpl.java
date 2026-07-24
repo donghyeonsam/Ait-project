@@ -90,6 +90,8 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                     })
                     .body(FastQuestionGenerateResponse.class);
 
+            fastResponse.setAiInterviewId(aiInterview.getId());
+            fastResponse.setInterviewType(request.interviewType());
             log.info("[AiInterviewServiceImpl, FastAPI] 질문 생성 응답 성공: {}", fastResponse);
 
             // 생성된 질문 리스트 프론트로 전달
