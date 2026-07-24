@@ -64,7 +64,7 @@ public class AiInterviewController {
             @RequestPart(value = "audioFile") MultipartFile audioFile, // 사용자의 답변 음성 파일
             HttpServletRequest request) {
         // 질문과 사용자의 답변을 전달해서, 꼬리 질문을 생성
-        FollowUpQuestionResponse response = aiInterviewService.answerCheckForfollowUp(userId, aiInterviewId, questionRequest, audioFile);
+        FollowUpQuestionResponse response = aiInterviewService.answerCheckForFollowUp(userId, aiInterviewId, questionRequest, audioFile);
 
         return ResponseEntity.status(HttpStatus.OK).body(
                 ApiResponse.success(

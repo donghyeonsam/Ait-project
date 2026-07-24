@@ -9,5 +9,7 @@ public interface AiInterviewService {
 
     AiInterviewQuestionResponse insertAndGenerate(Long userId, @Valid AiInterviewQuestionRequest aiInterviewQuestionRequest);
 
-    FollowUpQuestionResponse answerCheckForfollowUp(Long userId, Long aiInterviewId, FollowUpQuestionRequest questionRequest, MultipartFile audioFile);
+    FollowUpQuestionResponse answerCheckForFollowUp(Long userId, Long aiInterviewId, FollowUpQuestionRequest questionRequest, MultipartFile audioFile);
+
+    <T, R> R sendToFastApi(String uri, T requestBody, Class<R> responseType);
 }

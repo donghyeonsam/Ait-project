@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 @Service
@@ -28,6 +29,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
     private final AiInterviewsRepository aiInterviewsRepository;
     private final UserSkillRepository userSkillRepository;
     private final RestClient fastApiRestClient;
+    private final AiInterviewAsyncService aiInterviewAsyncService;
 
     @Override
     @Transactional(readOnly = true)
@@ -92,7 +94,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
     @Override
     @Transactional
-    public FollowUpQuestionResponse answerCheckForfollowUp(Long userId, Long aiInterviewId, FollowUpQuestionRequest questionRequest, MultipartFile audioFile) {
+    public FollowUpQuestionResponse answerCheckForFollowUp(Long userId, Long aiInterviewId, FollowUpQuestionRequest questionRequest, MultipartFile audioFile) {
         log.info("[AiInterviewServiceImpl, FollowUpQuestion] \n" +
                 "면접 질문: {}\n" +
                 "사용자 답변: {}", questionRequest.question().question(), questionRequest.answer());
@@ -118,16 +120,29 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
         // 2. DB 저장과 AI 분석을 위해 다른 서비스로 내용 전송(비동기)
         log.info("[AiInterviewServiceImpl, FollowUpQuestion] DB 저장과 AI 분석을 위한 메서드 호출(비동기 처리 메서드로 전달)");
-
+        aiInterviewAsyncService.insertAndAnalysisAsync(userId, aiInterviewId, questionRequest);
 
         // 3. 사용자의 답변 음성 파일 원본 FastAPI 전달(목소리 분석을 통한 채점을 위해 -> 리턴값 없음)
         log.info("[AiInterviewServiceImpl, FollowUpQuestion] FastAPI로 음성 파일 전달");
+        if(audioFile != null && !audioFile.isEmpty()) {
+            try {
+                byte[] audioBytes = audioFile.getBytes();
+                String filename = audioFile.getOriginalFilename();
+                String contentType = audioFile.getContentType();
+
+                aiInterviewAsyncService.sendAudioToFastApiAsync(userId, aiInterviewId, audioBytes, filename, contentType);
+            } catch (IOException e) {
+                log.error("[AiInterviewServiceImpl] 음성 파일 바이트 변환 실패: ", e);
+                throw new BusinessException(ErrorCode.FILE_READ_ERROR);
+            }
+        }
+
 
         return fastFollowUpResponse; // 생성된 답변 전송
     }
 
     // FastAPI로 호출 보내고 결과값을 리턴받는 공통 메서드
-    private <T, R> R sendToFastApi(String uri, T requestBody, Class<R> responseType) {
+    public <T, R> R sendToFastApi(String uri, T requestBody, Class<R> responseType) {
         try {
             log.info("[FastAPI 통신 요청] URI: {}, Payload: {}", uri, requestBody);
 
