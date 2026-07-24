@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -89,10 +90,10 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                         throw new BusinessException(ErrorCode.FASTAPI_SERVER_ERROR);
                     })
                     .body(FastQuestionGenerateResponse.class);
-
-            fastResponse.setAiInterviewId(aiInterview.getId());
-            fastResponse.setInterviewType(request.interviewType());
             log.info("[AiInterviewServiceImpl, FastAPI] 질문 생성 응답 성공: {}", fastResponse);
+
+            fastResponse.setAiInterviewId(aiInterview.getId());     // aiInterviewId 삽입
+            fastResponse.setInterviewType(request.interviewType()); // interviewType 삽입
 
             // 생성된 질문 리스트 프론트로 전달
             return AiInterviewQuestionResponse.of(userId, fastResponse);
@@ -106,19 +107,23 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
     @Override
     @Transactional
-    public FollowUpQuestionResponse answerCheckForfollowUp(Long userId, Long aiInterviewId, FollowUpQuestionRequest answerRequest) {
+    public FollowUpQuestionResponse answerCheckForfollowUp(Long userId, Long aiInterviewId, FollowUpQuestionRequest questionRequest, MultipartFile audioFile) {
         log.info("[AiInterviewServiceImpl, FollowUpQuestion] 사용자 질문 분석해서 꼬리 질문 생성 메서드 진입");
+
+        log.info("[AiInterviewServiceImpl, FollowUpQuestion] 수신된 음성 파일명: {}, 타입: {}, 크기: {} bytes",
+                audioFile.getOriginalFilename(), audioFile.getContentType(), audioFile.getSize());
         // 질문의 order 번호를 확인해서 1번일 때만 진행 상황을 ready에서 doing으로 변경
-        if(answerRequest.question().order() == 1) {
+        if(questionRequest.question().order() == 1) {
             aiInterviewsRepository.updateStatus(userId, aiInterviewId);
         }
 
-        // 사용자의 답변을 ai_interview_questions 테이블에 저장
+        // 1. 음성 파일 -> 클로바 APi로 전달해서 text 리턴 받기
+            // ㄱ. text를 질문 본문과 함께 디비에 저장(비동기)
+            // ㄴ. text 기반 AI 보완 답변 생성해서 DB 저장(비동기)
+            // ㄷ. AI가 어떤 걸 보완했는지 DB에 저장(비동기)
+        // 2. text를 FastAPI의 꼬리질문 분석 쪽으로 전달해서 꼬리질문 리턴받기
 
-        // 사용자 답변을 FastAPI의 꼬리 질문 판별 엔드포인트로 전달
-
-        // 사용자 답변을 AI 답변 보완 엔드포인트로 전달(비동기로 처리해서 도착하면 바로 DB에 넣기)
-
+        // 3. 음성파일 원본은 FastAPI의 목소리 분석 모델로 전달
 
         return null;
     }

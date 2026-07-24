@@ -2,10 +2,7 @@ package com.aitserver.aiInterview.dto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.util.List;
 
@@ -13,6 +10,7 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@ToString
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class FastQuestionGenerateResponse {
 
@@ -28,6 +26,7 @@ public class FastQuestionGenerateResponse {
     @Setter
     @NoArgsConstructor
     @AllArgsConstructor
+    @ToString
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     public static class QuestionDto {
         private Integer order;            // "order"
@@ -35,5 +34,6 @@ public class FastQuestionGenerateResponse {
         private List<String> rubric;      // "rubric"
         private String topic;             // "topic"
         private String source;            // "source"
+        private Integer depth;
     }
 }

@@ -20,7 +20,8 @@ public record AiInterviewQuestionResponse(
             String question,
             List<String> rubric,
             String topic,
-            String source
+            String source,
+            Integer depth
     ) {}
 
     /**
@@ -37,6 +38,7 @@ public record AiInterviewQuestionResponse(
                         .rubric(q.getRubric())
                         .topic(q.getTopic())
                         .source(q.getSource())
+                        .depth(q.getDepth())
                         .build())
                 .toList();
 
