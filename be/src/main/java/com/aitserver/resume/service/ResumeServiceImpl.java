@@ -11,12 +11,14 @@ import com.aitserver.resume.entity.ResumeProject;
 import com.aitserver.resume.entity.ResumeTraining;
 import com.aitserver.resume.repository.ResumeRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 
+@Slf4j
 @Service
 //@Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -120,6 +122,7 @@ public class ResumeServiceImpl implements ResumeService{
 
         // 분석이 필요하다면 이벤트 발생
         if (analysisRequired) {
+            log.info("분석 이벤트 발생");
             eventPublisher.publishEvent(
                     new ResumeAnalysisRequestedEvent(
                             resume.getId()

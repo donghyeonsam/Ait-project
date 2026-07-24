@@ -12,6 +12,7 @@ import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CoverLetterServiceImpl implements CoverLetterService{
@@ -214,7 +216,10 @@ public class CoverLetterServiceImpl implements CoverLetterService{
         coverLetterRepository.flush();
 
         // 검사가 필요하다면 이벤트 발생
+
+
         if (analysisRequired) {
+            log.info("분석 이벤트 발생");
             eventPublisher.publishEvent(
                     new CoverLetterAnalysisRequestedEvent(
                             coverLetter.getId()

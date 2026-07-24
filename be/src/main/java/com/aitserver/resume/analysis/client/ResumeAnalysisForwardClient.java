@@ -76,12 +76,15 @@
 //                resumeId
 //        );
 //    }
-//}
+//}}
+
+
 package com.aitserver.resume.analysis.client;
 
 import com.aitserver.global.analysis.dto.AnalysisForwardItem;
 import com.aitserver.global.analysis.dto.AnalysisForwardRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -95,18 +98,17 @@ import java.util.List;
 @Component
 public class ResumeAnalysisForwardClient {
 
-    private static final String FAST_API_BASE_URL =
-            "http://192.168.100.210:8000";
-
     private static final String RESUME_ANALYSIS_PATH =
             "/api/v1/embeddings";
 
-    private static final String DOC_TYPE = "resume";
+    private static final String DOC_TYPE =
+            "resume";
 
     private final RestClient restClient;
 
     public ResumeAnalysisForwardClient(
-            RestClient.Builder restClientBuilder
+            RestClient.Builder restClientBuilder,
+            @Value("${fastapi.url}") String fastApiBaseUrl
     ) {
         HttpClient httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
@@ -116,22 +118,27 @@ public class ResumeAnalysisForwardClient {
                 new JdkClientHttpRequestFactory(httpClient);
 
         this.restClient = restClientBuilder
-                // 이 부분이 기존 코드에서 빠져 있었음
                 .requestFactory(requestFactory)
-                .baseUrl(FAST_API_BASE_URL)
+                .baseUrl(fastApiBaseUrl)
                 .requestInterceptor((httpRequest, body, execution) -> {
                     log.info(
-                            "FastAPI 실제 요청 method={}, uri={}, contentType={}, bodyLength={}, body={}",
+                            "FastAPI 요청 method={}, uri={}, contentType={}, bodyLength={}",
                             httpRequest.getMethod(),
                             httpRequest.getURI(),
                             httpRequest.getHeaders().getContentType(),
-                            body.length,
+                            body.length
+                    );
+
+                    log.debug(
+                            "FastAPI 요청 body={}",
                             new String(body, StandardCharsets.UTF_8)
                     );
 
                     return execution.execute(httpRequest, body);
                 })
                 .build();
+
+        log.info("FastAPI RestClient 생성 완료. baseUrl={}", fastApiBaseUrl);
     }
 
     public void send(
