@@ -3,7 +3,7 @@
 
 [루브릭 아키텍처 전환]
 기존에는 "꼬리질문이 필요한가?"를 LLM에게 애매하게 물어보고(need_followup),
-질문당 최대 횟수(followup_depth 카운터)로만 종료를 제어했다.
+질문당 최대 횟수(depth 카운터)로만 종료를 제어했다.
 
 이제는 Phase 1에서 질문과 함께 만들어둔 rubric(채점 기준)을 답변과 함께 LLM에 넘겨,
 LLM 1회 호출(One-Call JSON Mode)로 다음을 동시에 처리한다:
@@ -12,7 +12,7 @@ LLM 1회 호출(One-Call JSON Mode)로 다음을 동시에 처리한다:
 
 종료 조건이 "카운터가 다 됐는가"에서 "rubric을 실제로 다 통과했는가"로 바뀌므로
 훨씬 더 목적 지향적인 꼬리질문이 나온다. 다만 rubric이 계속 통과되지 않아 대화가
-무한정 이어지는 것을 막기 위해, followup_depth 는 "안전장치용 상한 체크" 용도로만
+무한정 이어지는 것을 막기 위해, depth 는 "안전장치용 상한 체크" 용도로만
 남겨두었다(주 종료 조건은 all_passed).
 
 [루브릭 아키텍처 재설계] 꼬리질문 생성 시 expected_answer(사전 예상 답안)도 더 이상
@@ -38,17 +38,17 @@ async def generate_followup(req: FollowupRequest) -> FollowupResponse:
     #    막는 하드 캡(hard cap)이다. 실제로 rubric을 채점한 것이 아니므로
     #    capped=True 로 표시해 "진짜 통과"와 구분하고, rubric_results 는 채점하지
     #    않았다는 의미로 빈 리스트를 반환한다 (BE/리포트가 이 차이를 구분해야 함).
-    if req.followup_depth >= max_depth:
+    if req.depth >= max_depth:
         logger.info(
             "꼬리질문 한도 도달(capped): interview=%s depth=%s max=%s",
-            req.ai_interview_id, req.followup_depth, max_depth,
+            req.ai_interview_id, req.depth, max_depth,
         )
         return FollowupResponse(
             ai_interview_id=req.ai_interview_id,
             rubric_results=[],
             all_passed=True,
             followup_question=None,
-            followup_depth=req.followup_depth,
+            depth=req.depth,
             capped=True,
         )
 
@@ -121,11 +121,11 @@ async def generate_followup(req: FollowupRequest) -> FollowupResponse:
     if not all_passed and not has_followup:
         all_passed = True
 
-    new_depth = req.followup_depth + 1 if (not all_passed and has_followup) else req.followup_depth
+    new_depth = req.depth + 1 if (not all_passed and has_followup) else req.depth
 
     logger.info(
         "꼬리질문 채점 완료: interview=%s all_passed=%s depth=%s->%s rubric_count=%s",
-        req.ai_interview_id, all_passed, req.followup_depth, new_depth, len(rubric_results),
+        req.ai_interview_id, all_passed, req.depth, new_depth, len(rubric_results),
     )
 
     return FollowupResponse(
@@ -133,6 +133,6 @@ async def generate_followup(req: FollowupRequest) -> FollowupResponse:
         rubric_results=rubric_results,
         all_passed=all_passed,
         followup_question=str(followup_question).strip() if not all_passed and has_followup else None,
-        followup_depth=new_depth,
+        depth=new_depth,
         capped=False,
     )
