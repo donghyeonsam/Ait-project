@@ -43,8 +43,17 @@ export interface CoverLetterUpdateRequest {
   }>
 }
 
+export type CoverLetterCreateRequest = CoverLetterUpdateRequest
+
 export function getMyCoverLetters() {
   return backendRequest<CoverLetterList>('/api/cover-letters/me')
+}
+
+export function createCoverLetter(request: CoverLetterCreateRequest) {
+  return backendRequest<CoverLetterDetail>('/api/cover-letters', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  })
 }
 
 export function getCoverLetter(coverLetterId: number) {

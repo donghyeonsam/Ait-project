@@ -2,7 +2,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  updateCoverLetter,
+  createCoverLetter,
   type CoverLetterDetail,
 } from '@/api/cover-letters'
 import { toErrorMessage } from '@/api/http'
@@ -20,85 +20,93 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 
-interface CoverLetterEditorProps {
-  coverLetter: CoverLetterDetail
-  onUpdated: (coverLetter: CoverLetterDetail) => void
+interface DraftContent {
+  key: number
+  question: string
+  answer: string
 }
 
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleDateString('ko-KR')
+interface CoverLetterCreateEditorProps {
+  onCreated: (coverLetter: CoverLetterDetail) => void
 }
 
-// 선택한 자기소개서의 기본 정보와 문항을 편집하고 저장한다.
-export function CoverLetterEditor({
-  coverLetter,
-  onUpdated,
-}: CoverLetterEditorProps) {
+function createEmptyContent(key: number): DraftContent {
+  return { key, question: '', answer: '' }
+}
+
+// 새 자기소개서의 기본 정보와 문항을 입력받아 생성한다.
+export function CoverLetterCreateEditor({
+  onCreated,
+}: CoverLetterCreateEditorProps) {
   const navigate = useNavigate()
-  const [draft, setDraft] = useState(coverLetter)
+  const [title, setTitle] = useState('')
+  const [companyName, setCompanyName] = useState('')
+  const [role, setRole] = useState('')
+  const [contents, setContents] = useState<DraftContent[]>([
+    createEmptyContent(1),
+  ])
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
-  const [isDirty, setIsDirty] = useState(false)
   const [documentBoxOpen, setDocumentBoxOpen] = useState(false)
+
+  const isDirty = Boolean(
+    title.trim()
+    || companyName.trim()
+    || role.trim()
+    || contents.some((content) => content.question.trim() || content.answer.trim()),
+  )
   const guard = useUnsavedChangesGuard(isDirty)
 
-  const updateDraft = (update: Partial<CoverLetterDetail>) => {
-    setDraft((current) => ({ ...current, ...update }))
-    setSaved(false)
-    setIsDirty(true)
+  const updateContent = (key: number, update: Partial<DraftContent>) => {
+    setContents((current) =>
+      current.map((item) => (item.key === key ? { ...item, ...update } : item)),
+    )
   }
 
-  const save = async (): Promise<boolean> => {
-    const valid = draft.title.trim()
-      && draft.companyName.trim()
-      && draft.role.trim()
-      && draft.coverLetterContents.length > 0
-      && draft.coverLetterContents.every(
-        (content) => content.question.trim() && content.answer.trim(),
-      )
+  const submitCreate = async (): Promise<CoverLetterDetail | null> => {
+    const valid = title.trim()
+      && companyName.trim()
+      && role.trim()
+      && contents.length > 0
+      && contents.every((content) => content.question.trim() && content.answer.trim())
     if (!valid) {
       setError('필수 항목과 자기소개서 문항을 모두 입력해주세요.')
-      return false
+      return null
     }
 
     setIsSaving(true)
     setError(null)
     try {
-      const updated = await updateCoverLetter(draft.coverLetterId, {
-        title: draft.title,
-        companyName: draft.companyName,
-        role: draft.role,
-        coverLetterContents: draft.coverLetterContents.map((content, index) => ({
+      const created = await createCoverLetter({
+        title,
+        companyName,
+        role,
+        coverLetterContents: contents.map((content, index) => ({
           contentOrder: index + 1,
           question: content.question,
           answer: content.answer,
         })),
       })
-      setDraft(updated)
-      onUpdated(updated)
-      setSaved(true)
-      setIsDirty(false)
-      return true
+      return created
     } catch (requestError) {
       setError(toErrorMessage(requestError))
-      return false
+      return null
     } finally {
       setIsSaving(false)
     }
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    void save()
+    const created = await submitCreate()
+    if (created) onCreated(created)
   }
 
   return (
     <DocumentEditorShell
       title="자기소개서 작성"
-      description="DB에 저장된 자기소개서를 확인하고 수정할 수 있습니다."
-      lastModified={formatDateTime(draft.updatedAt)}
-      saved={saved}
+      description="새로운 자기소개서의 기본 정보와 문항을 입력해주세요."
+      saved={false}
       isSaving={isSaving}
       onSubmit={handleSubmit}
       onNavigateHome={() => guard.guardNavigation(() => navigate('/mypage'))}
@@ -108,33 +116,33 @@ export function CoverLetterEditor({
           <FormField id="cover-title" label="제목" required className="sm:col-span-2">
             <Input
               id="cover-title"
-              value={draft.title}
+              value={title}
               maxLength={50}
-              onChange={(event) => updateDraft({ title: event.target.value })}
+              onChange={(event) => setTitle(event.target.value)}
             />
           </FormField>
           <FormField id="cover-company" label="기업명" required>
             <Input
               id="cover-company"
-              value={draft.companyName}
+              value={companyName}
               maxLength={100}
-              onChange={(event) => updateDraft({ companyName: event.target.value })}
+              onChange={(event) => setCompanyName(event.target.value)}
             />
           </FormField>
           <FormField id="cover-role" label="지원 직무" required>
             <Input
               id="cover-role"
-              value={draft.role}
+              value={role}
               maxLength={50}
-              onChange={(event) => updateDraft({ role: event.target.value })}
+              onChange={(event) => setRole(event.target.value)}
             />
           </FormField>
         </div>
       </DocumentSection>
 
       <DocumentSection title="자기소개서 문항">
-        {draft.coverLetterContents.map((content, index) => (
-          <DynamicCard key={content.contentId}>
+        {contents.map((content, index) => (
+          <DynamicCard key={content.key}>
             <div className="mb-3 flex items-center justify-between">
               <span className="text-caption font-semibold text-text-secondary">
                 문항 {index + 1}
@@ -144,47 +152,33 @@ export function CoverLetterEditor({
                 variant="text"
                 size="icon"
                 aria-label="자기소개서 문항 삭제"
-                disabled={draft.coverLetterContents.length === 1}
-                onClick={() => updateDraft({
-                  coverLetterContents: draft.coverLetterContents.filter(
-                    (item) => item.contentId !== content.contentId,
-                  ),
-                })}
+                disabled={contents.length === 1}
+                onClick={() => setContents((current) =>
+                  current.filter((item) => item.key !== content.key),
+                )}
               >
                 <Trash2 aria-hidden="true" />
               </Button>
             </div>
-            <FormField id={`question-${content.contentId}`} label="문항" required>
+            <FormField id={`question-${content.key}`} label="문항" required>
               <Input
-                id={`question-${content.contentId}`}
+                id={`question-${content.key}`}
                 value={content.question}
                 maxLength={255}
-                onChange={(event) => updateDraft({
-                  coverLetterContents: draft.coverLetterContents.map((item) =>
-                    item.contentId === content.contentId
-                      ? { ...item, question: event.target.value }
-                      : item,
-                  ),
-                })}
+                onChange={(event) => updateContent(content.key, { question: event.target.value })}
               />
             </FormField>
             <FormField
-              id={`answer-${content.contentId}`}
+              id={`answer-${content.key}`}
               label="답변"
               required
               className="mt-4"
             >
               <Textarea
-                id={`answer-${content.contentId}`}
+                id={`answer-${content.key}`}
                 value={content.answer}
                 className="min-h-48"
-                onChange={(event) => updateDraft({
-                  coverLetterContents: draft.coverLetterContents.map((item) =>
-                    item.contentId === content.contentId
-                      ? { ...item, answer: event.target.value }
-                      : item,
-                  ),
-                })}
+                onChange={(event) => updateContent(content.key, { answer: event.target.value })}
               />
             </FormField>
           </DynamicCard>
@@ -193,20 +187,10 @@ export function CoverLetterEditor({
           type="button"
           variant="secondary"
           className="w-full border-dashed"
-          onClick={() => {
-            const contentId = Math.min(
-              0,
-              ...draft.coverLetterContents.map((item) => item.contentId),
-            ) - 1
-            updateDraft({
-              coverLetterContents: [...draft.coverLetterContents, {
-                contentId,
-                contentOrder: draft.coverLetterContents.length + 1,
-                question: '',
-                answer: '',
-              }],
-            })
-          }}
+          onClick={() => setContents((current) => [
+            ...current,
+            createEmptyContent(Math.max(0, ...current.map((item) => item.key)) + 1),
+          ])}
         >
           <Plus aria-hidden="true" /> 문항 추가
         </Button>
@@ -219,8 +203,8 @@ export function CoverLetterEditor({
         onOpenChange={guard.setConfirmOpen}
         onDiscard={guard.runPendingAction}
         onSaveAndContinue={async () => {
-          const success = await save()
-          if (success) guard.runPendingAction()
+          const created = await submitCreate()
+          if (created) guard.runPendingAction()
         }}
         isSaving={isSaving}
       />

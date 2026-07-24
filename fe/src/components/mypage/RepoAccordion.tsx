@@ -1,7 +1,10 @@
 import { ChevronDown, ExternalLink, GitFork } from 'lucide-react'
 import { useState } from 'react'
+import { GitHubIcon } from '@/components/icons/GitHubIcon'
 import { Button } from '@/components/ui/button'
 import type { ProfileRepository } from '@/types/profile'
+
+const GITHUB_APP_INSTALL_URL = 'https://github.com/apps/Ait-ai-interview/installations/new'
 
 interface RepoAccordionProps {
   repositories: ProfileRepository[]
@@ -78,6 +81,13 @@ export function RepoAccordion({
           ) : (
             <p className="pt-3 text-caption text-text-secondary">등록된 레포지토리가 없습니다.</p>
           )}
+
+          <Button asChild variant="secondary" className="mt-3 w-full">
+            <a href={GITHUB_APP_INSTALL_URL}>
+              <GitHubIcon className="size-5" aria-hidden="true" />
+              레포지토리 연동하기
+            </a>
+          </Button>
         </div>
       </div>
     </div>

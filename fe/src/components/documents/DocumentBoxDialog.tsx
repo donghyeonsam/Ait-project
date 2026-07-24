@@ -1,4 +1,4 @@
-import { FilePenLine, FileText } from 'lucide-react'
+import { FilePenLine, FileText, Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -6,8 +6,9 @@ import {
   type CoverLetterListItem,
 } from '@/api/cover-letters'
 import { toErrorMessage } from '@/api/http'
-import type { Resume } from '@/api/resume'
+import { getMyResume } from '@/api/resume'
 import { LineSidebar } from '@/components/reactbits/LineSidebar'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -19,7 +20,6 @@ import {
 interface DocumentBoxDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  resume: Resume
 }
 
 const lineSidebarProps = {
@@ -45,9 +45,11 @@ const lineSidebarProps = {
 export function DocumentBoxDialog({
   open,
   onOpenChange,
-  resume,
 }: DocumentBoxDialogProps) {
   const navigate = useNavigate()
+  const [resumeUserName, setResumeUserName] = useState<string | null>(null)
+  const [isResumeLoading, setIsResumeLoading] = useState(true)
+  const [resumeError, setResumeError] = useState<string | null>(null)
   const [coverLetters, setCoverLetters] = useState<CoverLetterListItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -56,6 +58,19 @@ export function DocumentBoxDialog({
     if (!open) return
 
     let active = true
+
+    getMyResume()
+      .then((response) => {
+        if (!active) return
+        setResumeUserName(response.userName)
+        setResumeError(null)
+      })
+      .catch((requestError: unknown) => {
+        if (active) setResumeError(toErrorMessage(requestError))
+      })
+      .finally(() => {
+        if (active) setIsResumeLoading(false)
+      })
 
     getMyCoverLetters()
       .then((response) => {
@@ -108,13 +123,23 @@ export function DocumentBoxDialog({
                   이력서
                 </h2>
               </div>
-              <LineSidebar
-                {...lineSidebarProps}
-                items={[`${resume.userName}님의 이력서`]}
-                showIndex={false}
-                ariaLabel="이력서"
-                onItemClick={() => openDocument('/mypage/documents/resume')}
-              />
+              {isResumeLoading ? (
+                <p className="py-8 text-center text-body-2 text-text-secondary" role="status">
+                  이력서를 불러오는 중입니다.
+                </p>
+              ) : resumeError ? (
+                <p className="py-8 text-center text-body-2 text-status-error" role="alert">
+                  {resumeError}
+                </p>
+              ) : (
+                <LineSidebar
+                  {...lineSidebarProps}
+                  items={[`${resumeUserName}님의 이력서`]}
+                  showIndex={false}
+                  ariaLabel="이력서"
+                  onItemClick={() => openDocument('/mypage/documents/resume')}
+                />
+              )}
             </section>
 
             <section
@@ -134,6 +159,16 @@ export function DocumentBoxDialog({
                     {coverLetters.length}개
                   </span>
                 ) : null}
+                <Button
+                  type="button"
+                  variant="text"
+                  size="icon"
+                  className="ml-auto -my-2 -mr-2"
+                  aria-label="자기소개서 추가"
+                  onClick={() => openDocument('/mypage/documents/cover-letters/new')}
+                >
+                  <Plus aria-hidden="true" />
+                </Button>
               </div>
 
               {isLoading ? (

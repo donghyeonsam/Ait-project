@@ -1,6 +1,6 @@
-import { Check, Plus, Trash2, UserRound } from 'lucide-react'
+import { ArrowLeft, Check, Plus, Trash2, UserRound } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { toErrorMessage } from '@/api/http'
 import {
   updateResume,
@@ -9,14 +9,18 @@ import {
   type ResumeProject,
   type ResumeTraining,
 } from '@/api/resume'
+import { DocumentBoxDialog } from '@/components/documents/DocumentBoxDialog'
+import { DocumentBoxSideTab } from '@/components/documents/DocumentBoxSideTab'
 import {
   DocumentSection,
   DynamicCard,
   FormField,
 } from '@/components/documents/DocumentFormParts'
+import { UnsavedChangesDialog } from '@/components/documents/UnsavedChangesDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 
 interface ResumeEditorProps {
   resume: Resume
@@ -168,14 +172,19 @@ function getFirstInvalidFieldId(draft: Resume) {
 
 // 예시 시안처럼 모든 이력서 항목을 한 페이지에서 연속으로 편집한다.
 export function ResumeEditor({ resume, email, onUpdated }: ResumeEditorProps) {
+  const navigate = useNavigate()
   const [draft, setDraft] = useState(() => cloneResume(resume))
   const [saved, setSaved] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [documentBoxOpen, setDocumentBoxOpen] = useState(false)
+  const guard = useUnsavedChangesGuard(isDirty)
 
   const changeDraft = (update: (current: Resume) => Resume) => {
     setDraft(update)
     setSaved(false)
+    setIsDirty(true)
     setError(null)
   }
 
@@ -206,8 +215,7 @@ export function ResumeEditor({ resume, email, onUpdated }: ResumeEditorProps) {
     }))
   }
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+  const save = async (): Promise<boolean> => {
     const invalidFieldId = getFirstInvalidFieldId(draft)
     if (invalidFieldId) {
       setError('필수 항목을 모두 입력해주세요.')
@@ -216,7 +224,7 @@ export function ResumeEditor({ resume, email, onUpdated }: ResumeEditorProps) {
         invalidField?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         invalidField?.focus({ preventScroll: true })
       })
-      return
+      return false
     }
 
     setIsSaving(true)
@@ -247,11 +255,19 @@ export function ResumeEditor({ resume, email, onUpdated }: ResumeEditorProps) {
       setDraft(cloneResume(updated))
       onUpdated(updated)
       setSaved(true)
+      setIsDirty(false)
+      return true
     } catch (requestError) {
       setError(toErrorMessage(requestError))
+      return false
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    void save()
   }
 
   return (
@@ -612,8 +628,14 @@ export function ResumeEditor({ resume, email, onUpdated }: ResumeEditorProps) {
       ) : null}
 
       <footer className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-border-default pt-8">
-        <Button asChild type="button" variant="secondary" className="min-w-28">
-          <Link to="/mypage">닫기</Link>
+        <Button
+          type="button"
+          variant="secondary"
+          className="min-w-28"
+          onClick={() => guard.guardNavigation(() => navigate('/mypage'))}
+        >
+          <ArrowLeft aria-hidden="true" />
+          마이페이지로
         </Button>
         <Button
           type="submit"
@@ -625,6 +647,25 @@ export function ResumeEditor({ resume, email, onUpdated }: ResumeEditorProps) {
           {isSaving ? '저장 중' : saved ? '저장 완료' : '저장하기'}
         </Button>
       </footer>
+
+      {documentBoxOpen ? null : (
+        <DocumentBoxSideTab
+          onClick={() => guard.guardNavigation(() => setDocumentBoxOpen(true))}
+        />
+      )}
+
+      <UnsavedChangesDialog
+        open={guard.isConfirmOpen}
+        onOpenChange={guard.setConfirmOpen}
+        onDiscard={guard.runPendingAction}
+        onSaveAndContinue={async () => {
+          const success = await save()
+          if (success) guard.runPendingAction()
+        }}
+        isSaving={isSaving}
+      />
+
+      <DocumentBoxDialog open={documentBoxOpen} onOpenChange={setDocumentBoxOpen} />
     </form>
   )
 }
