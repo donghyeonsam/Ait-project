@@ -78,53 +78,75 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                 .build();
 
         log.info("[AiInterview, insertAndGenerate] FastAPI 질문 생성 요청 전송: {}", fastRequest);
-        // fastAPI로 정보들 전달
-        try {
-            FastQuestionGenerateResponse fastResponse = fastApiRestClient.post() // post 요청
-                    .uri("/api/v1/interviews/questions")
-                    .body(fastRequest)
-                    .retrieve()
-                    .onStatus(HttpStatusCode::isError, (req, res) -> {
-                        // 4xx, 5xx 에러 처리
-                        log.error("[AiInterviewServiceImpl, FastAPI 에러] HTTP Status: {}", res.getStatusCode());
-                        throw new BusinessException(ErrorCode.FASTAPI_SERVER_ERROR);
-                    })
-                    .body(FastQuestionGenerateResponse.class);
-            log.info("[AiInterviewServiceImpl, FastAPI] 질문 생성 응답 성공: {}", fastResponse);
 
-            fastResponse.setAiInterviewId(aiInterview.getId());     // aiInterviewId 삽입
-            fastResponse.setInterviewType(request.interviewType()); // interviewType 삽입
+        FastQuestionGenerateResponse fastResponse = sendToFastApi(
+                "/api/v1/interviews/questions",
+                fastRequest,
+                FastQuestionGenerateResponse.class
+        );
+        fastResponse.setAiInterviewId(aiInterview.getId());     // aiInterviewId 삽입
+        fastResponse.setInterviewType(request.interviewType()); // interviewType 삽입
 
-            // 생성된 질문 리스트 프론트로 전달
-            return AiInterviewQuestionResponse.of(userId, fastResponse);
-        } catch (BusinessException e) {
-            throw new BusinessException(ErrorCode.FASTAPI_SERVER_ERROR);
-        } catch (Exception e) {
-            log.error("[AiInterviewServiceImpl, FastAPI] 통신 에러 발생", e);
-            throw new RuntimeException(e);
-        }
+        return AiInterviewQuestionResponse.of(userId, fastResponse);
     }
 
     @Override
     @Transactional
     public FollowUpQuestionResponse answerCheckForfollowUp(Long userId, Long aiInterviewId, FollowUpQuestionRequest questionRequest, MultipartFile audioFile) {
-        log.info("[AiInterviewServiceImpl, FollowUpQuestion] 사용자 질문 분석해서 꼬리 질문 생성 메서드 진입");
+        log.info("[AiInterviewServiceImpl, FollowUpQuestion] \n" +
+                "면접 질문: {}\n" +
+                "사용자 답변: {}", questionRequest.question().question(), questionRequest.answer());
 
         log.info("[AiInterviewServiceImpl, FollowUpQuestion] 수신된 음성 파일명: {}, 타입: {}, 크기: {} bytes",
                 audioFile.getOriginalFilename(), audioFile.getContentType(), audioFile.getSize());
+
         // 질문의 order 번호를 확인해서 1번일 때만 진행 상황을 ready에서 doing으로 변경
         if(questionRequest.question().order() == 1) {
             aiInterviewsRepository.updateStatus(userId, aiInterviewId);
         }
 
-        // 1. 음성 파일 -> 클로바 APi로 전달해서 text 리턴 받기
-            // ㄱ. text를 질문 본문과 함께 디비에 저장(비동기)
-            // ㄴ. text 기반 AI 보완 답변 생성해서 DB 저장(비동기)
-            // ㄷ. AI가 어떤 걸 보완했는지 DB에 저장(비동기)
-        // 2. text를 FastAPI의 꼬리질문 분석 쪽으로 전달해서 꼬리질문 리턴받기
+        // 1. 사용자의 답변 바로 FastAPI로 전달
+        FastFollowUpRequest fastFollowUpRequest = new FastFollowUpRequest();
+        fastFollowUpRequest.setUserId(userId);
+        fastFollowUpRequest.setRequest(questionRequest);
 
-        // 3. 음성파일 원본은 FastAPI의 목소리 분석 모델로 전달
+        FastFollowUpResponse fastFollowUpResponse = sendToFastApi(
+                "/api/v1/interviews/followup",
+                fastFollowUpRequest,
+                FastFollowUpResponse.class
+        );
+
+        // 2. DB 저장과 AI 분석을 위해 다른 서비스로 내용 전송(비동기)
+
+
+        // 3. 사용자의 답변 음성 파일 원본 FastAPI 전달(목소리 분석을 통한 채점을 위해)
 
         return null;
+    }
+
+    // FastAPI로 호출 보내고 결과값을 리턴받는 공통 메서드
+    private <T, R> R sendToFastApi(String uri, T requestBody, Class<R> responseType) {
+        try {
+            log.info("[FastAPI 통신 요청] URI: {}, Payload: {}", uri, requestBody);
+
+            R response = fastApiRestClient.post()
+                    .uri(uri)
+                    .body(requestBody)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, (req, res) -> {
+                        log.error("[FastAPI 통신 에러] Status: {}, URI: {}", res.getStatusCode(), uri);
+                        throw new BusinessException(ErrorCode.FASTAPI_SERVER_ERROR);
+                    })
+                    .body(responseType);
+
+            log.info("[FastAPI 통신 응답 성공] URI: {}", uri);
+            return response;
+
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("[FastAPI 통신 시스템 에러] URI: " + uri, e);
+            throw new BusinessException(ErrorCode.FASTAPI_SERVER_ERROR);
+        }
     }
 }
