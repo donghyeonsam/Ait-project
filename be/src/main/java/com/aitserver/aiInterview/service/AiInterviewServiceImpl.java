@@ -79,7 +79,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
         log.info("[AiInterview, insertAndGenerate] FastAPI 질문 생성 요청 전송: {}", fastRequest);
 
-        FastQuestionGenerateResponse fastResponse = sendToFastApi(
+        FastQuestionGenerateResponse fastResponse = sendToFastApi( // 질문 생성을 위해 FastAPI로 전송
                 "/api/v1/interviews/questions",
                 fastRequest,
                 FastQuestionGenerateResponse.class
@@ -110,18 +110,20 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         fastFollowUpRequest.setUserId(userId);
         fastFollowUpRequest.setRequest(questionRequest);
 
-        FastFollowUpResponse fastFollowUpResponse = sendToFastApi(
+        FollowUpQuestionResponse fastFollowUpResponse = sendToFastApi( // 꼬리 질문 생성을 위해 FastAPI 전송
                 "/api/v1/interviews/followup",
                 fastFollowUpRequest,
-                FastFollowUpResponse.class
+                FollowUpQuestionResponse.class
         );
 
         // 2. DB 저장과 AI 분석을 위해 다른 서비스로 내용 전송(비동기)
+        log.info("[AiInterviewServiceImpl, FollowUpQuestion] DB 저장과 AI 분석을 위한 메서드 호출(비동기 처리 메서드로 전달)");
 
 
-        // 3. 사용자의 답변 음성 파일 원본 FastAPI 전달(목소리 분석을 통한 채점을 위해)
+        // 3. 사용자의 답변 음성 파일 원본 FastAPI 전달(목소리 분석을 통한 채점을 위해 -> 리턴값 없음)
+        log.info("[AiInterviewServiceImpl, FollowUpQuestion] FastAPI로 음성 파일 전달");
 
-        return null;
+        return fastFollowUpResponse; // 생성된 답변 전송
     }
 
     // FastAPI로 호출 보내고 결과값을 리턴받는 공통 메서드
