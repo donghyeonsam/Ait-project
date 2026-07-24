@@ -4,6 +4,8 @@ import { User } from 'lucide-react'
 interface FloatingSelfViewProps {
   stream: MediaStream | null
   boundsRef: RefObject<HTMLDivElement | null>
+  /** 초기 위치를 하단에서 추가로 띄우는 값(px). 하단 오버레이 패널에 가리지 않게 할 때 쓴다. */
+  initialBottomOffset?: number
 }
 
 const SELF_VIEW_WIDTH = 176
@@ -15,7 +17,11 @@ interface Position {
   y: number
 }
 
-export function FloatingSelfView({ stream, boundsRef }: FloatingSelfViewProps) {
+export function FloatingSelfView({
+  stream,
+  boundsRef,
+  initialBottomOffset = 0,
+}: FloatingSelfViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const boxRef = useRef<HTMLDivElement>(null)
   const dragState = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null)
@@ -37,9 +43,12 @@ export function FloatingSelfView({ stream, boundsRef }: FloatingSelfViewProps) {
     }
     setPosition({
       x: MARGIN,
-      y: Math.max(bounds.clientHeight - SELF_VIEW_HEIGHT - MARGIN, 0),
+      y: Math.max(
+        bounds.clientHeight - SELF_VIEW_HEIGHT - MARGIN - initialBottomOffset,
+        0,
+      ),
     })
-  }, [boundsRef, position])
+  }, [boundsRef, initialBottomOffset, position])
 
   const clamp = (x: number, y: number): Position => {
     const bounds = boundsRef.current

@@ -9,6 +9,11 @@ const thumbClass = cn(
   '[&::-moz-range-thumb]:border-surface-default [&::-moz-range-thumb]:bg-action-primary [&::-moz-range-thumb]:shadow-elevation-1',
 )
 
+const inverseThumbClass = cn(
+  '[&::-webkit-slider-thumb]:border-transparent [&::-webkit-slider-thumb]:bg-white',
+  '[&::-moz-range-thumb]:border-transparent [&::-moz-range-thumb]:bg-white',
+)
+
 const trackClass = cn(
   '[&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-ait-pill [&::-webkit-slider-runnable-track]:bg-transparent',
   '[&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-ait-pill [&::-moz-range-track]:bg-transparent',
@@ -22,6 +27,8 @@ interface MasterVolumeSliderProps {
   label: string
   disabled?: boolean
   showValue?: boolean
+  /** inverse는 어두운 영상 배경 위(면접 세션 시어터)에서 쓰는 흰색 계열 스타일이다. */
+  tone?: 'default' | 'inverse'
 }
 
 export function MasterVolumeSlider({
@@ -32,14 +39,33 @@ export function MasterVolumeSlider({
   label,
   disabled = false,
   showValue = true,
+  tone = 'default',
 }: MasterVolumeSliderProps) {
+  const isInverse = tone === 'inverse'
+
   return (
     <div className={cn('flex items-center gap-3', disabled && 'opacity-50')}>
-      {icon ? <span className="shrink-0 text-text-secondary" aria-hidden="true">{icon}</span> : null}
+      {icon ? (
+        <span
+          className={cn('shrink-0', isInverse ? 'text-white' : 'text-text-secondary')}
+          aria-hidden="true"
+        >
+          {icon}
+        </span>
+      ) : null}
       <div className="relative flex h-4 flex-1 items-center">
-        <div className="absolute inset-x-0 h-1.5 rounded-ait-pill bg-status-neutral-surface" aria-hidden="true" />
         <div
-          className="absolute left-0 h-1.5 rounded-ait-pill bg-action-primary/60 transition-[width] ease-standard duration-(--duration-fast)"
+          className={cn(
+            'absolute inset-x-0 rounded-ait-pill',
+            isInverse ? 'h-1 bg-white/25' : 'h-1.5 bg-status-neutral-surface',
+          )}
+          aria-hidden="true"
+        />
+        <div
+          className={cn(
+            'absolute left-0 rounded-ait-pill transition-[width] ease-standard duration-(--duration-fast)',
+            isInverse ? 'h-1 bg-white/80' : 'h-1.5 bg-action-primary/60',
+          )}
           style={{ width: `${level}%` }}
           aria-hidden="true"
         />
@@ -55,11 +81,19 @@ export function MasterVolumeSlider({
             'relative z-10 h-4 w-full cursor-pointer appearance-none bg-transparent disabled:cursor-not-allowed',
             trackClass,
             thumbClass,
+            isInverse && inverseThumbClass,
           )}
         />
       </div>
       {showValue ? (
-        <span className="w-8 shrink-0 text-right text-body-2 tabular-nums text-text-secondary">{gain}</span>
+        <span
+          className={cn(
+            'w-8 shrink-0 text-right text-body-2 tabular-nums',
+            isInverse ? 'text-white/75' : 'text-text-secondary',
+          )}
+        >
+          {gain}
+        </span>
       ) : null}
     </div>
   )

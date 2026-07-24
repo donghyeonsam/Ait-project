@@ -43,6 +43,21 @@ describe('QuestionGenerationStage', () => {
     expect(screen.getByText('난이도 어려움')).toBeInTheDocument()
     expect(screen.getByText('CS 주제 2개')).toBeInTheDocument()
     expect(screen.getByText('참고 자료 2개')).toBeInTheDocument()
+    expect(screen.getByText('1/4')).toBeInTheDocument()
+  })
+
+  it('isLeaving이면 표시 시간이 지나도 페이드아웃 상태로 숨긴다', () => {
+    vi.useFakeTimers()
+    const { container } = render(
+      <QuestionGenerationStage input={input} isLeaving />,
+    )
+
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
+
+    expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true')
+    expect(container.firstElementChild).toHaveClass('opacity-0')
   })
 
   it('오래 걸리면 지연 안내를 추가한다', () => {
@@ -50,7 +65,7 @@ describe('QuestionGenerationStage', () => {
     render(<QuestionGenerationStage input={input} />)
 
     act(() => {
-      vi.advanceTimersByTime(8000)
+      vi.advanceTimersByTime(15000)
     })
 
     expect(

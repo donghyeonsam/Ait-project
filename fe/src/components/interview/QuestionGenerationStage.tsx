@@ -1,29 +1,15 @@
-import { useEffect, useState, type ComponentType } from 'react'
-import {
-  BookOpenCheck,
-  BriefcaseBusiness,
-  FileText,
-  Gauge,
-  Lightbulb,
-  SlidersHorizontal,
-} from 'lucide-react'
-import { ShinyText } from '@/components/reactbits/ShinyText'
-import { SoftAurora } from '@/components/reactbits/SoftAurora'
+import { useEffect, useState } from 'react'
 import type { InterviewInputContract } from '@/lib/interview-session'
 
 const STAGE_VISIBILITY_DELAY_MS = 300
 const STATUS_ROTATION_MS = 2600
-const TIP_ROTATION_MS = 4500
-const SLOW_REQUEST_NOTICE_MS = 8000
-const ORB_WAVE_BAR_COUNT = 22
+const TIP_ROTATION_MS = 7000
+const SLOW_REQUEST_NOTICE_MS = 15000
 
 interface QuestionGenerationStageProps {
   input: InterviewInputContract
-}
-
-interface ConfigurationBadge {
-  label: string
-  icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean }>
+  /** true면 면접 화면 전환을 위해 페이드아웃한다. */
+  isLeaving?: boolean
 }
 
 function getReferenceCount(input: InterviewInputContract) {
@@ -34,36 +20,25 @@ function getReferenceCount(input: InterviewInputContract) {
   ].filter((id) => id !== null).length
 }
 
-function createConfigurationBadges(
-  input: InterviewInputContract,
-): ConfigurationBadge[] {
+function createConfigurationChips(input: InterviewInputContract): string[] {
   const referenceCount = getReferenceCount(input)
-  const badges: ConfigurationBadge[] = [
-    {
-      label: input.position
-        ? `${input.position} · ${input.interviewType}`
-        : input.interviewType,
-      icon: BriefcaseBusiness,
-    },
-    { label: `난이도 ${input.difficulty}`, icon: Gauge },
-    { label: input.style, icon: SlidersHorizontal },
+  const chips = [
+    input.position
+      ? `${input.position} · ${input.interviewType}`
+      : input.interviewType,
+    `난이도 ${input.difficulty}`,
+    input.style,
   ]
 
   if (input.csCategories.length > 0) {
-    badges.push({
-      label: `CS 주제 ${input.csCategories.length}개`,
-      icon: BookOpenCheck,
-    })
+    chips.push(`CS 주제 ${input.csCategories.length}개`)
   }
 
   if (referenceCount > 0) {
-    badges.push({
-      label: `참고 자료 ${referenceCount}개`,
-      icon: FileText,
-    })
+    chips.push(`참고 자료 ${referenceCount}개`)
   }
 
-  return badges
+  return chips
 }
 
 function createStatusMessages(input: InterviewInputContract) {
@@ -103,32 +78,17 @@ function createInterviewTips(input: InterviewInputContract) {
   return tips
 }
 
-// SoftAurora는 hex 색상만 받으므로 몰입형 토큰 값을 런타임에 읽어 전달한다.
-// fallback은 globals.css에 정의된 토큰과 같은 값이다.
-function readColorToken(name: string, fallback: string) {
-  if (typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
-    return fallback
-  }
-  const value = window
-    .getComputedStyle(document.documentElement)
-    .getPropertyValue(name)
-    .trim()
-  return value.startsWith('#') ? value : fallback
-}
-
-// 질문 응답을 기다리는 동안 실제 면접 설정과 짧은 준비 팁을 몰입형 다크 화면으로 보여준다.
+// 질문 응답을 기다리는 동안 면접 설정과 준비 팁을 파스텔 대기 화면으로 보여준다.
+// 실제 진행률 데이터가 없으므로 %·남은 시간 등 확정 표현은 사용하지 않는다.
 export function QuestionGenerationStage({
   input,
+  isLeaving = false,
 }: QuestionGenerationStageProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [statusIndex, setStatusIndex] = useState(0)
   const [tipIndex, setTipIndex] = useState(0)
   const [showSlowRequestNotice, setShowSlowRequestNotice] = useState(false)
-  const [auroraColors] = useState(() => ({
-    indigo: readColorToken('--color-immersive-aurora-indigo', '#5a6bff'),
-    violet: readColorToken('--color-immersive-aurora-violet', '#966eff'),
-  }))
-  const configurationBadges = createConfigurationBadges(input)
+  const [primaryChip, ...secondaryChips] = createConfigurationChips(input)
   const statusMessages = createStatusMessages(input)
   const interviewTips = createInterviewTips(input)
 
@@ -158,119 +118,94 @@ export function QuestionGenerationStage({
 
   return (
     <div
-      className={`relative flex w-full flex-1 flex-col overflow-hidden transition-opacity duration-(--duration-slow) ${
-        isVisible ? 'opacity-100' : 'opacity-0'
+      className={`relative flex w-full flex-1 flex-col overflow-hidden p-5 transition-opacity duration-(--duration-slow) sm:px-12 sm:pt-7 sm:pb-10 ${
+        isVisible && !isLeaving ? 'opacity-100' : 'opacity-0'
       }`}
-      aria-hidden={!isVisible}
+      aria-hidden={!isVisible || isLeaving}
       aria-busy="true"
     >
-      <div className="absolute inset-0 opacity-80" aria-hidden="true">
-        <SoftAurora
-          color1={auroraColors.indigo}
-          color2={auroraColors.violet}
-          speed={0.5}
-          brightness={0.9}
-          bandHeight={0.55}
-          mouseInfluence={0.15}
-        />
-      </div>
-      <div className="immersive-vignette" aria-hidden="true" />
+      <div className="question-generation-glow" aria-hidden="true" />
 
-      <div className="relative flex flex-1 flex-col px-6 py-6 sm:px-9">
-        <div className="flex justify-end">
-          <span className="immersive-glass inline-flex items-center gap-2 rounded-ait-pill px-3 py-1.5 text-caption font-semibold">
-            <span className="immersive-status-dot" aria-hidden="true" />
-            면접 준비 중
-          </span>
+      <div className="relative flex justify-end">
+        <span className="question-generation-status-chip inline-flex items-center gap-2 rounded-ait-pill px-3.5 py-2">
+          <span className="question-generation-status-dot" aria-hidden="true" />
+          면접 준비 중
+        </span>
+      </div>
+
+      <div className="relative flex flex-1 flex-col items-center justify-center py-8 text-center">
+        <div className="question-generation-ring" aria-hidden="true">
+          <span className="question-generation-ring-conic" />
+          <span className="question-generation-ring-core" />
+          <span className="question-generation-ring-label">Ait</span>
         </div>
 
-        <div className="flex flex-1 flex-col items-center justify-center gap-6 py-10 text-center">
-          <div className="immersive-orb" aria-hidden="true">
-            <span className="immersive-orb-ring" />
-            <span className="immersive-orb-ring immersive-orb-ring-delayed" />
-            <span className="immersive-orb-core">
-              {Array.from({ length: ORB_WAVE_BAR_COUNT }).map((_, index) => (
-                <span
-                  key={index}
-                  className="immersive-orb-wave-bar"
-                  style={{
-                    height: `${28 + (index % 5) * 9}%`,
-                    animationDelay: `${(index % 8) * 90}ms`,
-                  }}
-                />
-              ))}
+        <h1
+          id="question-generation-title"
+          className="question-generation-headline"
+        >
+          맞춤 질문을 준비하고 있어요
+        </h1>
+        <p className="question-generation-subcopy">
+          천천히 숨을 고르는 동안 AI 면접관이 첫 질문을 준비합니다
+        </p>
+
+        <ul
+          className="flex flex-wrap justify-center gap-2"
+          aria-label="선택한 면접 조건"
+        >
+          <li className="question-generation-chip question-generation-chip-primary">
+            {primaryChip}
+          </li>
+          {secondaryChips.map((label) => (
+            <li key={label} className="question-generation-chip">
+              {label}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="question-generation-grid relative">
+        <div className="question-generation-card">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="question-generation-label">
+              기다리는 동안 · 면접 팁
+            </span>
+            <span className="question-generation-counter">
+              {tipIndex + 1}/{interviewTips.length}
             </span>
           </div>
-
-          <div>
-            <h1
-              id="question-generation-title"
-              className="text-h1 sm:text-display"
-            >
-              <ShinyText text="맞춤 질문을 준비하고 있어요" />
-            </h1>
-            <p className="mt-3 text-body-1 text-immersive-foreground/60">
-              천천히 숨을 고르는 동안 AI 면접관이 첫 질문을 준비합니다.
-            </p>
-          </div>
-
-          <ul
-            className="flex flex-wrap justify-center gap-2"
-            aria-label="선택한 면접 조건"
+          <p
+            key={tipIndex}
+            className="question-generation-message question-generation-tip"
           >
-            {configurationBadges.map(({ label, icon: Icon }) => (
-              <li
-                key={label}
-                className="immersive-glass inline-flex items-center gap-1.5 rounded-ait-pill px-3 py-1.5 text-caption font-medium"
-              >
-                <Icon
-                  className="size-3.5 text-immersive-foreground/70"
-                  aria-hidden={true}
-                />
-                {label}
-              </li>
-            ))}
-          </ul>
+            {interviewTips[tipIndex]}
+          </p>
         </div>
 
-        <div className="flex flex-col gap-3 lg:flex-row">
-          <div className="immersive-glass rounded-ait-l p-5 lg:flex-[1.4]">
-            <p className="flex items-center gap-2 text-caption font-semibold text-immersive-foreground/70">
-              <Lightbulb className="size-4" aria-hidden="true" />
-              기다리는 동안 · 면접 팁 ({tipIndex + 1}/{interviewTips.length})
-            </p>
-            <p
-              key={tipIndex}
-              className="question-generation-message mt-2 text-body-2 text-immersive-foreground"
-            >
-              {interviewTips[tipIndex]}
-            </p>
-          </div>
-
+        <div className="flex flex-col gap-2.5">
           <div
-            className="immersive-glass rounded-ait-l p-5 lg:flex-1"
+            className="question-generation-card"
             role="status"
             aria-live="polite"
           >
-            <p className="text-caption font-semibold text-immersive-foreground/70">
-              진행 단계
-            </p>
+            <p className="question-generation-label mb-3">진행 단계</p>
             <p
               key={statusIndex}
-              className="question-generation-message mt-2 text-body-2 text-immersive-foreground"
+              className="question-generation-message question-generation-status-text"
             >
               {statusMessages[statusIndex]}
             </p>
-            <div className="immersive-progress-track mt-3" aria-hidden="true">
-              <div className="immersive-progress-bar" />
+            <div className="question-generation-progress-track" aria-hidden="true">
+              <div className="question-generation-progress-bar" />
             </div>
-            {showSlowRequestNotice ? (
-              <p className="mt-3 text-caption text-immersive-foreground/60">
-                평소보다 조금 더 걸리고 있어요. 화면을 닫지 않고 잠시만
-                기다려주세요.
-              </p>
-            ) : null}
           </div>
+          {showSlowRequestNotice ? (
+            <p className="question-generation-delay-notice">
+              평소보다 조금 더 걸리고 있어요. 화면을 닫지 않고 잠시만
+              기다려주세요.
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

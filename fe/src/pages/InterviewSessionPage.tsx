@@ -9,13 +9,20 @@ import {
 } from '@/api/ai-interviews'
 import { toErrorMessage } from '@/api/http'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { InterviewStage } from '@/components/interview/InterviewStage'
 import { QuestionGenerationStage } from '@/components/interview/QuestionGenerationStage'
-import { VoiceAnswerPanel } from '@/components/interview/VoiceAnswerPanel'
+import { SessionTheater } from '@/components/interview/SessionTheater'
 import { useMediaDevices } from '@/components/interview/useMediaDevices'
 import { useQuestionSpeech } from '@/components/interview/useQuestionSpeech'
 import { useVoiceAnswer } from '@/components/interview/useVoiceAnswer'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   clearInterviewQuestionCache,
   getCachedInterviewQuestions,
@@ -46,6 +53,9 @@ const difficultyMap: Record<Difficulty, InterviewRecord['difficulty']> = {
   보통: '보통',
   어려움: '어려움',
 }
+
+// 대기 화면 페이드아웃(--duration-slow)과 같은 값. 전환 시 두 시간이 함께 움직여야 한다.
+const STAGE_EXIT_FADE_MS = 400
 
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
@@ -113,8 +123,19 @@ function InterviewSessionContent({
   const questionRequestRef = useRef<QuestionRequest | null>(null)
   const [generatedSession, setGeneratedSession] =
     useState<InterviewQuestionGenerationResponse | null>(null)
+  const [stageExited, setStageExited] = useState(false)
   const [questionError, setQuestionError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
+
+  // 질문이 준비돼도 대기 화면 페이드아웃이 끝난 뒤에 면접 화면으로 전환한다.
+  useEffect(() => {
+    if (!generatedSession) return
+    const timer = window.setTimeout(
+      () => setStageExited(true),
+      STAGE_EXIT_FADE_MS,
+    )
+    return () => window.clearTimeout(timer)
+  }, [generatedSession])
 
   useEffect(() => {
     let active = true
@@ -156,7 +177,7 @@ function InterviewSessionContent({
     }
   }, [attempt, config.input])
 
-  if (generatedSession) {
+  if (generatedSession && stageExited) {
     return (
       <ActiveInterviewSession
         config={config}
@@ -176,7 +197,7 @@ function InterviewSessionContent({
   return (
     <PageLayout contentClassName="max-w-none px-0" hideFooter>
       <section
-        className="immersive-stage-backdrop flex flex-col"
+        className="question-generation-backdrop flex flex-col"
         aria-labelledby="question-generation-title"
       >
         {questionError ? (
@@ -210,7 +231,10 @@ function InterviewSessionContent({
             </div>
           </div>
         ) : (
-          <QuestionGenerationStage input={config.input} />
+          <QuestionGenerationStage
+            input={config.input}
+            isLeaving={Boolean(generatedSession)}
+          />
         )}
       </section>
     </PageLayout>
@@ -233,6 +257,7 @@ function ActiveInterviewSession({
   const { input, devices } = config
   const { permission, stream, requestAccess } = useMediaDevices()
   const [questionIndex, setQuestionIndex] = useState(0)
+  const [endDialogOpen, setEndDialogOpen] = useState(false)
   const [micMuted, setMicMuted] = useState(false)
   const [micGain, setMicGain] = useState(devices.micGain)
   const [speakerMuted, setSpeakerMuted] = useState(false)
@@ -353,7 +378,7 @@ function ActiveInterviewSession({
   }, [handleSubmitAnswer, primaryActionDisabled, voiceAnswer])
 
   const primaryActionLabel = voiceAnswer.status === 'recording'
-    ? '녹음 완료'
+    ? '녹음 중지'
     : voiceAnswer.status === 'processing'
       ? '음성 처리 중'
       : voiceAnswer.status === 'review'
@@ -364,7 +389,11 @@ function ActiveInterviewSession({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== 'Space' || isTypingTarget(event.target)) {
+      if (
+        endDialogOpen ||
+        event.code !== 'Space' ||
+        isTypingTarget(event.target)
+      ) {
         return
       }
       event.preventDefault()
@@ -373,61 +402,89 @@ function ActiveInterviewSession({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handlePrimaryAction])
+  }, [endDialogOpen, handlePrimaryAction])
+
+  // 답변을 하나라도 제출했으면 분석 대기 기록으로 이동하고, 아니면 면접 설정으로 돌아간다.
+  const handleConfirmEnd = () => {
+    setEndDialogOpen(false)
+    if (submittedAnswersRef.current.length > 0) {
+      handleViewResults()
+      return
+    }
+    navigate('/interviews')
+  }
 
   return (
-    <PageLayout contentClassName="max-w-content">
-      <section className="py-10" aria-labelledby="interview-session-title">
-        <h1 id="interview-session-title" className="sr-only">AI 모의면접 진행</h1>
-        <p className="text-body-2 font-medium text-text-secondary">
-          질문 {questionIndex + 1} / {questions.length}
-        </p>
+    <>
+      <SessionTheater
+        stream={stream}
+        questionIndex={questionIndex}
+        totalQuestions={questions.length}
+        question={question.question}
+        answerStatus={voiceAnswer.status}
+        transcript={voiceAnswer.transcript}
+        onChangeTranscript={voiceAnswer.setTranscript}
+        voiceError={voiceAnswer.error}
+        speechError={questionSpeech.error}
+        canRetryTranscription={
+          voiceAnswer.status === 'review' &&
+          Boolean(voiceAnswer.error && voiceAnswer.audioBlob)
+        }
+        onRetryTranscription={voiceAnswer.retryTranscription}
+        mediaPermission={permission}
+        onRetryMediaAccess={() => {
+          void requestAccess(
+            devices.cameraDeviceId ?? undefined,
+            devices.micDeviceId ?? undefined,
+          )
+        }}
+        primaryActionLabel={primaryActionLabel}
+        primaryActionDisabled={primaryActionDisabled}
+        onPrimaryAction={handlePrimaryAction}
+        isAiSpeaking={questionSpeech.isSpeaking}
+        onReplayQuestion={questionSpeech.replay}
+        replayDisabled={
+          !stream ||
+          questionSpeech.isSpeaking ||
+          voiceAnswer.status === 'recording' ||
+          voiceAnswer.status === 'processing'
+        }
+        onRequestEnd={() => setEndDialogOpen(true)}
+        micMuted={micMuted}
+        micGain={micGain}
+        onToggleMicMuted={() => setMicMuted((value) => !value)}
+        onChangeMicGain={setMicGain}
+        speakerMuted={speakerMuted}
+        speakerVolume={speakerVolume}
+        onToggleSpeakerMuted={() => setSpeakerMuted((value) => !value)}
+        onChangeSpeakerVolume={setSpeakerVolume}
+      />
 
-        <div className="mt-4">
-          <InterviewStage
-            stream={stream}
-            questionIndex={questionIndex}
-            question={question.question}
-            answerStatus={voiceAnswer.status}
-            primaryActionLabel={primaryActionLabel}
-            primaryActionDisabled={primaryActionDisabled}
-            onPrimaryAction={handlePrimaryAction}
-            isAiSpeaking={questionSpeech.isSpeaking}
-            micMuted={micMuted}
-            micGain={micGain}
-            onToggleMicMuted={() => setMicMuted((value) => !value)}
-            onChangeMicGain={setMicGain}
-            speakerMuted={speakerMuted}
-            speakerVolume={speakerVolume}
-            onToggleSpeakerMuted={() => setSpeakerMuted((value) => !value)}
-            onChangeSpeakerVolume={setSpeakerVolume}
-          />
-        </div>
-
-        <VoiceAnswerPanel
-          status={voiceAnswer.status}
-          transcript={voiceAnswer.transcript}
-          audioBlob={voiceAnswer.audioBlob}
-          error={voiceAnswer.error}
-          speechError={questionSpeech.error}
-          mediaPermission={permission}
-          onChangeTranscript={voiceAnswer.setTranscript}
-          onReplayQuestion={questionSpeech.replay}
-          onRetryTranscription={voiceAnswer.retryTranscription}
-          onRetryMediaAccess={() => {
-            void requestAccess(
-              devices.cameraDeviceId ?? undefined,
-              devices.micDeviceId ?? undefined,
-            )
-          }}
-          replayDisabled={
-            !stream ||
-            questionSpeech.isSpeaking ||
-            voiceAnswer.status === 'recording' ||
-            voiceAnswer.status === 'processing'
-          }
-        />
-      </section>
-    </PageLayout>
+      <Dialog open={endDialogOpen} onOpenChange={setEndDialogOpen}>
+        <DialogContent
+          className="w-[min(26rem,calc(100vw-2rem))] p-6"
+          showCloseButton={false}
+        >
+          <DialogHeader>
+            <DialogTitle>면접을 종료할까요?</DialogTitle>
+            <DialogDescription>
+              지금 종료하면 아직 답변하지 않은 질문은 기록되지 않습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-6">
+            <Button
+              type="button"
+              variant="text"
+              onClick={() => setEndDialogOpen(false)}
+            >
+              계속 진행
+            </Button>
+            <Button type="button" variant="destructive" onClick={handleConfirmEnd}>
+              면접 종료
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
