@@ -8,6 +8,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react'
 import { ShinyText } from '@/components/reactbits/ShinyText'
+import { SoftAurora } from '@/components/reactbits/SoftAurora'
 import type { InterviewInputContract } from '@/lib/interview-session'
 
 const STAGE_VISIBILITY_DELAY_MS = 300
@@ -102,6 +103,19 @@ function createInterviewTips(input: InterviewInputContract) {
   return tips
 }
 
+// SoftAurora는 hex 색상만 받으므로 몰입형 토큰 값을 런타임에 읽어 전달한다.
+// fallback은 globals.css에 정의된 토큰과 같은 값이다.
+function readColorToken(name: string, fallback: string) {
+  if (typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
+    return fallback
+  }
+  const value = window
+    .getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim()
+  return value.startsWith('#') ? value : fallback
+}
+
 // 질문 응답을 기다리는 동안 실제 면접 설정과 짧은 준비 팁을 몰입형 다크 화면으로 보여준다.
 export function QuestionGenerationStage({
   input,
@@ -110,6 +124,10 @@ export function QuestionGenerationStage({
   const [statusIndex, setStatusIndex] = useState(0)
   const [tipIndex, setTipIndex] = useState(0)
   const [showSlowRequestNotice, setShowSlowRequestNotice] = useState(false)
+  const [auroraColors] = useState(() => ({
+    indigo: readColorToken('--color-immersive-aurora-indigo', '#5a6bff'),
+    violet: readColorToken('--color-immersive-aurora-violet', '#966eff'),
+  }))
   const configurationBadges = createConfigurationBadges(input)
   const statusMessages = createStatusMessages(input)
   const interviewTips = createInterviewTips(input)
@@ -146,10 +164,15 @@ export function QuestionGenerationStage({
       aria-hidden={!isVisible}
       aria-busy="true"
     >
-      <div className="immersive-aurora" aria-hidden="true">
-        <span className="immersive-aurora-blob" />
-        <span className="immersive-aurora-blob" />
-        <span className="immersive-aurora-blob" />
+      <div className="absolute inset-0 opacity-80" aria-hidden="true">
+        <SoftAurora
+          color1={auroraColors.indigo}
+          color2={auroraColors.violet}
+          speed={0.5}
+          brightness={0.9}
+          bandHeight={0.55}
+          mouseInfluence={0.15}
+        />
       </div>
       <div className="immersive-vignette" aria-hidden="true" />
 

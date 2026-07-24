@@ -520,44 +520,10 @@ a {
   backdrop-filter: blur(12px);
 }
 
-.immersive-aurora {
-  position: absolute;
-  inset: -20%;
-  filter: blur(90px);
-  opacity: 0.55;
-}
-
-.immersive-aurora-blob {
-  position: absolute;
-  border-radius: var(--radius-pill);
-}
-
-.immersive-aurora-blob:nth-child(1) {
-  top: 6%;
-  left: 14%;
-  width: 42%;
-  height: 46%;
-  background: var(--color-immersive-aurora-indigo);
-  animation: immersive-aurora-a 16s ease-in-out infinite alternate;
-}
-
-.immersive-aurora-blob:nth-child(2) {
-  top: 22%;
-  right: 8%;
-  width: 38%;
-  height: 44%;
-  background: var(--color-immersive-aurora-violet);
-  animation: immersive-aurora-b 20s ease-in-out infinite alternate;
-}
-
-.immersive-aurora-blob:nth-child(3) {
-  bottom: 4%;
-  left: 30%;
-  width: 34%;
-  height: 38%;
-  background: var(--color-immersive-aurora-teal);
-  opacity: 0.6;
-  animation: immersive-aurora-c 24s ease-in-out infinite alternate;
+/* reactbits.dev SoftAurora(WebGL) 캔버스 컨테이너 */
+.soft-aurora-container {
+  width: 100%;
+  height: 100%;
 }
 
 .immersive-vignette {
@@ -669,33 +635,6 @@ a {
   background-clip: text;
   animation: shiny-text-shine linear infinite;
   animation-duration: var(--shiny-text-duration, 5s);
-}
-
-@keyframes immersive-aurora-a {
-  from {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  to {
-    transform: translate3d(8%, 10%, 0) scale(1.15);
-  }
-}
-
-@keyframes immersive-aurora-b {
-  from {
-    transform: translate3d(0, 0, 0) scale(1.1);
-  }
-  to {
-    transform: translate3d(-10%, 6%, 0) scale(0.95);
-  }
-}
-
-@keyframes immersive-aurora-c {
-  from {
-    transform: translate3d(0, 0, 0) scale(0.95);
-  }
-  to {
-    transform: translate3d(6%, -8%, 0) scale(1.12);
-  }
 }
 
 @keyframes immersive-ring-pulse {
