@@ -32,7 +32,10 @@ public enum ErrorCode {
     //GITHUB 관련 에러
     GITHUB_APP_NOT_FOUND(HttpStatus.NOT_FOUND, "GITHUB_001", "깃허브 연동 정보가 존재하지 않습니다."),
     GITHUB_TOKEN_ISSUE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "GITHUB_002", "깃허브 토큰 발급 중 오류가 발생했습니다."),
-    GITHUB_REPO_SYNC_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "GITHUB_003","레포지토리 동기화 중 오류가 발생했습니다.");
+    GITHUB_REPO_SYNC_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "GITHUB_003","레포지토리 동기화 중 오류가 발생했습니다."),
+    GITHUB_REPO_NOT_FOUND(HttpStatus.NOT_FOUND, "GITHUB_004", "해당 레포지토리를 찾을 수 없거나 권한이 없습니다."),
+    GITHUB_ANALYSIS_PARSE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "GITHUB_005", "GMS 응답에서 JSON 추출을 실패했습니다."),
+    GITHUB_PROMPT_LOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "GITHUB_006", "프롬프트 파일 로드에 실패했습니다.");
 
     private final HttpStatus status;
     private final String code;

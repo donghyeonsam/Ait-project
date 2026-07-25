@@ -49,6 +49,10 @@ public class GithubRepo {
         this.analysisContent = analysisContent;
     }
 
+    public void updateNickname(String newNickname) {
+        this.repoNickname = newNickname;
+    }
+
     @Builder
     public GithubRepo(GithubApp githubApp, Long repoId, String repoName, String repoNickname, String analysisContent, Boolean isPrivate) {
         this.githubApp = githubApp;

@@ -2,6 +2,8 @@ package com.aitserver.github.service;
 
 import com.aitserver.github.entity.GithubRepo;
 import com.aitserver.github.repository.GithubRepoRepository;
+import com.aitserver.global.exception.BusinessException;
+import com.aitserver.global.exception.ErrorCode;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -144,7 +146,7 @@ public class GithubAnalysisService {
 
             // 5. DB 업데이트
             GithubRepo githubRepo = githubRepoRepository.findById(repoId)
-                    .orElseThrow(() -> new RuntimeException("레포지토리를 찾을 수 없습니다."));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.GITHUB_REPO_NOT_FOUND));
 
             githubRepo.updateAnalysisContent(structuredJsonData);
 
@@ -168,7 +170,7 @@ public class GithubAnalysisService {
                     .asText();
         } catch (Exception e) {
             log.error("GMS 응답 파싱 실패", e);
-            throw new RuntimeException("GMS 응답에서 JSON 추출을 실패했습니다.", e);
+            throw new BusinessException(ErrorCode.GITHUB_ANALYSIS_PARSE_FAILED);
         }
     }
 
@@ -182,7 +184,7 @@ public class GithubAnalysisService {
 
         } catch (IOException e) {
             log.error("프롬프트 파일을 읽어오는데 실패했습니다. 경로를 확인해주세요.", e);
-            throw new RuntimeException("프롬프트 파일 로드 실패", e);
+            throw new BusinessException(ErrorCode.GITHUB_PROMPT_LOAD_FAILED);
         }
     }
 
