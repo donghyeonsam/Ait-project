@@ -67,7 +67,7 @@ public class GithubController {
     /**
      * 사용자에게 보이는 깃허브 닉네임 수정 API
      */
-    @PatchMapping("/repos/{repoId}/nickname")
+    @PatchMapping("/repos/{repoId}")
     public ResponseEntity<ApiResponse<Void>> updateRepoNickname(
             @PathVariable("repoId") Long repoId,
             @Valid @RequestBody GithubRepoNicknameUpdateRequestDto requestDto,
