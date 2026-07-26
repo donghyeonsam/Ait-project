@@ -118,7 +118,6 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
         // 2. DB 저장과 AI 분석을 위해 다른 서비스로 내용 전송(비동기)
 
-
         // 3. 사용자의 답변 음성 파일 원본 FastAPI 전달(목소리 분석을 통한 채점을 위해)
 
         return null;

@@ -169,18 +169,19 @@ def build_question_prompt(
 
 
 # ────────────────────────────
-# 꼬리질문 (Phase 2 - 루브릭 채점 + One-Call 동적 생성)
+# 꼬리질문 (rubric narrowing + One-Call 동적 생성)
 # ────────────────────────────
-# [루브릭 아키텍처 전환] 기존에는 "꼬리질문이 필요한가?"만 애매하게 판단했지만,
-# 이제는 LLM 1회 호출로 (1) rubric 각 항목을 답변이 실제로 충족했는지 채점하고,
-# (2) 통과하지 못한 항목이 있으면 그 부분만 정확히 겨냥한 꼬리질문까지 함께 생성한다.
-# 역할이 "판단자"에서 "채점관 + 채점 결과에 근거한 질문 설계자"로 확장됨에 따라
-# 시스템 프롬프트 문구도 갱신했다.
+# [꼬리질문 narrowing 전환 - 2026-07-26] 기존에는 "rubric 항목별 pass/fail을 전부
+# 채점해 rubric_results로 반환"하는 방식이었지만, narrowing 전환 이후에는 서버가
+# "통과 못한 rubric만 응답에 남겨 다음 턴으로 넘긴다"는 계약을 갖게 됐으므로, LLM에게
+# 요구하는 것도 "항목별 채점표"가 아니라 "아직 통과하지 못한 기준만 골라내라"로
+# 단순화했다. LLM 1회 호출로 (1) 미통과 기준 목록 추출, (2) 그중 하나를 겨냥한
+# 꼬리질문 생성을 동시에 처리하는 One-Call 구조 자체는 그대로 유지된다.
 FOLLOWUP_SYSTEM = (
-    "당신은 한국 IT 기업의 면접관입니다. 사전에 정해진 채점 기준(rubric)에 따라 "
-    "지원자의 답변을 항목별로 냉정하게 채점하고, 통과하지 못한 항목이 있다면 "
-    "그 부분만 정확히 겨냥한 꼬리질문을 던집니다. 이미 답변에서 다룬 내용을 "
-    "다시 묻지 않습니다. 반드시 지정한 JSON 형식으로만 응답하세요."
+    "당신은 한국 IT 기업의 면접관입니다. 사전에 정해진 채점 기준(rubric) 중 "
+    "지원자의 답변이 아직 충족하지 못한 항목을 정확히 골라내고, 그중 가장 핵심적인 "
+    "것 하나를 겨냥한 꼬리질문을 던집니다. 이미 답변에서 다룬 내용을 다시 묻지 "
+    "않습니다. 반드시 지정한 JSON 형식으로만 응답하세요."
 )
 
 
@@ -192,14 +193,13 @@ def build_followup_prompt(
     user_answer: str,
     context: str,
 ) -> str:
-    # [루브릭 아키텍처 전환] rubric 목록을 번호를 매겨 프롬프트에 그대로 노출.
-    # LLM이 rubric_results 를 만들 때 이 번호/문구를 그대로 criterion 값으로
-    # 되돌려주도록 지시해, 파싱 단계(services/followup_service.py)에서
-    # "입력 rubric 개수 == 출력 rubric_results 개수"를 검증할 수 있게 한다.
+    # [꼬리질문 narrowing 전환] rubric 목록을 번호를 매겨 노출하되, LLM에게는 번호가
+    # 아니라 "문구 원문"을 그대로 돌려달라고 지시한다 — 서버(services/followup_service.py)가
+    # 반환값을 입력 rubric과 원문 대조해 검증하므로, 번호만으로는 매칭할 수 없다.
     rubric_lines = "\n".join(f"{i}. {c}" for i, c in enumerate(rubric, start=1))
 
-    return f"""면접관으로서 아래 지원자 답변을 rubric 기준으로 채점하고,
-통과하지 못한 기준이 있으면 그 부분을 겨냥한 꼬리질문을 생성하세요.
+    return f"""면접관으로서 아래 지원자 답변이 rubric 기준을 충족했는지 판단하고,
+아직 충족하지 못한 기준이 있으면 그 부분을 겨냥한 꼬리질문을 생성하세요.
 
 ## 면접 유형
 {INTERVIEW_TYPE_GUIDE[interview_type]}
@@ -216,25 +216,23 @@ def build_followup_prompt(
 ## 참고 문서 (지원자 관련)
 {context}
 
-## 채점 및 꼬리질문 지시사항
-- rubric 항목 각각에 대해 답변이 실제로 그 내용을 충족했는지 passed(true/false)로 판정하세요.
-  - 답변에 명시적으로 언급되지 않았거나, 언급했지만 근거/구체성이 부족하면 passed=false.
-  - criterion 값은 위 rubric 문구를 그대로 사용하세요(번호는 제외).
-- 하나라도 passed=false 인 항목이 있으면 all_passed=false 로 설정하고,
-  통과하지 못한 항목 중 가장 중요한 것 1개를 겨냥한 꼬리질문(followup_question)을 생성하세요.
-  - 이미 답변에서 다룬 내용을 반복해서 묻지 마세요.
-  - 통과하지 못한 항목이 여러 개여도 꼬리질문은 1개만 생성하세요(가장 핵심적인 것 우선).
-- 모든 항목이 passed=true 이면 all_passed=true 로 설정하고 followup_question 은 null 로 두세요.
+## 판단 및 꼬리질문 지시사항
+- 답변이 충족한 기준은 unpassed_rubric에 넣지 마세요.
+- 답변에 명시적으로 언급되지 않았거나, 언급했더라도 근거/구체성이 부족하면 미충족으로
+  보고 unpassed_rubric에 포함하세요.
+- unpassed_rubric의 각 항목은 위 rubric 목록의 문구를 글자 그대로(번호 제외, 변형·요약
+  금지) 반환하세요. 서버가 원문과 대조해 검증하므로 표현을 바꾸면 그 항목은 버려집니다.
+- 미충족 항목이 여러 개여도 꼬리질문(followup_question)은 1개만 생성하세요(가장 핵심적인
+  것 우선). 단 unpassed_rubric에는 미충족 항목을 전부 담으세요 — 질문이 겨냥하지 않은
+  나머지 항목이 조용히 사라지면 안 됩니다.
+- 이미 답변에서 다룬 내용을 반복해서 묻지 마세요.
+- 모든 기준을 충족했으면 unpassed_rubric은 빈 배열, followup_question은 null로 두세요.
 
 ## 출력 형식 (JSON only)
 {{
-  "rubric_results": [
-    {{"criterion": "rubric 문구 그대로", "passed": true 또는 false, "reason": "판정 근거 한 문장"}}
-  ],
-  "all_passed": true 또는 false,
-  "followup_question": "꼬리질문 (all_passed=true 이면 null)"
+  "unpassed_rubric": ["충족하지 못한 기준 문구 (위 목록 원문 그대로)", ...],
+  "followup_question": "꼬리질문 (unpassed_rubric 이 비어있으면 null)"
 }}
-rubric_results 는 반드시 입력된 rubric과 동일한 개수({len(rubric)}개)로 반환하세요.
 꼬리질문의 예상 모범 답안(expected_answer)은 생성하지 마세요 — 사용자가 이 꼬리질문에
 실제로 답변을 제출한 뒤 AI 보완 답안이 별도로 생성됩니다."""
 
@@ -260,23 +258,16 @@ def build_answer_supplement_prompt(
     interview_type: InterviewType,
     question: str,
     rubric: list[str],
-    rubric_results: list[dict] | None,
     user_answer: str,
     context: str,
 ) -> str:
-    # [루브릭 아키텍처 재설계] rubric_results(Phase 2에서 이미 채점된 결과)가 있으면
-    # "어떤 기준을 통과했고 어떤 기준을 놓쳤는지"를 그대로 알려줘서, LLM이 재채점할
-    # 필요 없이 놓친 부분만 정확히 겨냥해 보완하도록 한다. 없으면 rubric 목록만 참고
-    # 자료로 제공하고, 그마저도 없으면 일반적인 답변 품질 기준으로 보완하게 한다.
-    if rubric_results:
-        lines = []
-        for r in rubric_results:
-            status = "충족" if r.get("passed") else "미충족"
-            reason = f" ({r['reason']})" if r.get("reason") else ""
-            lines.append(f"- {r.get('criterion', '')}: {status}{reason}")
-        rubric_section = "## 채점 결과 (이미 판정됨 - 미충족 항목 위주로 보완하세요)\n" + "\n".join(lines)
-    elif rubric:
-        rubric_section = "## 채점 기준 (참고)\n" + "\n".join(f"- {c}" for c in rubric)
+    # [꼬리질문 narrowing 전환] rubric_results 인자를 제거했다. narrowing 방식에서는
+    # /followup 요청에 실렸던 rubric 자체가 이미 "이 답변이 놓친 기준"이므로, 별도
+    # pass/fail 채점 결과 없이 rubric 목록만으로 "어떤 기준을 보완해야 하는지"가
+    # 충분히 드러난다. rubric이 아예 없으면(예: 일반 질문) 일반적인 답변 품질 기준으로
+    # 보완하게 한다.
+    if rubric:
+        rubric_section = "## 채점 기준 (미충족 위주로 보완하세요)\n" + "\n".join(f"- {c}" for c in rubric)
     else:
         rubric_section = "## 채점 기준\n(제공되지 않음 — 일반적인 답변 품질 기준으로 보완하세요.)"
 
