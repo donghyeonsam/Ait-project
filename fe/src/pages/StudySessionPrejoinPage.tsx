@@ -17,8 +17,19 @@ export function StudySessionPrejoinPage() {
   }
 
   const handleJoin = (selection: StudySessionPrejoinSelection) => {
-    // TODO: 실제 세션 화면(WebRTC/LiveKit 연동) 구현 필요 — 지금은 선택한 장치·자소서 정보만 확인한다.
-    console.log('스터디 세션 참가 정보', selection)
+    // TODO: 실제 세션 연결(WebRTC/LiveKit) 구현 필요 — 지금은 선택한 장치·자소서 정보를 화상 회의방 UI로 전달만 한다.
+    navigate('/study/session/room', {
+      state: {
+        devices: {
+          cameraDeviceId: selection.cameraDeviceId,
+          micDeviceId: selection.micDeviceId,
+          speakerDeviceId: selection.speakerDeviceId,
+          micGain: selection.micGain,
+          speakerVolume: selection.speakerVolume,
+        },
+        coverLetterId: selection.coverLetterId,
+      },
+    })
   }
 
   return (

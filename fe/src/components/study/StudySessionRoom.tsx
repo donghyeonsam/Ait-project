@@ -1,0 +1,608 @@
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from 'react'
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Mic,
+  MicOff,
+  Phone,
+  ScreenShare,
+  Video,
+  VideoOff,
+  Volume2,
+  VolumeX,
+} from 'lucide-react'
+import { useMediaDevices } from '@/components/interview/useMediaDevices'
+import { FloatingChatButton } from '@/components/study/FloatingChatButton'
+import { HoverVolumeButton } from '@/components/study/HoverVolumeButton'
+import { ParticipantTile } from '@/components/study/ParticipantTile'
+import { StudySessionSidePanel } from '@/components/study/StudySessionSidePanel'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { mockPrejoinCoverLetters, mockStudyParticipants, type StudyParticipant } from '@/mocks/study'
+import { cn } from '@/lib/utils'
+
+export interface StudySessionRoomDeviceSelection {
+  cameraDeviceId: string | null
+  micDeviceId: string | null
+  speakerDeviceId: string | null
+  micGain: number
+  speakerVolume: number
+}
+
+interface StudySessionRoomProps {
+  initialDevices: StudySessionRoomDeviceSelection
+  /** 입장 전 화면에서 고른 자소서. 내 타일의 자소서 요약에 반영해 두 화면을 매끄럽게 잇는다. */
+  selfCoverLetterId: number | null
+  onLeave: () => void
+}
+
+type StageMode = { type: 'grid' } | { type: 'participants'; ids: number[] } | { type: 'screen' }
+
+interface ContextMenuState {
+  participantId: number
+  x: number
+  y: number
+}
+
+// 웹캠 원본이 대체로 16:9라 이 비율을 쓰면 크롭·레터박스 없이 카메라 화면이 꽉 찬다.
+const CAMERA_ASPECT = 16 / 9
+const GRID_GAP = 12
+/** 한 번에 확대해 볼 수 있는 참가자 수. */
+const MAX_STAGE_PARTICIPANTS = 4
+
+interface ElementSize {
+  width: number
+  height: number
+}
+
+// 컨테이너 크기를 관찰해 그리드/스테이지 타일 크기 계산에 쓴다.
+// 그리드·스테이지 컨테이너는 뷰 전환에 따라 마운트/언마운트되므로, 일반 useRef 대신
+// 콜백 ref로 노드가 실제로 붙는 시점마다 옵저버를 다시 건다.
+function useElementSize<T extends HTMLElement>(): [(node: T | null) => void, ElementSize | null] {
+  const [node, setNode] = useState<T | null>(null)
+  const [size, setSize] = useState<ElementSize | null>(null)
+
+  useEffect(() => {
+    if (!node) return
+    const update = () => setSize({ width: node.clientWidth, height: node.clientHeight })
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [node])
+
+  return [setNode, size]
+}
+
+/** 셀 하나에 4:3 비율을 유지한 채 들어갈 수 있는 최대 크기(레터박스 없이 꽉 채우는 크기)를 구한다. */
+function fitAspect(width: number, height: number, aspect: number): ElementSize {
+  let fittedWidth = width
+  let fittedHeight = fittedWidth / aspect
+  if (fittedHeight > height) {
+    fittedHeight = height
+    fittedWidth = fittedHeight * aspect
+  }
+  return { width: Math.max(fittedWidth, 0), height: Math.max(fittedHeight, 0) }
+}
+
+/** 참가자 수만큼 4:3 타일을 배치할 때, 레터박스 여백이 가장 적게 남는 열 수와 타일 크기를 찾는다. */
+function computeGridTileSize(count: number, width: number, height: number, gap: number): ElementSize & { cols: number } {
+  if (count <= 0 || width <= 0 || height <= 0) {
+    return { cols: 1, width: 0, height: 0 }
+  }
+
+  let best = { cols: 1, width: 0, height: 0 }
+  for (let cols = 1; cols <= count; cols += 1) {
+    const rows = Math.ceil(count / cols)
+    const cellWidth = (width - gap * (cols - 1)) / cols
+    const cellHeight = (height - gap * (rows - 1)) / rows
+    if (cellWidth <= 0 || cellHeight <= 0) continue
+
+    const fitted = fitAspect(cellWidth, cellHeight, CAMERA_ASPECT)
+    if (fitted.width * fitted.height > best.width * best.height) {
+      best = { cols, width: fitted.width, height: fitted.height }
+    }
+  }
+  return best
+}
+
+function ScreenSharePreview({ stream }: { stream: MediaStream | null }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream
+    }
+  }, [stream])
+
+  return <video ref={videoRef} autoPlay playsInline muted className="size-full bg-black object-contain" />
+}
+
+// 스터디 세션 화상 회의방: 참가자 그리드/스테이지 뷰, 컨트롤 바, 이력서·자소서·평가 패널을 구성한다.
+// TODO: 실제 API 연동 필요 — WebRTC/LiveKit 룸 연결, 원격 참가자 스트림, 채팅·평가 제출 API로 교체.
+export function StudySessionRoom({
+  initialDevices,
+  selfCoverLetterId,
+  onLeave,
+}: StudySessionRoomProps) {
+  const { stream, requestAccess } = useMediaDevices()
+
+  const participants = useMemo(() => {
+    const selectedCoverLetter = mockPrejoinCoverLetters.find(
+      (coverLetter) => coverLetter.coverLetterId === selfCoverLetterId,
+    )
+    if (!selectedCoverLetter) return mockStudyParticipants
+
+    return mockStudyParticipants.map((participant) =>
+      participant.isSelf
+        ? {
+            ...participant,
+            coverLetterTitle: selectedCoverLetter.title,
+            coverLetterSummary: `${selectedCoverLetter.title} (${selectedCoverLetter.companyName} · ${selectedCoverLetter.role})`,
+          }
+        : participant,
+    )
+  }, [selfCoverLetterId])
+
+  const selfId = participants.find((participant) => participant.isSelf)?.participantId ?? null
+
+  const [panelOpen, setPanelOpen] = useState(false)
+  const [cameraOn, setCameraOn] = useState(true)
+  const [micMuted, setMicMuted] = useState(false)
+  const [micGain, setMicGain] = useState(initialDevices.micGain)
+  const [speakerMuted, setSpeakerMuted] = useState(false)
+  const [speakerVolume, setSpeakerVolume] = useState(initialDevices.speakerVolume)
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
+  const [stageMode, setStageMode] = useState<StageMode>({ type: 'grid' })
+  const [stripCollapsed, setStripCollapsed] = useState(false)
+  const [order, setOrder] = useState<number[]>(() => mockStudyParticipants.map((participant) => participant.participantId))
+  const [lockedIds, setLockedIds] = useState<Set<number>>(new Set())
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
+  const screenStreamRef = useRef<MediaStream | null>(null)
+  const dragIdRef = useRef<number | null>(null)
+  const videoAreaRef = useRef<HTMLDivElement>(null)
+  const [gridRef, gridSize] = useElementSize<HTMLDivElement>()
+  const [stageRef, stageSize] = useElementSize<HTMLDivElement>()
+
+  useEffect(() => {
+    void requestAccess(initialDevices.cameraDeviceId ?? undefined, initialDevices.micDeviceId ?? undefined)
+    // 입장 전 화면에서 고른 장치로 한 번만 접속한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    stream?.getVideoTracks().forEach((track) => {
+      track.enabled = cameraOn
+    })
+  }, [stream, cameraOn])
+
+  useEffect(() => {
+    stream?.getAudioTracks().forEach((track) => {
+      track.enabled = !micMuted
+    })
+  }, [stream, micMuted])
+
+  useEffect(() => {
+    return () => {
+      screenStreamRef.current?.getTracks().forEach((track) => track.stop())
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const closeMenu = () => setContextMenu(null)
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setContextMenu(null)
+    }
+    window.addEventListener('click', closeMenu)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('click', closeMenu)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [contextMenu])
+
+  const orderedParticipants = useMemo(
+    () =>
+      order
+        .map((id) => participants.find((participant) => participant.participantId === id))
+        .filter((participant): participant is StudyParticipant => Boolean(participant)),
+    [order, participants],
+  )
+
+  // 셀을 꽉 채우는 대신, 레터박스가 가장 적게 남도록 타일 크기 자체를 4:3으로 계산한다.
+  const gridTileSize = useMemo(
+    () => computeGridTileSize(participants.length, gridSize?.width ?? 0, gridSize?.height ?? 0, GRID_GAP),
+    [participants.length, gridSize],
+  )
+
+  const stageParticipants = useMemo(() => {
+    if (stageMode.type !== 'participants') return []
+    return stageMode.ids
+      .map((id) => participants.find((participant) => participant.participantId === id))
+      .filter((participant): participant is StudyParticipant => Boolean(participant))
+  }, [stageMode, participants])
+
+  // 확대된 화면도 그리드와 같은 방식으로, 확대 인원수에 맞춰 레터박스가 최소화되게 크기를 계산한다.
+  const stageTileSize = useMemo(
+    () => computeGridTileSize(stageParticipants.length, stageSize?.width ?? 0, stageSize?.height ?? 0, GRID_GAP),
+    [stageParticipants.length, stageSize],
+  )
+
+  const stopScreenShare = useCallback(() => {
+    screenStreamRef.current?.getTracks().forEach((track) => track.stop())
+    screenStreamRef.current = null
+    setScreenStream(null)
+    setStageMode({ type: 'grid' })
+  }, [])
+
+  const startScreenShare = useCallback(async () => {
+    try {
+      const captured = await navigator.mediaDevices.getDisplayMedia({ video: true })
+      screenStreamRef.current = captured
+      setScreenStream(captured)
+      setStageMode({ type: 'screen' })
+      captured.getVideoTracks()[0]?.addEventListener('ended', stopScreenShare)
+    } catch {
+      // 사용자가 화면 공유 요청을 취소한 경우 — 별도 처리 없이 무시한다.
+    }
+  }, [stopScreenShare])
+
+  const handleToggleScreenShare = () => {
+    if (screenStream) {
+      stopScreenShare()
+    } else {
+      void startScreenShare()
+    }
+  }
+
+  // 우클릭 메뉴의 "그리드로 보기"에서만 쓴다. 화면 접기 버튼은 더 이상 그리드로 돌아가지 않는다.
+  const handleReturnToGrid = () => {
+    if (screenStream) {
+      stopScreenShare()
+    } else {
+      setStageMode({ type: 'grid' })
+    }
+  }
+
+  const handleDragStart = (id: number) => {
+    dragIdRef.current = id
+  }
+
+  const handleDropOn = (targetId: number) => {
+    const draggedId = dragIdRef.current
+    dragIdRef.current = null
+    if (draggedId === null || draggedId === targetId) return
+    if (draggedId === selfId || targetId === selfId) return
+    if (lockedIds.has(draggedId) || lockedIds.has(targetId)) return
+
+    setOrder((prev) => {
+      const next = [...prev]
+      const from = next.indexOf(draggedId)
+      const to = next.indexOf(targetId)
+      if (from === -1 || to === -1) return prev
+      ;[next[from], next[to]] = [next[to], next[from]]
+      return next
+    })
+  }
+
+  const openContextMenu = (event: ReactMouseEvent<HTMLDivElement>, participantId: number) => {
+    event.preventDefault()
+    setContextMenu({ participantId, x: event.clientX, y: event.clientY })
+  }
+
+  const toggleLock = (id: number) => {
+    setLockedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // 최대 인원(MAX_STAGE_PARTICIPANTS)까지 확대 목록에 추가한다. 이미 꽉 찼으면 무시한다.
+  const handleEnlarge = (id: number) => {
+    if (screenStream) stopScreenShare()
+    setStageMode((mode) => {
+      const currentIds = mode.type === 'participants' ? mode.ids : []
+      if (currentIds.includes(id) || currentIds.length >= MAX_STAGE_PARTICIPANTS) return mode
+      return { type: 'participants', ids: [...currentIds, id] }
+    })
+  }
+
+  // 확대 목록에서 한 명만 뺀다. 마지막 한 명이었으면 그리드로 돌아간다.
+  const handleUnpin = (id: number) => {
+    setStageMode((mode) => {
+      if (mode.type !== 'participants') return mode
+      const nextIds = mode.ids.filter((existingId) => existingId !== id)
+      return nextIds.length > 0 ? { type: 'participants', ids: nextIds } : { type: 'grid' }
+    })
+  }
+
+  const handleConfirmLeave = () => {
+    setLeaveDialogOpen(false)
+    onLeave()
+  }
+
+  const stagePinnedIds = stageMode.type === 'participants' ? stageMode.ids : []
+  const contextMenuIsPinned = contextMenu ? stagePinnedIds.includes(contextMenu.participantId) : false
+  const contextMenuAtLimit = !contextMenuIsPinned && stagePinnedIds.length >= MAX_STAGE_PARTICIPANTS
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="relative flex min-h-0 flex-1">
+        {/* 영상 영역 + 장치설정바를 한 열로 묶어, 패널이 열리면 이 열 전체가 함께 밀리게 한다. */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div ref={videoAreaRef} className="relative min-h-0 flex-1 overflow-hidden p-4">
+            {stageMode.type === 'grid' ? (
+              <div ref={gridRef} className="flex h-full w-full flex-wrap content-center items-center justify-center gap-3">
+                {orderedParticipants.map((participant) => (
+                  <div
+                    key={participant.participantId}
+                    className="shrink-0"
+                    style={
+                      gridTileSize.width > 0
+                        ? { width: gridTileSize.width, height: gridTileSize.height }
+                        : { width: '30%', aspectRatio: CAMERA_ASPECT }
+                    }
+                  >
+                    <ParticipantTile
+                      participant={participant}
+                      stream={participant.isSelf ? stream : null}
+                      cameraOn={participant.isSelf ? cameraOn : false}
+                      draggableEnabled={!participant.isSelf}
+                      locked={lockedIds.has(participant.participantId)}
+                      onDragStart={() => handleDragStart(participant.participantId)}
+                      onDropOn={() => handleDropOn(participant.participantId)}
+                      onContextMenu={
+                        participant.isSelf ? undefined : (event) => openContextMenu(event, participant.participantId)
+                      }
+                      className="h-full w-full"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex h-full min-h-0 flex-col gap-2">
+                {stripCollapsed ? null : (
+                  <div className="flex h-24 shrink-0 items-center gap-3 overflow-x-auto overflow-y-hidden">
+                    {orderedParticipants.map((participant) => (
+                      <ParticipantTile
+                        key={participant.participantId}
+                        participant={participant}
+                        stream={participant.isSelf ? stream : null}
+                        cameraOn={participant.isSelf ? cameraOn : false}
+                        draggableEnabled={!participant.isSelf}
+                        locked={lockedIds.has(participant.participantId)}
+                        onDragStart={() => handleDragStart(participant.participantId)}
+                        onDropOn={() => handleDropOn(participant.participantId)}
+                        onContextMenu={
+                          participant.isSelf ? undefined : (event) => openContextMenu(event, participant.participantId)
+                        }
+                        className={cn(
+                          'h-24 w-42.75 shrink-0',
+                          stagePinnedIds.includes(participant.participantId) && 'ring-2 ring-action-primary',
+                        )}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* 그리드로 돌아가는 버튼이 아니라, 위 참가자 줄을 접어 확대 화면을 더 크게 보여주는 버튼이다. */}
+                <button
+                  type="button"
+                  aria-label={stripCollapsed ? '다른 참가자 화면 펼치기' : '다른 참가자 화면 접어서 크게 보기'}
+                  onClick={() => setStripCollapsed((value) => !value)}
+                  className="mx-auto flex h-4 w-6 shrink-0 items-center justify-center rounded-ait-s text-text-secondary transition-colors hover:bg-status-neutral-surface"
+                >
+                  {stripCollapsed ? (
+                    <ChevronDown className="size-3.5" aria-hidden="true" />
+                  ) : (
+                    <ChevronUp className="size-3.5" aria-hidden="true" />
+                  )}
+                </button>
+
+                <div
+                  ref={stageRef}
+                  className="flex min-h-0 flex-1 flex-wrap content-center items-center justify-center gap-3 overflow-hidden"
+                >
+                  {stageMode.type === 'screen' ? (
+                    <ScreenSharePreview stream={screenStream} />
+                  ) : (
+                    stageParticipants.map((participant) => (
+                      <div
+                        key={participant.participantId}
+                        className="shrink-0 overflow-hidden rounded-ait-m"
+                        style={
+                          stageTileSize.width > 0
+                            ? { width: stageTileSize.width, height: stageTileSize.height }
+                            : { width: '100%', aspectRatio: CAMERA_ASPECT }
+                        }
+                      >
+                        <ParticipantTile
+                          participant={participant}
+                          stream={participant.isSelf ? stream : null}
+                          cameraOn={participant.isSelf ? cameraOn : false}
+                          onContextMenu={(event) => openContextMenu(event, participant.participantId)}
+                          className="h-full w-full"
+                        />
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            <FloatingChatButton boundsRef={videoAreaRef} />
+
+            {contextMenu ? (
+              <div
+                role="menu"
+                aria-label="참가자 옵션"
+                style={{ top: contextMenu.y, left: contextMenu.x }}
+                className="fixed z-50 w-40 rounded-ait-s border border-border-default bg-surface-default py-1 shadow-elevation-3"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={contextMenuAtLimit}
+                  onClick={() => {
+                    if (contextMenuIsPinned) {
+                      handleUnpin(contextMenu.participantId)
+                    } else {
+                      handleEnlarge(contextMenu.participantId)
+                    }
+                    setContextMenu(null)
+                  }}
+                  className={cn(
+                    'block w-full px-3 py-2 text-left text-body-2 hover:bg-status-neutral-surface',
+                    contextMenuAtLimit ? 'cursor-not-allowed text-text-secondary' : 'text-text-primary',
+                  )}
+                >
+                  {contextMenuIsPinned
+                    ? '확대 해제'
+                    : contextMenuAtLimit
+                      ? `화면 확대 (최대 ${MAX_STAGE_PARTICIPANTS}명)`
+                      : '화면 확대'}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    toggleLock(contextMenu.participantId)
+                    setContextMenu(null)
+                  }}
+                  className="block w-full px-3 py-2 text-left text-body-2 text-text-primary hover:bg-status-neutral-surface"
+                >
+                  {lockedIds.has(contextMenu.participantId) ? '고정 해제' : '위치 고정'}
+                </button>
+                {stageMode.type !== 'grid' ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      handleReturnToGrid()
+                      setContextMenu(null)
+                    }}
+                    className="block w-full border-t border-border-default px-3 py-2 text-left text-body-2 text-text-primary hover:bg-status-neutral-surface"
+                  >
+                    전체 그리드로 보기
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          {/* 장치설정바: 영상 위에 떠 있지 않고 하단에 항상 고정된 자리를 차지하며, 패널이 열리면 이 열과 함께 밀린다. */}
+          <div className="flex shrink-0 items-center justify-center gap-4 px-4 py-3">
+            <div className="flex items-center gap-1.5 rounded-ait-pill bg-action-primary px-3 py-2 shadow-elevation-2">
+              <button
+                type="button"
+                aria-pressed={!cameraOn}
+                aria-label={cameraOn ? '카메라 끄기' : '카메라 켜기'}
+                onClick={() => setCameraOn((value) => !value)}
+                className={cn(
+                  'flex size-10 items-center justify-center rounded-ait-s text-white transition-colors hover:bg-white/15',
+                  !cameraOn && 'text-theater-live',
+                )}
+              >
+                {cameraOn ? <Video className="size-5" aria-hidden="true" /> : <VideoOff className="size-5" aria-hidden="true" />}
+              </button>
+
+              <HoverVolumeButton
+                icon={<Mic className="size-5" aria-hidden="true" />}
+                mutedIcon={<MicOff className="size-5" aria-hidden="true" />}
+                muted={micMuted}
+                onToggleMuted={() => setMicMuted((value) => !value)}
+                gain={micGain}
+                onChangeGain={setMicGain}
+                label="마이크"
+              />
+
+              <HoverVolumeButton
+                icon={<Volume2 className="size-5" aria-hidden="true" />}
+                mutedIcon={<VolumeX className="size-5" aria-hidden="true" />}
+                muted={speakerMuted}
+                onToggleMuted={() => setSpeakerMuted((value) => !value)}
+                gain={speakerVolume}
+                onChangeGain={setSpeakerVolume}
+                label="스피커"
+              />
+
+              <button
+                type="button"
+                aria-pressed={Boolean(screenStream)}
+                aria-label={screenStream ? '화면 공유 중지' : '화면 공유'}
+                onClick={handleToggleScreenShare}
+                className={cn(
+                  'flex size-10 items-center justify-center rounded-ait-s text-white transition-colors hover:bg-white/15',
+                  screenStream && 'bg-white/20',
+                )}
+              >
+                <ScreenShare className="size-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              aria-label="세션 나가기"
+              onClick={() => setLeaveDialogOpen(true)}
+              className="flex size-12 items-center justify-center rounded-ait-l bg-status-error text-white shadow-elevation-2 transition-colors hover:opacity-90"
+            >
+              <Phone className="size-5" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          aria-label={panelOpen ? '패널 접기' : '패널 펼치기'}
+          onClick={() => setPanelOpen((value) => !value)}
+          className="z-10 flex w-6 shrink-0 items-center justify-center border-y border-l border-border-default bg-surface-default text-text-secondary transition-colors hover:bg-status-neutral-surface"
+        >
+          {panelOpen ? <ChevronRight className="size-4" aria-hidden="true" /> : <ChevronLeft className="size-4" aria-hidden="true" />}
+        </button>
+
+        {panelOpen ? (
+          <div className="w-[320px] shrink-0 border-l border-border-default bg-surface-default">
+            <StudySessionSidePanel participants={participants} />
+          </div>
+        ) : null}
+      </div>
+
+      <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
+        <DialogContent className="w-[min(26rem,calc(100vw-2rem))] p-6" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>세션에서 나갈까요?</DialogTitle>
+            <DialogDescription>나가면 화상 스터디 세션 연결이 종료됩니다.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="text" onClick={() => setLeaveDialogOpen(false)}>
+              계속 참여
+            </Button>
+            <Button type="button" variant="destructive" onClick={handleConfirmLeave}>
+              나가기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
