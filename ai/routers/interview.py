@@ -48,17 +48,22 @@ async def create_questions(req: QuestionGenerateRequest):
 @router.post("/followup", response_model=FollowupResponse)
 async def create_followup(req: FollowupRequest):
     """
-    사용자 답변 기반 rubric 채점 + 동적 꼬리질문 생성.
+    사용자 답변 기반 rubric narrowing + 동적 꼬리질문 생성.
     Spring Boot 가 답변 저장 후 호출.
 
-    [루브릭 아키텍처 전환 - Phase 2]
-    기존에는 need_followup(bool) 하나로 종료를 판단했지만, 이제는 BE가 Phase 1에서
-    받아 저장해둔 해당 질문의 rubric(req.rubric)을 답변과 함께 넘겨야 한다.
-    응답은 rubric 항목별 pass/fail(rubric_results)과 all_passed 를 포함하며,
-    - all_passed=true  → BE는 다음 기본 질문으로 진행
-    - all_passed=false → followup_question 을 Redis Queue 맨 앞에 끼워넣어 다음 차례로 제시
-    capped=true 인 경우는 rubric을 실제로 채점하지 않고 횟수 상한으로 강제 종료한
-    것이므로, "진짜로 다 통과함"과 구분해서 다뤄야 한다(예: 리포트에서 표시).
+    [꼬리질문 narrowing 전환 - 2026-07-26, Breaking Change]
+    요청/응답 형식이 flat 구조에서 중첩 객체 구조로 바뀌었다(schemas/interview.py의
+    FollowupRequest/FollowupResponse 주변 주석 참고).
+
+    - 요청의 req.question.rubric은 "이 질문에 대해 아직 통과하지 못한 채점 기준"이다.
+      호출측은 직전 턴 응답의 next_question을 가공 없이 그대로 이번 요청의 question에
+      되돌려 보내야 한다 — rubric을 임의로 추가/복원하면 통과한 기준이 되살아나
+      진동(같은 rubric이 pass/fail을 반복하는 문제)이 재발한다.
+    - is_pass=true  → BE는 다음 기본 질문으로 진행.
+    - is_pass=false → next_question 을 다음 차례로 제시.
+    - is_pass=true는 "모든 rubric을 통과함"과 "꼬리질문 횟수 상한(depth) 도달로 강제
+      종료함" 두 경우를 모두 포함한다. 이 둘을 구분해야 한다면(예: 리포트 표시) 요청에
+      실려온 question.depth 값으로 판단해야 한다 — 응답 자체에는 별도 플래그가 없다.
     """
     try:
         return await generate_followup(req)

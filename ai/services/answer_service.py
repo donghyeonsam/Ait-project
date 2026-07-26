@@ -34,19 +34,14 @@ async def generate_answer_supplement(req: AnswerSupplementRequest) -> AnswerSupp
     )
     context_text = format_context(contexts)
 
-    # 2. rubric_results 가 있으면 프롬프트 모듈이 기대하는 dict 형태로 변환.
-    #    [루브릭 아키텍처 재설계] Phase 2(/followup)에서 이미 채점된 결과가 있으면
-    #    그대로 넘겨서, 어떤 기준을 놓쳤는지 재채점 없이 바로 알려준다.
-    rubric_results_dicts = (
-        [r.model_dump() for r in req.rubric_results] if req.rubric_results else None
-    )
-
-    # 3. 프롬프트 구성 & GMS 호출
+    # 2. [꼬리질문 narrowing 전환] rubric_results 인자를 제거했다. narrowing 방식
+    #    에서는 /followup 요청에 실렸던 rubric 자체가 이미 "이 답변이 놓친 기준"
+    #    이므로, req.rubric만 넘기면 재채점 없이도 어떤 기준을 보완해야 하는지 알 수
+    #    있어 별도 pass/fail 채점 결과가 더 이상 필요 없다.
     prompt = build_answer_supplement_prompt(
         interview_type=req.interview_type,
         question=req.question,
         rubric=req.rubric,
-        rubric_results=rubric_results_dicts,
         user_answer=req.user_answer,
         context=context_text,
     )
