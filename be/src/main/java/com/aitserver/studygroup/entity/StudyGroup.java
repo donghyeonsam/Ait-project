@@ -5,10 +5,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.SQLRestriction;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.*;
 
 import java.time.LocalDateTime;
 
@@ -38,6 +35,10 @@ public class StudyGroup {
 
     @Column(nullable = false, length = 20)
     private String status;
+
+    // 가상 컬럼: 승인되었고(approved), 삭제되지 않은(deleted_at IS NULL) 멤버 수 계산
+    @Formula("(SELECT COUNT(*) FROM study_group_members m WHERE m.group_id = id AND m.status = 'approved' AND m.deleted_at IS NULL)")
+    private int currentMemberCount;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
