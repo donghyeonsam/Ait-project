@@ -16,6 +16,7 @@ import { PrivacyPage } from '@/pages/PrivacyPage'
 import { RecordingNoticePage } from '@/pages/RecordingNoticePage'
 import { ResumePage } from '@/pages/ResumePage'
 import { StudyPage } from '@/pages/StudyPage'
+import { StudySessionPrejoinPage } from '@/pages/StudySessionPrejoinPage'
 import { SignupPage } from '@/pages/auth/SignupPage'
 import { TermsPage } from '@/pages/TermsPage'
 
@@ -31,6 +32,8 @@ export function AppRouter() {
       <Route path="/interviews" element={<ProtectedRoute><InterviewsPage /></ProtectedRoute>} />
       <Route path="/interviews/session" element={<ProtectedRoute><InterviewSessionPage /></ProtectedRoute>} />
       <Route path="/study" element={<ProtectedRoute><StudyPage /></ProtectedRoute>} />
+      {/* TODO: 임시 진입 경로 — 스터디 라운지 → 내 스터디 그룹 → 세션 생성/참가 구현 시 해당 흐름에서 연결한다. */}
+      <Route path="/study/session/prejoin" element={<ProtectedRoute><StudySessionPrejoinPage /></ProtectedRoute>} />
       <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
       <Route path="/community/posts/:postId" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
       <Route path="/github/callback" element={<ProtectedRoute><GithubCallbackPage /></ProtectedRoute>} />
