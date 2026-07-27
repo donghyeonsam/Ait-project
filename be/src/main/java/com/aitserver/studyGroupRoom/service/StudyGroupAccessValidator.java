@@ -23,7 +23,7 @@ public class StudyGroupAccessValidator {
     ) {
         StudyGroup studyGroup =
                 studyGroupRepository
-                        .findByIdAndDeletedAtIsNull(groupId)
+                        .findGroupWithOwnerById(groupId)
                         .orElseThrow(() ->
                                 new IllegalArgumentException(
                                         "스터디 그룹을 찾을 수 없습니다."
@@ -64,7 +64,7 @@ public class StudyGroupAccessValidator {
 
         boolean isActiveMember =
                 memberRepository
-                        .existsByStudyGroupIdAndUserIdAndStatusAndDeletedAtIsNull(
+                        .existsByStudyGroupIdAndUserIdAndStatus(
                                 groupId,
                                 userId,
                                 StudyGroupMemberStatus.ACTIVE

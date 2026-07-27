@@ -139,7 +139,7 @@ public class StudySessionConnectionService {
     ) {
         boolean activeMember =
                 groupMemberRepository
-                        .existsByStudyGroupIdAndUserIdAndStatusAndDeletedAtIsNull(
+                        .existsByStudyGroupIdAndUserIdAndStatus(
                                 groupId,
                                 userId,
                                 StudyGroupMemberStatus.ACTIVE

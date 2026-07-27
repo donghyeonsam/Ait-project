@@ -6,10 +6,12 @@ import com.aitserver.studyGroupRoom.domain.StudyGroupMemberRole;
 import com.aitserver.studyGroupRoom.domain.StudyGroupMemberStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
 
@@ -38,6 +40,8 @@ import java.time.LocalDateTime;
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@SQLDelete(sql = "UPDATE study_group_members SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?") // 본인 코드: Soft Delete 유지
+@SQLRestriction("deleted_at IS NULL")
 public class StudyGroupMember {
 
     @Id
@@ -80,10 +84,10 @@ public class StudyGroupMember {
     )
     private StudyGroupMemberStatus status;
 
-    @Column(
-            name = "joined_at",
-            nullable = false
-    )
+    @Column(length = 300, nullable = false)
+    private String message;
+
+    @Column(name = "joined_at")
     private LocalDateTime joinedAt;
 
     @Column(name = "left_at")
@@ -97,48 +101,49 @@ public class StudyGroupMember {
     )
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp
-    @Column(
-            name = "updated_at",
-            nullable = false
-    )
-    private LocalDateTime updatedAt;
-
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    private StudyGroupMember(
-            StudyGroup studyGroup,
-            User user,
-            StudyGroupMemberRole role
-    ) {
+    @Builder
+    public StudyGroupMember(StudyGroup studyGroup, User user, StudyGroupMemberRole role, StudyGroupMemberStatus status, String message) {
         this.studyGroup = studyGroup;
         this.user = user;
         this.role = role;
+        this.status = status;
+        this.message = message;
+
+        // 생성 시점에 ACTIVE 상태라면 가입일 즉시 기록
+        if (status == StudyGroupMemberStatus.ACTIVE) {
+            this.joinedAt = LocalDateTime.now();
+        }
+    }
+
+    public static StudyGroupMember createOwner(StudyGroup studyGroup, User owner) {
+        return StudyGroupMember.builder()
+                .studyGroup(studyGroup)
+                .user(owner)
+                .role(StudyGroupMemberRole.OWNER)
+                .status(StudyGroupMemberStatus.ACTIVE) // 방장은 바로 ACTIVE
+                .build();
+    }
+
+    public static StudyGroupMember createMember(StudyGroup studyGroup, User user, String message) {
+        return StudyGroupMember.builder()
+                .studyGroup(studyGroup)
+                .user(user)
+                .role(StudyGroupMemberRole.MEMBER)
+                .status(StudyGroupMemberStatus.PENDING)
+                .message(message)
+                .build();
+    }
+
+    /**
+     * 가입 승인 처리
+     * 상태를 approved로 변경하고 가입 시간을 현재 시간으로 세팅합니다.
+     */
+    public void approve() {
         this.status = StudyGroupMemberStatus.ACTIVE;
         this.joinedAt = LocalDateTime.now();
-    }
-
-    public static StudyGroupMember createOwner(
-            StudyGroup studyGroup,
-            User owner
-    ) {
-        return new StudyGroupMember(
-                studyGroup,
-                owner,
-                StudyGroupMemberRole.OWNER
-        );
-    }
-
-    public static StudyGroupMember createMember(
-            StudyGroup studyGroup,
-            User user
-    ) {
-        return new StudyGroupMember(
-                studyGroup,
-                user,
-                StudyGroupMemberRole.MEMBER
-        );
     }
 
     public void leave() {
@@ -170,12 +175,8 @@ public class StudyGroupMember {
             );
         }
 
-        this.status = StudyGroupMemberStatus.ACTIVE;
+        this.status = StudyGroupMemberStatus.PENDING;
         this.leftAt = null;
-
-        if (this.joinedAt == null) {
-            this.joinedAt = LocalDateTime.now();
-        }
     }
 
     public boolean isActive() {
