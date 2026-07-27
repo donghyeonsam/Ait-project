@@ -1,6 +1,7 @@
 package com.aitserver.studygroup.entity;
 
 import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -8,6 +9,8 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "study_groups")
@@ -35,6 +38,9 @@ public class StudyGroup {
 
     @Column(nullable = false, length = 20)
     private String status;
+
+    @OneToMany(mappedBy = "studyGroup", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<StudyGroupMember> members = new ArrayList<>();
 
     // 가상 컬럼: 승인되었고(approved), 삭제되지 않은(deleted_at IS NULL) 멤버 수 계산
     @Formula("(SELECT COUNT(*) FROM study_group_members m WHERE m.group_id = id AND m.status = 'approved' AND m.deleted_at IS NULL)")

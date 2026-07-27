@@ -35,7 +35,11 @@ public enum ErrorCode {
     GITHUB_REPO_SYNC_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "GITHUB_003","레포지토리 동기화 중 오류가 발생했습니다."),
     GITHUB_REPO_NOT_FOUND(HttpStatus.NOT_FOUND, "GITHUB_004", "해당 레포지토리를 찾을 수 없거나 권한이 없습니다."),
     GITHUB_ANALYSIS_PARSE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "GITHUB_005", "GMS 응답에서 JSON 추출을 실패했습니다."),
-    GITHUB_PROMPT_LOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "GITHUB_006", "프롬프트 파일 로드에 실패했습니다.");
+    GITHUB_PROMPT_LOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "GITHUB_006", "프롬프트 파일 로드에 실패했습니다."),
+
+    // 그룹 스터디 세션 에러
+    GROUP_NOT_FOUND(HttpStatus.NOT_FOUND, "G001", "해당 그룹을 찾을 수 없습니다."),
+    GROUP_ACCESS_DENIED(HttpStatus.FORBIDDEN, "G002", "해당 그룹에 접근할 권한이 없습니다. (멤버가 아님)");
 
     private final HttpStatus status;
     private final String code;

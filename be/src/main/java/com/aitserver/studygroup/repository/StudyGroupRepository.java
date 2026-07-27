@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Optional;
+
 public interface StudyGroupRepository extends JpaRepository<StudyGroup, Long> {
 
     @Query("SELECT s FROM StudyGroup s " +
@@ -17,4 +19,7 @@ public interface StudyGroupRepository extends JpaRepository<StudyGroup, Long> {
             @Param("keyword") String keyword,
             Pageable pageable
     );
+
+    @Query("SELECT g FROM StudyGroup g JOIN FETCH g.members m WHERE g.id = :groupId")
+    Optional<StudyGroup> findByIdWithMembers(@Param("groupId") Long groupId);
 }

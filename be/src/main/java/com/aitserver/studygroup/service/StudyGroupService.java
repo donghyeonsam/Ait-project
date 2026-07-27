@@ -1,5 +1,8 @@
 package com.aitserver.studygroup.service;
 
+import com.aitserver.global.exception.BusinessException;
+import com.aitserver.global.exception.ErrorCode;
+import com.aitserver.studygroup.dto.GroupDetailResponse;
 import com.aitserver.studygroup.dto.MyStudyGroupResponseDto;
 import com.aitserver.studygroup.dto.StudyGroupListResponseDto;
 import com.aitserver.studygroup.entity.StudyGroup;
@@ -8,9 +11,7 @@ import com.aitserver.studygroup.repository.StudyGroupMemberRepository;
 import com.aitserver.studygroup.repository.StudyGroupRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,5 +48,22 @@ public class StudyGroupService {
         return members.stream()
                 .map(MyStudyGroupResponseDto::from)
                 .collect(Collectors.toList());
+    }
+
+    public GroupDetailResponse getGroupDetail(Long groupId, Long currentUserId) {
+        // 1. 그룹 조회
+        StudyGroup group = studyGroupRepository.findByIdWithMembers(groupId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND));
+
+        // 2. 가입된 멤버인지 권한 검증
+        boolean isMember = group.getMembers().stream()
+                .anyMatch(member -> member.getUser().getId().equals(currentUserId)
+                                && "approved".equals(member.getStatus()));
+
+        if (!isMember) {
+            throw new BusinessException(ErrorCode.GROUP_ACCESS_DENIED);
+        }
+
+        return GroupDetailResponse.from(group);
     }
 }

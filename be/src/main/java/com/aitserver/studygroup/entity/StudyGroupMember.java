@@ -1,5 +1,6 @@
 package com.aitserver.studygroup.entity;
 
+import com.aitserver.auth.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -27,8 +28,9 @@ public class StudyGroupMember {
     @JoinColumn(name = "group_id", nullable = false)
     private StudyGroup studyGroup;
 
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     // 가입 인사말: 방장은 가입 신청 행위가 없으므로 NULL 허용
     @Column(length = 300)
@@ -49,9 +51,9 @@ public class StudyGroupMember {
     private LocalDateTime deletedAt;
 
     @Builder
-    public StudyGroupMember(StudyGroup studyGroup, Long userId, String message, String status, LocalDateTime joinedAt) {
+    public StudyGroupMember(StudyGroup studyGroup, User user, String message, String status, LocalDateTime joinedAt) {
         this.studyGroup = studyGroup;
-        this.userId = userId;
+        this.user = user;
         this.message = message;
         this.status = status != null ? status : "pending"; // 기본값은 대기 상태
         this.joinedAt = joinedAt;

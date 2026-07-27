@@ -1,9 +1,10 @@
 package com.aitserver.studygroup.controller;
 
 import com.aitserver.global.response.ApiResponse;
+import com.aitserver.studygroup.dto.GroupDetailResponse;
 import com.aitserver.studygroup.dto.MyStudyGroupResponseDto;
-import com.aitserver.studygroup.service.StudyGroupService;
 import com.aitserver.studygroup.dto.StudyGroupListResponseDto;
+import com.aitserver.studygroup.service.StudyGroupService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -13,10 +14,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -31,7 +29,7 @@ public class StudyGroupController {
     public ResponseEntity<ApiResponse<Page<StudyGroupListResponseDto>>> getStudyGroups(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String keyword,
-            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable, //TODO: 한페이지 당 개수 여쭤보기
+            @PageableDefault(size = 6, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable, //TODO: 한페이지 당 개수 여쭤보기
             HttpServletRequest request
     ) {
         Page<StudyGroupListResponseDto> response = studyGroupService.getStudyGroups(status, keyword, pageable);
@@ -71,6 +69,24 @@ public class StudyGroupController {
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK,
                 "진행 중인 내 스터디 그룹 목록 조회 성공.",
+                response,
+                request
+        ));
+    }
+
+    @GetMapping("/{groupId}")
+    public ResponseEntity<ApiResponse<GroupDetailResponse>> getGroupDetail(
+            @PathVariable Long groupId,
+            @AuthenticationPrincipal Long currentUserId,
+            HttpServletRequest request) {
+
+        // 1. 서비스 로직 호출 (권한 검증 포함)
+        GroupDetailResponse response = studyGroupService.getGroupDetail(groupId, currentUserId);
+
+        // 2. 약속된 공통 응답 포맷으로 반환
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                "그룹 상세 정보 조회 성공.",
                 response,
                 request
         ));
