@@ -503,7 +503,7 @@ CREATE TABLE `study_group_members` (
                                        `id` BIGINT NOT NULL AUTO_INCREMENT,
                                        `group_id` BIGINT NOT NULL,
                                        `user_id` BIGINT NOT NULL,
-                                       `message` VARCHAR(255) DEFAULT NULL,
+                                       `message` VARCHAR(255) NOT NULL,
                                        `status` VARCHAR(20) DEFAULT 'recruiting',
                                        `joined_at` DATETIME DEFAULT NULL,
                                        `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

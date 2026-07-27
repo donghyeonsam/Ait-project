@@ -16,7 +16,7 @@ import java.util.List;
 @Table(name = "study_groups")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLDelete(sql = "UPDATE study_groups SET deleted_at = CURRENT_TIMESTAMP WHERE id = id")
+@SQLDelete(sql = "UPDATE study_groups SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL") // 삭제된 스터디 그룹은 자동 필터링
 public class StudyGroup {
 

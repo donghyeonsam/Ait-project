@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @Table(name = "study_group_members")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED) // 기본 생성자 접근 제어
-@SQLDelete(sql = "UPDATE study_group_members SET deleted_at = CURRENT_TIMESTAMP WHERE id = id")
+@SQLDelete(sql = "UPDATE study_group_members SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL") // 삭제된 데이터 자동 제외
 public class StudyGroupMember {
 
@@ -33,7 +33,7 @@ public class StudyGroupMember {
     private User user;
 
     // 가입 인사말: 방장은 가입 신청 행위가 없으므로 NULL 허용
-    @Column(length = 300)
+    @Column(length = 300, nullable = false)
     private String message;
 
     // 멤버 상태: "pending"(대기), "approved"(승인) 등 문자열 관리

@@ -6,6 +6,8 @@ import org.springframework.http.HttpStatus;
 @Getter
 public enum ErrorCode {
 
+    NO_USER(HttpStatus.NOT_FOUND, "U001", "존재하지 않는 사용자입니다."),
+
     // Common
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "COMMON_001", "입력값 중에 기준을 만족하지 않은 입력값이 있습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_002", "서버 내부 오류가 발생했습니다."),
@@ -39,7 +41,11 @@ public enum ErrorCode {
 
     // 그룹 스터디 세션 에러
     GROUP_NOT_FOUND(HttpStatus.NOT_FOUND, "G001", "해당 그룹을 찾을 수 없습니다."),
-    GROUP_ACCESS_DENIED(HttpStatus.FORBIDDEN, "G002", "해당 그룹에 접근할 권한이 없습니다. (멤버가 아님)");
+    GROUP_ACCESS_DENIED(HttpStatus.FORBIDDEN, "G002", "해당 그룹에 접근할 권한이 없습니다. (멤버가 아님)"),
+    UNAUTHORIZED_GROUP_ACTION(HttpStatus.FORBIDDEN, "G003", "방장만 수행할 수 있는 권한입니다."),
+    GROUP_FULL_CANNOT_RECRUIT(HttpStatus.BAD_REQUEST, "G004", "이미 정원이 다 차서 모집 중으로 변경할 수 없습니다."),
+    NOT_GROUP_MEMBER(HttpStatus.BAD_REQUEST, "G005", "해당 그룹의 멤버가 아닙니다."),
+    OWNER_CANNOT_LEAVE_WITH_MEMBERS(HttpStatus.BAD_REQUEST, "G006", "다른 멤버가 존재할 경우 방장은 그룹을 탈퇴할 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

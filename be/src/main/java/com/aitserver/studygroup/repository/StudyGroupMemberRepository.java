@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface StudyGroupMemberRepository extends JpaRepository<StudyGroupMember, Long> {
 
@@ -31,4 +32,6 @@ public interface StudyGroupMemberRepository extends JpaRepository<StudyGroupMemb
             @Param("memberStatus") String memberStatus,
             @Param("excludedGroupStatus") String excludedGroupStatus
     );
+
+    Optional<StudyGroupMember> findByStudyGroupIdAndUserId(Long groupId, Long userId);
 }

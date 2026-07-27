@@ -4,6 +4,8 @@ import com.aitserver.global.response.ApiResponse;
 import com.aitserver.studygroup.dto.GroupDetailResponse;
 import com.aitserver.studygroup.dto.MyStudyGroupResponseDto;
 import com.aitserver.studygroup.dto.StudyGroupListResponseDto;
+import com.aitserver.studygroup.dto.StudyGroupRequestDto;
+import com.aitserver.studygroup.service.StudyGroupCommandService;
 import com.aitserver.studygroup.service.StudyGroupService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ import java.util.List;
 public class StudyGroupController {
 
     private final StudyGroupService studyGroupService;
+    private final StudyGroupCommandService studyGroupCommandService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<Page<StudyGroupListResponseDto>>> getStudyGroups(
@@ -89,6 +92,58 @@ public class StudyGroupController {
                 "그룹 상세 정보 조회 성공.",
                 response,
                 request
+        ));
+    }
+
+    // 생성
+    @PostMapping
+    public ResponseEntity<ApiResponse<Long>> createGroup(
+            @RequestBody StudyGroupRequestDto.Create request,
+            @AuthenticationPrincipal Long currentUserId,
+            HttpServletRequest servletRequest) {
+
+        Long newGroupId = studyGroupCommandService.createGroup(request, currentUserId);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.CREATED,
+                "스터디 그룹 생성 성공.",
+                newGroupId,
+                servletRequest
+        ));
+    }
+
+    // [U] 상태 변경
+    @PatchMapping("/{groupId}/status")
+    public ResponseEntity<ApiResponse<Void>> updateGroupStatus(
+            @PathVariable Long groupId,
+            @RequestBody StudyGroupRequestDto.UpdateStatus request,
+            @AuthenticationPrincipal Long currentUserId,
+            HttpServletRequest servletRequest) {
+
+        studyGroupCommandService.updateGroupStatus(groupId, request, currentUserId);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                "스터디 그룹 상태 변경 성공.",
+                null,
+                servletRequest
+        ));
+    }
+
+    // [D] 나가기 (폭파 포함)
+    @DeleteMapping("/{groupId}/leave")
+    public ResponseEntity<ApiResponse<Void>> leaveGroup(
+            @PathVariable Long groupId,
+            @AuthenticationPrincipal Long currentUserId,
+            HttpServletRequest servletRequest) {
+
+        studyGroupCommandService.leaveOrDeleteGroup(groupId, currentUserId);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                "스터디 그룹 나가기 처리 성공.",
+                null,
+                servletRequest
         ));
     }
 }
