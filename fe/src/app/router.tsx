@@ -15,6 +15,7 @@ import { NotFoundPage } from '@/pages/NotFoundPage'
 import { PrivacyPage } from '@/pages/PrivacyPage'
 import { RecordingNoticePage } from '@/pages/RecordingNoticePage'
 import { ResumePage } from '@/pages/ResumePage'
+import { StudyGroupPage } from '@/pages/StudyGroupPage'
 import { StudyPage } from '@/pages/StudyPage'
 import { StudySessionPrejoinPage } from '@/pages/StudySessionPrejoinPage'
 import { StudySessionRoomPage } from '@/pages/StudySessionRoomPage'
@@ -33,6 +34,7 @@ export function AppRouter() {
       <Route path="/interviews" element={<ProtectedRoute><InterviewsPage /></ProtectedRoute>} />
       <Route path="/interviews/session" element={<ProtectedRoute><InterviewSessionPage /></ProtectedRoute>} />
       <Route path="/study" element={<ProtectedRoute><StudyPage /></ProtectedRoute>} />
+      <Route path="/study/groups/:studyId" element={<ProtectedRoute><StudyGroupPage /></ProtectedRoute>} />
       {/* TODO: 임시 진입 경로 — 스터디 라운지 → 내 스터디 그룹 → 세션 생성/참가 구현 시 해당 흐름에서 연결한다. */}
       <Route path="/study/session/prejoin" element={<ProtectedRoute><StudySessionPrejoinPage /></ProtectedRoute>} />
       <Route path="/study/session/room" element={<ProtectedRoute><StudySessionRoomPage /></ProtectedRoute>} />

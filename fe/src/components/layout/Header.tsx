@@ -16,9 +16,9 @@ const navigationItems = [
 
 const navigationLinkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    'rounded-ait-s px-4 py-2 text-body-1 transition-colors [transition-duration:var(--duration-fast)] [transition-timing-function:var(--easing-standard)]',
+    'relative rounded-ait-s px-4 py-2 text-body-1 transition-colors [transition-duration:var(--duration-fast)] [transition-timing-function:var(--easing-standard)]',
     isActive
-      ? 'font-semibold text-action-primary'
+      ? 'font-semibold text-action-primary after:absolute after:inset-x-4 after:-bottom-1 after:h-px after:bg-status-achievement'
       : 'text-text-secondary hover:bg-status-neutral-surface hover:text-action-primary',
   )
 
@@ -62,7 +62,6 @@ export function Header() {
               <NavLink
                 key={item.to}
                 to={item.to}
-                end={item.to !== '/dashboard'}
                 className={navigationLinkClass}
               >
                 {item.label}

@@ -89,7 +89,10 @@ function DialogTitle({
 }: ComponentProps<typeof DialogPrimitive.Title>) {
   return (
     <DialogPrimitive.Title
-      className={cn('text-h2 text-action-primary', className)}
+      className={cn(
+        'font-bold text-action-primary [font-size:var(--text-h2)] [line-height:var(--text-h2--line-height)]',
+        className,
+      )}
       {...props}
     />
   )

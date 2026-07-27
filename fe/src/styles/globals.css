@@ -1584,6 +1584,37 @@ a {
   }
 }
 
+.study-chat-message {
+  animation: study-chat-message-in var(--duration-base)
+    var(--easing-emphasized) both;
+}
+
+.study-toast {
+  animation: study-toast-in var(--duration-base) var(--easing-emphasized) both;
+}
+
+@keyframes study-chat-message-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes study-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
 @media (max-width: 63.999rem) {
   .dashboard-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
