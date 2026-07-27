@@ -5,7 +5,7 @@ import {
   getMyCoverLetters,
   type CoverLetterListItem,
 } from '@/api/cover-letters'
-import { toErrorMessage } from '@/api/http'
+import { ApiError, toErrorMessage } from '@/api/http'
 import { getMyResume } from '@/api/resume'
 import { LineSidebar } from '@/components/reactbits/LineSidebar'
 import { Button } from '@/components/ui/button'
@@ -66,7 +66,14 @@ export function DocumentBoxDialog({
         setResumeError(null)
       })
       .catch((requestError: unknown) => {
-        if (active) setResumeError(toErrorMessage(requestError))
+        if (!active) return
+        // 이력서를 아직 작성하지 않은 사용자는 정상 상태(404)이므로 오류로 취급하지 않는다.
+        if (requestError instanceof ApiError && requestError.status === 404) {
+          setResumeUserName(null)
+          setResumeError(null)
+          return
+        }
+        setResumeError(toErrorMessage(requestError))
       })
       .finally(() => {
         if (active) setIsResumeLoading(false)
@@ -122,6 +129,19 @@ export function DocumentBoxDialog({
                 >
                   이력서
                 </h2>
+                {!isResumeLoading && !resumeError && !resumeUserName ? (
+                  <Button
+                    type="button"
+                    variant="text"
+                    size="icon"
+                    className="ml-auto -my-2 -mr-2"
+                    aria-label="이력서 추가"
+                    // TODO: 실제 이력서 생성 API 연동 필요 — 지금은 이력서 작성 화면으로 이동만 한다.
+                    onClick={() => openDocument('/mypage/documents/resume')}
+                  >
+                    <Plus aria-hidden="true" />
+                  </Button>
+                ) : null}
               </div>
               {isResumeLoading ? (
                 <p className="py-8 text-center text-body-2 text-text-secondary" role="status">
@@ -131,7 +151,7 @@ export function DocumentBoxDialog({
                 <p className="py-8 text-center text-body-2 text-status-error" role="alert">
                   {resumeError}
                 </p>
-              ) : (
+              ) : resumeUserName ? (
                 <LineSidebar
                   {...lineSidebarProps}
                   items={[`${resumeUserName}님의 이력서`]}
@@ -139,6 +159,10 @@ export function DocumentBoxDialog({
                   ariaLabel="이력서"
                   onItemClick={() => openDocument('/mypage/documents/resume')}
                 />
+              ) : (
+                <p className="py-8 text-center text-body-2 text-text-secondary">
+                  등록된 이력서가 없습니다.
+                </p>
               )}
             </section>
 
