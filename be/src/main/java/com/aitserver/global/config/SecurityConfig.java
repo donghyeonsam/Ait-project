@@ -58,6 +58,7 @@ public class SecurityConfig {
                 new CorsConfiguration();
 
         configuration.setAllowedOrigins(List.of(
+                "http://localhost:5174",
                 "http://localhost:5173",
                 "http://localhost:3000"
         ));
@@ -76,6 +77,12 @@ public class SecurityConfig {
                 "Content-Type",
                 "Accept"
         ));
+
+        configuration.setExposedHeaders(
+                List.of(
+                        "Authorization"
+                )
+        );
 
         /*
          * 현재 쿠키 기반 인증을 사용하지 않으므로 false.

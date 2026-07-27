@@ -1,0 +1,36 @@
+port: 7880
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50100
+
+  # 로컬 Docker 개발 환경
+  # 실제 배포시에는 true로 바꿔야 한다?
+  use_external_ip: false
+  node_ip: 192.168.100.95
+
+keys:
+  devkey: dev-secret-change-this-value
+
+room:
+  # Spring Boot의 LiveKit 방 생성 API를 아직 구현하기 전에는 true
+  auto_create: true
+
+  # 아무도 입장하지 않은 빈 방 유지 시간
+  empty_timeout: 300
+
+  # 마지막 참가자가 나간 후 방 유지 시간
+  departure_timeout: 20
+
+  # 모든 스터디 방 기본 최대 인원
+  max_participants: 8
+
+webhook:
+  api_key: devkey-ait
+  urls:
+    - http://host.docker.internal:8080/api/webhooks/livekit
+
+logging:
+  level: info
+

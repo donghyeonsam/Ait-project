@@ -1,0 +1,66 @@
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: ait-livekit
+    restart: unless-stopped
+
+    command:
+      - --config
+      - /etc/livekit/livekit.yaml
+
+    ports:
+      # LiveKit WebSocket 및 HTTP API
+      - "7880:7880"
+
+      # WebRTC TCP fallback
+      - "7881:7881"
+
+      # WebRTC UDP 미디어 통신
+      - "50000-50100:50000-50100/udp"
+
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+
+    volumes:
+      - type: bind
+        source: ./livekit.yaml
+        target: /etc/livekit/livekit.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+
+    depends_on:
+      livekit-redis:
+        condition: service_healthy
+
+    networks:
+      - livekit-network
+
+  livekit-redis:
+    image: redis:7-alpine
+    container_name: ait-livekit-redis
+    restart: unless-stopped
+
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+
+    volumes:
+      - livekit-redis-data:/data
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+    networks:
+      - livekit-network
+
+volumes:
+  livekit-redis-data:
+
+networks:
+  livekit-network:
+    driver: bridge

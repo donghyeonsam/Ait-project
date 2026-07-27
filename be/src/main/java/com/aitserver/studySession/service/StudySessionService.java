@@ -1,0 +1,160 @@
+package com.aitserver.studySession.service;
+
+
+import com.aitserver.global.exception.BusinessException;
+import com.aitserver.global.exception.ErrorCode;
+import com.aitserver.global.livekit.LiveKitRoomClient;
+import com.aitserver.studyGroupRoom.entity.StudyGroup;
+import com.aitserver.studyGroupRoom.repository.StudyGroupRepository;
+import com.aitserver.studySession.entity.StudySession;
+import com.aitserver.studySession.domain.StudySessionStatus;
+import com.aitserver.studySession.dto.StudySessionCreateResponse;
+import com.aitserver.studySession.repository.StudySessionRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.EnumSet;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class StudySessionService {
+
+    private static final EnumSet<StudySessionStatus>
+            ACTIVE_SESSION_STATUSES = EnumSet.of(
+            StudySessionStatus.WAITING,
+            StudySessionStatus.IN_PROGRESS
+    );
+
+    private final StudyGroupRepository studyGroupRepository;
+    private final StudySessionRepository studySessionRepository;
+    private final LiveKitRoomClient liveKitRoomClient;
+
+    /**
+     * 그룹장이 새로운 화상 스터디 세션을 생성합니다.
+     */
+    @Transactional
+    public StudySessionCreateResponse createSession(
+            Long groupId,
+            Long userId
+    ) {
+        /*
+         * 동일 그룹에서 동시에 여러 세션이 생성되는 것을 막기 위해
+         * StudyGroup 행을 PESSIMISTIC_WRITE로 조회합니다.
+         */
+        StudyGroup studyGroup =
+                studyGroupRepository
+                        .findForSessionCreation(groupId)
+                        .orElseThrow(() ->
+                                new BusinessException(
+                                        ErrorCode.STUDY_GROUP_NOT_FOUND
+                                )
+                        );
+
+        validateOwner(studyGroup, userId);
+        validateNoActiveSession(groupId);
+
+        String liveKitRoomName =
+                generateLiveKitRoomName();
+
+        boolean liveKitRoomCreated = false;
+
+        try {
+            /*
+             * LiveKit에 최대 인원 8명인 방을 먼저 생성합니다.
+             */
+            liveKitRoomClient.createRoom(
+                    liveKitRoomName,
+                    StudySession.DEFAULT_MAX_PARTICIPANTS
+            );
+
+            liveKitRoomCreated = true;
+
+            StudySession studySession =
+                    StudySession.create(
+                            studyGroup,
+                            liveKitRoomName
+                    );
+
+            /*
+             * save()가 아닌 saveAndFlush()를 사용해
+             * DB 제약조건 오류를 현재 try 블록 안에서 확인합니다.
+             */
+            StudySession savedSession =
+                    studySessionRepository.saveAndFlush(
+                            studySession
+                    );
+
+            return StudySessionCreateResponse.from(
+                    savedSession
+            );
+
+        } catch (RuntimeException exception) {
+            /*
+             * LiveKit 방은 만들어졌는데 DB 저장이 실패한 경우
+             * 사용되지 않는 LiveKit 방이 남지 않도록 보상 삭제합니다.
+             */
+            if (liveKitRoomCreated) {
+                deleteLiveKitRoomQuietly(
+                        liveKitRoomName,
+                        exception
+                );
+            }
+
+            throw exception;
+        }
+    }
+
+    private void validateOwner(
+            StudyGroup studyGroup,
+            Long userId
+    ) {
+        if (!studyGroup.isOwner(userId)) {
+            throw new BusinessException(
+                    ErrorCode.STUDY_GROUP_ACCESS_DENIED
+            );
+        }
+    }
+
+    private void validateNoActiveSession(
+            Long groupId
+    ) {
+        boolean activeSessionExists =
+                studySessionRepository
+                        .existsByStudyGroupIdAndStatusIn(
+                                groupId,
+                                ACTIVE_SESSION_STATUSES
+                        );
+
+        if (activeSessionExists) {
+            throw new BusinessException(
+                    ErrorCode.STUDY_SESSION_ALREADY_ACTIVE
+            );
+        }
+    }
+
+    private String generateLiveKitRoomName() {
+        return "study-session-" + UUID.randomUUID();
+    }
+
+    private void deleteLiveKitRoomQuietly(
+            String liveKitRoomName,
+            RuntimeException originalException
+    ) {
+        try {
+            liveKitRoomClient.deleteRoom(
+                    liveKitRoomName
+            );
+
+        } catch (RuntimeException cleanupException) {
+            /*
+             * 원래 발생한 예외를 유지하면서
+             * LiveKit 정리 실패 정보도 함께 남깁니다.
+             */
+            originalException.addSuppressed(
+                    cleanupException
+            );
+        }
+    }
+}

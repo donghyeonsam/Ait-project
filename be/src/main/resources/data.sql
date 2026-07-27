@@ -1,7 +1,7 @@
 -- users 테이블 더미 데이터 3개 삽입
 INSERT INTO users (email, password, name, nickname)
 VALUES ('hong@ssafy.com', '$2a$10$h5KFhYAebvWyXUX0ndOkEuRkuMI1gZaJX1CMo4T.RZdR2AT.7k.xu', '홍길동', '길동이'),
-       ('kim@ssafy.com', '1234', '김철수', '철수야'),
+       ('kim@ssafy.com', '$2a$10$h5KFhYAebvWyXUX0ndOkEuRkuMI1gZaJX1CMo4T.RZdR2AT.7k.xu', '김철수', '철수야'),
        ('lee@ssafy.com', '1234', '이영희', '영희짱');
 
 -- resume 더미데이터 3개 삽입(userid 1, 2, 3)
@@ -499,3 +499,44 @@ VALUES
     (1, 'Java'),
     (1, 'Spring Boot'),
     (1, 'MySQL');
+
+
+-- =========================================================
+-- 5. STUDY GROUPS & MEMBERS, CALENDARS, CHATS
+-- =========================================================
+
+-- 스터디 그룹 등록 (총 3개)
+INSERT INTO `study_groups` (`id`, `owner_id`, `title`, `description`, `capacity`, `status`, `created_at`, `updated_at`) VALUES
+(1, 1, '백엔드/스프링 면접 스터디', 'CS 및 Spring Boot 심층 면접 대비 스터디입니다. 매주 화요일 진행.', 6, 'ACTIVE', '2026-07-01 10:00:00', NOW()),
+(2, 2, '1일 1알고리즘 문제풀이반', '하루 한 문제 알고리즘 풀이 및 코드 리뷰 진행합니다. (Java/Python)', 4, 'RECRUITING', '2026-07-10 14:30:00', NOW()),
+(3, 3, 'AIT 프로젝트 모의 면접', '프로젝트 경험 기반 모의 면접 및 상호 피드백 진행하실 분!', 4, 'ACTIVE', '2026-07-20 09:00:00', NOW());
+
+-- 스터디 멤버 등록
+INSERT INTO `study_group_members` (`group_id`, `user_id`, `role`, `message`, `status`, `joined_at`, `created_at`, `updated_at`) VALUES
+-- 1번 그룹
+(1, 1, 'OWNER', '방장입니다.', 'ACTIVE', '2026-07-01 10:00:00', '2026-07-01 10:00:00', NOW()),
+(1, 2, 'MEMBER', '열심히 하겠습니다!', 'ACTIVE', '2026-07-02 11:20:00', '2026-07-02 11:00:00', NOW()),
+
+-- 2번 그룹
+(2, 2, 'OWNER', '방장입니다.', 'ACTIVE', '2026-07-10 14:30:00', '2026-07-10 14:30:00', NOW()),
+(2, 1, 'MEMBER', 'DP 부분이 약해서 참여하고 싶습니다. 잘 부탁드려요!', 'ACTIVE', '2026-07-03 15:10:00', '2026-07-24 20:00:00', NOW()),
+
+-- 3번 그룹
+(3, 3, 'OWNER', '방장입니다.', 'ACTIVE', '2026-07-20 09:00:00', '2026-07-20 09:00:00', NOW()),
+(3, 1, 'MEMBER', '프로젝트 아키텍처 위주로 리뷰받고 싶어요.', 'ACTIVE', '2026-07-21 13:00:00', '2026-07-21 12:30:00', NOW());
+
+-- 스터디 캘린더
+INSERT INTO `study_group_calendars` (`group_id`, `content`, `status`, `start_time`, `end_time`) VALUES
+(1, '1주차: Java & Spring 기초 면접', 'completed', '2026-07-15 20:00:00', '2026-07-15 22:00:00'),
+(1, '2주차: DB & JPA 심화 면접', 'scheduled', '2026-07-22 20:00:00', '2026-07-22 22:00:00'),
+(2, '알고리즘 DP/DFS 풀이 세션', 'scheduled', '2026-07-26 19:00:00', '2026-07-26 21:00:00'),
+(3, '이력서 기반 모의 면접 1회차', 'scheduled', '2026-07-27 21:00:00', '2026-07-27 23:00:00');
+
+-- 스터디 채팅
+INSERT INTO `study_group_chats` (`group_id`, `user_id`, `message`, `created_at`) VALUES
+(1, 1, '안녕하세요! 스터디원 모집 완료되었습니다.', '2026-07-04 10:00:00'),
+(1, 2, '반갑습니다 ㅎㅎ 앞으로 잘 부탁드려요!', '2026-07-04 10:05:00'),
+(1, 3, '네 다들 화이팅입니다. 이번 주 첫 세션 주제는 뭔가요?', '2026-07-04 10:30:00'),
+(1, 1, '이번 주는 공지사항 캘린더에 올려둔 것처럼 Java 위주로 갑니다.', '2026-07-04 10:35:00'),
+(3, 3, '다들 주말 잘 보내고 계신가요? 월요일 모의 면접 준비 화이팅입니다!', '2026-07-25 18:00:00'),
+(3, 1, '확인했습니다! 내일 뵙겠습니다.', '2026-07-25 18:10:00');
