@@ -8,10 +8,11 @@ import com.aitserver.auth.repository.UserRepository;
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.global.jwt.JwtTokenProvider;
+import com.aitserver.resume.entity.Resume;
+import com.aitserver.resume.repository.ResumeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,7 @@ public class AuthServiceImpl implements AuthService{
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final StringRedisTemplate redisTemplate;
+    private final ResumeRepository resumeRepository;
 
     // 일반 회원가입 로직
     @Override
@@ -57,6 +59,10 @@ public class AuthServiceImpl implements AuthService{
 
         User savedUser = userRepository.save(user); // 사용자
         log.info("[AuthService, insert] 회원가입 성공 - Email: {}", savedUser.getEmail());
+
+        // 이력서 PK FK 생성 완료
+        resumeRepository.save(new Resume(user));
+        log.info("[AuthService, insert] 기본 이력서 PK, FK 생성 완료 - userId, {}", user.getId());
     }
 
     // 일반 로그인
