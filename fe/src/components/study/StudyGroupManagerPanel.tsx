@@ -28,7 +28,7 @@ export function StudyGroupManagerPanel({
         <span className="text-body-2 text-text-primary">모집 상태 변경</span>
         <div
           className={cn(
-            'inline-flex rounded-ait-pill border p-0.5 transition-colors',
+            'relative inline-grid grid-cols-2 rounded-ait-pill border p-0.5 transition-[background-color,border-color] [transition-duration:var(--duration-base)] [transition-timing-function:var(--easing-standard)]',
             isRecruiting
               ? 'border-status-success-border bg-status-success-surface'
               : 'border-status-error-border bg-status-error-surface',
@@ -36,14 +36,21 @@ export function StudyGroupManagerPanel({
           role="group"
           aria-label="모집 상태 변경"
         >
+          <span
+            className={cn(
+              'study-recruitment-indicator pointer-events-none absolute bottom-0.5 left-0.5 top-0.5 w-[calc(50%_-_0.125rem)] rounded-ait-pill bg-surface-default shadow-elevation-1 transition-transform [transition-duration:var(--duration-base)] [transition-timing-function:var(--easing-emphasized)]',
+              !isRecruiting && 'translate-x-full',
+            )}
+            aria-hidden="true"
+          />
           <button
             type="button"
             aria-pressed={isRecruiting}
             onClick={() => onRecruitingChange(true)}
             className={cn(
-              'rounded-ait-pill px-3 py-1 text-caption transition-colors',
+              'relative rounded-ait-pill px-3 py-1 text-caption font-semibold transition-colors [transition-duration:var(--duration-base)]',
               isRecruiting
-                ? 'bg-surface-default font-semibold text-status-success shadow-elevation-1'
+                ? 'text-status-success'
                 : 'text-text-secondary',
             )}
           >
@@ -54,9 +61,9 @@ export function StudyGroupManagerPanel({
             aria-pressed={!isRecruiting}
             onClick={() => onRecruitingChange(false)}
             className={cn(
-              'rounded-ait-pill px-3 py-1 text-caption transition-colors',
+              'relative rounded-ait-pill px-3 py-1 text-caption font-semibold transition-colors [transition-duration:var(--duration-base)]',
               !isRecruiting
-                ? 'bg-surface-default font-semibold text-status-error shadow-elevation-1'
+                ? 'text-status-error'
                 : 'text-text-secondary',
             )}
           >

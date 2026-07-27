@@ -45,6 +45,8 @@ export function StudyGroupPage() {
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [memberToRemove, setMemberToRemove] =
+    useState<StudyGroupMember | null>(null)
   const { ref: headerRef, isInView: isHeaderInView } =
     useInView<HTMLDivElement>({ threshold: 0.1 })
   const { ref: panelsRef, isInView: isPanelsInView } =
@@ -78,6 +80,12 @@ export function StudyGroupPage() {
     setMembers((currentMembers) =>
       currentMembers.filter((member) => member.id !== memberId),
     )
+  }
+
+  const confirmMemberRemoval = () => {
+    if (!memberToRemove) return
+    removeMember(memberToRemove.id)
+    setMemberToRemove(null)
   }
 
   return (
@@ -176,7 +184,12 @@ export function StudyGroupPage() {
             members={members}
             capacity={study.capacity}
             canManage={isLeader}
-            onRemoveMember={removeMember}
+            onRemoveMember={(memberId) => {
+              const selectedMember = members.find(
+                (member) => member.id === memberId,
+              )
+              if (selectedMember) setMemberToRemove(selectedMember)
+            }}
             onInviteMember={inviteMember}
           />
           <StudyGroupChatPanel group={chatGroup} />
@@ -222,6 +235,43 @@ export function StudyGroupPage() {
               onClick={() => navigate('/study', { replace: true })}
             >
               그룹 삭제
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={memberToRemove !== null}
+        onOpenChange={(open) => {
+          if (!open) setMemberToRemove(null)
+        }}
+      >
+        <DialogContent
+          className="w-[min(28rem,calc(100vw-2rem))] border border-border-default p-6"
+          showCloseButton={false}
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {memberToRemove?.name} 님을 내보낼까요?
+            </DialogTitle>
+            <DialogDescription>
+              내보내면 이 스터디 그룹과 일정에 더 이상 접근할 수 없습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-6">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setMemberToRemove(null)}
+            >
+              취소
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={confirmMemberRemoval}
+            >
+              내보내기
             </Button>
           </DialogFooter>
         </DialogContent>

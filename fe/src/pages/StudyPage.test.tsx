@@ -121,6 +121,8 @@ describe('StudyPage', () => {
       }),
     )
     const chatDialog = screen.getByRole('dialog')
+    expect(chatDialog).toHaveClass('study-chat-dialog')
+    expect(chatDialog).not.toHaveClass('left-1/2', 'top-1/2')
     const messageInput = within(chatDialog).getByRole('textbox', {
       name: '메시지 입력',
     })

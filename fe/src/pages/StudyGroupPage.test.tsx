@@ -56,10 +56,27 @@ describe('StudyGroupPage', () => {
       'bg-status-error-surface',
     )
     expect(
+      recruitmentToggle.querySelector('.study-recruitment-indicator'),
+    ).toHaveClass('translate-x-full')
+    expect(
       screen.getByRole('button', { name: '모집 완료' }),
     ).toHaveClass('text-status-error')
 
     await user.click(screen.getByRole('button', { name: '김구미 내보내기' }))
+    expect(
+      screen.getByText('구성원 5 / 8', { selector: 'h2' }),
+    ).toBeInTheDocument()
+    const removalDialog = screen.getByRole('dialog', {
+      name: '김구미 님을 내보낼까요?',
+    })
+    expect(
+      within(removalDialog).getByText(
+        '내보내면 이 스터디 그룹과 일정에 더 이상 접근할 수 없습니다.',
+      ),
+    ).toBeInTheDocument()
+    await user.click(
+      within(removalDialog).getByRole('button', { name: '내보내기' }),
+    )
     expect(
       screen.getByRole('heading', { name: '구성원 4 / 8' }),
     ).toBeInTheDocument()
@@ -73,6 +90,25 @@ describe('StudyGroupPage', () => {
     )
     await user.click(screen.getByRole('button', { name: '초대' }))
     expect(screen.getByText('새멤버')).toBeInTheDocument()
+  })
+
+  it('오늘 날짜를 현재 날짜로 알리고 pulse 효과를 적용한다', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 6, 27, 12))
+
+    try {
+      renderStudyGroupPage()
+
+      const todayCell = screen.getByRole('gridcell', {
+        name: '2026-07-27, 오늘',
+      })
+      expect(todayCell).toHaveAttribute('aria-current', 'date')
+      expect(within(todayCell).getByText('27')).toHaveClass(
+        'study-calendar-today',
+      )
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('날짜를 선택할 때만 일정 상세를 열고 그룹톡 메시지를 전송한다', async () => {

@@ -77,7 +77,10 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[min(44rem,calc(100svh-2rem))] w-[min(54rem,calc(100vw-2rem))] flex-col overflow-hidden border border-border-default bg-background-default p-4 sm:p-6">
+      <DialogContent
+        centered={false}
+        className="study-chat-dialog flex flex-col overflow-hidden border border-border-default bg-background-default p-4 sm:p-5"
+      >
         <DialogHeader className="shrink-0 text-center">
           <DialogTitle>그룹톡</DialogTitle>
           <DialogDescription className="sr-only">
@@ -85,9 +88,9 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="mt-4 grid min-h-0 flex-1 gap-3 md:grid-cols-[6rem_minmax(0,1fr)]">
+        <div className="mt-4 flex min-h-0 flex-1 flex-col gap-3">
           <div
-            className="flex gap-3 overflow-x-auto rounded-ait-m bg-surface-default p-2 md:flex-col md:overflow-visible"
+            className="flex shrink-0 gap-2 overflow-x-auto rounded-ait-m bg-surface-default p-2"
             role="tablist"
             aria-label="스터디 그룹 선택"
           >
@@ -103,7 +106,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
                   aria-controls="study-chat-panel"
                   onClick={() => setSelectedGroupId(group.id)}
                   className={cn(
-                    'flex size-16 shrink-0 items-center justify-center rounded-ait-pill border bg-profile-avatar text-h3 text-action-primary transition-[border-color,box-shadow]',
+                    'flex size-12 shrink-0 items-center justify-center rounded-ait-pill border bg-profile-avatar text-body-1 font-semibold text-action-primary transition-[border-color,box-shadow]',
                     isSelected
                       ? 'border-status-success shadow-elevation-1'
                       : 'border-transparent hover:border-border-default',

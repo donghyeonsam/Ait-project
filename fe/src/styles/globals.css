@@ -1078,6 +1078,27 @@ button:not(:disabled) {
   animation: dialog-content-out var(--duration-base) var(--easing-standard) both;
 }
 
+.ait-dialog-content.study-chat-dialog {
+  top: auto;
+  right: 1.5rem;
+  bottom: 6.25rem;
+  left: auto;
+  width: min(28rem, calc(100vw - 2rem));
+  height: min(42rem, calc(100svh - 7.25rem));
+  transform: none;
+  transform-origin: calc(100% - 2rem) calc(100% + 2.75rem);
+}
+
+.ait-dialog-content.study-chat-dialog[data-state="open"] {
+  animation: study-chat-dialog-in var(--duration-base)
+    var(--easing-emphasized) both;
+}
+
+.ait-dialog-content.study-chat-dialog[data-state="closed"] {
+  animation: study-chat-dialog-out var(--duration-base)
+    var(--easing-standard) both;
+}
+
 .document-dialog {
   left: 50vw;
   top: 50vh;
@@ -1471,6 +1492,28 @@ button:not(:disabled) {
   }
 }
 
+@keyframes study-chat-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(1rem) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes study-chat-dialog-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(1rem) scale(0.9);
+  }
+}
+
 @keyframes document-box-in {
   from {
     opacity: 0;
@@ -1711,6 +1754,34 @@ button:not(:disabled) {
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+/* 오늘 날짜는 색상, 현재 날짜 의미와 반복 pulse를 함께 제공한다. */
+.study-calendar-today {
+  position: relative;
+  background: var(--color-calendar-today);
+}
+
+.study-calendar-today::after {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--color-calendar-today);
+  border-radius: inherit;
+  animation: study-calendar-today-pulse 1.8s var(--easing-standard) infinite;
+  content: '';
+  pointer-events: none;
+}
+
+@keyframes study-calendar-today-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  70%,
+  100% {
+    transform: scale(1.65);
+    opacity: 0;
   }
 }
 

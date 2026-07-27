@@ -25,6 +25,7 @@ function formatSelectedDate(dateKey: string) {
 export function StudyCalendar({ events }: StudyCalendarProps) {
   const [viewDate, setViewDate] = useState(() => new Date(2026, 6, 1))
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null)
+  const todayKey = toDateKey(new Date())
   const { ref: sectionRef, isInView } = useInView<HTMLElement>({
     threshold: 0.05,
   })
@@ -209,6 +210,7 @@ export function StudyCalendar({ events }: StudyCalendarProps) {
             {calendarDays.map(({ date, key, isCurrentMonth }) => {
               const event = eventsByDate.get(key)
               const isSelected = key === selectedDateKey
+              const isToday = key === todayKey
               const weekday = date.getDay()
               return (
                 <button
@@ -216,6 +218,7 @@ export function StudyCalendar({ events }: StudyCalendarProps) {
                   type="button"
                   role="gridcell"
                   aria-selected={isSelected}
+                  aria-current={isToday ? 'date' : undefined}
                   onClick={() => selectDate(date, key)}
                   className={cn(
                     'relative flex min-h-14 flex-col items-center justify-start rounded-ait-s px-1 py-3 text-body-2 transition-colors hover:bg-status-neutral-surface',
@@ -228,13 +231,21 @@ export function StudyCalendar({ events }: StudyCalendarProps) {
                       'text-text-primary',
                     isSelected && 'bg-status-info-surface font-semibold',
                   )}
-                  aria-label={`${key}${event ? ', 스터디 일정 있음' : ''}`}
+                  aria-label={`${key}${isToday ? ', 오늘' : ''}${event ? ', 스터디 일정 있음' : ''}`}
                 >
-                  {date.getDate()}
+                  <span
+                    className={cn(
+                      'inline-flex size-8 items-center justify-center rounded-ait-pill',
+                      isToday &&
+                        'study-calendar-today font-semibold text-surface-default',
+                    )}
+                  >
+                    {date.getDate()}
+                  </span>
                   {event ? (
                     <span
                       className={cn(
-                        'mt-2 size-1.5 rounded-ait-pill',
+                        'mt-1 size-1.5 rounded-ait-pill',
                         key.endsWith('-30')
                           ? 'bg-status-error'
                           : 'bg-calendar-dot',
