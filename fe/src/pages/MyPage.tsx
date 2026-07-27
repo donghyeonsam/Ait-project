@@ -29,21 +29,23 @@ function githubProfile(repositories: GithubRepository[]) {
 }
 
 function createProfile(
-  resume: Resume,
+  resume: Resume | null,
   repositories: GithubRepository[],
   nickname: string,
   email: string,
 ): ProfileData {
-  const roles = unique([
-    ...resume.projects.map((project) => project.role),
-    ...resume.careers.map((career) => career.role),
-  ])
-  const skills = unique(
-    resume.projects.flatMap((project) => project.techStacks.split(',')),
-  )
+  const roles = resume
+    ? unique([
+        ...resume.projects.map((project) => project.role),
+        ...resume.careers.map((career) => career.role),
+      ])
+    : []
+  const skills = resume
+    ? unique(resume.projects.flatMap((project) => project.techStacks.split(',')))
+    : []
 
   return {
-    name: resume.userName,
+    name: resume?.userName || nickname,
     nickname,
     email,
     github: githubProfile(repositories),
@@ -115,7 +117,7 @@ export function MyPage() {
   }
 
   const profile = useMemo(() => {
-    if (!resume || !repositories || !user) return null
+    if (!repositories || !user) return null
     return createProfile(resume, repositories, user.nickname, user.email)
   }, [repositories, resume, user])
 
@@ -141,7 +143,7 @@ export function MyPage() {
             다시 시도
           </Button>
         </section>
-      ) : profile && resume ? (
+      ) : profile ? (
         <>
           <section
             className="mypage-panel mypage-enter"
