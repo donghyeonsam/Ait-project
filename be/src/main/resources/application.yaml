@@ -15,7 +15,7 @@ spring:
     name: aitServer
 
   datasource:
-    url: jdbc:mysql://localhost:3307/${MYSQL_DATABASE}?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    url: jdbc:mysql://localhost:3307/${MYSQL_DATABASE}?sslMode=DISABLED&allowPublicKeyRetrieval=true&connectionTimeZone=Asia/Seoul&characterEncoding=UTF-8
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: ${MYSQL_USER}
     password: ${MYSQL_PASSWORD}
@@ -52,5 +52,15 @@ spring:
     base-url: ${GMS_BASE_URL}
     api-key: ${GMS_API_KEY}
     model: ${GMS_MODEL}
+
+  livekit:
+    # Spring Boot가 방 생성·조회·삭제 API를 호출할 주소
+    api-url: ${LIVEKIT_API_URL:http://localhost:7880}
+
+    # 나중에 React 브라우저에 반환할 WebSocket 주소
+    ws-url: ${LIVEKIT_WS_URL:ws://localhost:7880}
+
+    api-key: ${LIVEKIT_API_KEY}
+    api-secret: ${LIVEKIT_API_SECRET}
 
 # http://localhost:8080/swagger-ui/index.html#/
