@@ -1660,6 +1660,18 @@ button:not(:disabled) {
     var(--easing-emphasized) both;
 }
 
+.study-reaction-picker--incoming {
+  transform-origin: left bottom;
+  animation: study-reaction-picker-incoming-in var(--duration-base)
+    var(--easing-emphasized) both;
+}
+
+.study-reaction-picker--self {
+  transform-origin: right bottom;
+  animation: study-reaction-picker-self-in var(--duration-base)
+    var(--easing-emphasized) both;
+}
+
 .study-reaction-bubble::before,
 .study-reaction-bubble::after {
   content: '';
@@ -1722,6 +1734,24 @@ button:not(:disabled) {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes study-reaction-picker-incoming-in {
+  from {
+    transform: translateX(-0.75rem) scale(0.96);
+  }
+  to {
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes study-reaction-picker-self-in {
+  from {
+    transform: translateX(0.75rem) scale(0.96);
+  }
+  to {
+    transform: translateX(0) scale(1);
   }
 }
 
