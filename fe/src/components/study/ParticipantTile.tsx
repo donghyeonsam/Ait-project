@@ -41,7 +41,9 @@ export function ParticipantTile({
     if (videoRef.current) {
       videoRef.current.srcObject = participant.isSelf ? stream : null
     }
-  }, [participant.isSelf, stream])
+    // showVideo가 false면 <video> 엘리먼트 자체가 언마운트됐다가 다시 켜질 때 새 노드로 마운트되므로,
+    // stream 참조가 그대로여도 이 값이 바뀔 때마다 srcObject를 다시 연결해야 한다.
+  }, [participant.isSelf, stream, showVideo])
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     if (!draggableEnabled) return
@@ -100,8 +102,10 @@ export function ParticipantTile({
             </span>
           ) : null}
 
-          <div className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-linear-to-t from-black/70 to-transparent px-2 py-1 opacity-0 transition-opacity duration-(--duration-fast) ease-standard group-hover:opacity-100 group-focus-within:opacity-100 @sm:gap-2 @sm:px-3 @sm:py-2 @lg:gap-3 @lg:px-4 @lg:py-2.5">
-            <span className="truncate text-caption font-medium text-white">{participant.name}</span>
+          <div className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-linear-to-t from-black/70 to-transparent px-2 py-1 opacity-0 transition-opacity duration-(--duration-fast) ease-standard group-hover:opacity-100 group-focus-within:opacity-100 @sm:gap-2 @sm:px-3 @sm:py-2 @lg:gap-3 @lg:px-4 @lg:py-2.5 @2xl:gap-4 @2xl:px-5 @2xl:py-3">
+            <span className="truncate text-caption font-medium text-white @lg:text-body-2 @2xl:text-body-1">
+              {participant.name}
+            </span>
 
             <button
               type="button"
@@ -114,13 +118,13 @@ export function ParticipantTile({
               className="ml-auto shrink-0 text-white/80 transition-colors hover:text-white"
             >
               {remoteMuted ? (
-                <VolumeX className="size-3 @sm:size-4 @lg:size-5" aria-hidden="true" />
+                <VolumeX className="size-3 @sm:size-4 @lg:size-5 @2xl:size-6" aria-hidden="true" />
               ) : (
-                <Volume2 className="size-3 @sm:size-4 @lg:size-5" aria-hidden="true" />
+                <Volume2 className="size-3 @sm:size-4 @lg:size-5 @2xl:size-6" aria-hidden="true" />
               )}
             </button>
 
-            <div className="w-10 shrink-0 @sm:w-20 @lg:w-28">
+            <div className="w-10 shrink-0 @sm:w-20 @lg:w-28 @2xl:w-40">
               <MasterVolumeSlider
                 gain={remoteVolume}
                 level={0}

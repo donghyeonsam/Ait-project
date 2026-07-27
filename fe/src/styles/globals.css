@@ -1095,6 +1095,16 @@ a {
   scrollbar-width: thin;
 }
 
+/* 네이티브 스크롤바가 고정 높이 트랙 안에서 콘텐츠 영역을 잠식해 타일 비율이 잘리는 것을 막는다. 스크롤 자체는 유지된다. */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .document-section + .document-section {
   margin-top: 2rem;
   border-top: 1px solid var(--color-border-default);
