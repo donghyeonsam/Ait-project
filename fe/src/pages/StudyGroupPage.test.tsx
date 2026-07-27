@@ -1,11 +1,27 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudyGroupPage } from '@/pages/StudyGroupPage'
+import {
+  getMyStudyGroups,
+  getStudyGroupDetail,
+  type MyStudyGroup,
+  type StudyGroupDetail,
+} from '@/api/study-groups'
 
 vi.mock('@/api/auth', () => ({
   logout: vi.fn(),
+}))
+
+vi.mock('@/api/study-groups', () => ({
+  getStudyGroupDetail: vi.fn(),
+  getMyStudyGroups: vi.fn(),
+  updateStudyGroupStatus: vi.fn(),
+}))
+
+vi.mock('@/api/study-sessions', () => ({
+  createStudySession: vi.fn(),
 }))
 
 vi.mock('@/lib/useAuth', () => ({
@@ -21,14 +37,47 @@ vi.mock('@/lib/useAuth', () => ({
   }),
 }))
 
-function renderStudyGroupPage() {
-  return render(
+// userId 1이 그룹장이라 관리자 메뉴와 구성원 관리 UI가 함께 렌더된다.
+const groupDetail: StudyGroupDetail = {
+  groupId: 101,
+  title: '금융권 면접 PT 대비',
+  description: '금융권 PT 면접을 함께 준비해요.',
+  currentMemberCount: 5,
+  capacity: 8,
+  createdAt: '2026-07-01T09:00:00',
+  ownerId: 1,
+  members: [
+    { userId: 1, name: '김아이', profileImageUrl: null, owner: true },
+    { userId: 2, name: '김구미', profileImageUrl: null, owner: false },
+    { userId: 3, name: '최싸피', profileImageUrl: null, owner: false },
+    { userId: 4, name: '강프로', profileImageUrl: null, owner: false },
+    { userId: 5, name: '이면접', profileImageUrl: null, owner: false },
+  ],
+}
+
+const myStudyGroups: MyStudyGroup[] = [
+  {
+    id: 101,
+    title: groupDetail.title,
+    description: groupDetail.description,
+    capacity: groupDetail.capacity,
+    currentMemberCount: groupDetail.currentMemberCount,
+    groupStatus: 'RECRUITING',
+    joinedAt: '2026-07-01T09:00:00',
+  },
+]
+
+async function renderStudyGroupPage() {
+  const result = render(
     <MemoryRouter initialEntries={['/study/groups/101']}>
       <Routes>
         <Route path="/study/groups/:studyId" element={<StudyGroupPage />} />
       </Routes>
     </MemoryRouter>,
   )
+
+  await screen.findByRole('heading', { name: groupDetail.title, level: 1 })
+  return result
 }
 
 describe('StudyGroupPage', () => {
@@ -36,9 +85,14 @@ describe('StudyGroupPage', () => {
     HTMLElement.prototype.scrollTo = vi.fn()
   })
 
+  beforeEach(() => {
+    vi.mocked(getStudyGroupDetail).mockResolvedValue(groupDetail)
+    vi.mocked(getMyStudyGroups).mockResolvedValue(myStudyGroups)
+  })
+
   it('그룹 운영 정보와 구성원 관리 흐름을 제공한다', async () => {
     const user = userEvent.setup()
-    renderStudyGroupPage()
+    await renderStudyGroupPage()
 
     expect(
       screen.getByRole('heading', { name: '금융권 면접 PT 대비', level: 1 }),
@@ -92,12 +146,12 @@ describe('StudyGroupPage', () => {
     expect(screen.getByText('새멤버')).toBeInTheDocument()
   })
 
-  it('오늘 날짜를 현재 날짜로 알리고 pulse 효과를 적용한다', () => {
-    vi.useFakeTimers()
+  it('오늘 날짜를 현재 날짜로 알리고 pulse 효과를 적용한다', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.setSystemTime(new Date(2026, 6, 27, 12))
 
     try {
-      renderStudyGroupPage()
+      await renderStudyGroupPage()
 
       const todayCell = screen.getByRole('gridcell', {
         name: '2026-07-27, 오늘',
@@ -113,7 +167,7 @@ describe('StudyGroupPage', () => {
 
   it('선택한 멤버에게 그룹장 권한을 위임한다', async () => {
     const user = userEvent.setup()
-    renderStudyGroupPage()
+    await renderStudyGroupPage()
 
     await user.click(screen.getByRole('button', { name: '그룹장 위임' }))
 
@@ -143,12 +197,12 @@ describe('StudyGroupPage', () => {
       screen.queryByRole('heading', { name: '관리자 메뉴' }),
     ).not.toBeInTheDocument()
     expect(screen.getByText(/그룹장 김구미/)).toBeInTheDocument()
-    expect(screen.getByText(/백엔드 지원 · 그룹장/)).toBeInTheDocument()
+    expect(screen.getByText(/그룹원 · 그룹장/)).toBeInTheDocument()
   })
 
   it('날짜를 선택할 때만 일정 상세를 열고 그룹톡 메시지를 전송한다', async () => {
     const user = userEvent.setup()
-    renderStudyGroupPage()
+    await renderStudyGroupPage()
 
     expect(
       screen.queryByRole('button', { name: '날짜 상세 닫기' }),
@@ -174,7 +228,7 @@ describe('StudyGroupPage', () => {
 
   it('메시지 작성 UI와 공지를 작성·조회·수정·삭제한다', async () => {
     const user = userEvent.setup()
-    renderStudyGroupPage()
+    await renderStudyGroupPage()
 
     const messageInput = screen.getByRole('textbox', {
       name: '그룹톡 메시지 입력',
@@ -272,7 +326,7 @@ describe('StudyGroupPage', () => {
 
   it('그룹톡 높이를 유지하고 이모티콘 입력과 메시지 반응을 지원한다', async () => {
     const user = userEvent.setup()
-    renderStudyGroupPage()
+    await renderStudyGroupPage()
 
     const chatPanel = screen.getByRole('region', { name: '그룹톡' })
     const messageList = screen.getByLabelText('그룹톡 메시지')

@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import type { StudyGroupMember } from '@/mocks/study-lounge'
+import type { StudyGroupMember } from '@/components/study/StudyGroupMemberPanel'
 
 interface StudyLeaderTransferDialogProps {
   open: boolean

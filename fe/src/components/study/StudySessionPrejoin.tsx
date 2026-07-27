@@ -5,7 +5,8 @@ import { MasterVolumeSlider } from '@/components/interview/MasterVolumeSlider'
 import { useAudioLevel } from '@/components/interview/useAudioLevel'
 import { useMediaDevices } from '@/components/interview/useMediaDevices'
 import { useSoundTest } from '@/components/interview/useSoundTest'
-import { mockPrejoinCoverLetters } from '@/mocks/study'
+import { getMyCoverLetters, type CoverLetterListItem } from '@/api/cover-letters'
+import { toErrorMessage } from '@/api/http'
 import { cn } from '@/lib/utils'
 
 export interface StudySessionPrejoinSelection {
@@ -47,12 +48,14 @@ export function StudySessionPrejoin({
   const [micGain, setMicGain] = useState(60)
   const [speakerVolume, setSpeakerVolume] = useState(60)
   const [selectedCoverLetterId, setSelectedCoverLetterId] = useState<number | null>(null)
+  const [coverLetters, setCoverLetters] = useState<CoverLetterListItem[]>([])
+  const [coverLetterError, setCoverLetterError] = useState<string | null>(null)
 
   // 사용자가 아직 고르지 않았다면 방금 채워진 장치 목록의 첫 항목을 기본값으로 삼는다.
   const cameraDeviceId = selectedCameraId ?? devices.camera[0]?.id ?? null
   const micDeviceId = selectedMicId ?? devices.mic[0]?.id ?? null
   const speakerDeviceId = selectedSpeakerId ?? devices.speaker[0]?.id ?? null
-  const coverLetterId = selectedCoverLetterId ?? mockPrejoinCoverLetters[0]?.coverLetterId ?? null
+  const coverLetterId = selectedCoverLetterId ?? coverLetters[0]?.coverLetterId ?? null
 
   const micLevel = useAudioLevel(stream, micGain)
   const soundTest = useSoundTest(speakerDeviceId, speakerVolume)
@@ -62,6 +65,26 @@ export function StudySessionPrejoin({
       videoRef.current.srcObject = stream
     }
   }, [stream])
+
+  useEffect(() => {
+    let isActive = true
+
+    getMyCoverLetters()
+      .then((list) => {
+        if (!isActive) return
+        setCoverLetters(list.coverLetters)
+        setCoverLetterError(null)
+      })
+      .catch((error: unknown) => {
+        if (!isActive) return
+        setCoverLetters([])
+        setCoverLetterError(toErrorMessage(error))
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [])
 
   const handleCameraChange = (id: string) => {
     setSelectedCameraId(id)
@@ -249,19 +272,26 @@ export function StudySessionPrejoin({
             id="prejoin-cover-letter-select"
             className={cn(selectClass, 'mt-2')}
             value={coverLetterId ?? ''}
-            disabled={mockPrejoinCoverLetters.length === 0}
+            disabled={coverLetters.length === 0}
             onChange={(event) => setSelectedCoverLetterId(Number(event.target.value))}
           >
-            {mockPrejoinCoverLetters.length === 0 ? (
-              <option value="">등록된 자소서가 없습니다</option>
+            {coverLetters.length === 0 ? (
+              <option value="">
+                {coverLetterError ? '자소서를 불러오지 못했습니다' : '등록된 자소서가 없습니다'}
+              </option>
             ) : (
-              mockPrejoinCoverLetters.map((coverLetter) => (
+              coverLetters.map((coverLetter) => (
                 <option key={coverLetter.coverLetterId} value={coverLetter.coverLetterId}>
                   {coverLetter.title}
                 </option>
               ))
             )}
           </select>
+          {coverLetterError ? (
+            <p className="mt-2 text-caption text-status-error" role="alert">
+              {coverLetterError} 자소서 없이도 입장할 수 있습니다.
+            </p>
+          ) : null}
         </div>
       </div>
 
