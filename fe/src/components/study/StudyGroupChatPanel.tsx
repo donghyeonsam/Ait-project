@@ -1,6 +1,8 @@
 import {
   MessageCircleMore,
+  Minus,
   Pin,
+  Plus,
   Send,
   SmilePlus,
   Sticker,
@@ -84,6 +86,10 @@ export function StudyGroupChatPanel({ group }: StudyGroupChatPanelProps) {
   const [reactionPickerMessageId, setReactionPickerMessageId] = useState<
     number | null
   >(null)
+  const [
+    expandedReactionPickerMessageId,
+    setExpandedReactionPickerMessageId,
+  ] = useState<number | null>(null)
   const messageListRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -92,6 +98,44 @@ export function StudyGroupChatPanel({ group }: StudyGroupChatPanelProps) {
       behavior: 'smooth',
     })
   }, [messages.length])
+
+  useEffect(() => {
+    if (reactionPickerMessageId === null) {
+      return
+    }
+
+    const closeReactionPicker = () => {
+      setReactionPickerMessageId(null)
+      setExpandedReactionPickerMessageId(null)
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target
+
+      if (
+        target instanceof Element &&
+        target.closest(
+          `[data-message-reaction-controls="${reactionPickerMessageId}"]`,
+        )
+      ) {
+        return
+      }
+
+      closeReactionPicker()
+    }
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeReactionPicker()
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [reactionPickerMessageId])
 
   const sendMessage = () => {
     const content = draft.trim()
@@ -128,6 +172,7 @@ export function StudyGroupChatPanel({ group }: StudyGroupChatPanelProps) {
       ),
     )
     setReactionPickerMessageId(null)
+    setExpandedReactionPickerMessageId(null)
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -168,7 +213,7 @@ export function StudyGroupChatPanel({ group }: StudyGroupChatPanelProps) {
           <div
             key={message.id}
             className={cn(
-              'study-chat-message flex items-end gap-3',
+              'study-chat-message group/message relative flex items-end gap-3 hover:z-20 focus-within:z-20',
               message.isSelf && 'justify-end',
             )}
           >
@@ -183,8 +228,11 @@ export function StudyGroupChatPanel({ group }: StudyGroupChatPanelProps) {
                 'relative flex max-w-[82%] items-end gap-1',
                 message.isSelf && 'flex-row-reverse',
               )}
+              data-message-reaction-controls={message.id}
             >
-              <div className={message.isSelf ? 'text-right' : undefined}>
+              <div
+                className={cn('relative', message.isSelf && 'text-right')}
+              >
                 {!message.isSelf ? (
                   <p className="mb-1 text-caption text-text-secondary">
                     {message.sender}
@@ -209,7 +257,10 @@ export function StudyGroupChatPanel({ group }: StudyGroupChatPanelProps) {
                     onClick={() =>
                       reactToMessage(message.id, message.reaction ?? '')
                     }
-                    className="study-reaction-bubble mt-1 inline-flex min-h-6 items-center rounded-ait-pill border border-border-default bg-surface-default px-2 text-caption shadow-elevation-1"
+                    className={cn(
+                      'study-reaction-bubble absolute -bottom-3 z-[1] inline-flex min-h-6 items-center rounded-ait-pill border border-border-default bg-surface-default px-2 text-caption shadow-elevation-1',
+                      message.isSelf ? 'left-0' : 'right-0',
+                    )}
                     aria-label={`반응 ${message.reaction} 취소`}
                   >
                     {message.reaction}
@@ -220,34 +271,51 @@ export function StudyGroupChatPanel({ group }: StudyGroupChatPanelProps) {
                 ) : null}
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  setReactionPickerMessageId((currentId) =>
-                    currentId === message.id ? null : message.id,
-                  )
-                }
-                className={cn(
-                  'mb-1 flex size-7 shrink-0 items-center justify-center rounded-ait-pill border border-border-default bg-surface-default text-text-secondary transition-colors hover:bg-status-neutral-surface hover:text-action-primary',
-                  reactionPickerMessageId === message.id &&
-                    'bg-status-neutral-surface text-action-primary',
-                )}
-                aria-label={`"${message.content}" 메시지에 이모지 반응 남기기`}
-                aria-expanded={reactionPickerMessageId === message.id}
+              <div
+                className="relative mb-1 shrink-0"
+                onMouseEnter={() => {
+                  setReactionPickerMessageId(message.id)
+                }}
               >
-                <SmilePlus className="size-4" aria-hidden="true" />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReactionPickerMessageId(message.id)
+                    setExpandedReactionPickerMessageId(null)
+                  }}
+                  onFocus={() => setReactionPickerMessageId(message.id)}
+                  className={cn(
+                    'pointer-events-none flex size-7 items-center justify-center rounded-ait-pill border border-border-default bg-surface-default text-text-secondary opacity-0 transition-[opacity,color,background-color] hover:bg-status-neutral-surface hover:text-action-primary group-hover/message:pointer-events-auto group-hover/message:opacity-100 group-focus-within/message:pointer-events-auto group-focus-within/message:opacity-100',
+                    reactionPickerMessageId === message.id &&
+                      'bg-status-neutral-surface text-action-primary',
+                  )}
+                  aria-label={`"${message.content}" 메시지에 이모지 반응 남기기`}
+                  aria-controls={`message-reaction-picker-${message.id}`}
+                  aria-expanded={reactionPickerMessageId === message.id}
+                >
+                  <SmilePlus className="size-4" aria-hidden="true" />
+                </button>
+              </div>
 
               {reactionPickerMessageId === message.id ? (
                 <div
+                  id={`message-reaction-picker-${message.id}`}
                   className={cn(
-                    'absolute bottom-9 z-10 flex gap-1 rounded-ait-pill border border-border-default bg-surface-default p-1 shadow-elevation-2',
-                    message.isSelf ? 'right-0' : 'left-0',
+                    'study-reaction-picker absolute top-full z-10 mt-1 border border-border-default bg-surface-default shadow-elevation-2',
+                    expandedReactionPickerMessageId === message.id
+                      ? 'grid max-h-64 w-64 grid-cols-6 gap-1 overflow-y-auto overscroll-contain rounded-ait-m p-2 [scrollbar-gutter:stable]'
+                      : 'pointer-events-none flex gap-1 rounded-ait-pill p-1 opacity-0 group-hover/message:pointer-events-auto group-hover/message:opacity-100 group-focus-within/message:pointer-events-auto group-focus-within/message:opacity-100',
+                    message.isSelf
+                      ? 'study-reaction-picker--self right-0'
+                      : 'study-reaction-picker--incoming left-0',
                   )}
                   role="group"
                   aria-label="메시지 반응 선택"
                 >
-                  {messageReactionEmojis.map((reaction) => (
+                  {(expandedReactionPickerMessageId === message.id
+                    ? composerEmojis
+                    : messageReactionEmojis
+                  ).map((reaction) => (
                     <button
                       key={reaction}
                       type="button"
@@ -259,6 +327,33 @@ export function StudyGroupChatPanel({ group }: StudyGroupChatPanelProps) {
                       {reaction}
                     </button>
                   ))}
+                  <button
+                    key="reaction-picker-toggle"
+                    type="button"
+                    onClick={() => {
+                      const nextMessageId =
+                        expandedReactionPickerMessageId === message.id
+                          ? null
+                          : message.id
+
+                      setExpandedReactionPickerMessageId(nextMessageId)
+                    }}
+                    className="flex size-8 items-center justify-center rounded-ait-pill text-text-secondary hover:bg-status-neutral-surface hover:text-action-primary"
+                    aria-label={
+                      expandedReactionPickerMessageId === message.id
+                        ? '자주 쓰는 이모지만 보기'
+                        : '더 많은 이모지 보기'
+                    }
+                    aria-expanded={
+                      expandedReactionPickerMessageId === message.id
+                    }
+                  >
+                    {expandedReactionPickerMessageId === message.id ? (
+                      <Minus className="size-4" aria-hidden="true" />
+                    ) : (
+                      <Plus className="size-4" aria-hidden="true" />
+                    )}
+                  </button>
                 </div>
               ) : null}
             </div>

@@ -195,16 +195,70 @@ describe('StudyGroupPage', () => {
     )
     expect(messageInput).toHaveValue('😀 ( •̀ᴗ•́ )و')
 
+    const reactionTrigger = screen.getByRole('button', {
+      name: '"발표 자료 오늘 밤까지 공유드릴게요!" 메시지에 이모지 반응 남기기',
+    })
+    expect(reactionTrigger).toHaveClass(
+      'pointer-events-none',
+      'opacity-0',
+      'group-hover/message:pointer-events-auto',
+      'group-hover/message:opacity-100',
+    )
+    expect(reactionTrigger.closest('.study-chat-message')).toHaveClass(
+      'group/message',
+      'relative',
+      'hover:z-20',
+    )
+    expect(
+      screen.queryByRole('group', { name: '메시지 반응 선택' }),
+    ).not.toBeInTheDocument()
+
+    await user.hover(reactionTrigger)
+    const quickReactionPicker = screen.getByRole('group', {
+      name: '메시지 반응 선택',
+    })
+    expect(quickReactionPicker).toHaveClass(
+      'study-reaction-picker--incoming',
+      'top-full',
+      'left-0',
+    )
+    expect(within(quickReactionPicker).getAllByRole('button')).toHaveLength(6)
+
     await user.click(
+      within(quickReactionPicker).getByRole('button', {
+        name: '더 많은 이모지 보기',
+      }),
+    )
+
+    const expandedReactionPicker = screen.getByRole('group', {
+      name: '메시지 반응 선택',
+    })
+    const additionalReaction = within(expandedReactionPicker).getByRole(
+      'button',
+      {
+        name: '😀 반응 남기기',
+      },
+    )
+    await user.click(additionalReaction)
+
+    const reactionButton = within(messageList).getByRole('button', {
+      name: '반응 😀 취소',
+    })
+    expect(reactionButton).toBeInTheDocument()
+    expect(reactionButton).toHaveClass(
+      'study-reaction-bubble',
+      'absolute',
+      '-bottom-3',
+      'right-0',
+    )
+    expect(reactionButton.parentElement).toHaveClass('relative')
+    expect(
+      within(messageList).getByRole('button', { name: '반응 👍 취소' }),
+    ).toHaveClass('left-0')
+    expect(
       screen.getByRole('button', {
         name: '"발표 자료 오늘 밤까지 공유드릴게요!" 메시지에 이모지 반응 남기기',
       }),
-    )
-    await user.click(screen.getByRole('button', { name: '🎉 반응 남기기' }))
-    const reactionButton = within(messageList).getByRole('button', {
-      name: '반응 🎉 취소',
-    })
-    expect(reactionButton).toBeInTheDocument()
-    expect(reactionButton).toHaveClass('study-reaction-bubble')
+    ).toBe(reactionTrigger)
   })
 })

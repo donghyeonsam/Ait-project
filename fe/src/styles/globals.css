@@ -1654,7 +1654,6 @@ button:not(:disabled) {
 }
 
 .study-reaction-bubble {
-  position: relative;
   isolation: isolate;
   transform-origin: center bottom;
   animation: study-reaction-bubble-in var(--duration-slow)
