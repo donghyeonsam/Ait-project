@@ -1762,6 +1762,50 @@ button:not(:disabled) {
   }
 }
 
+/* 히어로 상단 장식용 글로우 — 흰 배경 위에서 보이도록 부모(콘텐츠 래퍼)를
+   isolate로 스태킹 컨텍스트화하고, 이 레이어를 그 안의 음수 z에 둔다.
+   회전(drift)·호흡(breathe)은 질문 생성 화면 키프레임을 재사용한다. */
+.study-hero-glow {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: -1;
+  width: min(64rem, 100%);
+  height: 26rem;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.study-hero-glow::before,
+.study-hero-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-pill);
+}
+
+.study-hero-glow::before {
+  background: conic-gradient(
+    from 120deg,
+    color-mix(in srgb, var(--color-loading-pastel-blue) 65%, transparent),
+    color-mix(in srgb, var(--color-loading-pastel-violet) 65%, transparent),
+    color-mix(in srgb, var(--color-loading-pastel-green) 65%, transparent),
+    color-mix(in srgb, var(--color-loading-pastel-blue) 65%, transparent)
+  );
+  filter: blur(72px);
+  opacity: 0.5;
+  animation: question-generation-drift 26s linear infinite;
+}
+
+.study-hero-glow::after {
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--color-status-achievement) 14%, transparent),
+    transparent 72%
+  );
+  animation: question-generation-breathe 8s ease-in-out infinite;
+}
+
 /* 주요 CTA hover 시 살짝 떠오르는 리프트 */
 .cta-lift {
   transition: transform var(--duration-fast) var(--easing-standard),

@@ -7,6 +7,7 @@ import { StudyCalendar } from '@/components/study/StudyCalendar'
 import { StudyGroupChatPanel } from '@/components/study/StudyGroupChatPanel'
 import { StudyGroupManagerPanel } from '@/components/study/StudyGroupManagerPanel'
 import { StudyGroupMemberPanel } from '@/components/study/StudyGroupMemberPanel'
+import { StudyHeroGlow } from '@/components/study/StudyHeroGlow'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -77,7 +78,8 @@ export function StudyGroupPage() {
   }
 
   return (
-    <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8">
+    <PageLayout contentClassName="relative isolate max-w-dashboard px-4 sm:px-8">
+      <StudyHeroGlow />
       <section className="py-8" aria-labelledby="study-group-title">
         <Link
           to="/study"

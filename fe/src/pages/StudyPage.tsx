@@ -10,6 +10,7 @@ import { StudyCardGrid } from '@/components/study/StudyCardGrid'
 import { StudyChatFloatingButton } from '@/components/study/StudyChatFloatingButton'
 import { StudyChatModal } from '@/components/study/StudyChatModal'
 import { StudyCreateDialog } from '@/components/study/StudyCreateDialog'
+import { StudyHeroGlow } from '@/components/study/StudyHeroGlow'
 import {
   StudySearchFilters,
   type RecruitmentFilter,
@@ -121,7 +122,8 @@ export function StudyPage() {
   }
 
   return (
-    <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8">
+    <PageLayout contentClassName="relative isolate max-w-dashboard px-4 sm:px-8">
+      <StudyHeroGlow />
       <section
         ref={heroRef}
         className={cn(
