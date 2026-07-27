@@ -6,6 +6,7 @@ const footerLinks = [
   { label: '녹화 · AI 분석 안내', to: '/recording-notice' },
 ]
 
+// 로고와 정책(약관·개인정보·녹화 안내) 링크를 담은 공통 하단 영역.
 export function Footer() {
   return (
     <footer className="border-t border-border-default bg-background-default">

@@ -72,6 +72,8 @@ function buildMeshGradients(colors: string[]): string[] {
   return gradients;
 }
 
+// React Bits 기반 장식용 카드. 포인터가 테두리에 가까울수록(edgeProximity) 커서 각도 방향으로 글로우가 밝아진다.
+// animated=true면 진입 시 한 번 자동으로 테두리를 훑는 스윕 연출을 재생한다.
 const BorderGlow: React.FC<BorderGlowProps> = ({
   children,
   observeRef,

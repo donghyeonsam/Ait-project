@@ -1,3 +1,4 @@
+// Radix 다이얼로그를 디자인 토큰에 맞춰 감싼 공통 모달 컴포넌트 묶음.
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import type { ComponentProps } from 'react'

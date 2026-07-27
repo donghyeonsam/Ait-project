@@ -19,6 +19,7 @@ function GoogleIcon() {
   )
 }
 
+// 소셜 로그인 버튼. provider에 따라 구글/깃허브 아이콘을 붙인다.
 export function SocialButton({
   provider,
   className,

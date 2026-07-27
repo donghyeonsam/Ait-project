@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react'
 
+// GitHub 로고 SVG 아이콘. currentColor를 따르므로 텍스트 색으로 제어한다.
 export function GitHubIcon(props: ComponentProps<'svg'>) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>

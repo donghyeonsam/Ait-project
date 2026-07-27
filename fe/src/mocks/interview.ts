@@ -1,3 +1,4 @@
+// 면접 설문에서 쓰는 선택지 타입과 목업 옵션 목록. 화면 구성용이며 실제 API 데이터가 아니다.
 export type InterviewGoalType = '직무 면접' | 'CS 면접' | '기술 면접' | '포폴 면접' | '종합'
 
 export type CsTopic =

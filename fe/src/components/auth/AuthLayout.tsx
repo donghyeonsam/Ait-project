@@ -10,6 +10,7 @@ interface AuthLayoutProps {
   showWave?: boolean
 }
 
+// 인증 화면 공통 레이아웃. 좌측 소개(aside)와 우측 폼을 2단으로 배치하며, aside가 없으면 폼만 중앙 정렬한다.
 export function AuthLayout({
   aside,
   children,

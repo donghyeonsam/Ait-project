@@ -54,6 +54,8 @@ const defaultItems = [
   'Support',
 ]
 
+// React Bits 기반 목록 내비게이션. 포인터와 각 항목의 거리로 이동/스케일 효과를 계산해
+// requestAnimationFrame으로 부드럽게 보간한다. 모션 최소화 설정 시 애니메이션을 끈다.
 export function LineSidebar({
   items = defaultItems,
   accentColor = 'var(--color-action-primary)',

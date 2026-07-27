@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react'
 import { cn } from '@/lib/utils'
 
+// 디자인 토큰 스타일과 aria-invalid 오류 상태를 입힌 공통 텍스트 입력.
 function Input({ className, type, ...props }: ComponentProps<'input'>) {
   return (
     <input

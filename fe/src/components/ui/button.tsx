@@ -1,3 +1,4 @@
+// 공통 버튼. variant/size별 스타일을 정의하고, asChild면 자식 요소(예: Link)에 스타일만 입힌다.
 import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
 import type { ComponentProps } from 'react'

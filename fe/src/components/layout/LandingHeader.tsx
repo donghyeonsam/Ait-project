@@ -7,6 +7,7 @@ const landingNavigationItems = [
   { label: '커뮤니티', to: '/community' },
 ]
 
+// 비로그인 랜딩 화면 상단 헤더. 주요 메뉴와 로그인·회원가입 진입 버튼을 제공한다.
 export function LandingHeader() {
   return (
     <header className="sticky top-0 z-[var(--z-index-sticky)] h-[var(--header-height-compact)] border-b border-border-default bg-surface-default lg:h-[var(--header-height-wide)]">

@@ -7,6 +7,7 @@ interface PageIntroProps {
   children?: React.ReactNode
 }
 
+// 페이지 상단의 제목·설명을 표시하는 공통 인트로. 준비 중 화면의 자리표시로도 쓴다.
 export function PageIntro({
   title,
   description,

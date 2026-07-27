@@ -9,6 +9,7 @@ interface PageLayoutProps {
   hideFooter?: boolean
 }
 
+// 로그인 후 화면의 공통 레이아웃. 헤더·본문·푸터를 배치하고 본문 최대 폭만 페이지별로 조정한다.
 export function PageLayout({
   children,
   contentClassName,

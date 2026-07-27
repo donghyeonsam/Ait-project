@@ -1,3 +1,4 @@
+// Radix 아바타 래퍼. 이미지 로드 실패 시 AvatarFallback을 보여준다.
 import * as AvatarPrimitive from '@radix-ui/react-avatar'
 import type { ComponentProps } from 'react'
 import { cn } from '@/lib/utils'
