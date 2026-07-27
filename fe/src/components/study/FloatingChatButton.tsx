@@ -1,5 +1,14 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
-import { MessageSquare, X } from 'lucide-react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+} from 'react'
+import { useChat } from '@livekit/components-react'
+import { MessageSquare, Send, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface FloatingChatButtonProps {
   boundsRef: RefObject<HTMLDivElement | null>
@@ -28,7 +37,8 @@ interface DragState {
 }
 
 // 자유롭게 드래그해서 위치를 옮길 수 있는 채팅 버튼. 누른 자리에서 채팅창이 열린다.
-// TODO: 채팅 기능 구현 필요 — 실시간 메시지 송수신 연동
+// 실시간 송수신은 LiveKit Room의 데이터 채널을 쓰는 useChat()으로 처리한다 —
+// 별도 백엔드 없이 세션에 연결된 참가자끼리만 실시간으로 메시지를 주고받는다(이력은 저장되지 않음).
 export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
   const buttonRef = useRef<HTMLButtonElement>(null)
   const dragState = useRef<DragState | null>(null)
@@ -36,6 +46,35 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
   const [position, setPosition] = useState<Position | null>(null)
   const [open, setOpen] = useState(false)
   const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(null)
+  const { chatMessages, send, isSending } = useChat()
+  const [draft, setDraft] = useState('')
+  const [unreadCount, setUnreadCount] = useState(0)
+  const messageListRef = useRef<HTMLDivElement>(null)
+
+  // 패널이 닫혀 있을 때 도착한 메시지 수만큼 배지를 채우고, 열려 있으면 즉시 읽음 처리한다.
+  // (렌더 중 상태 조정 패턴 — StudySessionRoom의 identityIdMap 갱신과 동일한 이유로 useEffect 대신 사용한다.)
+  const [seenState, setSeenState] = useState({ open, messageCount: chatMessages.length })
+  if (seenState.open !== open || seenState.messageCount !== chatMessages.length) {
+    if (open) {
+      setUnreadCount(0)
+    } else if (chatMessages.length > seenState.messageCount) {
+      setUnreadCount((count) => count + (chatMessages.length - seenState.messageCount))
+    }
+    setSeenState({ open, messageCount: chatMessages.length })
+  }
+
+  useEffect(() => {
+    if (!open) return
+    messageListRef.current?.scrollTo({ top: messageListRef.current.scrollHeight })
+  }, [open, chatMessages.length])
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const trimmed = draft.trim()
+    if (!trimmed || isSending) return
+    setDraft('')
+    void send(trimmed)
+  }
 
   useEffect(() => {
     const bounds = boundsRef.current
@@ -118,6 +157,14 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
         className="absolute z-20 flex touch-none cursor-grab items-center justify-center rounded-ait-pill bg-action-primary text-white shadow-elevation-2 transition-colors hover:bg-action-primary/90 active:cursor-grabbing"
       >
         <MessageSquare className="size-5" aria-hidden="true" />
+        {unreadCount > 0 ? (
+          <span
+            aria-hidden="true"
+            className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-ait-pill bg-status-error px-1 text-caption font-medium text-white"
+          >
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        ) : null}
       </button>
 
       {open ? (
@@ -136,9 +183,53 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
               <X className="size-4" aria-hidden="true" />
             </button>
           </div>
-          <div className="flex flex-1 items-center justify-center px-4 text-center text-body-2 text-text-secondary">
-            채팅 기능은 준비 중입니다.
-          </div>
+          {chatMessages.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center px-4 text-center text-body-2 text-text-secondary">
+              아직 채팅 메시지가 없습니다.
+            </div>
+          ) : (
+            <div ref={messageListRef} className="flex flex-1 flex-col gap-2 overflow-y-auto px-3 py-3">
+              {chatMessages.map((chatMessage) => {
+                const isMine = chatMessage.from?.isLocal ?? false
+                const senderName = chatMessage.from?.name || chatMessage.from?.identity || '참가자'
+
+                return (
+                  <div key={chatMessage.id} className={cn('flex flex-col', isMine ? 'items-end' : 'items-start')}>
+                    {!isMine ? (
+                      <span className="mb-0.5 px-1 text-caption text-text-secondary">{senderName}</span>
+                    ) : null}
+                    <span
+                      className={cn(
+                        'max-w-[85%] rounded-ait-m px-3 py-1.5 text-body-2 wrap-break-word',
+                        isMine ? 'bg-action-primary text-white' : 'bg-status-neutral-surface text-text-primary',
+                      )}
+                    >
+                      {chatMessage.message}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="flex shrink-0 items-center gap-2 border-t border-border-default p-2">
+            <input
+              type="text"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder="메시지를 입력하세요"
+              aria-label="채팅 메시지 입력"
+              className="flex-1 rounded-ait-s border border-border-default bg-surface-default px-3 py-1.5 text-body-2 text-text-primary focus:border-action-primary focus:outline-none focus:ring-3 focus:ring-action-primary/25"
+            />
+            <button
+              type="submit"
+              aria-label="메시지 보내기"
+              disabled={!draft.trim() || isSending}
+              className="flex size-8 shrink-0 items-center justify-center rounded-ait-s bg-action-primary text-white transition-colors hover:bg-action-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Send className="size-4" aria-hidden="true" />
+            </button>
+          </form>
         </div>
       ) : null}
     </>

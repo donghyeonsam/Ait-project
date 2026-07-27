@@ -166,7 +166,8 @@ function computeGridTileSize(count: number, width: number, height: number, gap: 
 
 // 스터디 세션 화상 회의방: 참가자 그리드/스테이지 뷰, 컨트롤 바, 이력서·자소서·평가 패널을 구성한다.
 // LiveKit Room 연결/트랙 구독은 이 컴포넌트가 소유하고, 하위 트리에는 RoomContext로 내려준다.
-// TODO: 실제 API 연동 필요 — 채팅·평가 제출 API로 교체.
+// 채팅은 같은 Room의 데이터 채널(useChat)로 실연동되어 있다(FloatingChatButton 참고).
+// TODO: 실제 API 연동 필요 — 평가 제출 API로 교체.
 export function StudySessionRoom({
   initialDevices,
   selfCoverLetterId,
