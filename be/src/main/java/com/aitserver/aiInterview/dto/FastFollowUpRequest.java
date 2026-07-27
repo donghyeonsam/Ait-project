@@ -1,8 +1,7 @@
 package com.aitserver.aiInterview.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
-import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,10 +11,13 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class FastFollowUpRequest {
 
+    @JsonProperty("user_id")
     private Long userId;
+
+    @JsonProperty("ai_interview_id")
+    private Long aiInterviewId;
 
     @JsonUnwrapped
     private FollowUpQuestionRequest request;
