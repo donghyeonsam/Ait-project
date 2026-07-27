@@ -115,11 +115,11 @@ describe('StudyPage', () => {
     const user = userEvent.setup()
     renderStudyPage()
 
-    await user.click(
-      screen.getByRole('button', {
-        name: '그룹톡 열기, 읽지 않은 메시지 42개',
-      }),
-    )
+    const chatButton = screen.getByRole('button', {
+      name: '그룹톡 열기',
+    })
+    expect(chatButton).toHaveAccessibleDescription('새 메시지 42개')
+    await user.click(chatButton)
     const chatDialog = screen.getByRole('dialog')
     expect(chatDialog).toHaveClass('study-chat-dialog')
     expect(chatDialog).not.toHaveClass('left-1/2', 'top-1/2')
