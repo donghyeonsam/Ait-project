@@ -454,6 +454,15 @@ button:not(:disabled) {
   animation: list-enter var(--duration-slow) var(--easing-emphasized) both;
 }
 
+/* AI 모의 면접 설문(1~5단계) 화면 전용. 100% 배율에서도 브라우저 90% 배율로 본 크기로
+   보이도록 요청받아 이 영역만 축소한다. width+margin-inline을 함께 지정해야
+   zoom이 적용된 뒤에도 부모 안에서 가운데 정렬이 유지된다. */
+.survey-zoom-90 {
+  zoom: 0.9;
+  width: 100%;
+  margin-inline: auto;
+}
+
 .waveform-bar {
   height: 20%;
   animation: waveform-bounce 1.1s ease-in-out infinite;
