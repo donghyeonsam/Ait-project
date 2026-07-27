@@ -1,3 +1,4 @@
+// 회원가입·로그인·로그아웃 인증 API 호출을 모아둔 모듈.
 import type { AuthUser } from '@/api/auth-storage'
 import { backendRequest } from '@/api/http'
 

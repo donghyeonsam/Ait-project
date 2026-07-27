@@ -1,3 +1,4 @@
+// 자기소개서 조회·생성·수정 API 호출과 관련 타입을 모아둔 모듈.
 import { backendRequest } from '@/api/http'
 
 export interface CoverLetterListItem {

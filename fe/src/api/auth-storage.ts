@@ -1,3 +1,4 @@
+// 인증 토큰·사용자 정보의 브라우저 저장을 담당한다. '로그인 유지'면 localStorage, 아니면 sessionStorage에 둔다.
 export interface AuthUser {
   userId: number
   email: string

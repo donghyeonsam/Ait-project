@@ -1,3 +1,4 @@
+// 이력서 조회·수정 API 호출과 관련 타입을 모아둔 모듈.
 import { backendRequest } from '@/api/http'
 
 export interface ResumeTraining {

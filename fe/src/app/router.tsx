@@ -22,6 +22,7 @@ import { StudySessionRoomPage } from '@/pages/StudySessionRoomPage'
 import { SignupPage } from '@/pages/auth/SignupPage'
 import { TermsPage } from '@/pages/TermsPage'
 
+// 앱의 전체 라우팅 표. 대부분의 화면은 ProtectedRoute로 보호하고, 약관·랜딩 등만 공개한다.
 export function AppRouter() {
   return (
     <Routes>

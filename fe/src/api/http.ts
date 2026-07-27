@@ -1,3 +1,4 @@
+// 백엔드 HTTP 통신의 공통 계층. 인증 헤더 부착, 401 시 토큰 재발급·재시도, 공통 응답/에러 처리를 담당한다.
 import {
   getStoredAccessToken,
   updateStoredAccessToken,
@@ -15,6 +16,7 @@ interface ReissueResponse {
   accessToken: string
 }
 
+// 동시에 여러 요청이 401을 받아도 재발급은 한 번만 하도록 진행 중인 Promise를 공유한다.
 let reissuePromise: Promise<boolean> | null = null
 
 export class ApiError extends Error {
@@ -52,6 +54,7 @@ async function parseBody(response: Response) {
   return text || null
 }
 
+// refresh 토큰(HttpOnly 쿠키)으로 새 access 토큰을 받아 저장한다. 성공 여부만 반환한다.
 async function performReissue() {
   try {
     const response = await fetch(`${backendBaseUrl}/api/auth/reissue`, {
@@ -105,6 +108,7 @@ async function request<T>(
   const payload = await parseBody(response)
 
   if (!response.ok) {
+    // 401이면 토큰을 한 번 재발급해 재시도하고, 재발급까지 실패하면 로그아웃을 알린다.
     if (
       response.status === 401 &&
       authenticated &&
@@ -144,6 +148,7 @@ export async function backendRequest<T>(
   return response.data
 }
 
+// 다양한 예외를 사용자에게 보여줄 한국어 메시지로 변환한다. TypeError는 네트워크 연결 실패로 간주한다.
 export function toErrorMessage(error: unknown) {
   if (error instanceof ApiError) return error.message
   if (error instanceof TypeError) {

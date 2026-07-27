@@ -1,3 +1,4 @@
+// 스터디 세션 LiveKit 접속 정보(토큰·서버 URL 등)를 발급받는 API 모듈.
 import { backendRequest } from '@/api/http'
 
 export type StudySessionParticipantRole = 'HOST' | 'MEMBER'
