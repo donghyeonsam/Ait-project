@@ -7,6 +7,10 @@ jwt:
   access-token-expiration: 3600000      # 1시간 (밀리초)
   refresh-token-expiration: 604800000   # 7일 (밀리초)
 
+server:
+  port: 8080
+  address: 0.0.0.0
+
 fastapi:
   url: ${FASTAPI_URL}
 
