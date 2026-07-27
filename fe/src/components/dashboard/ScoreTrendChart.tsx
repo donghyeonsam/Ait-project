@@ -9,6 +9,7 @@ interface ScoreTrendChartProps {
   className?: string
 }
 
+// SVG viewBox(720x260) 안에서 그래프 영역의 상하좌우 경계 좌표.
 const chart = {
   left: 54,
   right: 666,
@@ -24,8 +25,10 @@ const xFor = (index: number, count: number) =>
 const yFor = (score: number) =>
   chart.bottom - (score / 10) * (chart.bottom - chart.top)
 
+// 면접 종합 점수 추이를 그리는 SVG 라인 차트. 데이터 점을 0~10 점수축에 매핑한다.
 export function ScoreTrendChart({ data, filled = false, className }: ScoreTrendChartProps) {
   const { ref, isInView } = useInView<HTMLDivElement>({ threshold: 0.35 })
+  // useId의 콜론(:)은 SVG url(#id) 참조에서 유효하지 않으므로 제거한다.
   const gradientId = useId().replace(/:/g, '')
   const linePath = data
     .map((item, index) => `${index === 0 ? 'M' : 'L'} ${xFor(index, data.length)} ${yFor(item.score)}`)

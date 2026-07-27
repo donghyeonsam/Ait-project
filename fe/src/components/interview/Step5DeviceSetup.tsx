@@ -25,6 +25,7 @@ interface Step5DeviceSetupProps {
 const selectClass =
   'w-full rounded-ait-s border border-border-default bg-surface-default px-3 py-2 text-body-2 text-text-primary focus:border-action-primary focus:outline-none focus:ring-3 focus:ring-action-primary/25 disabled:cursor-not-allowed disabled:text-text-secondary'
 
+// 설문 5단계(환경 설정). 실제 카메라 미리보기와 장치 선택, 스피커·마이크 테스트를 제공한다.
 export function Step5DeviceSetup({
   cameraDeviceId,
   speakerDeviceId,
@@ -54,6 +55,7 @@ export function Step5DeviceSetup({
     }
   }, [stream])
 
+  // 아직 선택된 장치가 없으면 목록의 첫 장치를 기본값으로 채운다.
   useEffect(() => {
     if (!cameraDeviceId && devices.camera[0]) {
       onChangeCamera(devices.camera[0].id)
@@ -66,6 +68,7 @@ export function Step5DeviceSetup({
     }
   }, [cameraDeviceId, micDeviceId, speakerDeviceId, devices, onChangeCamera, onChangeMic, onChangeSpeaker])
 
+  // 장치를 바꾸면 새 deviceId로 스트림을 다시 요청해 미리보기·레벨 미터를 갱신한다.
   const handleCameraChange = (id: string) => {
     onChangeCamera(id)
     void requestAccess(id, micDeviceId ?? undefined)

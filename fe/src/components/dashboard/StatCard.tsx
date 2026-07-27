@@ -15,6 +15,7 @@ interface StatCardProps {
   footerLabel?: string
 }
 
+// 지표 하나를 보여주는 카드. 화면에 들어올 때 값을 0에서 목표치까지 카운트업한다.
 export function StatCard({
   icon,
   label,

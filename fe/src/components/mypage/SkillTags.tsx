@@ -4,6 +4,7 @@ interface SkillTagsProps {
   skills: string[]
 }
 
+// 프로젝트에서 사용한 기술을 태그로 나열한다. 비어 있으면 안내 문구를 보여준다.
 export function SkillTags({ skills }: SkillTagsProps) {
   return (
     <div className="min-h-24 border-t border-border-default pt-4">

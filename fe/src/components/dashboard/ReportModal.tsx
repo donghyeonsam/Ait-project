@@ -15,6 +15,7 @@ interface ReportModalProps {
 const focusableSelector =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
+// TODO: 실제 API 연동 필요 — 레이더 차트 축·점수는 화면 확인용 목업 값이다.
 const radarAxes = [
   { label: '전문성', score: 8.4 },
   { label: '논리성', score: 8.8 },
@@ -24,6 +25,7 @@ const radarAxes = [
   { label: '직무 역량', score: 8.5 },
 ]
 
+// 6각형 레이더의 index번째 꼭짓점 좌표. 12시 방향(-90°)부터 시계방향으로 60°씩 배치한다.
 function polarPoint(index: number, radius: number) {
   const angle = -Math.PI / 2 + (Math.PI * 2 * index) / 6
   return `${120 + Math.cos(angle) * radius},${110 + Math.sin(angle) * radius}`
@@ -130,6 +132,8 @@ function ReportQuestion({ title, defaultOpen = false, children }: QuestionProps)
   )
 }
 
+// 면접 결과 리포트 모달. 종합 점수·역량 레이더·질문별 피드백을 보여준다.
+// 접근성을 위해 열려 있는 동안 포커스를 모달 안에 가두고 Esc로 닫는다.
 export function ReportModal({ open, record, onClose }: ReportModalProps) {
   const navigate = useNavigate()
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -148,6 +152,7 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
     const previousScrollbarSize = document.body.style.getPropertyValue(
       '--removed-body-scroll-bar-size',
     )
+    // 배경 스크롤을 잠글 때 스크롤바 폭만큼 오른쪽 여백을 더해 레이아웃이 밀리지 않게 한다.
     const scrollbarWidth =
       window.innerWidth - document.documentElement.clientWidth
 
@@ -170,6 +175,7 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
         return
       }
 
+      // Tab 포커스가 모달 밖으로 나가지 않도록 첫/마지막 요소 사이를 순환시킨다.
       if (event.key !== 'Tab' || !dialogRef.current) {
         return
       }

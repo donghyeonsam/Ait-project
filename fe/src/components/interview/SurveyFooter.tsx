@@ -10,6 +10,7 @@ interface SurveyFooterProps {
   disabledHint?: string
 }
 
+// 설문 하단 내비게이션. 진행 단계 표시와 이전/다음(마지막 단계에서는 '면접 시작') 버튼을 담당한다.
 export function SurveyFooter({ currentStep, canGoNext, onPrevious, onNext, disabledHint }: SurveyFooterProps) {
   const isFirstStep = currentStep === 1
   const isLastStep = currentStep === SURVEY_STEP_COUNT

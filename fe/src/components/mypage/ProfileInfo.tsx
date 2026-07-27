@@ -27,6 +27,7 @@ const profileFields = [
   { key: 'github', label: '깃허브' },
 ] as const
 
+// 프로필 우측 상세. 닉네임·이메일·깃허브와 레포지토리·기술 목록을 보여주고 편집/저장을 처리한다.
 export function ProfileInfo({
   profile,
   isEditing,

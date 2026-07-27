@@ -80,6 +80,7 @@ function isStepValid(step: number, state: SurveyState) {
   }
 }
 
+// 면접 설문의 단계 이동·입력 상태·단계별 유효성 검사를 한데 모은 훅.
 export function useInterviewSurvey() {
   const [currentStep, setCurrentStep] = useState(1)
   const [state, setState] = useState<SurveyState>(initialState)
@@ -113,6 +114,7 @@ export function useInterviewSurvey() {
     })
   }, [])
 
+  // 면접 유형을 바꾸면 그 유형에 해당하지 않는 입력(지원 정보·CS 주제)은 초기화한다.
   const selectInterviewType = useCallback((type: InterviewGoalType) => {
     setState((previous) => ({
       ...previous,

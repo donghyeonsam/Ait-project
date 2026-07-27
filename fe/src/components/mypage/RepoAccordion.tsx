@@ -13,6 +13,7 @@ interface RepoAccordionProps {
   onRetry?: () => void
 }
 
+// 등록한 GitHub 저장소를 펼쳐 보는 아코디언. 저장소 조회는 다른 프로필과 분리돼 실패해도 재시도할 수 있다.
 export function RepoAccordion({
   repositories,
   error,

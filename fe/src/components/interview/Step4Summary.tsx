@@ -11,6 +11,7 @@ interface SummaryRow {
   value: string
 }
 
+// 설문 4단계. 선택 내용을 최종 확인하는 요약 화면.
 export function Step4Summary({ state, preparation }: Step4SummaryProps) {
   const coverLetterTitle = preparation?.coverLetters
     .find((coverLetter) => String(coverLetter.id) === state.coverLetterId)?.title ?? '-'
@@ -18,6 +19,7 @@ export function Step4Summary({ state, preparation }: Step4SummaryProps) {
     .find((repository) => String(repository.id) === state.repositoryId)
     ?.repoNickname ?? ''
 
+  // 면접 유형에 따라 지원 정보/CS 주제는 해당되지 않으면 요약에서 '-'로 비운다.
   const showApplyInfo = state.interviewType !== null && state.interviewType !== 'CS 면접'
   const showCsTopics = state.interviewType === 'CS 면접' || state.interviewType === '종합'
 

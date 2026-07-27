@@ -29,6 +29,7 @@ interface TagBadgeProps {
   className?: string
 }
 
+// 면접 유형·직무·난이도를 색상 배지로 표시한다. variant별 색은 tagStyles에서 정한다.
 export function TagBadge({ variant, className }: TagBadgeProps) {
   return (
     <span

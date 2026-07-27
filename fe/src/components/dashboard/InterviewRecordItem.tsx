@@ -12,6 +12,7 @@ interface InterviewRecordItemProps {
   onOpenReport: (record: InterviewRecord) => void
 }
 
+// 대시보드의 면접 기록 한 건. 분석 중이면 로딩 카드를, 완료면 점수·증감과 리포트 버튼을 보여준다.
 export function InterviewRecordItem({
   record,
   index,

@@ -17,6 +17,7 @@ const roleClasses = [
   'bg-tag-ai-surface text-tag-ai',
 ]
 
+// 프로필 좌측 카드. 아바타·이름·관심 직무를 보여주고, 편집 모드에서는 사진 변경과 직무 입력을 받는다.
 export function ProfileCard({
   profile,
   isEditing,

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 
+// active가 true가 되면 0에서 target까지 easeOutCubic으로 카운트업한 값을 반환하는 훅.
 export function useAnimatedNumber(
   target: number,
   active: boolean,
   duration = 800,
 ) {
+  // 사용자가 모션 최소화를 선택했으면 애니메이션 없이 목표값을 바로 보여준다.
   const reducedMotion = window.matchMedia(
     '(prefers-reduced-motion: reduce)',
   ).matches

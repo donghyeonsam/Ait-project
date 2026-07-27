@@ -19,6 +19,7 @@ interface Step2ApplyInfoProps {
 const inputClass =
   'w-full rounded-ait-s border border-border-default bg-surface-default px-4 py-2.5 text-body-1 text-text-primary transition-colors ease-standard duration-(--duration-fast) placeholder:text-text-secondary focus:border-action-primary focus:outline-none focus:ring-3 focus:ring-action-primary/25'
 
+// 설문 2단계(지원 정보). 직무·경력 입력과 자소서·레포지토리 선택을 받는다. 목록은 로딩/에러/빈 상태를 각각 표시한다.
 export function Step2ApplyInfo({
   position,
   careerLevel,

@@ -6,6 +6,7 @@ interface SurveyStepperProps {
   currentStep: number
 }
 
+// 설문 상단 진행 표시줄. 완료/현재/대기 단계를 시각적으로 구분해 보여준다.
 export function SurveyStepper({ currentStep }: SurveyStepperProps) {
   return (
     <ol className="flex items-start" aria-label="설문 진행 단계">

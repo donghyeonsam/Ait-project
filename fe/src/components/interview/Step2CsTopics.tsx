@@ -7,6 +7,7 @@ interface Step2CsTopicsProps {
   onToggle: (topic: CsTopic) => void
 }
 
+// 설문 2단계(CS 주제). 최대 CS_TOPIC_MAX개까지 다중 선택하며, 한도에 도달하면 미선택 항목을 비활성화한다.
 export function Step2CsTopics({ value, onToggle }: Step2CsTopicsProps) {
   return (
     <section aria-labelledby="step2-cs-title">

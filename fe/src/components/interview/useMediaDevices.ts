@@ -24,6 +24,7 @@ function toDeviceOptions(devices: MediaDeviceInfo[], kind: MediaDeviceKind, fall
     }))
 }
 
+// 카메라·마이크 권한 요청과 스트림·장치 목록을 관리하는 훅. 권한 상태를 5단계로 노출한다.
 export function useMediaDevices() {
   const [permission, setPermission] = useState<MediaPermissionState>('idle')
   const [stream, setStream] = useState<MediaStream | null>(null)
@@ -58,6 +59,7 @@ export function useMediaDevices() {
           video: cameraDeviceId ? { deviceId: { exact: cameraDeviceId } } : true,
           audio: micDeviceId ? { deviceId: { exact: micDeviceId } } : true,
         })
+        // 새 스트림을 켜기 전에 기존 트랙을 멈춰 장치 점유가 남지 않게 한다.
         streamRef.current?.getTracks().forEach((track) => track.stop())
         streamRef.current = nextStream
         setStream(nextStream)

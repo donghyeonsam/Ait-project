@@ -7,6 +7,7 @@ interface Step1InterviewTypeProps {
   onSelect: (type: (typeof interviewGoalOptions)[number]['type']) => void
 }
 
+// 설문 1단계. 연습할 면접 유형을 하나만 고르는 단일 선택 화면.
 export function Step1InterviewType({ value, onSelect }: Step1InterviewTypeProps) {
   return (
     <section aria-labelledby="step1-title">

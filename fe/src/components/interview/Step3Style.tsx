@@ -17,6 +17,7 @@ function toggleButtonClass(isSelected: boolean) {
   )
 }
 
+// 설문 3단계. 난이도와 면접 스타일을 각각 하나씩 고르는 화면.
 export function Step3Style({ difficulty, style, onSelectDifficulty, onSelectStyle }: Step3StyleProps) {
   return (
     <section aria-labelledby="step3-title" className="space-y-8">
