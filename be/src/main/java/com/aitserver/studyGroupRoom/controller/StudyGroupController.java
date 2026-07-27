@@ -1,6 +1,7 @@
 package com.aitserver.studyGroupRoom.controller;
 
 import com.aitserver.global.response.ApiResponse;
+import com.aitserver.studyGroupRoom.domain.StudyGroupStatus;
 import com.aitserver.studyGroupRoom.dto.GroupDetailResponse;
 import com.aitserver.studyGroupRoom.dto.MyStudyGroupResponseDto;
 import com.aitserver.studyGroupRoom.dto.StudyGroupListResponseDto;
@@ -30,9 +31,9 @@ public class StudyGroupController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<Page<StudyGroupListResponseDto>>> getStudyGroups(
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) StudyGroupStatus status,
             @RequestParam(required = false) String keyword,
-            @PageableDefault(size = 6, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable, //TODO: 한페이지 당 개수 여쭤보기
+            @PageableDefault(size = 6, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
             HttpServletRequest request
     ) {
         Page<StudyGroupListResponseDto> response = studyGroupService.getStudyGroups(status, keyword, pageable);

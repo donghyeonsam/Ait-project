@@ -124,6 +124,7 @@ public class StudyGroupMember {
                 .user(owner)
                 .role(StudyGroupMemberRole.OWNER)
                 .status(StudyGroupMemberStatus.ACTIVE) // 방장은 바로 ACTIVE
+                .message("스터디장")
                 .build();
     }
 
@@ -147,14 +148,9 @@ public class StudyGroupMember {
     }
 
     public void leave() {
-        if (this.role == StudyGroupMemberRole.OWNER) {
-            throw new IllegalStateException(
-                    "그룹장은 바로 탈퇴할 수 없습니다."
-            );
-        }
-
         this.status = StudyGroupMemberStatus.LEFT;
         this.leftAt = LocalDateTime.now();
+        this.deletedAt = LocalDateTime.now();
     }
 
     public void kick() {

@@ -3,7 +3,6 @@ package com.aitserver.studyGroupRoom.entity;
 
 import com.aitserver.auth.entity.User;
 import com.aitserver.studyGroupRoom.domain.StudyGroupStatus;
-import com.aitserver.studygroup.entity.StudyGroupMember;
 import jakarta.persistence.*;
 import jakarta.persistence.CascadeType;
 import lombok.AccessLevel;
@@ -113,6 +112,11 @@ public class StudyGroup {
 
     public boolean isClosed() {
         return this.status == StudyGroupStatus.CLOSED;
+    }
+
+    public void deleteGroup() {
+        this.status = StudyGroupStatus.CLOSED;
+        this.deletedAt = LocalDateTime.now();
     }
 
 }

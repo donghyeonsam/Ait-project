@@ -2,7 +2,6 @@ package com.aitserver.studyGroupRoom.dto;
 
 import com.aitserver.studyGroupRoom.domain.StudyGroupStatus;
 import com.aitserver.studyGroupRoom.entity.StudyGroup;
-import com.aitserver.studygroup.entity.StudyGroup;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -24,7 +23,7 @@ public class StudyGroupListResponseDto {
                 .title(studyGroup.getTitle())
                 .description(studyGroup.getDescription())
                 .capacity(StudyGroup.MAX_CAPACITY)
-                .status(studyGroup.getStatus())
+                .groupStatus(studyGroup.getStatus())
                 .createdAt(studyGroup.getCreatedAt())
                 .build();
     }

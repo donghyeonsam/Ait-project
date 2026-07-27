@@ -26,6 +26,8 @@ DROP TABLE IF EXISTS `github_apps`;
 DROP TABLE IF EXISTS `resumes`;
 DROP TABLE IF EXISTS `user_skills`;
 DROP TABLE IF EXISTS `users`;
+DROP TABLE IF EXISTS `study_session_participants`;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- =========================================================
