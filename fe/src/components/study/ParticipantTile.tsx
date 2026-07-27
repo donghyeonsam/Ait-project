@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from 'react'
+import { useEffect, useState, type DragEvent, type MouseEvent } from 'react'
+import { VideoTrack, type TrackReference } from '@livekit/components-react'
 import { Lock, UserRound, Volume2, VolumeX } from 'lucide-react'
+import type { RemoteAudioTrack } from 'livekit-client'
 import { MasterVolumeSlider } from '@/components/interview/MasterVolumeSlider'
 import type { StudyParticipant } from '@/mocks/study'
 import { cn } from '@/lib/utils'
 
 interface ParticipantTileProps {
   participant: StudyParticipant
-  /** 본인 타일에만 실제 로컬 스트림을 연결한다. 다른 참가자는 연결된 미디어가 없는 mock 타일이다. */
-  stream?: MediaStream | null
-  cameraOn?: boolean
+  /** 이 참가자의 카메라 트랙. 본인/상대방 모두 LiveKit 구독 트랙에서 받아온다. */
+  trackRef?: TrackReference | null
+  /** 상대방 오디오 트랙. 음량 조절 슬라이더를 실제 트랙 볼륨에 연결하는 데 쓴다. 본인은 넘기지 않는다. */
+  audioTrackRef?: TrackReference | null
   /** 그리드 순서 변경(다른 참가자 타일 사이 드래그 앤 드롭)에만 쓴다. 본인 타일은 대상이 아니다. */
   draggableEnabled?: boolean
   locked?: boolean
@@ -21,8 +24,8 @@ interface ParticipantTileProps {
 // 그리드·스테이지 뷰에서 공통으로 쓰는 참가자 영상 타일.
 export function ParticipantTile({
   participant,
-  stream = null,
-  cameraOn = false,
+  trackRef = null,
+  audioTrackRef = null,
   draggableEnabled = false,
   locked = false,
   onDragStart,
@@ -30,18 +33,15 @@ export function ParticipantTile({
   onContextMenu,
   className,
 }: ParticipantTileProps) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  // TODO: 실제 API 연동 필요 — WebRTC 원격 오디오 트랙 볼륨/음소거로 교체. 지금은 화면 확인용 로컬 상태다.
   const [remoteVolume, setRemoteVolume] = useState(100)
   const [remoteMuted, setRemoteMuted] = useState(false)
   const [dragOver, setDragOver] = useState(false)
-  const showVideo = participant.isSelf && cameraOn && Boolean(stream)
+  const showVideo = Boolean(trackRef && !trackRef.publication.isMuted)
 
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.srcObject = participant.isSelf ? stream : null
-    }
-  }, [participant.isSelf, stream])
+    const track = audioTrackRef?.publication.track as RemoteAudioTrack | undefined
+    track?.setVolume(remoteMuted ? 0 : remoteVolume / 100)
+  }, [audioTrackRef, remoteVolume, remoteMuted])
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     if (!draggableEnabled) return
@@ -73,8 +73,8 @@ export function ParticipantTile({
         className,
       )}
     >
-      {showVideo ? (
-        <video ref={videoRef} autoPlay playsInline muted className="size-full object-cover" />
+      {showVideo && trackRef ? (
+        <VideoTrack trackRef={trackRef} className="size-full object-cover" />
       ) : (
         <div className="flex size-full items-center justify-center">
           {participant.isSelf ? (
@@ -100,8 +100,10 @@ export function ParticipantTile({
             </span>
           ) : null}
 
-          <div className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-linear-to-t from-black/70 to-transparent px-2 py-1 opacity-0 transition-opacity duration-(--duration-fast) ease-standard group-hover:opacity-100 group-focus-within:opacity-100 @sm:gap-2 @sm:px-3 @sm:py-2 @lg:gap-3 @lg:px-4 @lg:py-2.5">
-            <span className="truncate text-caption font-medium text-white">{participant.name}</span>
+          <div className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-linear-to-t from-black/70 to-transparent px-2 py-1 opacity-0 transition-opacity duration-(--duration-fast) ease-standard group-hover:opacity-100 group-focus-within:opacity-100 @sm:gap-2 @sm:px-3 @sm:py-2 @lg:gap-3 @lg:px-4 @lg:py-2.5 @2xl:gap-4 @2xl:px-5 @2xl:py-3">
+            <span className="truncate text-caption font-medium text-white @lg:text-body-2 @2xl:text-body-1">
+              {participant.name}
+            </span>
 
             <button
               type="button"
@@ -114,13 +116,13 @@ export function ParticipantTile({
               className="ml-auto shrink-0 text-white/80 transition-colors hover:text-white"
             >
               {remoteMuted ? (
-                <VolumeX className="size-3 @sm:size-4 @lg:size-5" aria-hidden="true" />
+                <VolumeX className="size-3 @sm:size-4 @lg:size-5 @2xl:size-6" aria-hidden="true" />
               ) : (
-                <Volume2 className="size-3 @sm:size-4 @lg:size-5" aria-hidden="true" />
+                <Volume2 className="size-3 @sm:size-4 @lg:size-5 @2xl:size-6" aria-hidden="true" />
               )}
             </button>
 
-            <div className="w-10 shrink-0 @sm:w-20 @lg:w-28">
+            <div className="w-10 shrink-0 @sm:w-20 @lg:w-28 @2xl:w-40">
               <MasterVolumeSlider
                 gain={remoteVolume}
                 level={0}

@@ -92,35 +92,39 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
     @Override
     @Transactional
-    public FollowUpQuestionResponse answerCheckForfollowUp(Long userId, Long aiInterviewId, FollowUpQuestionRequest questionRequest, MultipartFile audioFile) {
-        log.info("[AiInterviewServiceImpl, FollowUpQuestion] \n" +
-                "면접 질문: {}\n" +
-                "사용자 답변: {}", questionRequest.question().question(), questionRequest.answer());
+    public FollowUpQuestionResponse answerCheckForFollowUp(Long userId, Long aiInterviewId, FollowUpQuestionRequest questionRequest, MultipartFile audioFile) {
+        log.info("[AiInterviewServiceImpl, FollowUpQuestion] 면접 질문: {}, 사용자 답변: {}",
+                questionRequest.getQuestion().getQuestion(), questionRequest.getAnswer());
 
         log.info("[AiInterviewServiceImpl, FollowUpQuestion] 수신된 음성 파일명: {}, 타입: {}, 크기: {} bytes",
                 audioFile.getOriginalFilename(), audioFile.getContentType(), audioFile.getSize());
 
         // 질문의 order 번호를 확인해서 1번일 때만 진행 상황을 ready에서 doing으로 변경
-        if(questionRequest.question().order() == 1) {
+        if(questionRequest.getQuestion().getOrder() == 1) {
             aiInterviewsRepository.updateStatus(userId, aiInterviewId);
         }
 
+        // interviewType을 바로 소문자로 변경
+        if (questionRequest.getInterviewType() != null) {
+            questionRequest.setInterviewType(questionRequest.getInterviewType().toLowerCase());
+        }
         // 1. 사용자의 답변 바로 FastAPI로 전달
         FastFollowUpRequest fastFollowUpRequest = new FastFollowUpRequest();
-        fastFollowUpRequest.setUserId(userId);
-        fastFollowUpRequest.setRequest(questionRequest);
+        fastFollowUpRequest.setUserId(userId); // userId 붙이기
+        fastFollowUpRequest.setAiInterviewId(aiInterviewId); // aiInterviewId 붙이기
+        fastFollowUpRequest.setRequest(questionRequest); // 프론트에서 전달받은 내용 붙이기
 
-        FastFollowUpResponse fastFollowUpResponse = sendToFastApi(
+        FollowUpQuestionResponse followUpResponse = sendToFastApi(
                 "/api/v1/interviews/followup",
                 fastFollowUpRequest,
-                FastFollowUpResponse.class
+                FollowUpQuestionResponse.class
         );
 
         // 2. DB 저장과 AI 분석을 위해 다른 서비스로 내용 전송(비동기)
 
         // 3. 사용자의 답변 음성 파일 원본 FastAPI 전달(목소리 분석을 통한 채점을 위해)
 
-        return null;
+        return followUpResponse;
     }
 
     // FastAPI로 호출 보내고 결과값을 리턴받는 공통 메서드

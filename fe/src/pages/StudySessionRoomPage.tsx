@@ -1,12 +1,14 @@
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   StudySessionRoom,
   type StudySessionRoomDeviceSelection,
 } from '@/components/study/StudySessionRoom'
+import type { StudySessionConnection } from '@/api/study-sessions'
 
 interface StudySessionRoomNavigationState {
   devices: StudySessionRoomDeviceSelection
   coverLetterId: number | null
+  connection: StudySessionConnection
 }
 
 function isStudySessionRoomNavigationState(
@@ -15,23 +17,24 @@ function isStudySessionRoomNavigationState(
   return (
     Boolean(value) &&
     typeof value === 'object' &&
-    'devices' in (value as Record<string, unknown>)
+    'devices' in (value as Record<string, unknown>) &&
+    'connection' in (value as Record<string, unknown>)
   )
 }
 
-// 입장 전 대기 화면에서 넘어온 장치 선택 정보로 화상 회의방을 렌더링한다.
+// 입장 전 대기 화면에서 넘어온 장치 선택·LiveKit 접속 정보로 화상 회의방을 렌더링한다.
 // TODO: 실제 API 연동 필요 — 스터디 라운지/내 스터디 그룹이 구현되면 세션 정보도 location.state로 함께 전달받는다.
 export function StudySessionRoomPage() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { sessionId } = useParams<{ sessionId: string }>()
   const navState = location.state as unknown
 
   if (!isStudySessionRoomNavigationState(navState)) {
-    return <Navigate to="/study/session/prejoin" replace />
+    return <Navigate to={`/study/session/${sessionId ?? ''}/prejoin`} replace />
   }
 
   const handleLeave = () => {
-    // TODO: 실제 세션 퇴장 처리(WebRTC/LiveKit 연결 종료) 구현 필요
     navigate('/study')
   }
 
@@ -40,6 +43,7 @@ export function StudySessionRoomPage() {
       <StudySessionRoom
         initialDevices={navState.devices}
         selfCoverLetterId={navState.coverLetterId}
+        connection={navState.connection}
         onLeave={handleLeave}
       />
     </div>
