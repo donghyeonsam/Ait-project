@@ -204,11 +204,12 @@ export function StudyGroupChatPanel({ group }: StudyGroupChatPanelProps) {
                 </div>
                 {message.reaction ? (
                   <button
+                    key={`${message.id}-${message.reaction}`}
                     type="button"
                     onClick={() =>
                       reactToMessage(message.id, message.reaction ?? '')
                     }
-                    className="mt-1 inline-flex min-h-6 items-center rounded-ait-pill border border-border-default bg-surface-default px-2 text-caption shadow-elevation-1"
+                    className="study-reaction-bubble mt-1 inline-flex min-h-6 items-center rounded-ait-pill border border-border-default bg-surface-default px-2 text-caption shadow-elevation-1"
                     aria-label={`반응 ${message.reaction} 취소`}
                   >
                     {message.reaction}

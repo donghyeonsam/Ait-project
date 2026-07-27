@@ -1653,6 +1653,46 @@ button:not(:disabled) {
     var(--easing-emphasized) both;
 }
 
+.study-reaction-bubble {
+  position: relative;
+  isolation: isolate;
+  transform-origin: center bottom;
+  animation: study-reaction-bubble-in var(--duration-slow)
+    var(--easing-emphasized) both;
+}
+
+.study-reaction-bubble::before,
+.study-reaction-bubble::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  border-radius: var(--radius-pill);
+}
+
+.study-reaction-bubble::before {
+  z-index: -1;
+  inset: -0.3rem;
+  border: 1px solid
+    color-mix(in srgb, var(--color-status-achievement) 55%, transparent);
+  animation: study-reaction-ring var(--duration-slow)
+    var(--easing-standard) both;
+}
+
+.study-reaction-bubble::after {
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  width: 0.25rem;
+  height: 0.25rem;
+  box-shadow:
+    -1.35rem -0.5rem 0 -0.05rem var(--color-status-achievement),
+    1.3rem -0.65rem 0 -0.05rem var(--color-status-achievement),
+    -1.05rem 0.7rem 0 -0.08rem var(--color-status-achievement),
+    1.15rem 0.6rem 0 -0.08rem var(--color-status-achievement);
+  animation: study-reaction-particles var(--duration-slow)
+    var(--easing-emphasized) both;
+}
+
 .study-toast {
   animation: study-toast-in var(--duration-base) var(--easing-emphasized) both;
 }
@@ -1665,6 +1705,49 @@ button:not(:disabled) {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes study-reaction-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.35rem) scale(0.55);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-0.1rem) scale(1.12);
+  }
+  80% {
+    transform: translateY(0) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes study-reaction-ring {
+  from {
+    opacity: 0.7;
+    transform: scale(0.45);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+@keyframes study-reaction-particles {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.25);
+  }
+  35% {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% - 0.35rem)) scale(1.15);
   }
 }
 

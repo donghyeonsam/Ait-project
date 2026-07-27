@@ -201,8 +201,10 @@ describe('StudyGroupPage', () => {
       }),
     )
     await user.click(screen.getByRole('button', { name: '🎉 반응 남기기' }))
-    expect(
-      within(messageList).getByRole('button', { name: '반응 🎉 취소' }),
-    ).toBeInTheDocument()
+    const reactionButton = within(messageList).getByRole('button', {
+      name: '반응 🎉 취소',
+    })
+    expect(reactionButton).toBeInTheDocument()
+    expect(reactionButton).toHaveClass('study-reaction-bubble')
   })
 })
