@@ -463,6 +463,22 @@ button:not(:disabled) {
   margin-inline: auto;
 }
 
+/* 설문 3→4단계 전환 시 상단 안내 문구가 사라지며 아래 콘텐츠 전체가 위로
+   천천히 밀려 올라가도록 높이를 애니메이션한다(요청에 따라 의도적으로 느리게). */
+.survey-intro-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 650ms var(--easing-standard),
+    opacity 650ms var(--easing-standard);
+}
+
+.survey-intro-collapse.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
 .waveform-bar {
   height: 20%;
   animation: waveform-bounce 1.1s ease-in-out infinite;
