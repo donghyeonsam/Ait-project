@@ -60,7 +60,8 @@ public class AiInterviewController {
     public ResponseEntity<ApiResponse<FollowUpQuestionResponse>> answerCheck(
             @AuthenticationPrincipal Long userId,
             @PathVariable Long aiInterviewId,
-            @RequestPart(value = "questionRequest") FollowUpQuestionRequest questionRequest, // 사용자가 답변한 질문 정보
+            @RequestPart(value = "questionRequest")
+            FollowUpQuestionRequest questionRequest, // 사용자가 답변한 질문 정보
             @RequestPart(value = "audioFile") MultipartFile audioFile, // 사용자의 답변 음성 파일
             HttpServletRequest request) {
         // 질문과 사용자의 답변을 전달해서, 꼬리 질문을 생성
