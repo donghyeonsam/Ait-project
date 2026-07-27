@@ -134,7 +134,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
 
             <div
               ref={messageListRef}
-              className="min-h-0 flex-1 space-y-6 overflow-y-auto px-2 py-6"
+              className="min-h-0 flex-1 space-y-6 overflow-x-hidden overflow-y-auto px-2 py-6"
               aria-live="polite"
               aria-label={`${selectedGroupId} 그룹 메시지`}
             >
@@ -174,15 +174,28 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
                       <p className="whitespace-pre-wrap break-words">
                         {message.content}
                       </p>
-                      {message.reaction ? (
-                        <span
-                          className="absolute -bottom-3 left-4 flex size-6 items-center justify-center rounded-ait-pill border border-status-error bg-surface-default text-caption"
-                          aria-label={`반응 ${message.reaction}`}
-                        >
-                          {message.reaction}
-                        </span>
-                      ) : null}
                     </div>
+                    {message.reactions && message.reactions.length > 0 ? (
+                      <div
+                        className={cn(
+                          'mt-1 flex flex-wrap gap-1',
+                          message.isSelf ? 'justify-end' : 'justify-start',
+                        )}
+                      >
+                        {message.reactions.map((reaction) => (
+                          <span
+                            key={reaction.emoji}
+                            className="inline-flex min-h-6 items-center rounded-ait-pill border border-border-default bg-surface-default px-2 text-caption shadow-elevation-1"
+                            aria-label={`${reaction.emoji} 반응 ${reaction.users.length}개`}
+                          >
+                            {reaction.emoji}
+                            <span className="ml-1 text-[10px] text-text-secondary">
+                              {reaction.users.length}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ))}

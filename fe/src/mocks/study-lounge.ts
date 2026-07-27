@@ -60,12 +60,18 @@ export interface StudyCalendarEvent {
   agenda: string[]
 }
 
+// 하나의 이모지에 반응한 사람들을 묶어 표현하며, users.length가 곧 반응 수다.
+export interface StudyChatReaction {
+  emoji: string
+  users: string[]
+}
+
 export interface StudyChatMessage {
   id: number
   sender: string
   content: string
   isSelf: boolean
-  reaction?: string
+  reactions?: StudyChatReaction[]
 }
 
 export interface StudyChatGroup {
@@ -325,19 +331,24 @@ export const mockStudyChatGroups: StudyChatGroup[] = [
         sender: '최싸피',
         content: '발표 자료 오늘 밤까지 공유드릴게요!',
         isSelf: false,
+        reactions: [
+          { emoji: '👍', users: ['나', '김구미'] },
+          { emoji: '🙏', users: ['정싸피'] },
+        ],
       },
       {
         id: 2,
         sender: '나',
         content: '네 확인했습니다. 세션 전에 미리 읽어볼게요 👍',
         isSelf: true,
-        reaction: '👍',
+        reactions: [{ emoji: '👍', users: ['최싸피'] }],
       },
       {
         id: 3,
         sender: '김구미',
         content: '저 오늘 10분 정도 늦을 것 같아요 ㅠ',
         isSelf: false,
+        reactions: [{ emoji: '❤️', users: ['나', '최싸피', '정싸피'] }],
       },
     ],
   },
