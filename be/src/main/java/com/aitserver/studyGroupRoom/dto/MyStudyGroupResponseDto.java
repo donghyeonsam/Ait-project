@@ -1,7 +1,8 @@
-package com.aitserver.studygroup.dto;
+package com.aitserver.studyGroupRoom.dto;
 
-import com.aitserver.studygroup.entity.StudyGroup;
-import com.aitserver.studygroup.entity.StudyGroupMember;
+import com.aitserver.studyGroupRoom.domain.StudyGroupStatus;
+import com.aitserver.studyGroupRoom.entity.StudyGroup;
+import com.aitserver.studyGroupRoom.entity.StudyGroupMember;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -15,7 +16,7 @@ public class MyStudyGroupResponseDto {
     private String description;
     private int capacity;
     private int currentMemberCount;
-    private String groupStatus;
+    private StudyGroupStatus groupStatus;
     private LocalDateTime joinedAt;
 
     // StudyGroupMember 엔티티를 받아서 변환
@@ -26,7 +27,7 @@ public class MyStudyGroupResponseDto {
                 .id(group.getId())
                 .title(group.getTitle())
                 .description(group.getDescription())
-                .capacity(group.getCapacity())
+                .capacity(StudyGroup.MAX_CAPACITY)
                 .currentMemberCount(group.getCurrentMemberCount())
                 .groupStatus(group.getStatus())
                 .joinedAt(member.getJoinedAt())

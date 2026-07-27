@@ -1,5 +1,6 @@
-package com.aitserver.studygroup.dto;
+package com.aitserver.studyGroupRoom.dto;
 
+import com.aitserver.studyGroupRoom.domain.StudyGroupStatus;
 import lombok.*;
 
 public class StudyGroupRequestDto {
@@ -11,7 +12,6 @@ public class StudyGroupRequestDto {
     public static class Create {
         private String title;
         private String description;
-        private int capacity;
     }
 
     @Getter
@@ -19,6 +19,6 @@ public class StudyGroupRequestDto {
     @AllArgsConstructor
     @NoArgsConstructor(access = AccessLevel.PROTECTED)
     public static class UpdateStatus {
-        private String status;
+        private StudyGroupStatus status;
     }
 }

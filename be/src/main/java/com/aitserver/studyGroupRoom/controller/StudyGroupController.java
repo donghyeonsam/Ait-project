@@ -1,12 +1,12 @@
-package com.aitserver.studygroup.controller;
+package com.aitserver.studyGroupRoom.controller;
 
 import com.aitserver.global.response.ApiResponse;
-import com.aitserver.studygroup.dto.GroupDetailResponse;
-import com.aitserver.studygroup.dto.MyStudyGroupResponseDto;
-import com.aitserver.studygroup.dto.StudyGroupListResponseDto;
-import com.aitserver.studygroup.dto.StudyGroupRequestDto;
-import com.aitserver.studygroup.service.StudyGroupCommandService;
-import com.aitserver.studygroup.service.StudyGroupService;
+import com.aitserver.studyGroupRoom.dto.GroupDetailResponse;
+import com.aitserver.studyGroupRoom.dto.MyStudyGroupResponseDto;
+import com.aitserver.studyGroupRoom.dto.StudyGroupListResponseDto;
+import com.aitserver.studyGroupRoom.dto.StudyGroupRequestDto;
+import com.aitserver.studyGroupRoom.service.StudyGroupCommandService;
+import com.aitserver.studyGroupRoom.service.StudyGroupService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

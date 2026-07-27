@@ -1,7 +1,7 @@
-package com.aitserver.studygroup.dto;
+package com.aitserver.studyGroupRoom.dto;
 
-import com.aitserver.studygroup.entity.StudyGroup;
-import com.aitserver.studygroup.entity.StudyGroupMember;
+import com.aitserver.studyGroupRoom.entity.StudyGroup;
+import com.aitserver.studyGroupRoom.entity.StudyGroupMember;
 import lombok.*;
 
 import java.util.List;
@@ -23,7 +23,7 @@ public class GroupDetailResponse {
 
     public static GroupDetailResponse from(StudyGroup group) {
         List<MemberInfo> memberInfos = group.getMembers().stream()
-                .map(groupMember -> MemberInfo.from(groupMember, group.getOwnerId()))
+                .map(groupMember -> MemberInfo.from(groupMember, group.getOwner().getId()))
                 .toList();
 
         return GroupDetailResponse.builder()
@@ -31,9 +31,9 @@ public class GroupDetailResponse {
                 .title(group.getTitle())
                 .description(group.getDescription())
                 .currentMemberCount(group.getMembers().size())
-                .capacity(group.getCapacity())
+                .capacity(StudyGroup.MAX_CAPACITY)
                 .createdAt(group.getCreatedAt().toString())
-                .ownerId(group.getOwnerId())
+                .ownerId(group.getOwner().getId())
                 .members(memberInfos)
                 .build();
     }
@@ -53,7 +53,7 @@ public class GroupDetailResponse {
                     .userId(groupMember.getUser().getId())
                     .name(groupMember.getUser().getName())
                     .profileImageUrl(groupMember.getUser().getProfileImage())
-                    .isOwner(groupMember.getUser().getId().equals(ownerId))
+                    .isOwner(groupMember.isOwner())
                     .build();
         }
     }
