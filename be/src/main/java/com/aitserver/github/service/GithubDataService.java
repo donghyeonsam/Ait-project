@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.servlet.View;
 
 import java.util.List;
 
@@ -33,9 +34,10 @@ public class GithubDataService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
+    private final View error;
 
     /**
-     * 1. 깃허브 레포지토리 동기화 (토큰 발급 -> API 조회 -> DB 저장 한방에 처리)
+     * 깃허브 레포지토리 동기화 (토큰 발급 -> API 조회 -> DB 저장 한방에 처리)
      */
     @Transactional
     public void syncGithubRepositories(Long userId, String installationId) {
@@ -107,7 +109,7 @@ public class GithubDataService {
     }
 
     /**
-     * 2. 저장된 레포지토리 목록 불러오기
+     * 저장된 레포지토리 목록 불러오기
      */
     @Transactional(readOnly = true)
     public List<GithubRepoResponseDto> getSavedRepos(Long userId) {
@@ -123,4 +125,24 @@ public class GithubDataService {
                 .toList();
     }
 
+    /**
+     * 레포지토리 닉네임 수정
+     */
+    @Transactional
+    public void updateRepoNickname(Long userId, Long repoId, String newNickname) {
+        GithubRepo repo = githubRepoRepository.findByIdAndGithubAppUserId(repoId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GITHUB_REPO_NOT_FOUND));
+
+        repo.updateNickname(newNickname);
+    }
+
+    /**
+     * 레포지토리 삭제
+     */
+    public void deleteRepo(Long userId, Long repoId) {
+        GithubRepo repo = githubRepoRepository.findByIdAndGithubAppUserId(repoId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GITHUB_REPO_NOT_FOUND));
+
+        githubRepoRepository.delete(repo);
+    }
 }

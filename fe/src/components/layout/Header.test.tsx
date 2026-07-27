@@ -51,4 +51,16 @@ describe('Header 로그아웃', () => {
     await waitFor(() => expect(mocks.signOut).toHaveBeenCalledOnce())
     expect(screen.getByTestId('current-path')).toHaveTextContent('/')
   })
+
+  it('스터디 하위 페이지에서도 스터디 라운지 메뉴를 활성화한다', () => {
+    render(
+      <MemoryRouter initialEntries={['/study/groups/101']}>
+        <Header />
+      </MemoryRouter>,
+    )
+
+    expect(
+      screen.getByRole('link', { name: '스터디 라운지' }),
+    ).toHaveAttribute('aria-current', 'page')
+  })
 })

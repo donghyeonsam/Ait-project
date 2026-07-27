@@ -9,10 +9,30 @@
 면접 중 services/rag_service.py 의 retrieve_context() 로 검색되어 질문/꼬리질문/
 답변보완 프롬프트의 근거 자료로 쓰인다 — 즉 이 서비스가 먼저 잘 돌아가야 RAG 전체가
 의미를 갖는다.
+
+[구조화 분석 문서 지원 - 신규, ai/docs/AI_작업일지_0724.md 2절 참고]
+기존에는 `EmbeddingItem.content`가 단순 평문 텍스트였고, `_split_text()`로 500자
+슬라이딩 윈도우 청킹을 해서 저장했다. 이제 BE가 별도의 "분석 LLM"으로 미리 의미
+단위 청킹 + 메타데이터(역량/면접 질문 주제/키워드/불확실한 점 등)를 붙인 구조화된
+JSON을 `content`(여전히 str 타입)에 실어 보낼 수도 있다. 두 포맷을 다음처럼 자동
+판별해 둘 다 지원한다(하위 호환 — BE가 포맷 버전을 명시적으로 알려주기로 확정되지
+않았으므로, 내용 기반 자동 판별이 가장 안전하다):
+  - `content`가 `json.loads()`로 파싱되고, 그 결과 dict에 `"embedding_documents"`
+    키가 있으면 → 새 구조화 포맷(`_build_structured_chunks()`).
+  - 파싱 실패하거나 그 키가 없으면 → 기존 평문으로 보고 `_split_text()` 슬라이딩
+    윈도우 청킹 경로(`_build_plain_text_chunks()`)를 그대로 탄다.
 """
+import json
 import logging
 
+from pydantic import ValidationError
+
 from db.chroma import get_collection
+from schemas.analysis_document import (
+    AnalysisDocument,
+    AnalysisDocumentError,
+    EmbeddingDocumentChunk,
+)
 from schemas.embedding import EmbedRequest, EmbeddingItem
 
 logger = logging.getLogger(__name__)
@@ -117,14 +137,203 @@ def _make_id(user_id: int, item: EmbeddingItem, idx: int) -> str:
     청크 고유 ID 생성 규칙: u{user_id}:{doc_type}:{target_id}:{청크 순번}.
     동일한 문서(같은 user_id+doc_type+target_id)를 재분석해 다시 임베딩 요청이 오면
     같은 ID로 upsert되어 자동 갱신된다 — 별도의 "기존 항목 찾아서 삭제" 로직 불필요.
+
+    [구조화 분석 문서 지원 - 신규] 새 구조화 포맷 청크는 이 함수를 쓰지 않는다 —
+    BE가 이미 `chunk_id`를 부여해서 보내주므로 순번 기반 id 대신
+    `_make_structured_id()`(BE의 chunk_id + user_id prefix)를 사용한다.
     """
     return f"u{user_id}:{item.doc_type.value}:{item.target_id}:{idx}"
+
+
+def _make_structured_id(user_id: int, chunk_id: str) -> str:
+    """
+    구조화 포맷 청크의 Chroma id. BE가 준 chunk_id를 그대로 쓰되, 사용자 간 id
+    충돌을 막기 위해 user_id를 prefix로 붙인다(예: chunk_id="resume_project_1",
+    user_id=42 → "u42:resume_project_1"). `_make_id()`와 이름 규칙이 다른 이유는
+    청크 순번이 아니라 BE가 부여한 안정적인 청크 식별자를 그대로 신뢰하기 때문이다.
+    """
+    return f"u{user_id}:{chunk_id}"
+
+
+def _try_parse_analysis_document(content: str) -> AnalysisDocument | None:
+    """
+    `content`가 새 구조화 분석 문서 포맷인지 판별해 파싱한다.
+
+    판별 기준: json.loads()가 성공하고, 결과가 dict이며 "embedding_documents" 키가
+    있으면 새 포맷으로 간주한다. 파싱 실패/구조 아님(둘 다 "이건 새 포맷이 아니다"는
+    뜻) → None을 반환해 호출부가 기존 평문 청킹 경로로 조용히 fallback하게 한다.
+    다만 "embedding_documents" 키가 있는데 그 값이 리스트가 아닌 경우는 "새 포맷인
+    것은 확실한데 구조 자체가 깨진" 명백한 손상이므로, 조용히 넘어가지 않고
+    AnalysisDocumentError를 던져 routers/embedding.py 가 400으로 응답하게 한다.
+
+    코드펜스(```json ... ```) 방어: BE의 분석 LLM 출력도 결국 LLM 출력이라
+    core/gms_client.py._safe_json_parse() 가 방어하는 것과 같은 문제(코드펜스로
+    감싸서 응답)가 생길 수 있다. 다만 도메인이 달라(BE 분석 결과 vs 우리가 직접
+    호출하는 GMS 응답) 그 함수를 그대로 재사용하지 않고 여기 최소한만 반복한다.
+    """
+    text = content.strip()
+    if not text:
+        return None
+
+    if text.startswith("```"):
+        parts = text.split("```", 2)
+        text = parts[1] if len(parts) >= 2 else text
+        if text.lstrip().startswith("json"):
+            text = text.lstrip()[4:]
+        text = text.strip()
+
+    try:
+        raw = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+
+    if not isinstance(raw, dict) or "embedding_documents" not in raw:
+        return None
+
+    if not isinstance(raw["embedding_documents"], list):
+        raise AnalysisDocumentError(
+            "embedding_documents가 리스트가 아님"
+            f"(실제 타입={type(raw['embedding_documents']).__name__}) - 구조화 분석 문서 포맷이 손상됨"
+        )
+
+    return AnalysisDocument.model_validate(raw)
+
+
+def _build_chunk_metadata(user_id: int, item: EmbeddingItem, chunk: EmbeddingDocumentChunk) -> dict:
+    """
+    구조화 포맷 청크 1개의 Chroma metadata를 만든다.
+
+    [평탄화가 필요한 이유] Chroma metadata는 str/int/float/bool 같은 flat 값만
+    허용하고 list/dict 같은 중첩 구조는 저장할 수 없다(그대로 넣으면 예외 발생).
+    그래서:
+      - 문자열 리스트(competencies/keywords/uncertainties): 콤마로 join해서
+        하나의 문자열로 저장한다(예: "BACKEND_DEVELOPMENT,DATABASE"). 개별 항목에
+        콤마가 섞여 있을 가능성은 낮다고 보고(역량/키워드 특성상 짧은 단어 단위) 별도
+        이스케이프는 하지 않았다 — 완벽한 왕복 대신 표시/검색 편의를 우선했다.
+      - 리스트-of-객체/중첩 객체(question_topics, details): json.dumps(...,
+        ensure_ascii=False)로 문자열화해서 저장하고, 사용하는 쪽
+        (services/rag_service.py)에서 json.loads()로 복원한다.
+    """
+    return {
+        # 아래 4개는 기존 평문 청크와 동일한 키 이름/의미를 유지한다 — rag_service.py의
+        # _build_where() 필터(user_id/doc_type/target_id)와 format_context()의 출처
+        # 표시(title)가 새 포맷/기존 포맷 구분 없이 그대로 동작해야 하기 때문이다.
+        "user_id": user_id,
+        "doc_type": item.doc_type.value,
+        "target_id": item.target_id,
+        "title": item.title or "",
+        # 아래부터는 구조화 포맷 전용 신규 메타데이터.
+        "chunk_id": chunk.chunk_id,
+        "parent_id": chunk.parent_id or "",
+        "experience_id": chunk.experience_id or "",
+        "chunk_type": chunk.chunk_type,
+        # 청크 자체의 제목(예: 프로젝트명)은 위 "title"(문서 전체 제목/레포명 등)과
+        # 의미가 달라 키 이름을 구분했다 — 하나의 dict에 같은 키를 두 번 못 쓰기도 하고,
+        # format_context() 등에서 "문서 제목"과 "청크 제목"을 구분해 쓸 수 있게 한다.
+        "chunk_title": chunk.title or "",
+        "summary": chunk.summary or "",
+        "competencies": ",".join(chunk.competencies),
+        "keywords": ",".join(chunk.keywords),
+        "uncertainties": ",".join(chunk.uncertainties),
+        "question_topics": json.dumps(chunk.question_topics, ensure_ascii=False),
+        "details": json.dumps(chunk.details, ensure_ascii=False),
+    }
+
+
+def _build_structured_chunks(
+    user_id: int, item: EmbeddingItem, document: AnalysisDocument
+) -> tuple[list[str], list[str], list[dict]]:
+    """
+    새 구조화 포맷(document.embedding_documents)에서 Chroma upsert용
+    (ids, documents, metadatas) 리스트를 만든다.
+
+    청크 단위 방어적 파싱: document.embedding_documents는 원시 dict 리스트로
+    보관되어 있다(schemas/analysis_document.py의 AnalysisDocument 참고 — 여기서
+    이미 EmbeddingDocumentChunk로 엄격 검증하지 않는 이유가 설명돼 있음). 청크
+    하나가 스펙과 안 맞아 EmbeddingDocumentChunk 검증에 실패해도 그 청크만
+    건너뛰고, 문서의 나머지 청크는 정상적으로 임베딩된다.
+    """
+    ids: list[str] = []
+    documents: list[str] = []
+    metadatas: list[dict] = []
+
+    for raw_chunk in document.embedding_documents:
+        try:
+            chunk = EmbeddingDocumentChunk.model_validate(raw_chunk)
+        except ValidationError as e:
+            logger.warning(
+                "구조화 청크 파싱 실패(스킵): user=%s type=%s target=%s chunk_id=%s error=%s",
+                user_id, item.doc_type, item.target_id,
+                raw_chunk.get("chunk_id") if isinstance(raw_chunk, dict) else None, e,
+            )
+            continue
+
+        if not chunk.embedding_text.strip():
+            logger.warning(
+                "embedding_text 없는 청크 스킵: user=%s chunk_id=%s", user_id, chunk.chunk_id
+            )
+            continue
+
+        ids.append(_make_structured_id(user_id, chunk.chunk_id))
+        documents.append(chunk.embedding_text)
+        metadatas.append(_build_chunk_metadata(user_id, item, chunk))
+
+    # [document_summary/cross_document_insights 를 의도적으로 임베딩하지 않음]
+    # 이 둘은 청크 단위가 아니라 "문서 전체" 또는 "문서 간" 요약이라, 이걸 RAG에서
+    # 어떻게(예: 별도 컬렉션? 항상 프롬프트에 포함?) 활용할지 아직 제품적으로 결정되지
+    # 않았다. 그래서 이번 작업 범위에서는 파싱만 해두고(구조 검증 겸 향후 확장 대비),
+    # 검색 가능한 별도 Chroma 문서로 저장하지 않는다 — 대신 파싱됐다는 사실만
+    # 로그로 남겨 향후 활용 논의 시 실제로 데이터가 오고 있었는지 확인할 수 있게 한다.
+    if isinstance(document.document_summary, dict):
+        logger.info(
+            "문서 요약 파싱됨(향후 활용 방안 미정 - 의도적으로 임베딩하지 않음): "
+            "user=%s type=%s target=%s company=%s role=%s",
+            user_id, item.doc_type, item.target_id,
+            document.document_summary.get("target_company"),
+            document.document_summary.get("target_role"),
+        )
+
+    return ids, documents, metadatas
+
+
+def _build_plain_text_chunks(user_id: int, item: EmbeddingItem) -> tuple[list[str], list[str], list[dict]]:
+    """
+    기존 평문 `content`를 `_split_text()`로 슬라이딩 윈도우 청킹해 Chroma upsert용
+    (ids, documents, metadatas) 리스트를 만든다. `embed_user_documents()`에 인라인으로
+    있던 로직을 그대로 옮긴 것으로, 동작은 전혀 바뀌지 않았다(구조화 포맷 분기 추가를
+    위해 함수로만 추출).
+    """
+    ids: list[str] = []
+    documents: list[str] = []
+    metadatas: list[dict] = []
+
+    chunks = _split_text(item.content)
+    for idx, chunk in enumerate(chunks):
+        ids.append(_make_id(user_id, item, idx))
+        documents.append(chunk)
+        # 이 metadata 가 services/rag_service.py 의 _build_where() 필터(user_id,
+        # doc_type)와 format_context() 의 출처 표시(title)에 그대로 쓰인다.
+        metadatas.append(
+            {
+                "user_id": user_id,
+                "doc_type": item.doc_type.value,
+                "target_id": item.target_id,
+                "title": item.title or "",
+                "chunk_index": idx,
+            }
+        )
+    return ids, documents, metadatas
 
 
 def embed_user_documents(req: EmbedRequest) -> tuple[int, int]:
     """
     사용자 문서(이력서/자소서/GitHub) 임베딩.
     BE가 analyses 테이블에 분석 결과를 저장한 직후 호출하는 것을 전제로 한다.
+
+    [구조화 분석 문서 지원 - 신규] item.content를 _try_parse_analysis_document() 로
+    먼저 판별한다 — 새 구조화 포맷이면 _build_structured_chunks(), 아니면(기존 평문)
+    _build_plain_text_chunks()를 탄다. 두 경로 모두 동일한 (ids, documents,
+    metadatas) 형태를 반환하므로 이후 upsert/집계 로직은 포맷 구분 없이 공통이다.
 
     Returns:
         (embedded_items, total_chunks)
@@ -142,33 +351,31 @@ def embed_user_documents(req: EmbedRequest) -> tuple[int, int]:
         # 문서 하나 때문에 같은 사용자의 다른 이력서/자소서/GitHub 임베딩까지 함께
         # 삭제되는 버그가 있었다. 문서 단위 삭제(delete_document_embedding)를 아이템마다
         # 개별 호출하도록 바꿔, "수정된 문서만 지우고 나머지는 그대로 유지"가 되도록 했다.
-        # 사실 upsert 만으로도 같은 id(청크 순번까지 동일)는 갱신되지만, 청크 개수가
-        # 줄어든 경우(예: 5개 → 3개) 남은 뒤쪽 청크(idx=3,4)가 삭제 없이는 그대로
-        # 남아버리므로, upsert 이전에 명시적으로 지워주는 이 삭제 호출이 필요하다.
+        # [구조화 분석 문서 지원] 이 삭제 호출은 새 포맷/기존 포맷 구분 없이 동일하게
+        # 필요하다 — 삭제 범위는 user_id/doc_type/target_id 세 조건으로만 잡고 있어서
+        # (청크 id가 순번이든 BE의 chunk_id든 무관), 재분석 시 청크 구성이 통째로
+        # 바뀌어도(예: 평문 5청크 → 구조화 8청크) 이전 청크가 유령으로 남지 않는다.
         if req.replace:
             delete_document_embedding(req.user_id, item.doc_type.value, item.target_id)
 
-        chunks = _split_text(item.content)
-        if not chunks:
+        analysis_document = _try_parse_analysis_document(item.content)
+        if analysis_document is not None:
+            item_ids, item_docs, item_metas = _build_structured_chunks(
+                req.user_id, item, analysis_document
+            )
+        else:
+            item_ids, item_docs, item_metas = _build_plain_text_chunks(req.user_id, item)
+
+        if not item_ids:
             logger.warning(
                 "빈 문서 스킵: user=%s type=%s target=%s",
                 req.user_id, item.doc_type, item.target_id,
             )
             continue
-        for idx, chunk in enumerate(chunks):
-            ids.append(_make_id(req.user_id, item, idx))
-            documents.append(chunk)
-            # 이 metadata 가 services/rag_service.py 의 _build_where() 필터(user_id,
-            # doc_type)와 format_context() 의 출처 표시(title)에 그대로 쓰인다.
-            metadatas.append(
-                {
-                    "user_id": req.user_id,
-                    "doc_type": item.doc_type.value,
-                    "target_id": item.target_id,
-                    "title": item.title or "",
-                    "chunk_index": idx,
-                }
-            )
+
+        ids.extend(item_ids)
+        documents.extend(item_docs)
+        metadatas.extend(item_metas)
 
     if not ids:
         return (0, 0)

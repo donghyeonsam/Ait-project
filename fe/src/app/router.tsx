@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { GuestOnlyRoute, HomeRoute, ProtectedRoute } from '@/app/route-guards'
 import { CommunityPage } from '@/pages/CommunityPage'
+import { CoverLetterCreatePage } from '@/pages/CoverLetterCreatePage'
 import { CoverLetterPage } from '@/pages/CoverLetterPage'
 import { DashboardInterviewsPage } from '@/pages/DashboardInterviewsPage'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -14,7 +15,10 @@ import { NotFoundPage } from '@/pages/NotFoundPage'
 import { PrivacyPage } from '@/pages/PrivacyPage'
 import { RecordingNoticePage } from '@/pages/RecordingNoticePage'
 import { ResumePage } from '@/pages/ResumePage'
+import { StudyGroupPage } from '@/pages/StudyGroupPage'
 import { StudyPage } from '@/pages/StudyPage'
+import { StudySessionPrejoinPage } from '@/pages/StudySessionPrejoinPage'
+import { StudySessionRoomPage } from '@/pages/StudySessionRoomPage'
 import { SignupPage } from '@/pages/auth/SignupPage'
 import { TermsPage } from '@/pages/TermsPage'
 
@@ -30,12 +34,17 @@ export function AppRouter() {
       <Route path="/interviews" element={<ProtectedRoute><InterviewsPage /></ProtectedRoute>} />
       <Route path="/interviews/session" element={<ProtectedRoute><InterviewSessionPage /></ProtectedRoute>} />
       <Route path="/study" element={<ProtectedRoute><StudyPage /></ProtectedRoute>} />
+      <Route path="/study/groups/:studyId" element={<ProtectedRoute><StudyGroupPage /></ProtectedRoute>} />
+      {/* TODO: 임시 진입 경로 — 스터디 라운지 → 내 스터디 그룹 → 세션 생성/참가 구현 시 해당 흐름에서 연결한다. */}
+      <Route path="/study/session/:sessionId/prejoin" element={<ProtectedRoute><StudySessionPrejoinPage /></ProtectedRoute>} />
+      <Route path="/study/session/:sessionId/room" element={<ProtectedRoute><StudySessionRoomPage /></ProtectedRoute>} />
       <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
       <Route path="/community/posts/:postId" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
       <Route path="/github/callback" element={<ProtectedRoute><GithubCallbackPage /></ProtectedRoute>} />
       <Route path="/mypage" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
       <Route path="/mypage/documents" element={<Navigate to="/mypage" replace />} />
       <Route path="/mypage/documents/resume" element={<ProtectedRoute><ResumePage /></ProtectedRoute>} />
+      <Route path="/mypage/documents/cover-letters/new" element={<ProtectedRoute><CoverLetterCreatePage /></ProtectedRoute>} />
       <Route path="/mypage/documents/cover-letters/:coverLetterId" element={<ProtectedRoute><CoverLetterPage /></ProtectedRoute>} />
       <Route path="/login" element={<GuestOnlyRoute><LoginPage /></GuestOnlyRoute>} />
       <Route path="/signup" element={<GuestOnlyRoute><SignupPage /></GuestOnlyRoute>} />

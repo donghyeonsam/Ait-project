@@ -156,6 +156,7 @@ class GeneratedQuestion(BaseModel):
     )
     topic: str | None = Field(None, description="질문 주제 태그")
     source: str | None = Field(None, description="근거가 된 문서 출처 (resume/github 등)")
+    depth: int = Field(0, description="이 질문의 초기 꼬리질문 횟수 (생성 시점엔 항상 0)")
 
 
 class QuestionGenerateResponse(BaseModel):
@@ -168,86 +169,106 @@ class QuestionGenerateResponse(BaseModel):
 # ────────────────────────────
 # 꼬리질문 생성 (답변 수신 시)
 # ────────────────────────────
-# [루브릭 아키텍처 전환 - Phase 2]
-# 기존에는 "꼬리질문이 필요한가?"를 LLM이 애매하게(need_followup bool) 판단했지만,
-# 이제는 Phase 1에서 질문과 함께 만들어둔 rubric(채점 기준)을 기준으로 답변을 항목별로
-# 채점하고, 통과하지 못한 기준이 있을 때만 그 부분을 겨냥한 꼬리질문을 생성한다.
-# 따라서 "따로 종료 여부를 LLM에게 물어보는" 방식에서 "rubric 통과 여부로 자연스럽게
-# 종료를 판단하는" 방식으로 바뀐다. need_followup 플래그는 all_passed 의 반대 개념으로
-# 대체되었다.
-class RubricResult(BaseModel):
-    """rubric(채점 기준) 항목 1개에 대한 채점 결과."""
+# [꼬리질문 narrowing 전환 - 2026-07-26]
+# 기존에는 매 턴 rubric 전체를 백지 상태에서 재채점했다. FastAPI는 stateless라
+# "이전 턴에 어떤 rubric이 이미 통과됐는지"를 서버가 스스로 알 방법이 없고, BE도
+# 통과 항목을 걸러내지 않고 요청을 그대로 패스스루했기 때문에, 같은 rubric이
+# 턴마다 pass/fail을 오가는 진동이 발생했다(예: "나이" rubric을 통과시킨 다음 턴에
+# "성별"만 채점하려다 "나이" rubric이 이번엔 언급이 없다는 이유로 도로 fail 처리되는
+# 식 — 무한 반복). 기존 코드의 "BE는 통과 못한 rubric만 추려서 넘겨주는 것을
+# 전제로 한다"는 주석은 실제로는 아무도 구현하지 않은 문서상의 가정이었다.
+#
+# 해결 방식은 "통과한 rubric 항목을 응답에서 아예 제거해 내려준다"이다. 다음 턴
+# 요청에는 미통과 항목만 실려 오므로, 이미 통과한 항목은 재채점 대상으로 물리적으로
+# 존재하지 않는다 — 통과 상태를 뒤집을 코드 경로 자체가 없어지므로 진동이 구조적으로
+# 불가능해진다. 상태는 여전히 요청/응답 payload가 왕복시키므로 FastAPI의 stateless
+# 원칙은 그대로 유지되고, rubric 타입도 list[str] 그대로라 다른 파트의 DTO 타입
+# 변경을 유발하지 않는다.
+#
+# "rubric 항목에 통과 플래그를 심은 객체 배열"로 바꾸는 대안도 검토했으나 기각했다
+# (다른 파트의 DTO 타입 변경이 필요하고, "한 번 pass한 항목은 다시 fail로 안 바뀐다"는
+# 단조성을 병합 코드로 지켜야 해서 narrowing보다 취약함). 경위는
+# docs/AI_작업일지_0726.md 참고.
+class FollowupQuestionInfo(BaseModel):
+    """꼬리질문 요청에 실려 오는 '직전에 사용자가 답한 질문' 정보.
 
-    criterion: str = Field(..., description="채점 기준 원문 (GeneratedQuestion.rubric 의 항목)")
-    passed: bool | None = Field(
-        ...,
-        description=(
-            "답변이 이 기준을 충족했는지 여부. "
-            "None 은 '채점하지 않음'을 의미하며, 꼬리질문 횟수 상한 도달로 "
-            "LLM 호출 자체를 생략(capped=True)한 경우에만 발생한다."
-        ),
+    GeneratedQuestion과 필드 구성이 동일하다 — 호출측은 이전 턴 응답의
+    next_question을 가공 없이 그대로 이 자리에 되돌려 보내면 된다. rubric의 의미가
+    "이 질문의 전체 채점 기준"에서 "아직 통과하지 못한 채점 기준"으로 재정의된 점이
+    GeneratedQuestion.rubric과의 유일한 차이다.
+    """
+
+    order: int = Field(..., description="질문 순서 (부모 질문과 동일한 값을 유지)")
+    question: str = Field(..., description="직전 질문(기본 질문 또는 꼬리질문) 원문")
+    # [꼬리질문 narrowing 전환] min_length 제약을 두지 않는다. 빈 배열은 "이미 이
+    # 질문의 모든 기준을 통과했다"는 정상 상태이므로, 호출측이 방어적으로(rubric이
+    # 빈 채로) 호출해도 422로 막히지 않고 즉시 is_pass=true로 응답해야 한다
+    # (services/followup_service.py 1단계).
+    rubric: list[str] = Field(
+        default_factory=list,
+        description="아직 통과하지 못한 채점 기준만 (빈 배열이면 이 질문은 이미 전부 통과)",
     )
-    reason: str | None = Field(None, description="판정 근거 한 문장 (로깅/디버깅용)")
+    topic: str | None = Field(None, description="질문 주제 태그 (부모 승계)")
+    source: str | None = Field(None, description="근거가 된 문서 출처 (부모 승계)")
+    depth: int = Field(0, ge=0, description="지금까지 이 질문에 나간 꼬리질문 횟수")
 
 
 class FollowupRequest(BaseModel):
     user_id: int
-    ai_interview_id: int
-    parent_question: str = Field(..., description="직전(기존) 질문")
-    # [루브릭 아키텍처 전환] Phase 1 에서 생성해 BE가 세션 상태(Redis 등)에 저장해둔
-    # 해당 질문의 rubric 을 그대로 되돌려받아 채점 기준으로 사용한다.
-    # 꼬리질문에 대한 재꼬리질문인 경우, BE 는 "아직 통과하지 못한 rubric 항목"만
-    # 추려서 넘겨주는 것을 전제로 한다 (이미 통과한 기준을 다시 채점할 필요는 없음).
-    rubric: list[str] = Field(..., min_length=1, description="채점 대상 rubric 목록")
-    user_answer: str = Field(..., description="사용자 답변 (STT 텍스트)")
+    # [꼬리질문 narrowing 전환] 응답에서는 제거하지만 요청에서는 선택 필드로 남겨둔다.
+    # 로그에 세션 식별자가 안 남으면 장애 추적이 불가능해지기 때문 — 요청에서만 받아
+    # 로깅에 쓰고 채점 로직에는 관여시키지 않는다.
+    ai_interview_id: int | None = Field(None, description="로깅 전용. 응답에는 포함되지 않는다")
     interview_type: InterviewType
-    # [BE 요청 형식 개편 - 2026-07-23, 세션 전체로 확장] QuestionGenerateRequest 와
-    # 동일한 필드. 질문 생성(/questions) 시 BE가 지정한 문서와 "같은 값"을 이 요청에도
-    # 함께 실어 보내야 한다 — AI 서비스는 세션 상태를 저장하지 않는 stateless 구조라,
-    # 면접 시작 시 한 번 지정했다고 해서 이후 요청에서 자동으로 기억하지 못한다.
-    # 값이 있으면 services/rag_service.py 의 retrieve_context() 가 "이 사용자의 해당
-    # 문서 전체"가 아니라 "이 특정 문서"로 RAG 검색 범위를 좁힌다(질문 생성 때와 동일한
-    # 문서를 계속 참고해야 면접 전체에서 근거가 일관되게 유지된다). 선택 필드이며 없으면
-    # 기존처럼 user_id(+doc_type) 전체에서 검색한다(하위 호환).
+    # [BE 요청 형식 개편 - 2026-07-23, 세션 전체로 확장] 질문 생성(/questions) 시 BE가
+    # 지정한 문서와 "같은 값"을 이 요청에도 함께 실어 보내야 한다 — AI 서비스는 세션
+    # 상태를 저장하지 않는 stateless 구조라, 면접 시작 시 한 번 지정했다고 해서 이후
+    # 요청에서 자동으로 기억하지 못한다. 값이 있으면 services/rag_service.py 의
+    # retrieve_context() 가 "이 특정 문서"로 RAG 검색 범위를 좁힌다. 선택 필드이며
+    # 없으면 기존처럼 user_id(+doc_type) 전체에서 검색한다(하위 호환).
     resume_id: int | None = Field(None, description="이 면접에서 참고할 이력서 analyses.target_id")
     cover_letter_id: int | None = Field(None, description="이 면접에서 참고할 자소서 analyses.target_id")
     github_repo_id: int | None = Field(None, description="이 면접에서 참고할 GitHub 레포 analyses.target_id")
-    # [루브릭 아키텍처 전환] 채점 로직 자체는 더 이상 이 값에 의존하지 않지만,
-    # rubric이 계속 통과되지 않아 꼬리질문이 무한정 이어지는 것을 막기 위한
-    # 안전장치(상한 체크)로만 사용한다. 주 종료 조건은 all_passed 이다.
-    followup_depth: int = Field(
-        0,
-        ge=0,
-        description="현재까지 이 질문에 나간 꼬리질문 횟수 (안전장치용 상한 체크 전용)",
-    )
+    # [꼬리질문 narrowing 전환 - Breaking Change] 기존 flat 구조(parent_question/
+    # rubric/depth를 최상위 필드로 직접 받던 방식)를 중첩 객체로 바꿨다. 호출측이
+    # "이전 턴 응답의 next_question을 그대로 여기에 되돌려 보낸다"는 계약을 스키마
+    # 형태로도 드러내기 위함 — 필드를 개별로 조립해서 보내면 rubric을 복원/추가하는
+    # 실수가 섞여 들어가기 쉽다.
+    question: FollowupQuestionInfo = Field(..., description="직전에 사용자가 답한 질문")
+    # [꼬리질문 narrowing 전환 - Breaking Change] 기존 user_answer → answer로 필드명
+    # 변경(2절 요청 형식 참고).
+    answer: str = Field(..., description="사용자 답변 (STT 텍스트)")
+
+
+class FollowupNextQuestion(BaseModel):
+    """꼬리질문 응답의 다음 질문. GeneratedQuestion과 동일한 필드 구성이어야 한다 —
+    소비하는 쪽(BE/FE)이 두 객체를 같은 타입으로 다룰 수 있어야 하기 때문이다."""
+
+    order: int
+    question: str
+    rubric: list[str] = Field(default_factory=list, description="아직 통과하지 못한 항목만")
+    topic: str | None = None
+    source: str | None = None
+    depth: int
 
 
 class FollowupResponse(BaseModel):
-    ai_interview_id: int
-    # [루브릭 아키텍처 전환] rubric 항목별 채점 결과. capped=True 인 경우
-    # (아래 참고) 실제 채점을 하지 않으므로 빈 리스트로 반환된다.
-    rubric_results: list[RubricResult] = Field(default_factory=list)
-    all_passed: bool = Field(
+    # [꼬리질문 narrowing 전환 - Breaking Change] 기존 rubric_results/all_passed/
+    # capped/ai_interview_id 필드를 전부 제거하고 is_pass/next_question 둘로
+    # 단순화했다. rubric_results(항목별 pass/fail)는 narrowing 방식에서 "미통과
+    # 항목만 다음 rubric으로 내려주는" 구조로 대체되어 별도 채점 결과 리스트가
+    # 필요 없어졌고, capped는 is_pass=true에 흡수됐다(아래 참고).
+    is_pass: bool = Field(
         ...,
-        description="rubric 항목이 모두 통과됐는지 (true 면 BE는 다음 기본 질문으로 진행)",
-    )
-    followup_question: str | None = Field(
-        None, description="통과 못한 rubric을 겨냥한 꼬리질문 (all_passed=true 면 null)"
-    )
-    # [루브릭 아키텍처 재설계] 기존 expected_answer(꼬리질문의 예상 모범 답안 — 아직
-    # 사용자가 답하지도 않은 시점에 미리 만들어두는 값) 필드를 제거했다. GeneratedQuestion
-    # 과 동일한 이유: "질문에 대한 사전 예상 답안"이라는 개념 자체를 없애고, 사용자가
-    # 이 꼬리질문에 실제로 답변을 제출한 뒤 AnswerSupplementRequest/Response
-    # (services/answer_service.py)로 그 답변을 보완한 ai_answer를 생성하는 흐름으로 통일했다.
-    followup_depth: int = Field(..., description="이번 응답 반영 후 누적 꼬리질문 횟수")
-    capped: bool = Field(
-        False,
         description=(
-            "꼬리질문 횟수 상한(config.max_followup_per_question)에 도달해 "
-            "실제 rubric 채점 없이 강제로 종료 처리했는지 여부. "
-            "true 인 경우 all_passed=true 이지만 이는 '진짜 통과'가 아니라 "
-            "'더 이상 파고들지 않기로 함'을 의미하므로, 리포트 등에서 구분해 다뤄야 한다."
+            "true면 BE는 다음 기본 질문으로 진행. 단 depth 상한 도달로 강제 종료된 "
+            "경우도 true로 내려온다 — '모든 rubric 통과'와 '상한 도달로 강제 종료' "
+            "두 의미를 이 필드 하나가 공유하므로, 구분이 필요하면 호출측이 "
+            "question.depth 값으로 판단해야 한다."
         ),
+    )
+    next_question: FollowupNextQuestion | None = Field(
+        None, description="꼬리질문. is_pass=false일 때만 값이 있다"
     )
 
 
@@ -269,17 +290,13 @@ class AnswerSupplementRequest(BaseModel):
     user_id: int
     ai_interview_id: int
     question: str = Field(..., description="사용자가 답변한 질문 원문 (기본 질문 또는 꼬리질문)")
+    # [꼬리질문 narrowing 전환] rubric_results(Phase 2 채점 결과) 필드를 제거했다.
+    # narrowing 방식에서는 /followup 요청에 실렸던 rubric 자체가 이미 "이 답변이
+    # 놓친 기준 목록"이므로, 별도로 pass/fail 채점 결과를 다시 실어 보내는 것은
+    # 중복 정보다. 아래 rubric 필드에 "놓친 기준"을 넘기면 된다.
     rubric: list[str] = Field(
         default_factory=list,
         description="이 질문의 채점 기준 (있으면 보완 시 반영, 없으면 일반적인 답변 품질 기준으로 보완)",
-    )
-    rubric_results: list[RubricResult] | None = Field(
-        None,
-        description=(
-            "Phase 2(/followup)에서 이미 채점한 결과가 있으면 그대로 전달. "
-            "재채점 없이 '어떤 기준을 놓쳤는지'를 바로 알 수 있어 보완 품질이 좋아진다. "
-            "없으면(예: 첫 기본 질문 답변 직후 아직 채점 전이라면) null."
-        ),
     )
     user_answer: str = Field(..., description="사용자 답변 (STT 텍스트)")
     interview_type: InterviewType

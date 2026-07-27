@@ -125,6 +125,8 @@ ai/
 ### 1. 임베딩 저장 — `POST /api/v1/embeddings`
 
 BE가 `analyses` 저장 후 호출. `replace=true`면 해당 user_id 기존 임베딩 삭제 후 재삽입.
+**요청 스키마(`EmbedRequest`/`EmbeddingItem`) 자체는 바뀌지 않았다** — `items[].content`는
+여전히 문자열(`str`) 필드다.
 
 ```json
 {
@@ -139,6 +141,15 @@ BE가 `analyses` 저장 후 호출. `replace=true`면 해당 user_id 기존 임�
 ```
 
 > `doc_type`은 ERD `analyses.type`(resume/cover_letter/github), `target_id`는 `analyses.target_id`와 매핑.
+
+> ⚠️ **구조화 분석 문서 포맷 지원 (2026-07-24)**: `items[].content`에 BE의 "분석 LLM"이
+> 만든 구조화된 JSON(`schema_version`/`document_type`/`document_summary`/
+> `embedding_documents[]`/`cross_document_insights`)을 **문자열로** 실어 보내면, AI
+> 서비스가 이를 자동으로 인식해(내용에 `"embedding_documents"` 키가 있는지로 판별)
+> 청크 단위 메타데이터(역량/면접 질문 주제/키워드/불확실한 점 등)까지 함께 Chroma에
+> 저장하고, 질문 생성/꼬리질문 프롬프트에도 활용한다. 기존처럼 평문 텍스트를 보내는
+> 것도 계속 그대로 지원된다(자동 판별 — BE가 별도 마이그레이션할 필요 없음). 상세
+> 스펙/필드 설명/BE 영향은 `docs/AI_작업일지_0724.md` 참고.
 
 ### 2. 질문 생성 — `POST /api/v1/interviews/questions`
 
@@ -200,47 +211,105 @@ BE가 `analyses` 저장 후 호출. `replace=true`면 해당 user_id 기존 임�
 
 ### 3. 꼬리질문 — `POST /api/v1/interviews/followup`
 
-답변 저장 후 호출. 2번 API에서 받은 해당 질문의 `rubric`을 함께 넘겨야 한다.
-`followup_depth`는 현재까지 나간 꼬리질문 횟수(BE가 관리) — 종료 판단의 주 기준이 아니라
-무한 반복을 막는 안전장치용 상한(기본 2)이며, 도달 시 LLM 호출 없이 `capped=true`로 종료.
+> ⚠️ **요청/응답 형식 전면 개편 — rubric narrowing 전환 (2026-07-26, Breaking
+> Change)**: 매 턴 rubric 전체를 재채점하던 기존 방식은 FastAPI가 stateless라
+> "이전 턴에 어떤 rubric이 이미 통과됐는지" 알 방법이 없어, 같은 rubric이 턴마다
+> pass/fail을 오가는 진동(예: A 답변 턴에 B가 fail, B 답변 턴에 A가 도로 fail)이
+> 발생했다. 이제는 **통과한 rubric 항목을 응답에서 제거해 내려주는** 방식으로
+> 바꿔, 다음 턴에는 미통과 항목만 요청에 실리게 했다 — 이미 통과한 항목을 재채점할
+> 코드 경로 자체가 없어지므로 진동이 구조적으로 불가능해진다. 상세 배경/검토했다가
+> 기각한 대안은 `docs/AI_작업일지_0726.md` 참고.
+
+답변 저장 후 호출. `question`에는 **직전 턴 응답의 `next_question`을 가공 없이
+그대로** 실어 보내야 한다(첫 호출이라면 2번 API로 받은 해당 질문 그대로).
+`question.rubric`의 의미가 **"이 질문의 전체 채점 기준"이 아니라 "아직 통과하지
+못한 채점 기준"**으로 재정의됐다는 점에 주의 — rubric을 임의로 추가/복원하면
+통과한 기준이 되살아나 진동이 재발한다.
 
 ```json
 {
   "user_id": 1,
-  "ai_interview_id": 100,
-  "parent_question": "React에서 상태 관리를 어떻게 했나요?",
-  "rubric": ["Redux 도입 이유를 설명했는가", "다른 대안과 비교했는가"],
-  "user_answer": "Redux를 썼습니다.",
-  "interview_type": "tech",
-  "followup_depth": 0,
+  "interview_type": "cs",
   "resume_id": 1,
   "cover_letter_id": 1,
-  "github_repo_id": 1
+  "github_repo_id": 1,
+  "question": {
+    "order": 1,
+    "question": "Redis를 캐시로 도입하셨다고 하셨는데, TTL 설정 기준은 어떻게 정하셨나요?",
+    "rubric": ["TTL 값을 정한 구체적인 근거를 설명했는가", "캐시 무효화 전략을 함께 언급했는가"],
+    "topic": "캐싱 전략",
+    "source": "cover_letter",
+    "depth": 0
+  },
+  "answer": "레디스를 캐시로 도입한 이유는 저도 잘 모르겠습니다."
 }
 ```
 
-- `resume_id`/`cover_letter_id`/`github_repo_id`(신규, 선택 필드): 2번 API(질문 생성)
-  요청 때 지정한 값과 **동일한 값을 그대로** 넘겨야 한다. AI 서비스는 세션 상태를
-  저장하지 않으므로, 이 값을 안 보내면 꼬리질문 RAG 검색이 이번 면접에서 지정한
-  문서가 아니라 사용자의 해당 타입 문서 전체를 대상으로 이뤄진다.
+| 변경 | 내용 |
+|---|---|
+| 제거(요청) | `parent_question` → `question.question`으로 이동 |
+| 제거(요청) | `rubric`(최상위) → `question.rubric`으로 이동(의미도 "전체 기준"→"미통과 기준"으로 재정의) |
+| 제거(요청) | `depth`(최상위) → `question.depth`로 이동 |
+| 변경 | `user_answer` → `answer` |
+| 유지 | `interview_type`, `resume_id`, `cover_letter_id`, `github_repo_id` |
+| 유지(선택, 응답에서는 제거) | `ai_interview_id` — 로깅 전용으로만 요청에서 받는다 |
+| 신규 | `question.order`, `question.topic`, `question.source` |
 
-응답: `rubric_results`(항목별 pass/fail), `all_passed`, `followup_question`, `followup_depth`(누적), `capped`.
-`all_passed=true`면 BE는 다음 기본 질문으로 진행, `false`면 `followup_question`을 다음 차례로 제시.
+- `resume_id`/`cover_letter_id`/`github_repo_id`: 2번 API(질문 생성) 요청 때 지정한
+  값과 **동일한 값을 그대로** 넘겨야 한다. AI 서비스는 세션 상태를 저장하지 않으므로,
+  이 값을 안 보내면 꼬리질문 RAG 검색이 이번 면접에서 지정한 문서가 아니라 사용자의
+  해당 타입 문서 전체를 대상으로 이뤄진다.
+- `question.depth`는 현재까지 이 질문에 나간 꼬리질문 횟수 — 종료 판단의 주 기준이
+  아니라 무한 반복을 막는 안전장치용 상한(기본 2)이며, 도달 시 LLM 호출 없이
+  `is_pass=true`로 강제 종료한다.
+
+```json
+// 꼬리질문이 필요한 경우
+{
+  "is_pass": false,
+  "next_question": {
+    "order": 1,
+    "question": "그렇다면 TTL을 짧게 잡았을 때와 길게 잡았을 때 각각 어떤 문제가 생길 수 있을까요?",
+    "rubric": ["TTL 값을 정한 구체적인 근거를 설명했는가"],
+    "topic": "캐싱 전략",
+    "source": "cover_letter",
+    "depth": 1
+  }
+}
+
+// 꼬리질문이 필요 없는 경우
+{
+  "is_pass": true,
+  "next_question": null
+}
+```
+
+`next_question`은 2번 API 응답의 `GeneratedQuestion`과 **동일한 필드 구성**이다 —
+소비하는 쪽에서 두 객체를 같은 타입으로 다룰 수 있게 하기 위함이며, BE는 이 값을
+다음 `/followup` 호출의 `question`에 그대로 되돌려 보내면 된다.
+
+`is_pass=true`면 BE는 다음 기본 질문으로 진행, `false`면 `next_question`을 다음
+차례로 제시한다. `is_pass=true`는 **"모든 rubric을 통과함"과 "꼬리질문 횟수 상한
+도달로 강제 종료함"** 두 경우를 모두 포함한다 — 이 둘을 구분해야 한다면 요청에
+실어 보낸 `question.depth` 값으로 판단해야 한다(응답 자체에는 별도 플래그가 없다).
 
 ### 4. 답변 보완 — `POST /api/v1/interviews/answers/supplement`
 
 사용자 답변을 DB에 저장한 직후, 면접 진행을 막지 않는 **비동기 백그라운드**로 호출.
-3번 API의 `rubric_results`를 함께 넘기면 재채점 없이 놓친 부분만 겨냥해 보완한다(선택 사항).
+`rubric`에 3번 API(`/followup`) 요청 때 넘겼던 `question.rubric`(미통과 채점 기준)을
+그대로 넘기면, 재채점 없이 그 기준을 겨냥해 보완한다(선택 사항).
+
+> ⚠️ **`rubric_results` 필드 제거 (2026-07-26, rubric narrowing 전환에 따른
+> Breaking Change)**: narrowing 전환으로 `/followup`이 더 이상 rubric 항목별
+> pass/fail 채점 결과를 반환하지 않으므로(3번 API 참고), 이 API도 별도 채점
+> 결과 없이 `rubric` 목록만으로 "놓친 기준"을 판단한다.
 
 ```json
 {
   "user_id": 1,
   "ai_interview_id": 100,
   "question": "React에서 상태 관리를 어떻게 했나요?",
-  "rubric": ["Redux 도입 이유를 설명했는가", "다른 대안과 비교했는가"],
-  "rubric_results": [
-    {"criterion": "Redux 도입 이유를 설명했는가", "passed": false, "reason": "이유 언급 없음"}
-  ],
+  "rubric": ["Redux 도입 이유를 설명했는가"],
   "user_answer": "Redux를 썼습니다.",
   "interview_type": "tech",
   "resume_id": 1,

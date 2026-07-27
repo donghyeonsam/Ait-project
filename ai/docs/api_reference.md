@@ -126,9 +126,44 @@ FE에 돌려준다.
 | `items` | `EmbeddingItem[]` | ✅ (최소 1개) | 임베딩할 문서 목록 |
 | `items[].doc_type` | enum(`resume`\|`cover_letter`\|`github`) | ✅ | 문서 출처. `analyses.type` 과 매핑 |
 | `items[].target_id` | int | ✅ | 원본 테이블 PK (`analyses.target_id`) |
-| `items[].content` | string | ✅ | 분석 결과 텍스트 (`analyses.content`) |
+| `items[].content` | string | ✅ | 분석 결과 텍스트 (`analyses.content`). **평문 또는 구조화 분석 문서 JSON을 문자열로** — 아래 3.1.1 참고 |
 | `items[].title` | string \| null | ❌ | 문서 제목/레포명/회사명 (검색 결과 표시용) |
 | `replace` | bool | ❌ (기본 `true`) | true면 해당 `user_id`의 기존 임베딩을 지우고 재삽입 (재분석 시 중복 방지) |
+
+#### 3.1.1 구조화 분석 문서 포맷 (2026-07-24, 하위 호환)
+
+`items[].content`는 여전히 `string` 타입이지만(요청 스키마 자체는 변경 없음), 이제
+평문 텍스트 대신 BE의 "분석 LLM"이 만든 구조화된 JSON을 문자열로 실어 보낼 수 있다.
+AI 서비스가 `json.loads()` 시도 후 결과에 `"embedding_documents"` 키가 있으면 새
+포맷으로, 없거나 파싱 실패하면 기존 평문으로 자동 판별한다(`services/
+embedding_service.py`의 `_try_parse_analysis_document()`).
+
+최상위 구조: `schema_version`, `document_type`(`RESUME`\|`COVER_LETTER`\|`GITHUB`
+추정), `document_summary`(문서 전체 요약 — **검색 가능한 형태로 저장하지 않음**,
+구조 검증 겸 향후 확장 대비로 파싱만 함), `embedding_documents[]`(청크 목록 — 아래
+표), `cross_document_insights`(문서 간 비교 — `document_summary`와 동일하게 파싱만
+하고 저장하지 않음).
+
+`embedding_documents[]` 항목(청크) 필드:
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `chunk_id` | string | Chroma id로 사용(`u{user_id}:{chunk_id}`) |
+| `embedding_text` | string | 실제 임베딩(벡터화) 대상 — 나머지 필드는 전부 metadata |
+| `chunk_type`, `competencies`, `question_topics[].question_type` 등 | string | **의도적으로 enum이 아닌 string** — GitHub 쪽 값이 아직 미확정/계속 추가될 예정이라 문서화 안 된 새 값이 와도 요청이 튕기지 않는다 |
+| `question_topics[]` | `{topic, reason, question_type}[]` | 면접관이 확인하면 좋은 주제 — RAG 검색 시 프롬프트에 노출됨(`services/rag_service.py`의 `format_context()`) |
+| `uncertainties[]` | string[] | 추가로 확인이 필요한 부분 — 마찬가지로 프롬프트에 노출됨 |
+| `details` | object | 문서 유형별로 내부 구조가 다름(이력서/자소서는 `source_item_type`, GitHub는 `source_type` 키 사용 — 이름이 다르니 주의). 통짜 JSON으로만 저장/복원, 개별 필드는 파싱하지 않음 |
+
+Chroma metadata는 flat 값(str/int/float/bool)만 허용하므로, 문자열 리스트
+(`competencies`/`keywords`/`uncertainties`)는 콤마로 join, 리스트-of-객체/중첩
+객체(`question_topics`/`details`)는 `json.dumps(ensure_ascii=False)`로 문자열화해
+저장한다(꺼내 쓸 때 `json.loads()`로 복원).
+
+⚠️ **BE 확인 필요**: GitHub는 정식 스펙 문서가 없고 실제 응답 샘플 1건만 확보한
+상태다. 스펙 문서와 실제 샘플 데이터가 일부 불일치했다(`technologies.evidence` 등
+"사용 안 함"으로 명시된 필드가 실제로는 존재, `chunk_type`/`competency` 값 일부가
+"공통 enum" 목록에 없음). 자세한 내용은 `docs/AI_작업일지_0724.md` 참고.
 
 **응답** (`EmbedResponse`, 200)
 
@@ -144,6 +179,7 @@ FE에 돌려준다.
 | 상태 코드 | 상황 |
 |---|---|
 | 400 | `items[]`의 모든 `content`가 빈 문자열이라 임베딩할 게 없음 |
+| 400 | (신규) `content`가 구조화 분석 문서 포맷인 것은 확실한데(`embedding_documents` 키 존재) 그 값이 리스트가 아닌 등 구조 자체가 명백히 손상됨 (`AnalysisDocumentError`) |
 | 500 | Chroma/임베딩 모델 내부 오류 |
 
 **BE 연동 메모**: 이 API 호출 결과 자체는 BE가 별도로 저장할 필요 없다(성공 여부만
@@ -283,7 +319,7 @@ CS 지식은 서버 최초 기동 시 `data/cs_knowledge.json` 시드 파일로 
 | `rubric` | string[] | ✅ (최소 1개) | 채점 대상 rubric 목록. 5.1의 `questions[].rubric`을 그대로 전달. **재꼬리질문인 경우, 아직 통과 못한 rubric 항목만 추려서 전달**하는 것을 전제로 설계됨(이미 통과한 기준 재채점 불필요) |
 | `user_answer` | string | ✅ | 사용자 답변 (STT 텍스트) |
 | `interview_type` | enum | ✅ | 면접 유형 |
-| `followup_depth` | int | ❌ (기본 0) | 현재까지 이 질문에 나간 꼬리질문 횟수. **주 종료 조건이 아니라 무한 반복 방지용 안전장치**(`config.max_followup_per_question`, 기본 2 도달 시 LLM 호출 없이 강제 종료) |
+| `depth` | int | ❌ (기본 0) | 현재까지 이 질문에 나간 꼬리질문 횟수. **주 종료 조건이 아니라 무한 반복 방지용 안전장치**(`config.max_followup_per_question`, 기본 2 도달 시 LLM 호출 없이 강제 종료) |
 
 **응답** (`FollowupResponse`, 200)
 
@@ -296,7 +332,7 @@ CS 지식은 서버 최초 기동 시 `data/cs_knowledge.json` 시드 파일로 
 | `rubric_results[].reason` | string \| null | 판정 근거 한 문장(로깅/디버깅용) |
 | `all_passed` | bool | **rubric을 모두 통과했는지 — BE 분기의 핵심 필드.** `true`면 다음 기본 질문으로 진행 |
 | `followup_question` | string \| null | 통과 못한 rubric을 겨냥한 꼬리질문. `all_passed=true`면 `null` |
-| `followup_depth` | int | 이번 응답 반영 후 누적 꼬리질문 횟수 |
+| `depth` | int | 이번 응답 반영 후 누적 꼬리질문 횟수 |
 | `capped` | bool | 횟수 상한 도달로 **실제 rubric 채점 없이** 강제 종료했는지. `true`일 때 `all_passed`도 `true`로 채워지지만 "진짜 통과"가 아니라 "더 이상 파고들지 않기로 함"을 의미 — 리포트 등에서 구분해서 다뤄야 함 |
 
 > ⚠️ `expected_answer` 필드는 존재하지 않는다 (5.1과 동일한 이유).
@@ -310,7 +346,7 @@ if response.all_passed:
     다음 기본 질문으로 진행 (capped 여부는 로그/리포트용으로만 기록)
 else:
     response.followup_question 을 Redis Queue 맨 앞에 끼워넣어 다음 차례로 제시
-    (이때 followup_depth 를 그대로 다음 /followup 요청에 실어 보낼 것)
+    (이때 depth 를 그대로 다음 /followup 요청에 실어 보낼 것)
 ```
 
 ---
@@ -399,6 +435,6 @@ BE 연동 시 참고할 서버 기본값(`config.py`). BE가 요청 파라미터
 |---|---|---|---|
 | 질문 개수 | 5 | `QUESTION_COUNT` | `/questions` (`question_count` 미지정 시) |
 | rubric 개수 범위 | 2~3 | `RUBRIC_MIN_COUNT` / `RUBRIC_MAX_COUNT` | `/questions` |
-| 꼬리질문 횟수 상한(안전장치) | 2 | `MAX_FOLLOWUP_PER_QUESTION` | `/followup` (`followup_depth` 도달 시 `capped=true`) |
+| 꼬리질문 횟수 상한(안전장치) | 2 | `MAX_FOLLOWUP_PER_QUESTION` | `/followup` (`depth` 도달 시 `capped=true`) |
 | RAG top-k (개인 문서) | 5 | `RAG_TOP_K` | `/questions`, `/followup`, `/answers/supplement` |
 | RAG top-k (CS 지식) | 4 | `CS_TOP_K` | `/questions` (cs/comprehensive 면접 시) |

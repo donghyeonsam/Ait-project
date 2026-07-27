@@ -36,6 +36,7 @@ interface DialogContentProps
   extends ComponentProps<typeof DialogPrimitive.Content> {
   showCloseButton?: boolean
   overlayClassName?: string
+  centered?: boolean
 }
 
 function DialogContent({
@@ -43,6 +44,7 @@ function DialogContent({
   children,
   showCloseButton = true,
   overlayClassName,
+  centered = true,
   ...props
 }: DialogContentProps) {
   return (
@@ -51,7 +53,9 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          'ait-dialog-content fixed left-1/2 top-1/2 z-[var(--z-index-dialog)] -translate-x-1/2 -translate-y-1/2 rounded-ait-l bg-surface-default shadow-elevation-3',
+          'ait-dialog-content fixed z-[var(--z-index-dialog)] rounded-ait-l bg-surface-default shadow-elevation-3',
+          centered &&
+            'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
           className,
         )}
         {...props}
@@ -89,7 +93,10 @@ function DialogTitle({
 }: ComponentProps<typeof DialogPrimitive.Title>) {
   return (
     <DialogPrimitive.Title
-      className={cn('text-h2 text-action-primary', className)}
+      className={cn(
+        'font-bold text-action-primary [font-size:var(--text-h2)] [line-height:var(--text-h2--line-height)]',
+        className,
+      )}
       {...props}
     />
   )

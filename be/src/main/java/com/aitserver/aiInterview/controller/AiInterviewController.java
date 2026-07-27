@@ -7,9 +7,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/ai-interviews")
@@ -52,14 +54,18 @@ public class AiInterviewController {
         );
     }
 
-    @PostMapping("/{aiInterviewId}/answers")
+    @PostMapping(
+            value = "/{aiInterviewId}/answers",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<FollowUpQuestionResponse>> answerCheck(
             @AuthenticationPrincipal Long userId,
             @PathVariable Long aiInterviewId,
-            @RequestBody FollowUpQuestionRequest answerRequest,
+            @RequestPart(value = "questionRequest")
+            FollowUpQuestionRequest questionRequest, // 사용자가 답변한 질문 정보
+            @RequestPart(value = "audioFile") MultipartFile audioFile, // 사용자의 답변 음성 파일
             HttpServletRequest request) {
         // 질문과 사용자의 답변을 전달해서, 꼬리 질문을 생성
-        FollowUpQuestionResponse response = aiInterviewService.answerCheckForfollowUp(userId, aiInterviewId, answerRequest);
+        FollowUpQuestionResponse response = aiInterviewService.answerCheckForFollowUp(userId, aiInterviewId, questionRequest, audioFile);
 
         return ResponseEntity.status(HttpStatus.OK).body(
                 ApiResponse.success(

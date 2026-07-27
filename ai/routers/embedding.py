@@ -10,6 +10,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
+from schemas.analysis_document import AnalysisDocumentError
 from schemas.embedding import (
     EmbedRequest,
     EmbedResponse,
@@ -36,6 +37,15 @@ def create_embeddings(req: EmbedRequest):
     """
     try:
         embedded, chunks = embed_user_documents(req)
+    except AnalysisDocumentError as e:
+        # [구조화 분석 문서 지원 - 신규] content가 새 구조화 포맷인 것은 확실한데
+        # (embedding_documents 키가 있음) 그 구조 자체가 명백히 손상된 경우
+        # (예: embedding_documents가 리스트가 아님)만 여기로 온다. 애매한 파싱
+        # 실패는 embed_user_documents() 내부에서 조용히 평문 청킹으로 fallback하므로
+        # 여기까지 오지 않는다 — 이 경우는 "클라이언트 요청 자체가 잘못됨"이 명확하므로
+        # 500이 아니라 400으로 구분해서 알린다.
+        logger.warning("구조화 분석 문서 파싱 실패: %s", e)
+        raise HTTPException(status_code=400, detail=f"분석 문서 형식 오류: {e}") from e
     except Exception as e:  # noqa: BLE001
         logger.exception("임베딩 실패")
         raise HTTPException(status_code=500, detail=f"임베딩 실패: {e}") from e

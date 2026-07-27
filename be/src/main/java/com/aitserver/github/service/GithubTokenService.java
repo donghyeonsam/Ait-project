@@ -1,5 +1,7 @@
 package com.aitserver.github.service;
 
+import com.aitserver.global.exception.BusinessException;
+import com.aitserver.global.exception.ErrorCode;
 import io.jsonwebtoken.Jwts;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -53,7 +55,7 @@ public class GithubTokenService {
         if (response.getStatusCode() == HttpStatus.CREATED && response.getBody() != null) {
             return (String) response.getBody().get("token");
         } else {
-            throw new RuntimeException("GitHub Installation Token 발급 실패");
+            throw new BusinessException(ErrorCode.GITHUB_TOKEN_ISSUE_FAILED);
         }
     }
 

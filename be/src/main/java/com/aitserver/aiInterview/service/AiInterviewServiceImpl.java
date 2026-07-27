@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -77,47 +78,78 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                 .build();
 
         log.info("[AiInterview, insertAndGenerate] FastAPI 질문 생성 요청 전송: {}", fastRequest);
-        // fastAPI로 정보들 전달
-        try {
-            FastQuestionGenerateResponse fastResponse = fastApiRestClient.post() // post 요청
-                    .uri("/api/v1/interviews/questions")
-                    .body(fastRequest)
-                    .retrieve()
-                    .onStatus(HttpStatusCode::isError, (req, res) -> {
-                        // 4xx, 5xx 에러 처리
-                        log.error("[AiInterviewServiceImpl, FastAPI 에러] HTTP Status: {}", res.getStatusCode());
-                        throw new BusinessException(ErrorCode.FASTAPI_SERVER_ERROR);
-                    })
-                    .body(FastQuestionGenerateResponse.class);
 
-            log.info("[AiInterviewServiceImpl, FastAPI] 질문 생성 응답 성공: {}", fastResponse);
+        FastQuestionGenerateResponse fastResponse = sendToFastApi(
+                "/api/v1/interviews/questions",
+                fastRequest,
+                FastQuestionGenerateResponse.class
+        );
+        fastResponse.setAiInterviewId(aiInterview.getId());     // aiInterviewId 삽입
+        fastResponse.setInterviewType(request.interviewType()); // interviewType 삽입
 
-            // 생성된 질문 리스트 프론트로 전달
-            return AiInterviewQuestionResponse.of(userId, fastResponse);
-        } catch (BusinessException e) {
-            throw new BusinessException(ErrorCode.FASTAPI_SERVER_ERROR);
-        } catch (Exception e) {
-            log.error("[AiInterviewServiceImpl, FastAPI] 통신 에러 발생", e);
-            throw new RuntimeException(e);
-        }
+        return AiInterviewQuestionResponse.of(userId, fastResponse);
     }
 
     @Override
     @Transactional
-    public FollowUpQuestionResponse answerCheckForfollowUp(Long userId, Long aiInterviewId, FollowUpQuestionRequest answerRequest) {
-        log.info("[AiInterviewServiceImpl, FollowUpQuestion] 사용자 질문 분석해서 꼬리 질문 생성 메서드 진입");
+    public FollowUpQuestionResponse answerCheckForFollowUp(Long userId, Long aiInterviewId, FollowUpQuestionRequest questionRequest, MultipartFile audioFile) {
+        log.info("[AiInterviewServiceImpl, FollowUpQuestion] 면접 질문: {}, 사용자 답변: {}",
+                questionRequest.getQuestion().getQuestion(), questionRequest.getAnswer());
+
+        log.info("[AiInterviewServiceImpl, FollowUpQuestion] 수신된 음성 파일명: {}, 타입: {}, 크기: {} bytes",
+                audioFile.getOriginalFilename(), audioFile.getContentType(), audioFile.getSize());
+
         // 질문의 order 번호를 확인해서 1번일 때만 진행 상황을 ready에서 doing으로 변경
-        if(answerRequest.question().order() == 1) {
+        if(questionRequest.getQuestion().getOrder() == 1) {
             aiInterviewsRepository.updateStatus(userId, aiInterviewId);
         }
 
-        // 사용자의 답변을 ai_interview_questions 테이블에 저장
+        // interviewType을 바로 소문자로 변경
+        if (questionRequest.getInterviewType() != null) {
+            questionRequest.setInterviewType(questionRequest.getInterviewType().toLowerCase());
+        }
+        // 1. 사용자의 답변 바로 FastAPI로 전달
+        FastFollowUpRequest fastFollowUpRequest = new FastFollowUpRequest();
+        fastFollowUpRequest.setUserId(userId); // userId 붙이기
+        fastFollowUpRequest.setAiInterviewId(aiInterviewId); // aiInterviewId 붙이기
+        fastFollowUpRequest.setRequest(questionRequest); // 프론트에서 전달받은 내용 붙이기
 
-        // 사용자 답변을 FastAPI의 꼬리 질문 판별 엔드포인트로 전달
+        FollowUpQuestionResponse followUpResponse = sendToFastApi(
+                "/api/v1/interviews/followup",
+                fastFollowUpRequest,
+                FollowUpQuestionResponse.class
+        );
 
-        // 사용자 답변을 AI 답변 보완 엔드포인트로 전달(비동기로 처리해서 도착하면 바로 DB에 넣기)
+        // 2. DB 저장과 AI 분석을 위해 다른 서비스로 내용 전송(비동기)
 
+        // 3. 사용자의 답변 음성 파일 원본 FastAPI 전달(목소리 분석을 통한 채점을 위해)
 
-        return null;
+        return followUpResponse;
+    }
+
+    // FastAPI로 호출 보내고 결과값을 리턴받는 공통 메서드
+    private <T, R> R sendToFastApi(String uri, T requestBody, Class<R> responseType) {
+        try {
+            log.info("[FastAPI 통신 요청] URI: {}, Payload: {}", uri, requestBody);
+
+            R response = fastApiRestClient.post()
+                    .uri(uri)
+                    .body(requestBody)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, (req, res) -> {
+                        log.error("[FastAPI 통신 에러] Status: {}, URI: {}", res.getStatusCode(), uri);
+                        throw new BusinessException(ErrorCode.FASTAPI_SERVER_ERROR);
+                    })
+                    .body(responseType);
+
+            log.info("[FastAPI 통신 응답 성공] URI: {}", uri);
+            return response;
+
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("[FastAPI 통신 시스템 에러] URI: " + uri, e);
+            throw new BusinessException(ErrorCode.FASTAPI_SERVER_ERROR);
+        }
     }
 }

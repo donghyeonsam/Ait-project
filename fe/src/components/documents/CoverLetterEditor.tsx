@@ -1,19 +1,24 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   updateCoverLetter,
   type CoverLetterDetail,
 } from '@/api/cover-letters'
 import { toErrorMessage } from '@/api/http'
+import { DocumentBoxDialog } from '@/components/documents/DocumentBoxDialog'
+import { DocumentBoxSideTab } from '@/components/documents/DocumentBoxSideTab'
 import { DocumentEditorShell } from '@/components/documents/DocumentEditorShell'
 import {
   DocumentSection,
   DynamicCard,
   FormField,
 } from '@/components/documents/DocumentFormParts'
+import { UnsavedChangesDialog } from '@/components/documents/UnsavedChangesDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 
 interface CoverLetterEditorProps {
   coverLetter: CoverLetterDetail
@@ -29,19 +34,22 @@ export function CoverLetterEditor({
   coverLetter,
   onUpdated,
 }: CoverLetterEditorProps) {
+  const navigate = useNavigate()
   const [draft, setDraft] = useState(coverLetter)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
+  const [documentBoxOpen, setDocumentBoxOpen] = useState(false)
+  const guard = useUnsavedChangesGuard(isDirty)
 
   const updateDraft = (update: Partial<CoverLetterDetail>) => {
     setDraft((current) => ({ ...current, ...update }))
     setSaved(false)
+    setIsDirty(true)
   }
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-
+  const save = async (): Promise<boolean> => {
     const valid = draft.title.trim()
       && draft.companyName.trim()
       && draft.role.trim()
@@ -51,7 +59,7 @@ export function CoverLetterEditor({
       )
     if (!valid) {
       setError('필수 항목과 자기소개서 문항을 모두 입력해주세요.')
-      return
+      return false
     }
 
     setIsSaving(true)
@@ -70,11 +78,19 @@ export function CoverLetterEditor({
       setDraft(updated)
       onUpdated(updated)
       setSaved(true)
+      setIsDirty(false)
+      return true
     } catch (requestError) {
       setError(toErrorMessage(requestError))
+      return false
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    void save()
   }
 
   return (
@@ -85,6 +101,7 @@ export function CoverLetterEditor({
       saved={saved}
       isSaving={isSaving}
       onSubmit={handleSubmit}
+      onNavigateHome={() => guard.guardNavigation(() => navigate('/mypage'))}
     >
       <DocumentSection title="기본 정보">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -196,6 +213,25 @@ export function CoverLetterEditor({
       </DocumentSection>
 
       {error ? <p className="mt-4 text-body-2 text-status-error" role="alert">{error}</p> : null}
+
+      <UnsavedChangesDialog
+        open={guard.isConfirmOpen}
+        onOpenChange={guard.setConfirmOpen}
+        onDiscard={guard.runPendingAction}
+        onSaveAndContinue={async () => {
+          const success = await save()
+          if (success) guard.runPendingAction()
+        }}
+        isSaving={isSaving}
+      />
+
+      <DocumentBoxDialog open={documentBoxOpen} onOpenChange={setDocumentBoxOpen} />
+
+      {documentBoxOpen ? null : (
+        <DocumentBoxSideTab
+          onClick={() => guard.guardNavigation(() => setDocumentBoxOpen(true))}
+        />
+      )}
     </DocumentEditorShell>
   )
 }

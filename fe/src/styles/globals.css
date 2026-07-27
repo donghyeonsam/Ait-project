@@ -235,9 +235,16 @@
   --color-ring: var(--ring);
 }
 
-* {
-  box-sizing: border-box;
-  border-color: var(--color-border-default);
+@layer base {
+  * {
+    box-sizing: border-box;
+    border-color: var(--color-border-default);
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 html {
@@ -271,11 +278,6 @@ select {
 
 button:not(:disabled) {
   cursor: pointer;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
 }
 
 :where(a, button, input, textarea, select, [tabindex]):focus-visible {
@@ -1076,6 +1078,27 @@ a {
   animation: dialog-content-out var(--duration-base) var(--easing-standard) both;
 }
 
+.ait-dialog-content.study-chat-dialog {
+  top: auto;
+  right: 1.5rem;
+  bottom: 6.25rem;
+  left: auto;
+  width: min(28rem, calc(100vw - 2rem));
+  height: min(42rem, calc(100svh - 7.25rem));
+  transform: none;
+  transform-origin: calc(100% - 2rem) calc(100% + 2.75rem);
+}
+
+.ait-dialog-content.study-chat-dialog[data-state="open"] {
+  animation: study-chat-dialog-in var(--duration-base)
+    var(--easing-emphasized) both;
+}
+
+.ait-dialog-content.study-chat-dialog[data-state="closed"] {
+  animation: study-chat-dialog-out var(--duration-base)
+    var(--easing-standard) both;
+}
+
 .document-dialog {
   left: 50vw;
   top: 50vh;
@@ -1093,6 +1116,16 @@ a {
   flex: 1;
   scrollbar-color: var(--color-text-secondary) transparent;
   scrollbar-width: thin;
+}
+
+/* 네이티브 스크롤바가 고정 높이 트랙 안에서 콘텐츠 영역을 잠식해 타일 비율이 잘리는 것을 막는다. 스크롤 자체는 유지된다. */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 .document-section + .document-section {
@@ -1469,6 +1502,28 @@ a {
   }
 }
 
+@keyframes study-chat-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(1rem) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes study-chat-dialog-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(1rem) scale(0.9);
+  }
+}
+
 @keyframes document-box-in {
   from {
     opacity: 0;
@@ -1584,6 +1639,268 @@ a {
   }
 }
 
+.study-chat-message {
+  animation: study-chat-message-in var(--duration-base)
+    var(--easing-emphasized) both;
+}
+
+.study-toast {
+  animation: study-toast-in var(--duration-base) var(--easing-emphasized) both;
+}
+
+@keyframes study-chat-message-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes study-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* ===== 스터디 라운지 · 그룹 페이지 진입/인터랙션 모션 =====
+   기존 useInView + .is-visible 스태거 패턴과 CSS 토큰을 재사용한다. */
+
+/* 섹션 단위 스크롤·마운트 리빌 */
+.study-reveal {
+  opacity: 0;
+  transform: translateY(1.25rem);
+}
+
+.study-reveal.is-visible {
+  animation: study-reveal-in var(--duration-slow) var(--easing-emphasized) both;
+  animation-delay: calc(var(--reveal-order, 0) * 90ms);
+}
+
+@keyframes study-reveal-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 카드 그리드 스태거 진입.
+   진입이 끝나면 JS(onAnimationEnd)가 클래스를 제거해 잔여 transform을 없앤다.
+   StudyCard hover 확장이 이웃 카드 위로 겹치려면 래퍼에 스태킹 컨텍스트가 남으면 안 된다. */
+.study-card-enter {
+  opacity: 0;
+  animation: study-card-enter var(--duration-slow) var(--easing-emphasized) both;
+  animation-delay: calc(var(--card-order, 0) * 60ms);
+}
+
+@keyframes study-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(1rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 카드 확장 시 내부 상세 리스트 순차 노출 */
+.study-expand-item {
+  opacity: 0;
+  animation: study-expand-item-in var(--duration-base) var(--easing-emphasized)
+    both;
+  animation-delay: calc(var(--item-order, 0) * 45ms + 60ms);
+}
+
+@keyframes study-expand-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.375rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 구성원 목록 행 스태거 진입 + hover 강조 */
+.study-list-item {
+  animation: study-list-item-in var(--duration-base) var(--easing-emphasized)
+    both;
+  animation-delay: calc(var(--item-order, 0) * 40ms);
+  transition: background-color var(--duration-fast) var(--easing-standard),
+    box-shadow var(--duration-fast) var(--easing-standard);
+}
+
+@keyframes study-list-item-in {
+  from {
+    opacity: 0;
+    transform: translateX(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 캘린더 날짜 상세 슬라이드 인 */
+.study-calendar-detail {
+  animation: study-calendar-detail-in var(--duration-base)
+    var(--easing-emphasized) both;
+}
+
+@keyframes study-calendar-detail-in {
+  from {
+    opacity: 0;
+    transform: translateX(-0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 오늘 날짜는 색상, 현재 날짜 의미와 반복 pulse를 함께 제공한다. */
+.study-calendar-today {
+  position: relative;
+  background: var(--color-calendar-today);
+}
+
+.study-calendar-today::after {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--color-calendar-today);
+  border-radius: inherit;
+  animation: study-calendar-today-pulse 1.8s var(--easing-standard) infinite;
+  content: '';
+  pointer-events: none;
+}
+
+@keyframes study-calendar-today-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  70%,
+  100% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+}
+
+/* 라이브 상태 점 — 바깥으로 확산하는 링 펄스.
+   ::after의 background: inherit는 점 자신의 배경색(성공 그린)을 그대로 사용한다. */
+.status-live-dot {
+  position: relative;
+}
+
+.status-live-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-pill);
+  background: inherit;
+  animation: status-live-ping 1.8s var(--easing-standard) infinite;
+}
+
+@keyframes status-live-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  70%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+/* 라이브 세션 배너 — 은은한 호흡 글로우 */
+.study-live-banner {
+  animation: study-live-glow 3.2s var(--easing-standard) infinite;
+}
+
+@keyframes study-live-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px
+        color-mix(in srgb, var(--color-status-success) 30%, transparent),
+      0 6px 20px -10px
+        color-mix(in srgb, var(--color-status-success) 35%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 1px
+        color-mix(in srgb, var(--color-status-success) 55%, transparent),
+      0 12px 30px -8px
+        color-mix(in srgb, var(--color-status-success) 50%, transparent);
+  }
+}
+
+/* 히어로 상단 장식용 글로우 — 흰 배경 위에서 보이도록 부모(콘텐츠 래퍼)를
+   isolate로 스태킹 컨텍스트화하고, 이 레이어를 그 안의 음수 z에 둔다.
+   회전(drift)·호흡(breathe)은 질문 생성 화면 키프레임을 재사용한다. */
+.study-hero-glow {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: -1;
+  width: min(64rem, 100%);
+  height: 26rem;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.study-hero-glow::before,
+.study-hero-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-pill);
+}
+
+.study-hero-glow::before {
+  background: conic-gradient(
+    from 120deg,
+    color-mix(in srgb, var(--color-loading-pastel-blue) 65%, transparent),
+    color-mix(in srgb, var(--color-loading-pastel-violet) 65%, transparent),
+    color-mix(in srgb, var(--color-loading-pastel-green) 65%, transparent),
+    color-mix(in srgb, var(--color-loading-pastel-blue) 65%, transparent)
+  );
+  filter: blur(72px);
+  opacity: 0.5;
+  animation: question-generation-drift 26s linear infinite;
+}
+
+.study-hero-glow::after {
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--color-status-achievement) 14%, transparent),
+    transparent 72%
+  );
+  animation: question-generation-breathe 8s ease-in-out infinite;
+}
+
+/* 주요 CTA hover 시 살짝 떠오르는 리프트 */
+.cta-lift {
+  transition: transform var(--duration-fast) var(--easing-standard),
+    box-shadow var(--duration-fast) var(--easing-standard);
+}
+
+.cta-lift:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.cta-lift:active:not(:disabled) {
+  transform: translateY(0);
+}
+
 @media (max-width: 63.999rem) {
   .dashboard-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1632,9 +1949,18 @@ a {
   .skill-tag,
   .repo-list-item,
   .activity-tab-panel,
-  .dynamic-card {
+  .dynamic-card,
+  .study-reveal,
+  .study-card-enter,
+  .study-expand-item,
+  .study-list-item,
+  .study-calendar-detail {
     opacity: 1 !important;
     transform: none !important;
+  }
+
+  .status-live-dot::after {
+    display: none !important;
   }
 
   .trend-line {

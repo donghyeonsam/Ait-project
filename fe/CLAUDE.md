@@ -22,7 +22,7 @@
 - 백엔드, 데이터베이스, AI 모델, 인프라 구현
 - 실제 API 연동과 서버 상태 설계
 - 실제 로그인, 파일 업로드, 결제 등 서버가 필요한 기능
-- WebRTC·LiveKit을 이용한 실제 면접 세션 연결(화상 통화, 녹화, 재연결 로직)
+- WebRTC·LiveKit을 이용한 실제 면접 세션 연결(화상 통화, 녹화, 재연결 로직) — 단, 스터디 세션(`StudySessionRoom`)의 LiveKit 화상 연결은 예외적으로 실연동 완료됨
 - 아이트래킹 수집·계산·전송 로직
 
 제외 범위가 필요한 작업은 임의로 구현하지 않고 사용자와 범위를 먼저 확인한다. 목업 화면을 실제 연동이 완료된 것처럼 표현하지 않는다.
@@ -57,7 +57,7 @@ UI 구현 과정에서 필요할 때 도입하는 목표 구성:
 - Lucide React: 아이콘
 - React Bits: 제한적인 수치·진입 모션
 
-새 의존성은 관련 작업에서 필요성이 확인됐을 때만 추가한다. Zustand, TanStack Query, React Hook Form, Zod, LiveKit은 현재 UI 전용 범위에 포함하지 않는다.
+새 의존성은 관련 작업에서 필요성이 확인됐을 때만 추가한다. Zustand, TanStack Query, React Hook Form, Zod는 현재 UI 전용 범위에 포함하지 않는다. LiveKit은 스터디 세션 화상 연결(`livekit-client`, `@livekit/components-react`)에 한해 예외적으로 도입됨.
 
 ## 기준 문서
 

@@ -2,17 +2,24 @@ package com.aitserver.github.service;
 
 import com.aitserver.github.entity.GithubRepo;
 import com.aitserver.github.repository.GithubRepoRepository;
+import com.aitserver.global.exception.BusinessException;
+import com.aitserver.global.exception.ErrorCode;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
+import java.io.IOException;
 import java.net.http.HttpClient;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +61,17 @@ public class GithubAnalysisService {
                 .build();
     }
 
+    @Value("${GMS_BASE_URL}")
+    private String gmsBaseUrl;
+
+    @Value("${GMS_API_KEY}")
+    private String gmsApiKey;
+
+    @Value("${GMS_MODEL}")
+    private String gmsModel;
+
+    @Value("${FASTAPI_URL}")
+    private String fastAPI_URL;
     /**
      * FastAPI에 분석을 요청하고 결과를 DB에 저장하는 비동기 메서드
      */
@@ -63,23 +81,53 @@ public class GithubAnalysisService {
         log.info("[비동기 분석 시작] 레포지토리: {}, 사용자: {}", repoName, githubUsername);
 
         try {
+            // 1. 깃허브 데이터 수집
             String accessToken = githubTokenService.getInstallationAccessToken(installationId);
-            HttpHeaders headers = new HttpHeaders();
-            headers.setBearerAuth(accessToken);
+            HttpHeaders githubHeaders = new HttpHeaders();
+            githubHeaders.setBearerAuth(accessToken);
 
-            String readmeContent = fetchReadme(githubUsername, repoName, headers);
+            String readmeContent = fetchReadme(githubUsername, repoName, githubHeaders);
+            List<String> commitMessages = fetchMyCommits(githubUsername, repoName, githubHeaders);
 
-            List<String> commitMessages = fetchMyCommits(githubUsername, repoName, headers);
+            log.info("깃허브 수집 완료 - README 길이: {}, 커밋 개수: {}", readmeContent.length(), commitMessages.size());
 
-            log.info("수집 완료 - README 길이: {}, 커밋 개수: {}", readmeContent.length(), commitMessages.size());
+            // 2. GMS 호출을 위한 데이터 구성
+            String rawGithubData = "README:\n" + readmeContent + "\n\nCOMMITS:\n" + String.join("\n", commitMessages);
+            String systemPrompt = getGithubAnalysisPrompt();
 
-            String fastApiUrl = "http://192.168.100.210:8000/api/v1/embeddings";
+            // OpenAI 규격(표준)의 Request Body 가정
+            Map<String, Object> gmsRequestBody = Map.of(
+                    "model", gmsModel,
+                    "response_format", Map.of("type", "json_object"), // JSON으로만 응답하도록 강제
+                    "messages", List.of(
+                            Map.of("role", "system", "content", systemPrompt),
+                            Map.of("role", "user", "content", "깃허브 데이터:\n" + rawGithubData)
+                    ),
+                    "temperature", 0.1
+            );
+
+            // 3. GMS API 호출하여 요약(구조화된 JSON) 받아오기
+            log.info("[GMS 요약 요청 시작] 모델: {}", gmsModel);
+            String gmsResponse = restClient.post()
+                    .uri(gmsBaseUrl + "/chat/completions") // GMS API 스펙에 따라 엔드포인트 수정 필요
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + gmsApiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(gmsRequestBody)
+                    .retrieve()
+                    .body(String.class);
+
+            // GMS 응답에서 실제 JSON 결과물(content)만 파싱
+            String structuredJsonData = extractContentFromGmsResponse(gmsResponse);
+            log.info("[GMS 요약 완료] 정제된 JSON 데이터 생성 성공");
+
+            // 4. FastAPI로 전송
+            String fastApiUrl = fastAPI_URL+"/api/v1/embeddings";
 
             Map<String, Object> githubItem = Map.of(
                     "doc_type", "github",
                     "target_id", repoId,
                     "title", repoName,
-                    "content", "Readme: " + readmeContent + "\nCommits: " + commitMessages
+                    "content", structuredJsonData
             );
 
             Map<String, Object> requestBody = Map.of(
@@ -88,22 +136,55 @@ public class GithubAnalysisService {
                     "items", List.of(githubItem)
             );
 
+            log.info("[FastAPI 임베딩 요청 시작]");
             String analysisResult = restClient.post()
                     .uri(fastApiUrl)
+                    .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
                     .retrieve()
                     .body(String.class);
 
+            // 5. DB 업데이트
             GithubRepo githubRepo = githubRepoRepository.findById(repoId)
-                    .orElseThrow(() -> new RuntimeException("레포지토리를 찾을 수 없습니다."));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.GITHUB_REPO_NOT_FOUND));
 
-            githubRepo.updateAnalysisContent(analysisResult);
+            githubRepo.updateAnalysisContent(structuredJsonData);
+
             githubRepoRepository.save(githubRepo);
 
-            log.info("[비동기 분석 완료] 레포지토리 ID: {} 분석 내용 저장 성공", repoId);
+            log.info("[비동기 분석 및 임베딩 완료] 레포지토리 ID: {} 전체 파이프라인 성공", repoId);
 
         } catch (Exception e) {
             log.error("[비동기 분석 실패] 레포지토리 ID: {} - 에러: {}", repoId, e.getMessage(), e);
+        }
+    }
+
+    // GMS API 응답(JSON)에서 'content' 텍스트만 뽑아내는 헬퍼 메서드 (Jackson ObjectMapper 사용)
+    private String extractContentFromGmsResponse(String gmsResponseJson) {
+        try {
+            JsonNode root = objectMapper.readTree(gmsResponseJson);
+            return root.path("choices")
+                    .get(0)
+                    .path("message")
+                    .path("content")
+                    .asText();
+        } catch (Exception e) {
+            log.error("GMS 응답 파싱 실패", e);
+            throw new BusinessException(ErrorCode.GITHUB_ANALYSIS_PARSE_FAILED);
+        }
+    }
+
+    private String getGithubAnalysisPrompt() {
+        try {
+            // src/main/resources/prompts/github_analysis_prompt.txt 파일을 지정
+            ClassPathResource resource = new ClassPathResource("prompts/github_analysis_prompt.txt");
+
+            // 파일 내용을 UTF-8 문자열로 읽어서 반환
+            return new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+        } catch (IOException e) {
+            log.error("프롬프트 파일을 읽어오는데 실패했습니다. 경로를 확인해주세요.", e);
+            throw new BusinessException(ErrorCode.GITHUB_PROMPT_LOAD_FAILED);
         }
     }
 
