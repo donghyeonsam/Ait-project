@@ -29,6 +29,7 @@ const landingHighlights = [
   '성장 기록 관리',
 ]
 
+// 비로그인 방문자를 맞이하는 서비스 소개 랜딩 화면.
 export function LandingPage() {
   return (
     <div className="flex min-h-svh flex-col bg-background-default text-text-primary">

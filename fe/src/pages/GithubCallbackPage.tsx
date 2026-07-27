@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/button'
 
 class MissingInstallationIdError extends Error {}
 
+// GitHub App 설치 후 리다이렉트되는 콜백 화면. installation_id로 연동을 확정하고 마이페이지로 보낸다.
 export function GithubCallbackPage() {
   const navigate = useNavigate()
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const hasRequestedRef = useRef(false)
 
   useEffect(() => {
+    // StrictMode의 개발용 이중 마운트로 연동 요청이 두 번 나가지 않도록 한 번만 실행한다.
     if (hasRequestedRef.current) return
     hasRequestedRef.current = true
 

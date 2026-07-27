@@ -15,6 +15,7 @@ function unique(values: string[]) {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))]
 }
 
+// 첫 저장소 URL에서 "호스트/소유자" 형태의 GitHub 프로필 경로를 뽑아낸다. 파싱 실패 시 빈 문자열.
 function githubProfile(repositories: GithubRepository[]) {
   const repository = repositories[0]
   if (!repository) return ''
@@ -28,6 +29,7 @@ function githubProfile(repositories: GithubRepository[]) {
   }
 }
 
+// 이력서·저장소·계정 정보를 화면용 ProfileData 하나로 합친다. 역할과 스킬은 중복 제거 후 나열한다.
 function createProfile(
   resume: Resume,
   repositories: GithubRepository[],
@@ -57,6 +59,7 @@ function createProfile(
   }
 }
 
+// 마이페이지. 프로필과 등록 자료를 불러와 보여주고, 저장소 조회는 별도로 재시도할 수 있다.
 export function MyPage() {
   const { user } = useAuth()
   const [resume, setResume] = useState<Resume | null>(null)

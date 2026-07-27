@@ -2,6 +2,7 @@ import { CalendarDays, ChartNoAxesCombined, ClipboardList, UsersRound } from 'lu
 import { PageLayout } from '@/components/layout/PageLayout'
 import { useAuth } from '@/lib/useAuth'
 
+// 활동 요약 카드의 항목 정의. 값은 데이터 연동 전까지 '—'로 비워 둔다.
 const emptyMetrics = [
   { label: '이번 주 모의면접', unit: '회', icon: UsersRound },
   { label: '최근 모의면접 종합점수', unit: '점', icon: ChartNoAxesCombined },
@@ -20,6 +21,7 @@ function EmptyPanel({ title, description }: { title: string; description: string
   )
 }
 
+// 로그인 후 첫 화면. 요약 지표와 최근 기록 패널을 배치하며, 데이터 연동 전까지 빈 상태를 보여준다.
 export function DashboardPage() {
   const { user } = useAuth()
 

@@ -28,6 +28,7 @@ const loginBenefits = [
   '실시간 면접 스터디',
 ]
 
+// 로그인 화면 좌측에 노출하는 서비스 소개 영역.
 function LoginAside() {
   return (
     <>
@@ -69,6 +70,7 @@ function LoginAside() {
   )
 }
 
+// 로그인 화면. 이메일/비밀번호로 인증하고 원래 가려던 경로(state.from) 또는 대시보드로 이동한다.
 export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -92,6 +94,7 @@ export function LoginPage() {
       const response = await login(values.email, values.password)
       signIn(response.accessToken, response.user, values.rememberMe)
 
+      // 보호된 경로에서 리다이렉트돼 왔다면 로그인 후 그 경로로 되돌려보낸다.
       const routeState = location.state as { from?: string } | null
       navigate(routeState?.from ?? '/dashboard', { replace: true })
     } catch (error) {
@@ -174,6 +177,7 @@ export function LoginPage() {
             <span className="h-px flex-1 bg-border-default" />
           </div>
 
+          {/* TODO: 실제 소셜 로그인 연동 필요 (현재는 클릭 로그만 남기는 스텁) */}
           <div className="grid gap-3 sm:grid-cols-2">
             <SocialButton provider="google" onClick={() => console.log('Google 로그인')}>
               Google로 계속하기

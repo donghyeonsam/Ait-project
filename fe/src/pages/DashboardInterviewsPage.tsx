@@ -1,6 +1,7 @@
 import { FileSearch } from 'lucide-react'
 import { PageLayout } from '@/components/layout/PageLayout'
 
+// 대시보드의 AI 모의면접 기록 화면. 기록 API 연동 전까지 빈 상태만 보여준다.
 export function DashboardInterviewsPage() {
   return (
     <PageLayout contentClassName="max-w-interviews">

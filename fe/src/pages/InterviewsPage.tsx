@@ -19,6 +19,7 @@ import { SURVEY_STEP_COUNT, useInterviewSurvey } from '@/components/interview/us
 import { createInterviewInputContract, createInterviewSessionNavigationState } from '@/lib/interview-session'
 import { prefetchInterviewQuestions } from '@/lib/interview-question-cache'
 
+// 면접 설정 마법사 화면. 5단계 설문을 진행하고 완료 시 면접 세션으로 이동한다.
 export function InterviewsPage() {
   const navigate = useNavigate()
   const survey = useInterviewSurvey()
@@ -32,8 +33,10 @@ export function InterviewsPage() {
   const showStepCard = currentStep < 4
 
   useEffect(() => {
+    // 언마운트 후 응답이 도착해 setState가 호출되는 것을 막는 플래그.
     let active = true
 
+    // 자기소개서 조회는 실패해도 설문을 막지 않으므로 null로 처리하고 계속 진행한다.
     Promise.all([
       getInterviewPreparation(),
       getMyResume().catch(() => null),
@@ -55,6 +58,7 @@ export function InterviewsPage() {
     }
   }, [])
 
+  // 장치 점검(5단계)에 도달하면 세션 진입 전에 미리 질문을 받아 대기 시간을 줄인다.
   useEffect(() => {
     if (currentStep !== 5 || !state.interviewType || !state.difficulty || !state.style) return
     void prefetchInterviewQuestions(createInterviewInputContract(state, resumeId))
