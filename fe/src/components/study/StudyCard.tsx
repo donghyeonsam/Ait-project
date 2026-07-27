@@ -3,6 +3,7 @@ import {
   type FocusEvent,
   type KeyboardEvent,
   type MouseEvent,
+  type TransitionEvent,
 } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -71,17 +72,43 @@ export function StudyCardExpandedContent({
 // 고정된 그리드 셀 위에서 세부 정보가 겹쳐 펼쳐지는 스터디 카드다.
 export function StudyCard({ study, isApplied, onApply }: StudyCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpansionComplete, setIsExpansionComplete] = useState(false)
   const isClosed = study.recruitmentStatus === '마감'
+
+  const expandCard = () => {
+    if (isExpanded) return
+
+    setIsExpanded(true)
+    setIsExpansionComplete(
+      typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    )
+  }
+
+  const collapseCard = () => {
+    setIsExpansionComplete(false)
+    setIsExpanded(false)
+  }
+
+  const toggleCard = () => {
+    if (isExpanded) {
+      collapseCard()
+      return
+    }
+
+    expandCard()
+  }
 
   const handleMouseLeave = (event: MouseEvent<HTMLElement>) => {
     if (!event.currentTarget.contains(document.activeElement)) {
-      setIsExpanded(false)
+      collapseCard()
     }
   }
 
   const handleBlur = (event: FocusEvent<HTMLElement>) => {
     if (!event.currentTarget.contains(event.relatedTarget)) {
-      setIsExpanded(false)
+      collapseCard()
     }
   }
 
@@ -89,7 +116,17 @@ export function StudyCard({ study, isApplied, onApply }: StudyCardProps) {
     if (event.target !== event.currentTarget) return
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
-      setIsExpanded((value) => !value)
+      toggleCard()
+    }
+  }
+
+  const handleTransitionEnd = (event: TransitionEvent<HTMLElement>) => {
+    if (
+      event.target === event.currentTarget &&
+      event.propertyName === 'height' &&
+      isExpanded
+    ) {
+      setIsExpansionComplete(true)
     }
   }
 
@@ -104,14 +141,15 @@ export function StudyCard({ study, isApplied, onApply }: StudyCardProps) {
         tabIndex={0}
         aria-expanded={isExpanded}
         aria-label={`${study.title} 상세 정보`}
-        onMouseEnter={() => setIsExpanded(true)}
+        onMouseEnter={expandCard}
         onMouseLeave={handleMouseLeave}
-        onFocusCapture={() => setIsExpanded(true)}
+        onFocusCapture={expandCard}
         onBlurCapture={handleBlur}
         onKeyDown={handleKeyDown}
+        onTransitionEnd={handleTransitionEnd}
         onClick={(event) => {
           if ((event.target as HTMLElement).closest('button')) return
-          setIsExpanded((value) => !value)
+          toggleCard()
         }}
         className={cn(
           'absolute inset-x-0 top-0 overflow-hidden rounded-ait-m border border-border-default bg-surface-default shadow-elevation-1 transition-[height,transform,box-shadow] [transition-duration:var(--duration-base)] [transition-timing-function:var(--easing-emphasized)]',
@@ -125,14 +163,14 @@ export function StudyCard({ study, isApplied, onApply }: StudyCardProps) {
             <div className="flex min-w-0 items-center gap-2">
               <span
                 className={cn(
-                  'inline-flex h-4 w-[63px] shrink-0 items-center justify-center whitespace-nowrap rounded-[3px] px-1 text-center text-[10px] leading-none',
+                  'inline-flex h-6 w-[63px] shrink-0 items-center justify-center whitespace-nowrap rounded-[3px] px-1 text-center text-[10px] leading-none',
                   roleBadgeClasses[study.role],
                 )}
               >
                 {study.badgeLabel ?? study.role}
               </span>
               {study.recruitmentStatus === '마감 임박' ? (
-                <span className="inline-flex h-4 w-[63px] shrink-0 items-center justify-center whitespace-nowrap rounded-[3px] border border-status-error-border bg-status-error-surface px-1 text-[10px] font-medium leading-none text-status-error">
+                <span className="inline-flex h-6 w-[63px] shrink-0 items-center justify-center whitespace-nowrap rounded-[3px] border border-[#B20000] bg-[#FFF4F4] px-1 text-[10px] font-medium leading-none text-[#B20000]">
                   마감 임박
                 </span>
               ) : null}
@@ -165,15 +203,17 @@ export function StudyCard({ study, isApplied, onApply }: StudyCardProps) {
             {study.membersLabel ??
               `${study.currentMembers}/${study.capacity}명`}
           </span>
-          <Button
-            type="button"
-            variant="secondary"
-            className="px-4 py-2 font-normal"
-            disabled={isClosed || isApplied}
-            onClick={() => onApply(study)}
-          >
-            {isClosed ? '마감됨' : isApplied ? '신청 완료' : '신청하기'}
-          </Button>
+          {isExpansionComplete ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="px-4 py-2 font-normal"
+              disabled={isClosed || isApplied}
+              onClick={() => onApply(study)}
+            >
+              {isClosed ? '마감됨' : isApplied ? '신청 완료' : '신청하기'}
+            </Button>
+          ) : null}
         </div>
       </article>
     </div>

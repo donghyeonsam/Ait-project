@@ -88,4 +88,38 @@ describe('StudyGroupPage', () => {
       ),
     ).toBeInTheDocument()
   })
+
+  it('그룹톡 높이를 유지하고 이모티콘 입력과 메시지 반응을 지원한다', async () => {
+    const user = userEvent.setup()
+    renderStudyGroupPage()
+
+    const chatPanel = screen.getByRole('region', { name: '그룹톡' })
+    const messageList = screen.getByLabelText('그룹톡 메시지')
+    const messageInput = screen.getByRole('textbox', {
+      name: '그룹톡 메시지 입력',
+    })
+
+    expect(chatPanel).toHaveClass('h-[32rem]', 'overflow-hidden')
+    expect(messageList).toHaveClass('overflow-y-auto')
+
+    await user.click(screen.getByRole('button', { name: '이모지 추가' }))
+    await user.click(screen.getByRole('button', { name: '😀 입력' }))
+    expect(messageInput).toHaveValue('😀')
+
+    await user.click(screen.getByRole('button', { name: '이모티콘 추가' }))
+    await user.click(
+      screen.getByRole('button', { name: '( •̀ᴗ•́ )و 입력' }),
+    )
+    expect(messageInput).toHaveValue('😀 ( •̀ᴗ•́ )و')
+
+    await user.click(
+      screen.getByRole('button', {
+        name: '"발표 자료 오늘 밤까지 공유드릴게요!" 메시지에 이모지 반응 남기기',
+      }),
+    )
+    await user.click(screen.getByRole('button', { name: '🎉 반응 남기기' }))
+    expect(
+      within(messageList).getByRole('button', { name: '반응 🎉 취소' }),
+    ).toBeInTheDocument()
+  })
 })

@@ -34,12 +34,12 @@ export function StudyGroupMemberPanel({
   }
 
   return (
-    <section className="min-w-0 rounded-ait-m border border-border-default bg-surface-default p-4 shadow-elevation-1">
-      <h2 className="text-body-1 font-semibold text-text-primary">
+    <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-ait-m border border-border-default bg-surface-default p-4 shadow-elevation-1">
+      <h2 className="shrink-0 text-body-1 font-semibold text-text-primary">
         구성원 {members.length} / {capacity}
       </h2>
 
-      <ul className="mt-3 space-y-1">
+      <ul className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]">
         {members.map((member) => (
           <li
             key={member.id}
@@ -69,38 +69,40 @@ export function StudyGroupMemberPanel({
       </ul>
 
       {canManage && members.length < capacity ? (
-        isInviting ? (
-          <form className="mt-3 flex gap-2" onSubmit={handleInvite}>
-            <label className="min-w-0 flex-1">
-              <span className="sr-only">초대할 닉네임</span>
-              <Input
-                autoFocus
-                value={nickname}
-                onChange={(event) => setNickname(event.target.value)}
-                placeholder="닉네임 입력"
-              />
-            </label>
-            <Button type="submit" variant="secondary">
-              초대
-            </Button>
-            <Button
+        <div className="mt-3 shrink-0">
+          {isInviting ? (
+            <form className="flex gap-2" onSubmit={handleInvite}>
+              <label className="min-w-0 flex-1">
+                <span className="sr-only">초대할 닉네임</span>
+                <Input
+                  autoFocus
+                  value={nickname}
+                  onChange={(event) => setNickname(event.target.value)}
+                  placeholder="닉네임 입력"
+                />
+              </label>
+              <Button type="submit" variant="secondary">
+                초대
+              </Button>
+              <Button
+                type="button"
+                variant="text"
+                onClick={() => setIsInviting(false)}
+              >
+                취소
+              </Button>
+            </form>
+          ) : (
+            <button
               type="button"
-              variant="text"
-              onClick={() => setIsInviting(false)}
+              onClick={() => setIsInviting(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-ait-s border border-dashed border-text-secondary px-4 py-3 text-body-2 text-action-primary hover:bg-status-neutral-surface"
             >
-              취소
-            </Button>
-          </form>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setIsInviting(true)}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-ait-s border border-dashed border-text-secondary px-4 py-3 text-body-2 text-action-primary hover:bg-status-neutral-surface"
-          >
-            <Plus className="size-4" aria-hidden="true" />
-            닉네임으로 초대하기
-          </button>
-        )
+              <Plus className="size-4" aria-hidden="true" />
+              닉네임으로 초대하기
+            </button>
+          )}
+        </div>
       ) : null}
     </section>
   )

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
@@ -78,14 +78,34 @@ describe('StudyPage', () => {
     const user = userEvent.setup()
     renderStudyPage()
 
-    await user.click(screen.getAllByRole('button', { name: '신청하기' })[0])
+    const firstStudyCard = screen.getAllByRole('article', {
+      name: /상세 정보$/,
+    })[0]
+
+    expect(
+      within(firstStudyCard).queryByRole('button', { name: '신청하기' }),
+    ).not.toBeInTheDocument()
+
+    await user.hover(firstStudyCard)
+    expect(
+      within(firstStudyCard).queryByRole('button', { name: '신청하기' }),
+    ).not.toBeInTheDocument()
+
+    fireEvent.transitionEnd(firstStudyCard, { propertyName: 'height' })
+    fireEvent.click(
+      within(firstStudyCard).getByRole('button', { name: '신청하기' }),
+    )
     await user.type(
       screen.getByRole('textbox', { name: '신청 메시지' }),
       '매주 화요일과 목요일 모두 참여할 수 있습니다.',
     )
     await user.click(screen.getByRole('button', { name: '신청 보내기' }))
 
-    expect(screen.getByRole('button', { name: '신청 완료' })).toBeDisabled()
+    fireEvent.mouseEnter(firstStudyCard)
+    fireEvent.transitionEnd(firstStudyCard, { propertyName: 'height' })
+    expect(
+      within(firstStudyCard).getByRole('button', { name: '신청 완료' }),
+    ).toBeDisabled()
     expect(screen.getByRole('status')).toHaveTextContent(
       '스터디 신청이 완료되었습니다.',
     )
