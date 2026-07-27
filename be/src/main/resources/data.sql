@@ -1,7 +1,7 @@
 -- users 테이블 더미 데이터 3개 삽입
 INSERT INTO users (email, password, name, nickname)
 VALUES ('hong@ssafy.com', '$2a$10$h5KFhYAebvWyXUX0ndOkEuRkuMI1gZaJX1CMo4T.RZdR2AT.7k.xu', '홍길동', '길동이'),
-       ('kim@ssafy.com', '1234', '김철수', '철수야'),
+       ('kim@ssafy.com', '$2a$10$h5KFhYAebvWyXUX0ndOkEuRkuMI1gZaJX1CMo4T.RZdR2AT.7k.xu', '김철수', '철수야'),
        ('lee@ssafy.com', '1234', '이영희', '영희짱');
 
 -- resume 더미데이터 3개 삽입(userid 1, 2, 3)
@@ -499,3 +499,68 @@ VALUES
     (1, 'Java'),
     (1, 'Spring Boot'),
     (1, 'MySQL');
+
+
+-- =========================================================
+-- 임시 스터디 그룹 더미데이터
+-- =========================================================
+INSERT INTO study_groups (
+    owner_id,
+    title,
+    description,
+    capacity,
+    status,
+    created_at,
+    updated_at
+)
+VALUES (
+           1,
+           'LiveKit 화상 스터디 테스트',
+           'LiveKit 화상 통화 기능 테스트용 그룹입니다.',
+           8,
+           'ACTIVE',
+           NOW(),
+           NOW()
+       );
+
+SET @group_id = LAST_INSERT_ID();
+
+INSERT INTO study_group_members (
+    group_id,
+    user_id,
+    role,
+    status,
+    joined_at,
+    created_at,
+    updated_at
+)
+VALUES (
+           @group_id,
+           1,
+           'OWNER',
+           'ACTIVE',
+           NOW(),
+           NOW(),
+           NOW()
+       );
+
+SELECT @group_id;
+
+INSERT INTO study_group_members (
+    group_id,
+    user_id,
+    role,
+    status,
+    joined_at,
+    created_at,
+    updated_at
+)
+VALUES (
+           @group_id,
+           2,
+           'MEMBER',
+           'ACTIVE',
+           NOW(),
+           NOW(),
+           NOW()
+       );

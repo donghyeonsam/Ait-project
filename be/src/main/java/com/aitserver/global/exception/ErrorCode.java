@@ -32,7 +32,24 @@ public enum ErrorCode {
     //GITHUB 관련 에러
     GITHUB_APP_NOT_FOUND(HttpStatus.NOT_FOUND, "GITHUB_001", "깃허브 연동 정보가 존재하지 않습니다."),
     GITHUB_TOKEN_ISSUE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "GITHUB_002", "깃허브 토큰 발급 중 오류가 발생했습니다."),
-    GITHUB_REPO_SYNC_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "GITHUB_003","레포지토리 동기화 중 오류가 발생했습니다.");
+    GITHUB_REPO_SYNC_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "GITHUB_003","레포지토리 동기화 중 오류가 발생했습니다."),
+
+    // Study Group
+    STUDY_GROUP_NOT_FOUND(HttpStatus.NOT_FOUND, "STUDY_GROUP_001", "스터디 그룹을 찾을 수 없습니다."),
+    STUDY_GROUP_ACCESS_DENIED(HttpStatus.FORBIDDEN, "STUDY_GROUP_002", "스터디 그룹장만 사용할 수 있는 기능입니다."),
+
+    // Study Session
+    STUDY_SESSION_ALREADY_ACTIVE(HttpStatus.CONFLICT, "STUDY_SESSION_001", "이미 진행 중이거나 대기 중인 화상 스터디 세션이 있습니다."),
+    STUDY_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "STUDY_SESSION_002", "화상 스터디 세션을 찾을 수 없습니다."),
+    STUDY_SESSION_ENDED(HttpStatus.CONFLICT, "STUDY_SESSION_003", "이미 종료된 화상 스터디 세션입니다."),
+    STUDY_SESSION_ACCESS_DENIED(HttpStatus.FORBIDDEN, "STUDY_SESSION_004", "해당 스터디 그룹의 멤버가 아닙니다."),
+    STUDY_SESSION_PARTICIPANT_KICKED(HttpStatus.FORBIDDEN, "STUDY_SESSION_005", "해당 화상 스터디 세션에서 강퇴된 사용자입니다."),
+    STUDY_SESSION_FULL(HttpStatus.CONFLICT, "STUDY_SESSION_006", "화상 스터디 세션의 최대 인원에 도달했습니다."),
+
+    // Livekit
+    LIVEKIT_TOKEN_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "LIVEKIT_002", "화상 스터디 접속 토큰 생성에 실패했습니다."),
+    LIVEKIT_WEBHOOK_AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "LIVEKIT_003", "LiveKit Webhook 인증에 실패했습니다."),
+    LIVEKIT_WEBHOOK_INVALID_PARTICIPANT(HttpStatus.BAD_REQUEST, "LIVEKIT_004", "LiveKit 참가자 정보를 확인할 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;
