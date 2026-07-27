@@ -20,6 +20,10 @@ export interface StudySessionPrejoinSelection {
 interface StudySessionPrejoinProps {
   onBack: () => void
   onJoin: (selection: StudySessionPrejoinSelection) => void
+  /** 접속 정보(LiveKit 토큰) 발급 중일 때 참여 버튼을 잠근다. */
+  connecting?: boolean
+  /** 접속 정보 발급 실패 시 표시할 에러 메시지. */
+  connectError?: string | null
 }
 
 const selectClass =
@@ -28,7 +32,12 @@ const selectClass =
 const actionButtonClass = 'shrink-0 px-3 py-1.5 text-caption'
 
 // 세션 입장 전 카메라·마이크·스피커·자소서를 확인하고 선택하는 대기 화면 패널.
-export function StudySessionPrejoin({ onBack, onJoin }: StudySessionPrejoinProps) {
+export function StudySessionPrejoin({
+  onBack,
+  onJoin,
+  connecting = false,
+  connectError = null,
+}: StudySessionPrejoinProps) {
   const { permission, stream, devices, requestAccess } = useMediaDevices()
   const videoRef = useRef<HTMLVideoElement>(null)
 
@@ -70,13 +79,13 @@ export function StudySessionPrejoin({ onBack, onJoin }: StudySessionPrejoinProps
     void requestAccess(cameraDeviceId ?? undefined, id)
   }
 
-  const isReady = permission === 'granted' && coverLetterId !== null
+  const isReady = permission === 'granted' && coverLetterId !== null && !connecting
   const disabledHint =
     permission !== 'granted'
       ? '카메라와 마이크 권한을 허용해야 참여할 수 있어요.'
       : coverLetterId === null
         ? '보여줄 자소서를 선택해 주세요.'
-        : null
+        : connectError
 
   const handleJoin = () => {
     if (!isReady) return
@@ -279,7 +288,7 @@ export function StudySessionPrejoin({ onBack, onJoin }: StudySessionPrejoinProps
             aria-describedby={disabledHint ? 'prejoin-join-hint' : undefined}
             onClick={handleJoin}
           >
-            지금 참여하기
+            {connecting ? '접속 정보 발급 중...' : '지금 참여하기'}
           </Button>
         </div>
       </div>
