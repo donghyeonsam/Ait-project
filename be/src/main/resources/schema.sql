@@ -2,13 +2,16 @@
 -- 외래키 관계를 고려한 테이블 삭제
 -- 자식 테이블부터 부모 테이블 순서로 삭제
 -- =========================================================
-DROP TABLE IF EXISTS study_session_participants;
-DROP TABLE IF EXISTS study_sessions;
 
--- 임시 입니다
-DROP TABLE IF EXISTS study_group_members;
-DROP TABLE IF EXISTS study_groups;
+SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS `peer_feedbacks`;
+DROP TABLE IF EXISTS `ai_peer_summaries`;
+DROP TABLE IF EXISTS `study_sessions`;
+DROP TABLE IF EXISTS `study_group_members`;
+DROP TABLE IF EXISTS `study_group_chats`;
+DROP TABLE IF EXISTS `study_group_calendars`;
+DROP TABLE IF EXISTS `study_groups`;
 DROP TABLE IF EXISTS `ai_comprehensive_reports`;
 DROP TABLE IF EXISTS `ai_interview_questions`;
 DROP TABLE IF EXISTS `ai_interviews`;
@@ -23,6 +26,7 @@ DROP TABLE IF EXISTS `github_apps`;
 DROP TABLE IF EXISTS `resumes`;
 DROP TABLE IF EXISTS `user_skills`;
 DROP TABLE IF EXISTS `users`;
+SET FOREIGN_KEY_CHECKS = 1;
 
 -- =========================================================
 -- 사용자 정보
@@ -421,6 +425,11 @@ CREATE TABLE `ai_comprehensive_reports` (
 
 
 
+
+
+-- =========================================================
+-- 1. 스터디 그룹
+-- =========================================================
 -- 임시 스터디 그룹 테이블
 CREATE TABLE study_groups (
                               id BIGINT NOT NULL AUTO_INCREMENT,
@@ -460,11 +469,67 @@ CREATE TABLE study_groups (
                                       )
 );
 
+
+-- =========================================================
+-- 2. 스터디 그룹 캘린더
+-- =========================================================
+CREATE TABLE `study_group_calendars` (
+                                         `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                         `group_id` BIGINT NOT NULL,
+                                         `content` VARCHAR(255) NOT NULL,
+                                         `status` VARCHAR(20) DEFAULT 'recruiting',
+                                         `start_time` DATETIME NOT NULL,
+                                         `end_time` DATETIME NOT NULL,
+
+                                         PRIMARY KEY (`id`),
+
+                                         KEY `idx_study_group_calendars_group_id` (`group_id`),
+
+                                         CONSTRAINT `fk_study_group_calendars_group`
+                                             FOREIGN KEY (`group_id`)
+                                                 REFERENCES `study_groups` (`id`)
+                                                 ON DELETE CASCADE
+                                                 ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='스터디 그룹에 포함되는 캘린더';
+
+-- =========================================================
+-- 3. 스터디 그룹 채팅
+-- =========================================================
+CREATE TABLE `study_group_chats` (
+                                     `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                     `group_id` BIGINT NOT NULL,
+                                     `user_id` BIGINT NOT NULL,
+                                     `message` VARCHAR(255) NOT NULL,
+                                     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                                     PRIMARY KEY (`id`),
+
+                                     KEY `idx_study_group_chats_group_id` (`group_id`),
+                                     KEY `idx_study_group_chats_user_id` (`user_id`),
+
+                                     CONSTRAINT `fk_study_group_chats_group`
+                                         FOREIGN KEY (`group_id`)
+                                             REFERENCES `study_groups` (`id`)
+                                             ON DELETE CASCADE
+                                             ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='스터디 그룹에 포함되는 채팅';
+
+-- =========================================================
+-- 4. 스터디 그룹 멤버
+-- =========================================================
+
 -- 임시 스터디 그룹 멤버 테이블
 CREATE TABLE study_group_members (
                                      id BIGINT NOT NULL AUTO_INCREMENT,
                                      group_id BIGINT NOT NULL,
                                      user_id BIGINT NOT NULL,
+                                     `message` VARCHAR(255) NOT NULL,
 
                                      role VARCHAR(20) NOT NULL DEFAULT 'MEMBER',
                                      status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
@@ -505,9 +570,9 @@ CREATE TABLE study_group_members (
 );
 
 
-
--- 스터디 세션
-
+-- =========================================================
+-- 5. 스터디 그룹 세션
+-- =========================================================
 CREATE TABLE study_sessions (
                                 id BIGINT NOT NULL AUTO_INCREMENT,
                                 group_id BIGINT NOT NULL,
@@ -552,8 +617,9 @@ CREATE TABLE study_sessions (
                                         )
 );
 
-
--- 스터디 참여자 관리
+-- =========================================================
+-- 6. 스터디 그룹 세션 참여자 관리
+-- =========================================================
 CREATE TABLE study_session_participants (
                                             id BIGINT NOT NULL AUTO_INCREMENT,
 
@@ -601,3 +667,61 @@ CREATE TABLE study_session_participants (
                                                     REFERENCES users(id)
                                                     ON DELETE CASCADE
 );
+
+-- =========================================================
+-- 6. 상호평가 AI 요약
+-- =========================================================
+CREATE TABLE `ai_peer_summaries` (
+                                     `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                     `session_id` BIGINT NOT NULL,
+                                     `evaluatee_id` BIGINT NOT NULL,
+                                     `content` TEXT NOT NULL,
+                                     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                                     PRIMARY KEY (`id`),
+
+                                     KEY `idx_ai_peer_summaries_session_id` (`session_id`),
+                                     KEY `idx_ai_peer_summaries_evaluatee_id` (`evaluatee_id`),
+
+                                     CONSTRAINT `fk_ai_peer_summaries_session`
+                                         FOREIGN KEY (`session_id`)
+                                             REFERENCES `study_sessions` (`id`)
+                                             ON DELETE CASCADE
+                                             ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='상호평가의 AI 요약';
+
+-- =========================================================
+-- 7. 상호평가 피드백
+-- =========================================================
+CREATE TABLE `peer_feedbacks` (
+                                  `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                  `session_id` BIGINT NOT NULL,
+                                  `evaluator_id` BIGINT NOT NULL,
+                                  `evaluatee_id` BIGINT NOT NULL,
+                                  `logical_score` INT NOT NULL,
+                                  `answer_score` INT NOT NULL,
+                                  `communication_score` INT NOT NULL,
+                                  `comprehension_score` INT NOT NULL,
+                                  `attitude_score` INT NOT NULL,
+                                  `time_management_score` INT NOT NULL,
+                                  `feedback` TEXT NOT NULL,
+                                  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                                  PRIMARY KEY (`id`),
+
+                                  KEY `idx_peer_feedbacks_session_id` (`session_id`),
+                                  KEY `idx_peer_feedbacks_evaluator_id` (`evaluator_id`),
+                                  KEY `idx_peer_feedbacks_evaluatee_id` (`evaluatee_id`),
+
+                                  CONSTRAINT `fk_peer_feedbacks_session`
+                                      FOREIGN KEY (`session_id`)
+                                          REFERENCES `study_sessions` (`id`)
+                                          ON DELETE CASCADE
+                                          ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='상호평가 기록';
