@@ -72,17 +72,19 @@ export function InterviewsPage() {
 
   return (
     <PageLayout contentClassName="max-w-content">
-      <div className="survey-zoom-90">
-        {showStepIntro ? (
-          <section className="py-12 text-center" aria-labelledby="survey-title">
-            <h1 id="survey-title" className="text-h1">나에게 맞는 면접을 준비해 보세요</h1>
-            <p className="mt-2 text-body-1 text-text-secondary">
-              단계별 설정을 완료하면 AI가 맞춤 질문을 구성해 드려요.
-            </p>
-          </section>
-        ) : null}
+      <div className="survey-zoom-90 pt-12">
+        <div className={`survey-intro-collapse ${showStepIntro ? 'is-open' : ''}`}>
+          <div className="overflow-hidden">
+            <section className="pb-12 text-center" aria-labelledby="survey-title">
+              <h1 id="survey-title" className="text-h1">나에게 맞는 면접을 준비해 보세요</h1>
+              <p className="mt-2 text-body-1 text-text-secondary">
+                단계별 설정을 완료하면 AI가 맞춤 질문을 구성해 드려요.
+              </p>
+            </section>
+          </div>
+        </div>
 
-        <div className={`mb-16 ${showStepIntro ? '' : 'mt-12'}`}>
+        <div className="mb-16">
           <SurveyStepper currentStep={currentStep} />
 
           <div

@@ -80,8 +80,8 @@ export function Step5DeviceSetup({
     <section aria-labelledby="step5-title" className="space-y-6">
       <h2 id="step5-title" className="sr-only">환경 설정</h2>
 
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-        <div className="flex aspect-video w-full shrink-0 flex-col items-center justify-center gap-3 overflow-hidden rounded-ait-m border border-border-default bg-status-neutral-surface text-text-secondary lg:w-1/2">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+        <div className="flex aspect-video w-full shrink-0 flex-col items-center justify-center gap-3 overflow-hidden rounded-ait-m border border-border-default bg-status-neutral-surface text-text-secondary lg:w-3/5">
           {permission === 'granted' ? (
             <video ref={videoRef} autoPlay playsInline muted className="size-full object-cover" />
           ) : permission === 'pending' ? (
