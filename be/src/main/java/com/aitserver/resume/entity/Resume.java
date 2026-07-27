@@ -111,4 +111,8 @@ public class Resume {
         this.analysisContent = null;
     }
 
+    public Resume(User user) {
+        this.user = user;
+    }
+
 }
