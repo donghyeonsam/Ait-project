@@ -137,9 +137,10 @@ export function StudyPage() {
         </Button>
       </section>
 
+      {/* TODO: 임시 진입 경로 — 내 스터디 그룹, 세션 생성/참가 흐름이 구현되면 제거하고 해당 흐름에서 연결한다. sessionId=1은 seed 데이터 관례를 따른 임시값. */}
       <MyStudySection
         studies={mockMyStudies}
-        onEnterStudy={() => navigate('/study/session/prejoin')}
+        onEnterStudy={() => navigate('/study/session/1/prejoin')}
         onManageApplications={() => setIsApplicationModalOpen(true)}
       />
 

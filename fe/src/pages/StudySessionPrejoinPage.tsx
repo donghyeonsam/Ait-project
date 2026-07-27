@@ -1,9 +1,12 @@
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   StudySessionPrejoin,
   type StudySessionPrejoinSelection,
 } from '@/components/study/StudySessionPrejoin'
 import { PageLayout } from '@/components/layout/PageLayout'
+import { createStudySessionConnection } from '@/api/study-sessions'
+import { toErrorMessage } from '@/api/http'
 import { mockPrejoinSessionTitle } from '@/mocks/study'
 
 // 스터디 라운지 → 내 스터디 그룹 → 세션 생성/참가에서 진입하는 입장 전 대기 화면.
@@ -11,25 +14,46 @@ import { mockPrejoinSessionTitle } from '@/mocks/study'
 // location.state로 실제 세션 정보를 전달받아 mockPrejoinSessionTitle을 대체한다.
 export function StudySessionPrejoinPage() {
   const navigate = useNavigate()
+  const { sessionId } = useParams<{ sessionId: string }>()
+
+  const [connecting, setConnecting] = useState(false)
+  const [connectError, setConnectError] = useState<string | null>(null)
 
   const handleBack = () => {
     navigate(-1)
   }
 
-  const handleJoin = (selection: StudySessionPrejoinSelection) => {
-    // TODO: 실제 세션 연결(WebRTC/LiveKit) 구현 필요 — 지금은 선택한 장치·자소서 정보를 화상 회의방 UI로 전달만 한다.
-    navigate('/study/session/room', {
-      state: {
-        devices: {
-          cameraDeviceId: selection.cameraDeviceId,
-          micDeviceId: selection.micDeviceId,
-          speakerDeviceId: selection.speakerDeviceId,
-          micGain: selection.micGain,
-          speakerVolume: selection.speakerVolume,
+  const handleJoin = async (selection: StudySessionPrejoinSelection) => {
+    const parsedSessionId = Number(sessionId)
+    if (!Number.isInteger(parsedSessionId) || parsedSessionId <= 0) {
+      setConnectError('올바르지 않은 세션입니다.')
+      return
+    }
+
+    setConnectError(null)
+    setConnecting(true)
+
+    try {
+      const connection = await createStudySessionConnection(parsedSessionId)
+
+      navigate(`/study/session/${parsedSessionId}/room`, {
+        state: {
+          devices: {
+            cameraDeviceId: selection.cameraDeviceId,
+            micDeviceId: selection.micDeviceId,
+            speakerDeviceId: selection.speakerDeviceId,
+            micGain: selection.micGain,
+            speakerVolume: selection.speakerVolume,
+          },
+          coverLetterId: selection.coverLetterId,
+          connection,
         },
-        coverLetterId: selection.coverLetterId,
-      },
-    })
+      })
+    } catch (error) {
+      setConnectError(toErrorMessage(error))
+    } finally {
+      setConnecting(false)
+    }
   }
 
   return (
@@ -40,7 +64,12 @@ export function StudySessionPrejoinPage() {
       </div>
 
       <div className="pb-10">
-        <StudySessionPrejoin onBack={handleBack} onJoin={handleJoin} />
+        <StudySessionPrejoin
+          onBack={handleBack}
+          onJoin={handleJoin}
+          connecting={connecting}
+          connectError={connectError}
+        />
       </div>
     </PageLayout>
   )

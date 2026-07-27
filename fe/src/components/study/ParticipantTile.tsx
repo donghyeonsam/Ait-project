@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from 'react'
+import { useEffect, useState, type DragEvent, type MouseEvent } from 'react'
+import { VideoTrack, type TrackReference } from '@livekit/components-react'
 import { Lock, UserRound, Volume2, VolumeX } from 'lucide-react'
+import type { RemoteAudioTrack } from 'livekit-client'
 import { MasterVolumeSlider } from '@/components/interview/MasterVolumeSlider'
 import type { StudyParticipant } from '@/mocks/study'
 import { cn } from '@/lib/utils'
 
 interface ParticipantTileProps {
   participant: StudyParticipant
-  /** 본인 타일에만 실제 로컬 스트림을 연결한다. 다른 참가자는 연결된 미디어가 없는 mock 타일이다. */
-  stream?: MediaStream | null
-  cameraOn?: boolean
+  /** 이 참가자의 카메라 트랙. 본인/상대방 모두 LiveKit 구독 트랙에서 받아온다. */
+  trackRef?: TrackReference | null
+  /** 상대방 오디오 트랙. 음량 조절 슬라이더를 실제 트랙 볼륨에 연결하는 데 쓴다. 본인은 넘기지 않는다. */
+  audioTrackRef?: TrackReference | null
   /** 그리드 순서 변경(다른 참가자 타일 사이 드래그 앤 드롭)에만 쓴다. 본인 타일은 대상이 아니다. */
   draggableEnabled?: boolean
   locked?: boolean
@@ -21,8 +24,8 @@ interface ParticipantTileProps {
 // 그리드·스테이지 뷰에서 공통으로 쓰는 참가자 영상 타일.
 export function ParticipantTile({
   participant,
-  stream = null,
-  cameraOn = false,
+  trackRef = null,
+  audioTrackRef = null,
   draggableEnabled = false,
   locked = false,
   onDragStart,
@@ -30,20 +33,15 @@ export function ParticipantTile({
   onContextMenu,
   className,
 }: ParticipantTileProps) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  // TODO: 실제 API 연동 필요 — WebRTC 원격 오디오 트랙 볼륨/음소거로 교체. 지금은 화면 확인용 로컬 상태다.
   const [remoteVolume, setRemoteVolume] = useState(100)
   const [remoteMuted, setRemoteMuted] = useState(false)
   const [dragOver, setDragOver] = useState(false)
-  const showVideo = participant.isSelf && cameraOn && Boolean(stream)
+  const showVideo = Boolean(trackRef && !trackRef.publication.isMuted)
 
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.srcObject = participant.isSelf ? stream : null
-    }
-    // showVideo가 false면 <video> 엘리먼트 자체가 언마운트됐다가 다시 켜질 때 새 노드로 마운트되므로,
-    // stream 참조가 그대로여도 이 값이 바뀔 때마다 srcObject를 다시 연결해야 한다.
-  }, [participant.isSelf, stream, showVideo])
+    const track = audioTrackRef?.publication.track as RemoteAudioTrack | undefined
+    track?.setVolume(remoteMuted ? 0 : remoteVolume / 100)
+  }, [audioTrackRef, remoteVolume, remoteMuted])
 
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     if (!draggableEnabled) return
@@ -75,8 +73,8 @@ export function ParticipantTile({
         className,
       )}
     >
-      {showVideo ? (
-        <video ref={videoRef} autoPlay playsInline muted className="size-full object-cover" />
+      {showVideo && trackRef ? (
+        <VideoTrack trackRef={trackRef} className="size-full object-cover" />
       ) : (
         <div className="flex size-full items-center justify-center">
           {participant.isSelf ? (
