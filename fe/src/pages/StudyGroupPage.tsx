@@ -4,6 +4,8 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { StudyApplicationModal } from '@/components/study/StudyApplicationModal'
 import { StudyCalendar } from '@/components/study/StudyCalendar'
+import { StudyChatFloatingButton } from '@/components/study/StudyChatFloatingButton'
+import { StudyChatModal } from '@/components/study/StudyChatModal'
 import { StudyGroupChatPanel } from '@/components/study/StudyGroupChatPanel'
 import { StudyGroupManagerPanel } from '@/components/study/StudyGroupManagerPanel'
 import { StudyGroupMemberPanel } from '@/components/study/StudyGroupMemberPanel'
@@ -40,6 +42,7 @@ export function StudyGroupPage() {
     })),
   )
   const [isRecruiting, setIsRecruiting] = useState(true)
+  const [isChatOpen, setIsChatOpen] = useState(false)
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const { ref: headerRef, isInView: isHeaderInView } =
@@ -182,6 +185,12 @@ export function StudyGroupPage() {
         <div className="my-6 border-t border-status-achievement" />
         <StudyCalendar events={calendarEvents} />
       </section>
+
+      <StudyChatFloatingButton
+        unreadCount={42}
+        onClick={() => setIsChatOpen(true)}
+      />
+      <StudyChatModal open={isChatOpen} onOpenChange={setIsChatOpen} />
 
       <StudyApplicationModal
         open={isApplicationModalOpen}
