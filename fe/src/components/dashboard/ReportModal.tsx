@@ -144,6 +144,22 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
 
     previousFocusRef.current = document.activeElement as HTMLElement | null
     const previousOverflow = document.body.style.overflow
+    const previousMarginRight = document.body.style.marginRight
+    const previousScrollbarSize = document.body.style.getPropertyValue(
+      '--removed-body-scroll-bar-size',
+    )
+    const scrollbarWidth =
+      window.innerWidth - document.documentElement.clientWidth
+
+    if (scrollbarWidth > 0) {
+      const currentMarginRight =
+        Number.parseFloat(getComputedStyle(document.body).marginRight) || 0
+      document.body.style.marginRight = `${currentMarginRight + scrollbarWidth}px`
+      document.body.style.setProperty(
+        '--removed-body-scroll-bar-size',
+        `${scrollbarWidth}px`,
+      )
+    }
     document.body.style.overflow = 'hidden'
     closeButtonRef.current?.focus()
 
@@ -181,6 +197,15 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
     return () => {
       document.removeEventListener('keydown', onKeyDown)
       document.body.style.overflow = previousOverflow
+      document.body.style.marginRight = previousMarginRight
+      if (previousScrollbarSize) {
+        document.body.style.setProperty(
+          '--removed-body-scroll-bar-size',
+          previousScrollbarSize,
+        )
+      } else {
+        document.body.style.removeProperty('--removed-body-scroll-bar-size')
+      }
       previousFocusRef.current?.focus()
     }
   }, [onClose, open])

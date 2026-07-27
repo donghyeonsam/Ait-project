@@ -19,7 +19,7 @@ export function StudyChatFloatingButton({
 
   return (
     <div
-      className="pointer-events-none fixed bottom-4 right-4 z-(--z-index-sticky) flex items-center gap-2 md:bottom-8 md:right-8"
+      className="pointer-events-none fixed bottom-4 right-4 z-(--z-index-sticky) mr-[var(--removed-body-scroll-bar-size,0px)] flex items-center gap-2 md:bottom-8 md:right-8"
     >
       <div className="hidden h-[52px] w-[142px] flex-col justify-center rounded-ait-m border border-border-default bg-surface-default/95 px-4 py-2 shadow-elevation-1 md:flex">
         <span className="text-body-2 font-semibold leading-5 text-action-primary">
