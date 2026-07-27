@@ -1,57 +1,47 @@
-## 🛠 Git 명령어 치트시트
+# S15P11D202 - Ait
 
-### 1. 프로젝트 시작 및 기본 설정
-| 명령어 | 설명 |
-| :--- | :--- |
-| `git clone {repository_url}` | 원격 저장소의 코드와 Git 이력을 로컬 컴퓨터로 복제 (단순 다운로드 시 Git 폴더가 누락되므로 필수) |
-| `git config --global core.editor "code --wait"` | Git 기본 에디터를 Vim에서 VS Code로 변경 (충돌 해결 시 매우 유용) |
+AI 모의면접 훈련 및 화상 면접 스터디 서비스. `be`(Spring Boot), `ai`(FastAPI), `fe`(React) 세 프로젝트로 구성됩니다.
 
-### 2. 작업 시작 전 (최신 코드 동기화)
-> ⚠️ **주의**: `feature` 브랜치에 선 채로 `git pull origin develop`을 하면 코드가 강제 병합되어 충돌할 위험이 있습니다. 반드시 `develop`으로 이동 후 pull을 받으세요.
+## Backend (`be/`) - Spring Boot
 
-| 명령어 | 설명 |
-| :--- | :--- |
-| `git switch develop` <br> *(또는 `git checkout develop`)* | `develop` 브랜치로 이동 |
-| `git pull origin develop` | 원격 저장소(`origin`)의 최신 `develop` 코드를 로컬로 가져오기 |
-| `git checkout -b {새_브랜치명}` | 새로운 브랜치를 생성함과 동시에 해당 브랜치로 이동 (`feature/기능이름` 생성 시 사용) |
+1. MySQL/Redis 등 인프라 컨테이너 실행
 
-### 3. 작업 진행 및 저장 (Commit & Push)
-| 명령어 | 설명 |
-| :--- | :--- |
-| `git status` | 최신 커밋 기준으로 변경되거나 새로 생성된 파일 목록을 확인 (의도치 않은 변경 사항 감지에 유용) |
-| `git restore {파일경로}` | 특정 파일의 변경 사항을 가장 최근 커밋 상태로 되돌림 (작업 취소) |
-| `git add {파일경로}` | 스테이징 영역(Staging Area)에 특정 파일만 추가 |
-| `git add .` | 변경된 모든 파일을 스테이징 영역에 한 번에 추가 |
-| `git commit -m "commit message"` | 스테이징된 파일들을 메시지와 함께 로컬 저장소에 기록 (커밋 규칙 준수) |
-| `git push origin {브랜치명}` | 로컬의 커밋 내역을 원격 저장소의 해당 브랜치에 업로드 |
-| `git push -u origin {브랜치명}` | 현재 브랜치의 업스트림(기본 원격 브랜치)을 지정. 이후에는 `git push`만으로 간소화 가능 |
+   ```bash
+   cd be
+   docker compose -f infra/docker-compose.yml up -d
+   ```
 
-### 4. 커밋하기 애매한 상황에서의 pull (임시 보관)
-| 명령어 | 설명 |
-| :--- | :--- |
-| `git stash` | 현재 작업 중인 미완성 변경 사항을 임시 보관소(서랍장)에 저장하고 작업 공간을 깨끗이 비움 |
-| `git stash pop` | 임시 보관소에 넣어두었던 미완성 코드를 다시 꺼내와 현재 작업 공간에 적용 |
+2. `be/.env`에 `MYSQL_*`, `REDIS_PASSWORD`, `JWT_SECRET_KEY`, `GMS_*`, `GITHUB_AIT_*` 값 설정 (미보유 시 팀 공유 채널 확인)
 
-### 5. 브랜치 삭제 및 정리 (작업 완료 후)
-> ⚠️ **주의**: 현재 내가 위치해 있는(체크아웃된) 브랜치는 삭제할 수 없습니다. 반드시 `main`이나 `develop` 등 다른 브랜치로 이동한 후에 삭제를 진행해 주세요.
+3. 서버 실행 (Java 21)
 
-| 명령어 | 설명 |
-| :--- | :--- |
-| `git branch -d {로컬_브랜치명}` | **로컬 브랜치 삭제 (안전)**: 병합(Merge)이 완료된 로컬 브랜치만 삭제합니다. |
-| `git branch -D {로컬_브랜치명}` | **로컬 브랜치 강제 삭제**: 병합 여부와 관계없이 로컬 브랜치를 강제로 삭제합니다. (작업을 취소하고 버릴 때 사용) |
-| `git push origin --delete {원격_브랜치명}` | **원격 브랜치 삭제**: GitHub 등 원격 저장소(`origin`)에 올라가 있는 브랜치를 삭제합니다. |
-| `git remote prune origin` | **원격 삭제 내역 동기화**: 다른 팀원이 원격에서 삭제한 브랜치가 내 로컬 목록에 계속 남아있을 때, 이를 깔끔하게 정리해 줍니다. |
+   ```bash
+   ./gradlew bootRun       # macOS/Linux
+   gradlew.bat bootRun     # Windows
+   ```
 
----
+   → Swagger: http://localhost:8080/swagger-ui/index.html
 
-## 🔄 상황별 정석 워크플로우
+## AI (`ai/`) - FastAPI
 
-### 📝 1. 안전하게 최신 코드를 내 브랜치에 반영하기 (수동 병합)
-내가 어제 만든 브랜치에 오늘 자 최신 `develop` 상태를 안전하게 주입하고 싶을 때 사용하는 순서입니다.
 ```bash
-git switch develop
-git pull
-git switch feature/기능이름
-git merge develop   # 내 브랜치에 최신 조상 코드 주입 완료!
+cd ai
+cp .env.example .env      # GMS_KEY 등 입력
+docker compose up --build
 ```
 
+→ http://localhost:8000/docs (Swagger)
+
+첫 빌드 시 한국어 임베딩 모델(`jhgan/ko-sroberta-multitask`)을 다운로드/캐시합니다.
+
+## Frontend (`fe/`) - Vite + React + TypeScript
+
+```bash
+cd fe
+npm install
+npm run dev
+```
+
+→ http://localhost:5173
+
+기타 명령어: `npm run lint`, `npm run typecheck`, `npm run build`, `npm run preview`

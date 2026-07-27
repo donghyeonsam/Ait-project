@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# 루트 .gitignore의 Python용 `lib/` 규칙이 src/lib를 함께 무시하는 것을 방지
+!src/lib/
+
+# 개인 작업용 프롬프트 문서 (공유 저장소에 커밋하지 않음)
+docs/prompt.md
+.vercel

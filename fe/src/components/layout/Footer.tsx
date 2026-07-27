@@ -6,21 +6,22 @@ const footerLinks = [
   { label: '녹화 · AI 분석 안내', to: '/recording-notice' },
 ]
 
+// 로고와 정책(약관·개인정보·녹화 안내) 링크를 담은 공통 하단 영역.
 export function Footer() {
   return (
-    <footer className="border-t border-border-default bg-surface-default">
-      <div className="mx-auto max-w-content px-8 py-8">
+    <footer className="border-t border-border-default bg-background-default">
+      <div className="mx-auto max-w-dashboard px-8 py-10">
         <div className="flex flex-wrap items-center justify-between gap-8">
           <div className="flex flex-wrap items-center gap-4">
             <Link
-              to="/dashboard"
+              to="/"
               className="-m-3 p-3"
-              aria-label="Ait 대시보드"
+              aria-label="Ait 홈"
             >
               <img
                 src="/Logo_Assets/primary/ait-logo-horizontal.svg"
                 alt="Ait"
-                className="h-6 w-auto"
+                className="h-12 w-auto"
               />
             </Link>
             <p className="text-body-2 text-text-secondary">
@@ -41,7 +42,7 @@ export function Footer() {
           </nav>
         </div>
 
-        <p className="mt-6 border-t border-border-default pt-6 text-caption text-text-secondary">
+        <p className="mt-6 text-caption text-text-secondary">
           © 2026 Ait. All rights reserved.
         </p>
       </div>

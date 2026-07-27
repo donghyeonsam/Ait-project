@@ -3,6 +3,7 @@ import { PageIntro } from '@/components/common/PageIntro'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Button } from '@/components/ui/button'
 
+// 정의되지 않은 경로에 접근했을 때 보여주는 404 화면.
 export function NotFoundPage() {
   return (
     <PageLayout>

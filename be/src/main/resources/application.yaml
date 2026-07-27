@@ -7,6 +7,9 @@ jwt:
   access-token-expiration: 3600000      # 1시간 (밀리초)
   refresh-token-expiration: 604800000   # 7일 (밀리초)
 
+fastapi:
+  url: ${FASTAPI_URL}
+
 spring:
   application:
     name: aitServer
@@ -25,8 +28,8 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update # 혹은 create, validate 등 팀 컨벤션에 맞게 설정
-    show-sql: true
+      ddl-auto: validate # 혹은 create, validate 등 팀 컨벤션에 맞게 설정
+    show-sql: false
     properties:
       hibernate:
         format_sql: true

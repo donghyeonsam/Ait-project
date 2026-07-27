@@ -1,0 +1,129 @@
+// Radix 다이얼로그를 디자인 토큰에 맞춰 감싼 공통 모달 컴포넌트 묶음.
+import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { X } from 'lucide-react'
+import type { ComponentProps } from 'react'
+import { cn } from '@/lib/utils'
+
+function Dialog(props: ComponentProps<typeof DialogPrimitive.Root>) {
+  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+}
+
+function DialogTrigger(props: ComponentProps<typeof DialogPrimitive.Trigger>) {
+  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />
+}
+
+function DialogPortal(props: ComponentProps<typeof DialogPrimitive.Portal>) {
+  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
+}
+
+function DialogClose(props: ComponentProps<typeof DialogPrimitive.Close>) {
+  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
+}
+
+function DialogOverlay({
+  className,
+  ...props
+}: ComponentProps<typeof DialogPrimitive.Overlay>) {
+  return (
+    <DialogPrimitive.Overlay
+      data-slot="dialog-overlay"
+      className={cn('ait-dialog-overlay fixed inset-0', className)}
+      {...props}
+    />
+  )
+}
+
+interface DialogContentProps
+  extends ComponentProps<typeof DialogPrimitive.Content> {
+  showCloseButton?: boolean
+  overlayClassName?: string
+  centered?: boolean
+}
+
+function DialogContent({
+  className,
+  children,
+  showCloseButton = true,
+  overlayClassName,
+  centered = true,
+  ...props
+}: DialogContentProps) {
+  return (
+    <DialogPortal>
+      <DialogOverlay className={overlayClassName} />
+      <DialogPrimitive.Content
+        data-slot="dialog-content"
+        className={cn(
+          'ait-dialog-content fixed z-[var(--z-index-dialog)] rounded-ait-l bg-surface-default shadow-elevation-3',
+          centered &&
+            'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
+          className,
+        )}
+        {...props}
+      >
+        {showCloseButton ? (
+          <DialogPrimitive.Close
+            className="absolute right-4 top-4 inline-flex size-10 items-center justify-center rounded-ait-s text-text-secondary transition-colors hover:bg-status-neutral-surface hover:text-action-primary"
+            aria-label="닫기"
+          >
+            <X aria-hidden="true" />
+          </DialogPrimitive.Close>
+        ) : null}
+        {children}
+      </DialogPrimitive.Content>
+    </DialogPortal>
+  )
+}
+
+function DialogHeader({ className, ...props }: ComponentProps<'div'>) {
+  return <div className={cn('flex flex-col gap-2', className)} {...props} />
+}
+
+function DialogFooter({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn('flex flex-col-reverse gap-3 sm:flex-row sm:justify-end', className)}
+      {...props}
+    />
+  )
+}
+
+function DialogTitle({
+  className,
+  ...props
+}: ComponentProps<typeof DialogPrimitive.Title>) {
+  return (
+    <DialogPrimitive.Title
+      className={cn(
+        'font-bold text-action-primary [font-size:var(--text-h2)] [line-height:var(--text-h2--line-height)]',
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
+function DialogDescription({
+  className,
+  ...props
+}: ComponentProps<typeof DialogPrimitive.Description>) {
+  return (
+    <DialogPrimitive.Description
+      className={cn('text-body-2 text-text-secondary', className)}
+      {...props}
+    />
+  )
+}
+
+export {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogOverlay,
+  DialogPortal,
+  DialogTitle,
+  DialogTrigger,
+}

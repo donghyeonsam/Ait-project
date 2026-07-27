@@ -3,6 +3,7 @@ package com.aitserver.resume.service;
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.resume.analysis.event.ResumeAnalysisRequestedEvent;
+import com.aitserver.resume.analysis.service.ResumeChangeDetector;
 import com.aitserver.resume.dto.*;
 import com.aitserver.resume.entity.Resume;
 import com.aitserver.resume.entity.ResumeCareer;
@@ -10,12 +11,14 @@ import com.aitserver.resume.entity.ResumeProject;
 import com.aitserver.resume.entity.ResumeTraining;
 import com.aitserver.resume.repository.ResumeRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 
+@Slf4j
 @Service
 //@Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -23,6 +26,7 @@ public class ResumeServiceImpl implements ResumeService{
 
     private final ResumeRepository resumeRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final ResumeChangeDetector resumeChangeDetector;
 
     // 내 이력서 조회
     @Override
@@ -60,6 +64,17 @@ public class ResumeServiceImpl implements ResumeService{
         validateOwner(resume, loginUserId);
 
         validateRequest(request);
+
+        // 분석결과 변경이 필요한지 검사
+        boolean significantChange = resumeChangeDetector.isSignificantChange(resume, request);
+
+        // 기존 분석결과가 비어있거나 변경이 필요하다면 true
+        boolean analysisRequired = resume.getAnalysisContent() == null || resume.getAnalysisContent().isBlank() || significantChange;
+
+        // 변경이 필요하다면 기존 분석결과 삭제
+        if (analysisRequired) {
+            resume.clearAnalysisContent();
+        }
 
         // 기존 학력, 프로젝트, 경력 모두 제거
         resume.clearResumeDetails();
@@ -102,23 +117,18 @@ public class ResumeServiceImpl implements ResumeService{
             resume.addCareer(career);
         }
 
-        /*
-         * resume는 조회 후 영속 상태이므로 일반적으로 save()가 필요하지 않다.
-         * 트랜잭션 종료 시 기존 데이터 DELETE 및 신규 데이터 INSERT가 실행된다.
-         */
 
-        // 이 부분에 저장이 다 끝난 후에 gms를 활용해서 gpt5.5로 보냄
         resumeRepository.flush();
 
-        /*
-         * 현재 트랜잭션이 정상 커밋된 후
-         * ResumeAnalysisEventHandler가 실행된다.
-         */
-        eventPublisher.publishEvent(
-                new ResumeAnalysisRequestedEvent(
-                        resume.getId()
-                )
-        );
+        // 분석이 필요하다면 이벤트 발생
+        if (analysisRequired) {
+            log.info("분석 이벤트 발생");
+            eventPublisher.publishEvent(
+                    new ResumeAnalysisRequestedEvent(
+                            resume.getId()
+                    )
+            );
+        }
 
         return ResumeResponse.from(resume);
     }

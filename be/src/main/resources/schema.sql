@@ -2,7 +2,11 @@
 -- 외래키 관계를 고려한 테이블 삭제
 -- 자식 테이블부터 부모 테이블 순서로 삭제
 -- =========================================================
-
+DROP TABLE IF EXISTS `ai_comprehensive_reports`;
+DROP TABLE IF EXISTS `ai_interview_questions`;
+DROP TABLE IF EXISTS `ai_interviews`;
+DROP TABLE IF EXISTS `cover_letter_contents`;
+DROP TABLE IF EXISTS `cover_letter`;
 DROP TABLE IF EXISTS `resume_projects`;
 DROP TABLE IF EXISTS `resume_trainings`;
 DROP TABLE IF EXISTS `resume_careers`;
@@ -10,8 +14,8 @@ DROP TABLE IF EXISTS `notifications`;
 DROP TABLE IF EXISTS `github_repos`;
 DROP TABLE IF EXISTS `github_apps`;
 DROP TABLE IF EXISTS `resumes`;
+DROP TABLE IF EXISTS `user_skills`;
 DROP TABLE IF EXISTS `users`;
-
 
 -- =========================================================
 -- 사용자 정보
@@ -38,6 +42,27 @@ CREATE TABLE `users` (
   COLLATE=utf8mb4_unicode_ci
   COMMENT='사용자 정보';
 
+CREATE TABLE `user_skills` (
+                               `id` BIGINT NOT NULL AUTO_INCREMENT,
+                               `user_id` BIGINT NOT NULL,
+                               `skill` VARCHAR(20) NOT NULL,
+
+                               PRIMARY KEY (`id`),
+
+    -- 동일 사용자가 중복된 스킬을 등록하는 것을 방지
+                               UNIQUE KEY `uk_user_skills_user_skill` (`user_id`, `skill`),
+
+                               KEY `idx_user_skills_user_id` (`user_id`),
+
+                               CONSTRAINT `fk_user_skills_user`
+                                   FOREIGN KEY (`user_id`)
+                                       REFERENCES `users` (`id`)
+                                       ON DELETE CASCADE
+                                       ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='사용자의 보유 스킬';
 
 -- =========================================================
 -- GitHub App 연동 정보
@@ -111,9 +136,9 @@ CREATE TABLE `github_repos` (
 CREATE TABLE `resumes` (
                            `id` BIGINT NOT NULL AUTO_INCREMENT,
                            `user_id` BIGINT NOT NULL,
-                           `analysis_content` TEXT DEFAULT NULL,
+                           `analysis_content` MEDIUMTEXT DEFAULT NULL,
                            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                           `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                           `updated_at` DATETIME DEFAULT NULL,
 
                            PRIMARY KEY (`id`),
 
@@ -261,3 +286,128 @@ CREATE TABLE `notifications` (
   COLLATE=utf8mb4_unicode_ci
   COMMENT='사용자 알림';
 
+CREATE TABLE `cover_letter` (
+                                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                `user_id` BIGINT NOT NULL,
+                                `title` VARCHAR(50) NOT NULL,
+                                `company_name` VARCHAR(100) NOT NULL,
+                                `role` VARCHAR(50) NOT NULL,
+                                `analysis_content` MEDIUMTEXT DEFAULT NULL,
+                                `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                `deleted_at` DATETIME DEFAULT NULL,
+
+                                PRIMARY KEY (`id`),
+
+                                KEY `idx_cover_letter_user_id` (`user_id`),
+                                KEY `idx_cover_letter_deleted_at` (`deleted_at`),
+
+                                CONSTRAINT `fk_cover_letter_user`
+                                    FOREIGN KEY (`user_id`)
+                                        REFERENCES `users` (`id`)
+                                        ON DELETE CASCADE
+                                        ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='자기소개서 기본 정보';
+
+
+CREATE TABLE `cover_letter_contents` (
+                                         `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                         `cover_letter_id` BIGINT NOT NULL,
+                                         `content_order` INT NOT NULL,
+                                         `question` VARCHAR(255) NOT NULL,
+                                         `answer` TEXT NOT NULL,
+
+                                         PRIMARY KEY (`id`),
+
+                                         UNIQUE KEY `uk_cover_letter_contents_order`
+                                             (`cover_letter_id`, `content_order`),
+
+                                         KEY `idx_cover_letter_contents_cover_letter_id`
+                                             (`cover_letter_id`),
+
+                                         CONSTRAINT `fk_cover_letter_contents_cover_letter`
+                                             FOREIGN KEY (`cover_letter_id`)
+                                                 REFERENCES `cover_letter` (`id`)
+                                                 ON DELETE CASCADE
+                                                 ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='자기소개서 문항 및 답변';
+
+CREATE TABLE `ai_interviews` (
+                                 `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                 `user_id` BIGINT NOT NULL,
+                                 `interview_type` VARCHAR(30) NOT NULL,
+                                 `difficulty` VARCHAR(30) NOT NULL,
+                                 `ai_attitude_style` VARCHAR(30) NOT NULL,
+                                 `status` VARCHAR(30) NOT NULL,
+                                 `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                 `ended_at` DATETIME DEFAULT NULL,
+
+                                 PRIMARY KEY (`id`),
+
+                                 KEY `idx_ai_interviews_user_id` (`user_id`),
+
+                                 CONSTRAINT `fk_ai_interviews_user`
+                                     FOREIGN KEY (`user_id`)
+                                         REFERENCES `users` (`id`)
+                                         ON DELETE CASCADE
+                                         ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='AI 모의 면접 기본 정보';
+
+CREATE TABLE `ai_interview_questions` (
+                                          `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                          `ai_interview_id` BIGINT NOT NULL,
+                                          `question` TEXT NOT NULL,
+                                          `user_answer` TEXT DEFAULT NULL,
+                                          `ai_answer` TEXT DEFAULT NULL,
+                                          `feedback` TEXT DEFAULT NULL,
+
+                                          PRIMARY KEY (`id`),
+
+    -- 조회 성능 향상을 위한 외래키 인덱스
+                                          KEY `idx_ai_interview_questions_ai_interview_id` (`ai_interview_id`),
+
+    -- ai_interviews 테이블 삭제 시 질문 및 답변도 자동 삭제 처리
+                                          CONSTRAINT `fk_ai_interview_questions_ai_interview`
+                                              FOREIGN KEY (`ai_interview_id`)
+                                                  REFERENCES `ai_interviews` (`id`)
+                                                  ON DELETE CASCADE
+                                                  ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='AI 모의 면접 질문 및 사용자 답변';
+
+CREATE TABLE `ai_comprehensive_reports` (
+                                            `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                            `ai_interview_id` BIGINT NOT NULL,
+                                            `content` TEXT NOT NULL,
+                                            `eye_contact_score` INT NOT NULL,
+                                            `face_score` INT NOT NULL,
+                                            `voice_score` INT NOT NULL,
+                                            `answer_score` INT NOT NULL,
+                                            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                                            PRIMARY KEY (`id`),
+
+    -- 1:1 관계 또는 면접 ID 기반 빠른 조회를 위한 외래키 인덱스
+                                            KEY `idx_ai_comprehensive_reports_ai_interview_id` (`ai_interview_id`),
+
+    -- ai_interviews 테이블 삭제 시 종합 평가 리포트도 자동 삭제 처리
+                                            CONSTRAINT `fk_ai_comprehensive_reports_ai_interview`
+                                                FOREIGN KEY (`ai_interview_id`)
+                                                    REFERENCES `ai_interviews` (`id`)
+                                                    ON DELETE CASCADE
+                                                    ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='AI 최종 평가 리포트';

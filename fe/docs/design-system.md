@@ -101,6 +101,45 @@
 | Slate / White | `4.8:1` | AA |
 | Gold / White | `2.3:1` | 본문 텍스트 사용 금지 |
 
+### 3.4 질문 생성 대기 화면 색상
+
+AI 질문 생성 대기 화면에서만 사용하는 파스텔 팔레트다(`design_handoff_ait_loading_b` B안 기준). 텍스트·카드·상태 표현은 일반 시맨틱 토큰(Text, Surface, Border, Success, Info)을 그대로 쓰고, 아래 토큰은 이 화면의 장식과 보조 요소에만 사용한다.
+
+| 역할 | HEX | 토큰 |
+| --- | --- | --- |
+| 링 파스텔 블루 | `#DCE6F5` | `color/loading/pastel-blue` |
+| 링 파스텔 바이올렛 | `#EAE3F2` | `color/loading/pastel-violet` |
+| 링 파스텔 그린 | `#DDEBE4` | `color/loading/pastel-green` |
+| 배경 그라데이션 블루 | `#F3F6FB` | `color/loading/background-blue` |
+| 배경 그라데이션 바이올렛 | `#F5F3F8` | `color/loading/background-violet` |
+| 조건 칩 보조 텍스트 | `#475569` | `color/loading/chip-text` |
+| 팁 카운터 뱃지 표면 | `#EEF2F8` | `color/loading/counter-surface` |
+| 진행바 트랙 | `#E9EDF3` | `color/loading/progress-track` |
+| 진행바 그라데이션 끝 | `#5A7BA6` | `color/loading/progress-tint` |
+
+- 파스텔 색은 장식(링, 배경 그라데이션, 진행바)에만 사용하고 텍스트 색상으로 쓰지 않는다. 텍스트는 `chip-text`(`#475569`)보다 밝은 색을 쓰지 않는다.
+- 이 화면에 다크 배경, 네온, 골드(`#C9A96E`)를 사용하지 않는다.
+- 진행바는 비확정(indeterminate)으로만 표현하고 `%`, "약 n초" 같은 확정 수치를 표시하지 않는다.
+
+### 3.5 면접 세션 시어터 화면 색상
+
+면접 진행 화면(`/interviews/session`)에서만 사용하는 다크 오버레이 팔레트다(`design_handoff_ait_session_theater` 기준). 면접관 영상을 전면 배경으로 깔기 때문에 이 화면의 텍스트와 컨트롤은 흰색 계열을 쓰고, 가독성은 그라데이션 스크림으로 확보한다.
+
+| 역할 | 값 | 토큰 |
+| --- | --- | --- |
+| 영상 배경 | `#0F172A` | `color/theater/backdrop` |
+| 라이브 점·녹음 중 버튼 | `#E74C3C` | `color/theater/live` |
+| 기본 텍스트 | `#FFFFFF` | 고정값 |
+| 보조 텍스트 | `rgba(255,255,255,.75)` / `.65` / `.6` | 고정값 |
+| 글래스 카드 배경 | `rgba(15,23,42,.5)` + blur 14px | 고정값 |
+| 글래스 카드 테두리 | `rgba(255,255,255,.16)` | 고정값 |
+| 상태 배지 배경 | `rgba(255,255,255,.14)` + blur 6px | 고정값 |
+| 고스트 버튼 테두리 | `rgba(255,255,255,.35)` | 고정값 |
+
+- 스크림은 `linear-gradient(180deg, rgba(15,23,42,.55) 0%, transparent 22%, transparent 48%, rgba(15,23,42,.78) 100%)` 고정값이며 포인터 이벤트를 받지 않는다.
+- 주 버튼(답변 녹음)은 흰색 배경 + Navy(`#1A2A4A`) 텍스트, 녹음 중에는 `color/theater/live` 배경 + 흰색 텍스트로 토글한다.
+- 이 팔레트는 시어터 화면 밖(라이트 배경)에서 사용하지 않는다.
+
 ## 4. 타이포그래피
 
 기본 폰트는 Pretendard다.

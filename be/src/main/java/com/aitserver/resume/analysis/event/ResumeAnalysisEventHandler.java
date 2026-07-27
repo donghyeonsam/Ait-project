@@ -15,7 +15,7 @@ public class ResumeAnalysisEventHandler {
 
     private final ResumeAnalysisProcessor analysisProcessor;
 
-    @Async("resumeAnalysisExecutor")
+    @Async("aiAnalysisExecutor")
     @TransactionalEventListener(
             phase = TransactionPhase.AFTER_COMMIT
     )
