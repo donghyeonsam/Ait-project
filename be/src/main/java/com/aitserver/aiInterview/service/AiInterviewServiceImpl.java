@@ -92,7 +92,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
     @Override
     @Transactional
-    public FollowUpQuestionResponse answerCheckForfollowUp(Long userId, Long aiInterviewId, FollowUpQuestionRequest questionRequest, MultipartFile audioFile) {
+    public FollowUpQuestionResponse answerCheckForFollowUp(Long userId, Long aiInterviewId, FollowUpQuestionRequest questionRequest, MultipartFile audioFile) {
         log.info("[AiInterviewServiceImpl, FollowUpQuestion] 면접 질문: {}, 사용자 답변: {}",
                 questionRequest.getQuestion().getQuestion(), questionRequest.getAnswer());
 

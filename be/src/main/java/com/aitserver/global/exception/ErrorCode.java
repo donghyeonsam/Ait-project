@@ -28,6 +28,7 @@ public enum ErrorCode {
 
     // AI 모의 면접 관련 에러
     FASTAPI_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "AI_INTERVIEW_001", "AI 질문 생성 중 서버 에러 발생"),
+    FILE_READ_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "AI_INTERVIEW_002", "사용자 답변 파일 처리 중 에러 발생"),
 
     //GITHUB 관련 에러
     GITHUB_APP_NOT_FOUND(HttpStatus.NOT_FOUND, "GITHUB_001", "깃허브 연동 정보가 존재하지 않습니다."),
