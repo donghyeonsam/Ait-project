@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
-import type { StudyCardData } from '@/mocks/study-lounge'
+import type { StudyCardData } from '@/components/study/StudyCard'
 
 interface StudyApplyDialogProps {
   study: StudyCardData | null

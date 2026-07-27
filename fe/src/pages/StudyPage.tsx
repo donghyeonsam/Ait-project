@@ -1,11 +1,14 @@
 import { Plus } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { MyStudySection } from '@/components/study/MyStudySection'
-import { StudyApplicationModal } from '@/components/study/StudyApplicationModal'
 import { StudyApplicationToast } from '@/components/study/StudyApplicationToast'
 import { StudyApplyDialog } from '@/components/study/StudyApplyDialog'
+import type {
+  RecruitmentStatus,
+  StudyCardData,
+} from '@/components/study/StudyCard'
 import { StudyCardGrid } from '@/components/study/StudyCardGrid'
 import { StudyChatFloatingButton } from '@/components/study/StudyChatFloatingButton'
 import { StudyChatModal } from '@/components/study/StudyChatModal'
@@ -14,36 +17,73 @@ import { StudyHeroGlow } from '@/components/study/StudyHeroGlow'
 import {
   StudySearchFilters,
   type RecruitmentFilter,
-  type RoleFilter,
   type StudySort,
 } from '@/components/study/StudySearchFilters'
 import { Button } from '@/components/ui/button'
+import {
+  getMyStudyGroups,
+  getStudyGroups,
+  type MyStudyGroup,
+  type StudyGroupListItem,
+  type StudyGroupStatus,
+} from '@/api/study-groups'
+import { toErrorMessage } from '@/api/http'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
-import {
-  mockMyStudies,
-  mockStudyCards,
-  type StudyCardData,
-} from '@/mocks/study-lounge'
 
 const INITIAL_VISIBLE_STUDIES = 6
 const LOAD_MORE_COUNT = 3
+// 목록 API는 페이지네이션을 지원하지만 화면의 검색·정렬이 전체 목록 기준이라 한 번에 받아둔다.
+const STUDY_PAGE_SIZE = 100
 
-// 스터디 탐색부터 신청, 그룹 대화와 가입 관리까지 라운지 UI 흐름을 조합한다.
+const recruitmentStatusByGroupStatus: Record<
+  StudyGroupStatus,
+  RecruitmentStatus
+> = {
+  RECRUITING: '모집 중',
+  ACTIVE: '마감',
+  CLOSED: '마감',
+}
+
+function toStudyCard(group: StudyGroupListItem): StudyCardData {
+  return {
+    id: group.id,
+    title: group.title,
+    description: group.description,
+    capacity: group.capacity,
+    createdAt: group.createdAt,
+    recruitmentStatus: recruitmentStatusByGroupStatus[group.groupStatus],
+  }
+}
+
+function matchesRecruitmentFilter(
+  groupStatus: StudyGroupStatus,
+  filter: RecruitmentFilter,
+) {
+  if (filter === 'all') return true
+  if (filter === 'recruiting') return groupStatus === 'RECRUITING'
+  if (filter === 'active') return groupStatus === 'ACTIVE'
+  return groupStatus === 'CLOSED'
+}
+
+// 스터디 탐색부터 신청, 그룹 대화까지 라운지 UI 흐름을 조합한다.
 export function StudyPage() {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
-  const [role, setRole] = useState<RoleFilter>('전체')
-  const [recruitment, setRecruitment] =
-    useState<RecruitmentFilter>('all')
+  const [recruitment, setRecruitment] = useState<RecruitmentFilter>('all')
   const [sort, setSort] = useState<StudySort>('latest')
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_STUDIES)
+  const [groups, setGroups] = useState<StudyGroupListItem[]>([])
+  const [isLoadingGroups, setIsLoadingGroups] = useState(true)
+  const [groupsError, setGroupsError] = useState<string | null>(null)
+  const [myStudies, setMyStudies] = useState<MyStudyGroup[]>([])
+  const [isLoadingMyStudies, setIsLoadingMyStudies] = useState(true)
+  const [myStudiesError, setMyStudiesError] = useState<string | null>(null)
   const [appliedStudyIds, setAppliedStudyIds] = useState<Set<number>>(
     () => new Set(),
   )
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [isChatOpen, setIsChatOpen] = useState(false)
-  const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [applicationTarget, setApplicationTarget] =
     useState<StudyCardData | null>(null)
@@ -55,50 +95,65 @@ export function StudyPage() {
     threshold: 0.05,
   })
 
+  // 최초 로딩은 isLoadingGroups 초기값(true)이 담당하고, 재시도·갱신 시에만 호출부에서 다시 세운다.
+  const loadGroups = useCallback(
+    () =>
+      getStudyGroups({ size: STUDY_PAGE_SIZE })
+        .then((page) => {
+          setGroups(page.content)
+          setGroupsError(null)
+        })
+        .catch((error: unknown) => {
+          setGroups([])
+          setGroupsError(toErrorMessage(error))
+        })
+        .finally(() => setIsLoadingGroups(false)),
+    [],
+  )
+
+  const loadMyStudies = useCallback(
+    () =>
+      getMyStudyGroups()
+        .then((studies) => {
+          setMyStudies(studies)
+          setMyStudiesError(null)
+        })
+        .catch((error: unknown) => {
+          setMyStudies([])
+          setMyStudiesError(toErrorMessage(error))
+        })
+        .finally(() => setIsLoadingMyStudies(false)),
+    [],
+  )
+
+  useEffect(() => {
+    void loadGroups()
+    void loadMyStudies()
+  }, [loadGroups, loadMyStudies])
+
   const filteredStudies = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('ko-KR')
-    const studies = mockStudyCards.filter((study) => {
+    const matched = groups.filter((group) => {
       const matchesQuery =
         !normalizedQuery ||
-        [
-          study.title,
-          study.description,
-          study.role,
-          study.company ?? '',
-        ].some((value) =>
+        [group.title, group.description].some((value) =>
           value.toLocaleLowerCase('ko-KR').includes(normalizedQuery),
         )
-      const matchesRole = role === '전체' || study.role === role
-      const matchesRecruitment =
-        recruitment === 'all' ||
-        (recruitment === 'recruiting' &&
-          (study.recruitmentStatus === '모집 중' ||
-            study.recruitmentStatus === '마감 임박')) ||
-        (recruitment === 'pending' &&
-          study.recruitmentStatus === '신청 대기') ||
-        (recruitment === 'closed' && study.recruitmentStatus === '마감')
 
-      return matchesQuery && matchesRole && matchesRecruitment
+      return (
+        matchesQuery && matchesRecruitmentFilter(group.groupStatus, recruitment)
+      )
     })
 
-    return studies.toSorted((first, second) => {
-      if (sort === 'closing') {
-        return (
-          first.capacity -
-          first.currentMembers -
-          (second.capacity - second.currentMembers)
-        )
-      }
-      if (sort === 'available') {
-        return (
-          second.capacity -
-          second.currentMembers -
-          (first.capacity - first.currentMembers)
-        )
-      }
-      return second.createdOrder - first.createdOrder
-    })
-  }, [query, recruitment, role, sort])
+    return matched
+      .map(toStudyCard)
+      .toSorted((first, second) => {
+        const difference =
+          new Date(second.createdAt).getTime() -
+          new Date(first.createdAt).getTime()
+        return sort === 'oldest' ? -difference : difference
+      })
+  }, [groups, query, recruitment, sort])
 
   const visibleStudies = filteredStudies.slice(0, visibleCount)
 
@@ -112,13 +167,13 @@ export function StudyPage() {
 
   const completeApplication = (message: string) => {
     if (!applicationTarget) return
-    // TODO: 실제 API 연동 필요 — 신청 성공 응답을 받은 뒤 상태와 알림을 갱신한다.
+    // TODO: 실제 API 연동 필요 — 가입 신청 엔드포인트가 없어 화면에서만 신청 상태를 표시한다.
     applicationMessagesRef.current[applicationTarget.id] = message
     setAppliedStudyIds((currentIds) =>
       new Set(currentIds).add(applicationTarget.id),
     )
     setApplicationTarget(null)
-    setToastMessage('스터디 신청이 완료되었습니다.')
+    setToastMessage('스터디 신청은 아직 서버에 저장되지 않습니다.')
   }
 
   return (
@@ -151,11 +206,11 @@ export function StudyPage() {
         </Button>
       </section>
 
-      {/* TODO: 임시 진입 경로 — 내 스터디 그룹, 세션 생성/참가 흐름이 구현되면 제거하고 해당 흐름에서 연결한다. sessionId=1은 seed 데이터 관례를 따른 임시값. */}
       <MyStudySection
-        studies={mockMyStudies}
-        onEnterStudy={() => navigate('/study/session/1/prejoin')}
-        onManageApplications={() => setIsApplicationModalOpen(true)}
+        studies={myStudies}
+        isLoading={isLoadingMyStudies}
+        errorMessage={myStudiesError}
+        onOpenStudy={(study) => navigate(`/study/groups/${study.id}`)}
       />
 
       <section
@@ -177,15 +232,10 @@ export function StudyPage() {
 
         <StudySearchFilters
           query={query}
-          role={role}
           recruitment={recruitment}
           sort={sort}
           onQueryChange={(value) => {
             setQuery(value)
-            resetVisibleCount()
-          }}
-          onRoleChange={(value) => {
-            setRole(value)
             resetVisibleCount()
           }}
           onRecruitmentChange={(value) => {
@@ -198,27 +248,51 @@ export function StudyPage() {
           }}
         />
 
-        <StudyCardGrid
-          studies={visibleStudies}
-          appliedStudyIds={appliedStudyIds}
-          onApply={setApplicationTarget}
-        />
-
-        {visibleCount < filteredStudies.length ? (
-          <div className="mt-8 flex justify-center">
+        {isLoadingGroups ? (
+          <p className="mt-8 text-body-2 text-text-secondary" role="status">
+            스터디 목록을 불러오고 있어요...
+          </p>
+        ) : groupsError ? (
+          <div className="mt-8 flex flex-col items-center gap-3 rounded-ait-m border border-border-default bg-background-default p-8 text-center">
+            <p className="text-body-2 text-status-error" role="alert">
+              {groupsError}
+            </p>
             <Button
               type="button"
               variant="secondary"
-              className="min-w-56"
-              onClick={() =>
-                setVisibleCount((count) => count + LOAD_MORE_COUNT)
-              }
+              onClick={() => {
+                setIsLoadingGroups(true)
+                void loadGroups()
+              }}
             >
-              <Plus className="size-4" aria-hidden="true" />
-              더보기
+              다시 시도
             </Button>
           </div>
-        ) : null}
+        ) : (
+          <>
+            <StudyCardGrid
+              studies={visibleStudies}
+              appliedStudyIds={appliedStudyIds}
+              onApply={setApplicationTarget}
+            />
+
+            {visibleCount < filteredStudies.length ? (
+              <div className="mt-8 flex justify-center">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="min-w-56"
+                  onClick={() =>
+                    setVisibleCount((count) => count + LOAD_MORE_COUNT)
+                  }
+                >
+                  <Plus className="size-4" aria-hidden="true" />
+                  더보기
+                </Button>
+              </div>
+            ) : null}
+          </>
+        )}
       </section>
 
       <StudyChatFloatingButton
@@ -226,16 +300,14 @@ export function StudyPage() {
         onClick={() => setIsChatOpen(true)}
       />
       <StudyChatModal open={isChatOpen} onOpenChange={setIsChatOpen} />
-      <StudyApplicationModal
-        open={isApplicationModalOpen}
-        onOpenChange={setIsApplicationModalOpen}
-      />
       <StudyCreateDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
-        onCreated={() =>
-          setToastMessage('스터디 정보가 임시 저장되었습니다.')
-        }
+        onCreated={() => {
+          setToastMessage('스터디를 만들었습니다.')
+          void loadGroups()
+          void loadMyStudies()
+        }}
       />
       <StudyApplyDialog
         study={applicationTarget}

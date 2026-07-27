@@ -1,6 +1,6 @@
 import { ArrowLeft } from 'lucide-react'
-import { useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { StudyApplicationModal } from '@/components/study/StudyApplicationModal'
 import { StudyCalendar } from '@/components/study/StudyCalendar'
@@ -8,7 +8,10 @@ import { StudyChatFloatingButton } from '@/components/study/StudyChatFloatingBut
 import { StudyChatModal } from '@/components/study/StudyChatModal'
 import { StudyGroupChatPanel } from '@/components/study/StudyGroupChatPanel'
 import { StudyGroupManagerPanel } from '@/components/study/StudyGroupManagerPanel'
-import { StudyGroupMemberPanel } from '@/components/study/StudyGroupMemberPanel'
+import {
+  StudyGroupMemberPanel,
+  type StudyGroupMember,
+} from '@/components/study/StudyGroupMemberPanel'
 import { StudyHeroGlow } from '@/components/study/StudyHeroGlow'
 import { StudyLeaderTransferDialog } from '@/components/study/StudyLeaderTransferDialog'
 import { Button } from '@/components/ui/button'
@@ -20,29 +23,46 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  getMyStudyGroups,
+  getStudyGroupDetail,
+  updateStudyGroupStatus,
+  type StudyGroupDetail,
+} from '@/api/study-groups'
+import { createStudySession } from '@/api/study-sessions'
+import { toErrorMessage } from '@/api/http'
+import { useAuth } from '@/lib/useAuth'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
 import {
-  mockMyStudies,
   mockStudyCalendarEvents,
   mockStudyChatGroups,
-  mockStudyGroupMembers,
-  type StudyGroupMember,
 } from '@/mocks/study-lounge'
 
-// 선택한 마이 스터디의 운영 정보, 구성원, 채팅과 일정을 조합한다.
+function formatCreatedAt(value: string) {
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime())
+    ? value
+    : parsed.toLocaleDateString('ko-KR')
+}
+
+// 선택한 스터디 그룹의 운영 정보와 구성원을 서버에서 불러오고, 채팅·일정 UI를 함께 조합한다.
 export function StudyGroupPage() {
   const { studyId } = useParams()
   const navigate = useNavigate()
-  const study = mockMyStudies.find(
-    (candidate) => candidate.id === Number(studyId),
-  )
-  const [members, setMembers] = useState<StudyGroupMember[]>(() =>
-    (mockStudyGroupMembers[Number(studyId)] ?? []).map((member) => ({
-      ...member,
-    })),
-  )
+  const { user } = useAuth()
+  const groupId = Number(studyId)
+
+  const isValidGroupId = Number.isInteger(groupId) && groupId > 0
+
+  const [detail, setDetail] = useState<StudyGroupDetail | null>(null)
+  const [members, setMembers] = useState<StudyGroupMember[]>([])
+  const [isLoading, setIsLoading] = useState(isValidGroupId)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [isRecruiting, setIsRecruiting] = useState(true)
+  const [statusError, setStatusError] = useState<string | null>(null)
+  const [sessionError, setSessionError] = useState<string | null>(null)
+  const [isStartingSession, setIsStartingSession] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -58,23 +78,136 @@ export function StudyGroupPage() {
   const { ref: panelsRef, isInView: isPanelsInView } =
     useInView<HTMLDivElement>({ threshold: 0.05 })
 
-  if (!study) {
-    return <Navigate to="/study" replace />
+  const currentUserId = user?.userId ?? null
+
+  useEffect(() => {
+    if (!isValidGroupId) return
+
+    let isActive = true
+
+    // 모집 상태는 그룹 상세 응답에 없어서 내 스터디 목록에서 같은 그룹을 찾아 채운다.
+    Promise.all([
+      getStudyGroupDetail(groupId),
+      getMyStudyGroups().catch(() => []),
+    ])
+      .then(([groupDetail, myGroups]) => {
+        if (!isActive) return
+        setDetail(groupDetail)
+        setMembers(
+          groupDetail.members.map((member) => ({
+            id: member.userId,
+            name: member.name,
+            role: member.owner ? '그룹장' : '그룹원',
+            isSelf: member.userId === currentUserId,
+          })),
+        )
+        setIsRecruiting(
+          myGroups.find((group) => group.id === groupId)?.groupStatus ===
+            'RECRUITING',
+        )
+        setLoadError(null)
+      })
+      .catch((error: unknown) => {
+        if (!isActive) return
+        setLoadError(toErrorMessage(error))
+      })
+      .finally(() => {
+        if (isActive) setIsLoading(false)
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [groupId, currentUserId, isValidGroupId])
+
+  if (!isValidGroupId) {
+    return (
+      <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8">
+        <div className="flex flex-col items-center gap-4 py-24 text-center">
+          <p className="text-body-1 text-status-error" role="alert">
+            올바르지 않은 스터디 그룹입니다.
+          </p>
+          <Button type="button" variant="secondary" onClick={() => navigate('/study')}>
+            스터디 라운지로 이동
+          </Button>
+        </div>
+      </PageLayout>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8">
+        <p className="py-24 text-center text-body-1 text-text-secondary" role="status">
+          스터디 그룹 정보를 불러오고 있어요...
+        </p>
+      </PageLayout>
+    )
+  }
+
+  if (loadError || !detail) {
+    return (
+      <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8">
+        <div className="flex flex-col items-center gap-4 py-24 text-center">
+          <p className="text-body-1 text-status-error" role="alert">
+            {loadError ?? '스터디 그룹을 찾을 수 없습니다.'}
+          </p>
+          <Button type="button" variant="secondary" onClick={() => navigate('/study')}>
+            스터디 라운지로 이동
+          </Button>
+        </div>
+      </PageLayout>
+    )
   }
 
   const isLeader =
-    study.role === '그룹장' && transferredLeaderName === null
-  const leaderName = transferredLeaderName ?? study.leaderName
+    currentUserId !== null &&
+    detail.ownerId === currentUserId &&
+    transferredLeaderName === null
+  const leaderName =
+    transferredLeaderName ??
+    detail.members.find((member) => member.owner)?.name ??
+    '알 수 없음'
   const leaderCandidates = members.filter(
     (member) => !member.isSelf && member.role !== '초대 대기',
   )
-  const chatGroup =
-    mockStudyChatGroups[study.id === 101 ? 0 : 1] ?? mockStudyChatGroups[0]
-  const calendarEvents = mockStudyCalendarEvents[study.id] ?? []
+  const chatGroup = mockStudyChatGroups[0]
+  const calendarEvents = mockStudyCalendarEvents[groupId] ?? []
+
+  const changeRecruiting = async (nextIsRecruiting: boolean) => {
+    const previous = isRecruiting
+    setIsRecruiting(nextIsRecruiting)
+    setStatusError(null)
+
+    try {
+      // 모집 완료는 그룹 종료(CLOSED)가 아니라 "모집만 끝난 활동 중" 상태(ACTIVE)에 대응한다.
+      await updateStudyGroupStatus(
+        groupId,
+        nextIsRecruiting ? 'RECRUITING' : 'ACTIVE',
+      )
+    } catch (error) {
+      setIsRecruiting(previous)
+      setStatusError(toErrorMessage(error))
+    }
+  }
+
+  const startSession = async () => {
+    setIsStartingSession(true)
+    setSessionError(null)
+
+    try {
+      const session = await createStudySession(groupId)
+      navigate(`/study/session/${session.sessionId}/prejoin`)
+    } catch (error) {
+      setSessionError(toErrorMessage(error))
+    } finally {
+      setIsStartingSession(false)
+    }
+  }
 
   const inviteMember = (nickname: string) => {
-    if (members.length >= study.capacity) return
-    // TODO: 실제 API 연동 필요 — 닉네임 초대 성공 후 구성원/초대 대기 목록을 갱신한다.
+    if (members.length >= detail.capacity) return
+    // TODO: 실제 API 연동 필요 — 초대 엔드포인트가 없어 화면에서만 대기 항목을 추가한다.
     setMembers((currentMembers) => [
       ...currentMembers,
       {
@@ -87,7 +220,7 @@ export function StudyGroupPage() {
   }
 
   const removeMember = (memberId: number) => {
-    // TODO: 실제 API 연동 필요 — 내보내기 성공 응답 후 구성원 목록을 갱신한다.
+    // TODO: 실제 API 연동 필요 — 내보내기 엔드포인트가 없어 화면에서만 목록을 갱신한다.
     setMembers((currentMembers) =>
       currentMembers.filter((member) => member.id !== memberId),
     )
@@ -105,7 +238,7 @@ export function StudyGroupPage() {
       return
     }
 
-    // TODO: 실제 API 연동 필요 — 위임 성공 응답 후 그룹장과 현재 사용자의 권한을 갱신한다.
+    // TODO: 실제 API 연동 필요 — 위임 엔드포인트가 없어 화면에서만 그룹장을 바꾼다.
     setMembers((currentMembers) =>
       currentMembers.map((member) =>
         member.id === memberId
@@ -138,68 +271,67 @@ export function StudyGroupPage() {
         >
           <div>
             <h1 id="study-group-title" className="text-h1 text-text-primary">
-              {study.title}
+              {detail.title}
             </h1>
             <p className="mt-3 text-body-2 text-text-secondary">
-              {study.description}
+              {detail.description}
             </p>
             <p className="mt-2 text-caption text-chart-axis">
-              구성원 {members.length}/{study.capacity} · 생성일 {study.createdAt}{' '}
-              · 그룹장 {leaderName}
+              구성원 {detail.currentMemberCount}/{detail.capacity} · 생성일{' '}
+              {formatCreatedAt(detail.createdAt)} · 그룹장 {leaderName}
             </p>
 
-            <div
-              className={cn(
-                'mt-6 flex flex-wrap items-center justify-between gap-4 rounded-ait-m border p-4',
-                study.isLive
-                  ? 'study-live-banner border-status-success bg-status-success-surface'
-                  : 'border-border-default bg-background-default',
-              )}
-            >
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-ait-m border border-border-default bg-background-default p-4">
               <div>
-                <p
-                  className={`flex items-center gap-3 text-body-1 font-semibold ${
-                    study.isLive
-                      ? 'text-status-success'
-                      : 'text-text-primary'
-                  }`}
-                >
+                <p className="flex items-center gap-3 text-body-1 font-semibold text-text-primary">
                   <span
-                    className={`size-2 rounded-ait-pill ${
-                      study.isLive
-                        ? 'status-live-dot bg-status-success'
-                        : 'bg-status-neutral'
-                    }`}
+                    className="size-2 rounded-ait-pill bg-status-neutral"
                     aria-hidden="true"
                   />
-                  {study.meetingState}
+                  화상 스터디 세션
                 </p>
                 <p className="mt-1 pl-5 text-caption text-text-secondary">
-                  {study.isLive
-                    ? '지금 바로 참여할 수 있어요.'
-                    : '예정된 세션 시간을 확인해 주세요.'}
+                  {isLeader
+                    ? '세션을 시작하면 그룹원이 참여할 수 있어요.'
+                    : '그룹장이 세션을 시작하면 참여할 수 있어요.'}
                 </p>
+                {sessionError ? (
+                  <p className="mt-2 pl-5 text-caption text-status-error" role="alert">
+                    {sessionError}
+                  </p>
+                ) : null}
               </div>
-              <Button asChild className="cta-lift text-white">
-                <Link to="/study/session/prejoin">
-                  {study.isLive ? '세션 참여하기' : '세션 준비하기'}
-                </Link>
-              </Button>
+              {isLeader ? (
+                <Button
+                  type="button"
+                  className="cta-lift text-white"
+                  disabled={isStartingSession}
+                  onClick={startSession}
+                >
+                  {isStartingSession ? '세션 여는 중...' : '세션 시작하기'}
+                </Button>
+              ) : null}
             </div>
           </div>
 
           {isLeader ? (
             <div className="self-end">
+              {/* TODO: 실제 API 연동 필요 — 가입 신청 목록 API가 없어 신청자 수를 0으로 둔다. */}
               <StudyGroupManagerPanel
-                applicantCount={2}
+                applicantCount={0}
                 isRecruiting={isRecruiting}
-                onRecruitingChange={setIsRecruiting}
+                onRecruitingChange={(next) => void changeRecruiting(next)}
                 onReviewApplications={() => setIsApplicationModalOpen(true)}
                 onTransferLeadership={() =>
                   setIsLeaderTransferDialogOpen(true)
                 }
                 onDeleteGroup={() => setIsDeleteDialogOpen(true)}
               />
+              {statusError ? (
+                <p className="mt-2 text-caption text-status-error" role="alert">
+                  {statusError}
+                </p>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -213,7 +345,7 @@ export function StudyGroupPage() {
         >
           <StudyGroupMemberPanel
             members={members}
-            capacity={study.capacity}
+            capacity={detail.capacity}
             canManage={isLeader}
             onRemoveMember={(memberId) => {
               const selectedMember = members.find(
@@ -267,6 +399,7 @@ export function StudyGroupPage() {
             >
               취소
             </Button>
+            {/* TODO: 실제 API 연동 필요 — 그룹 삭제 엔드포인트가 없어 라운지로 이동만 한다. */}
             <Button
               type="button"
               variant="destructive"

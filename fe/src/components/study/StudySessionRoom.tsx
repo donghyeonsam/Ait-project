@@ -43,7 +43,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { mockPrejoinCoverLetters, type StudyParticipant } from '@/mocks/study'
+import type { StudyParticipant } from '@/mocks/study'
+import { getMyCoverLetters, type CoverLetterListItem } from '@/api/cover-letters'
 import type { StudySessionConnection } from '@/api/study-sessions'
 import { cn } from '@/lib/utils'
 
@@ -255,6 +256,8 @@ function StudySessionRoomStage({
   // 보일 때만 다음 렌더 전에 매핑을 갱신한다.
   const [identityIdMap, setIdentityIdMap] = useState<Map<string, number>>(new Map())
   const [knownIdentities, setKnownIdentities] = useState<string[]>([])
+  // 본인 카드에 선택한 자소서 제목을 보여주기 위해 서류함 목록을 조회한다. 실패해도 세션 진행은 막지 않는다.
+  const [myCoverLetters, setMyCoverLetters] = useState<CoverLetterListItem[]>([])
   const currentIdentities = remoteParticipants.map((participant) => participant.identity)
   const identitiesChanged =
     currentIdentities.length !== knownIdentities.length ||
@@ -279,8 +282,24 @@ function StudySessionRoomStage({
     [identityIdMap],
   )
 
+  useEffect(() => {
+    let isActive = true
+
+    getMyCoverLetters()
+      .then((list) => {
+        if (isActive) setMyCoverLetters(list.coverLetters)
+      })
+      .catch(() => {
+        if (isActive) setMyCoverLetters([])
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [])
+
   const participants = useMemo<StudyParticipant[]>(() => {
-    const selectedCoverLetter = mockPrejoinCoverLetters.find(
+    const selectedCoverLetter = myCoverLetters.find(
       (coverLetter) => coverLetter.coverLetterId === selfCoverLetterId,
     )
 
@@ -306,7 +325,13 @@ function StudySessionRoomStage({
     }))
 
     return [selfEntry, ...remoteEntries]
-  }, [remoteParticipants, selfCoverLetterId, connection.participantName, resolveParticipantId])
+  }, [
+    remoteParticipants,
+    selfCoverLetterId,
+    myCoverLetters,
+    connection.participantName,
+    resolveParticipantId,
+  ])
 
   const cameraTrackByParticipantId = useMemo(() => {
     const map = new Map<number, (typeof cameraTracks)[number]>()
