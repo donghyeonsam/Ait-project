@@ -1,5 +1,6 @@
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
 import type { StudyCalendarEvent } from '@/mocks/study-lounge'
 
@@ -24,6 +25,9 @@ function formatSelectedDate(dateKey: string) {
 export function StudyCalendar({ events }: StudyCalendarProps) {
   const [viewDate, setViewDate] = useState(() => new Date(2026, 6, 1))
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null)
+  const { ref: sectionRef, isInView } = useInView<HTMLElement>({
+    threshold: 0.05,
+  })
 
   const calendarDays = useMemo(() => {
     const firstDate = new Date(
@@ -70,7 +74,13 @@ export function StudyCalendar({ events }: StudyCalendarProps) {
   }
 
   return (
-    <section className="min-w-0 rounded-ait-m border border-border-default bg-surface-default p-4 shadow-elevation-1 sm:p-6">
+    <section
+      ref={sectionRef}
+      className={cn(
+        'study-reveal min-w-0 rounded-ait-m border border-border-default bg-surface-default p-4 shadow-elevation-1 sm:p-6',
+        isInView && 'is-visible',
+      )}
+    >
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h2 className="flex items-center gap-2 text-h3 text-text-primary">
           <CalendarDays className="size-6" aria-hidden="true" />

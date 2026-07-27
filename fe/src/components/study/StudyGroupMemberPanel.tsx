@@ -1,8 +1,9 @@
 import { Plus } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useState, type CSSProperties, type FormEvent } from 'react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 import type { StudyGroupMember } from '@/mocks/study-lounge'
 
 interface StudyGroupMemberPanelProps {
@@ -40,10 +41,14 @@ export function StudyGroupMemberPanel({
       </h2>
 
       <ul className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]">
-        {members.map((member) => (
+        {members.map((member, index) => (
           <li
             key={member.id}
-            className="flex min-h-12 items-center gap-3 rounded-ait-s px-3 py-2 hover:bg-status-neutral-surface"
+            style={{ '--item-order': index } as CSSProperties}
+            className={cn(
+              'study-list-item flex min-h-12 items-center gap-3 rounded-ait-s px-3 py-2',
+              'hover:bg-status-neutral-surface hover:shadow-elevation-1',
+            )}
           >
             <Avatar className="size-10">
               <AvatarFallback className="border-0 bg-profile-avatar text-transparent">
