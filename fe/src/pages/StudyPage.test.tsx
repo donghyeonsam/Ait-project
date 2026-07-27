@@ -123,6 +123,57 @@ describe('StudyPage', () => {
     const chatDialog = screen.getByRole('dialog')
     expect(chatDialog).toHaveClass('study-chat-dialog')
     expect(chatDialog).not.toHaveClass('left-1/2', 'top-1/2')
+    const groupDock = within(chatDialog).getByRole('tablist', {
+      name: '스터디 그룹 선택',
+    })
+    const groupTabs = within(groupDock).getAllByRole('tab')
+    expect(groupDock).toHaveClass(
+      'study-chat-dock',
+      'items-center',
+      'gap-7',
+      'overflow-visible',
+    )
+    expect(groupDock).not.toHaveClass(
+      'bg-surface-default',
+      'overflow-y-hidden',
+    )
+    expect(groupTabs[0]).toHaveClass('study-chat-dock-item')
+    expect(groupTabs[0]).toHaveClass('study-chat-dock-item-selected')
+
+    vi.spyOn(groupDock, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      right: 240,
+      top: 0,
+      bottom: 80,
+      width: 240,
+      height: 80,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    })
+    groupTabs.forEach((tab, index) => {
+      Object.defineProperties(tab, {
+        offsetLeft: { configurable: true, value: index * 76 },
+        offsetWidth: { configurable: true, value: 48 },
+      })
+    })
+    fireEvent.pointerMove(groupDock, { clientX: 24 })
+    expect(
+      groupTabs[0].style.getPropertyValue('--study-chat-dock-scale'),
+    ).toBe('1.420')
+    expect(
+      Number(
+        groupTabs[1].style.getPropertyValue('--study-chat-dock-scale'),
+      ),
+    ).toBeGreaterThan(1)
+    fireEvent.pointerLeave(groupDock)
+    expect(
+      groupTabs[0].style.getPropertyValue('--study-chat-dock-scale'),
+    ).toBe('')
+    await user.click(groupTabs[1])
+    expect(groupTabs[0]).not.toHaveClass('study-chat-dock-item-selected')
+    expect(groupTabs[1]).toHaveClass('study-chat-dock-item-selected')
+
     const messageInput = within(chatDialog).getByRole('textbox', {
       name: '메시지 입력',
     })

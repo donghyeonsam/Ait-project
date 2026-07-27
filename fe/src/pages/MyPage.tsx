@@ -31,21 +31,23 @@ function githubProfile(repositories: GithubRepository[]) {
 
 // 이력서·저장소·계정 정보를 화면용 ProfileData 하나로 합친다. 역할과 스킬은 중복 제거 후 나열한다.
 function createProfile(
-  resume: Resume,
+  resume: Resume | null,
   repositories: GithubRepository[],
   nickname: string,
   email: string,
 ): ProfileData {
-  const roles = unique([
-    ...resume.projects.map((project) => project.role),
-    ...resume.careers.map((career) => career.role),
-  ])
-  const skills = unique(
-    resume.projects.flatMap((project) => project.techStacks.split(',')),
-  )
+  const roles = resume
+    ? unique([
+        ...resume.projects.map((project) => project.role),
+        ...resume.careers.map((career) => career.role),
+      ])
+    : []
+  const skills = resume
+    ? unique(resume.projects.flatMap((project) => project.techStacks.split(',')))
+    : []
 
   return {
-    name: resume.userName,
+    name: resume?.userName || nickname,
     nickname,
     email,
     github: githubProfile(repositories),
@@ -118,7 +120,7 @@ export function MyPage() {
   }
 
   const profile = useMemo(() => {
-    if (!resume || !repositories || !user) return null
+    if (!repositories || !user) return null
     return createProfile(resume, repositories, user.nickname, user.email)
   }, [repositories, resume, user])
 
@@ -144,7 +146,7 @@ export function MyPage() {
             다시 시도
           </Button>
         </section>
-      ) : profile && resume ? (
+      ) : profile ? (
         <>
           <section
             className="mypage-panel mypage-enter"

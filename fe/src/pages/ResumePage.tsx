@@ -1,10 +1,22 @@
 import { useEffect, useState } from 'react'
-import { toErrorMessage } from '@/api/http'
+import { ApiError, toErrorMessage } from '@/api/http'
 import { getMyResume, type Resume } from '@/api/resume'
 import { ResumeEditor } from '@/components/documents/ResumeEditor'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/useAuth'
+
+function handleResumeLoadError(
+  requestError: unknown,
+  setError: (value: string | null) => void,
+) {
+  // 이력서를 아직 작성하지 않은 사용자는 정상 상태(404)이므로 오류로 취급하지 않는다.
+  if (requestError instanceof ApiError && requestError.status === 404) {
+    setError(null)
+    return
+  }
+  setError(toErrorMessage(requestError))
+}
 
 // 현재 사용자의 이력서를 불러와 독립된 편집 페이지로 제공한다.
 export function ResumePage() {
@@ -18,7 +30,7 @@ export function ResumePage() {
     setError(null)
     getMyResume()
       .then(setResume)
-      .catch((requestError: unknown) => setError(toErrorMessage(requestError)))
+      .catch((requestError: unknown) => handleResumeLoadError(requestError, setError))
       .finally(() => setIsLoading(false))
   }
 
@@ -30,7 +42,7 @@ export function ResumePage() {
         if (active) setResume(response)
       })
       .catch((requestError: unknown) => {
-        if (active) setError(toErrorMessage(requestError))
+        if (active) handleResumeLoadError(requestError, setError)
       })
       .finally(() => {
         if (active) setIsLoading(false)
@@ -61,7 +73,11 @@ export function ResumePage() {
             email={user?.email ?? ''}
             onUpdated={setResume}
           />
-        ) : null}
+        ) : (
+          <section className="mypage-panel py-16 text-center">
+            <p className="text-body-1 text-text-secondary">아직 작성된 이력서가 없습니다.</p>
+          </section>
+        )}
       </div>
     </PageLayout>
   )

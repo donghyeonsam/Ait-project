@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
@@ -172,6 +172,104 @@ describe('StudyGroupPage', () => {
     ).toBeInTheDocument()
   })
 
+  it('메시지 작성 UI와 공지를 작성·조회·수정·삭제한다', async () => {
+    const user = userEvent.setup()
+    renderStudyGroupPage()
+
+    const messageInput = screen.getByRole('textbox', {
+      name: '그룹톡 메시지 입력',
+    })
+    const messageComposer = screen.getByRole('group', {
+      name: '메시지 작성',
+    })
+    expect(messageInput).toHaveClass('h-24', 'min-h-24', 'max-h-24')
+    const messageInputCard = messageInput.closest<HTMLElement>(
+      '[data-message-input-card]',
+    )
+    expect(messageInputCard).toHaveClass('w-full', 'rounded-ait-m', 'border')
+    expect(messageComposer).not.toHaveClass('border')
+    expect(
+      within(messageComposer).getByRole('button', { name: '사진 첨부' }),
+    ).toBeInTheDocument()
+    const emojiButton = within(messageComposer).getByRole('button', {
+      name: '이모지 추가',
+    })
+    expect(emojiButton.closest('label')).toBeNull()
+    expect(
+      emojiButton,
+    ).toBeInTheDocument()
+    expect(
+      within(messageComposer).getByRole('button', {
+        name: '이모티콘 추가',
+      }),
+    ).toBeInTheDocument()
+    expect(
+      within(messageComposer).getByRole('button', {
+        name: '그룹톡 메시지 전송',
+      }),
+    ).toBeInTheDocument()
+    const imageFile = new File(['image'], 'study-plan.png', {
+      type: 'image/png',
+    })
+    await user.upload(
+      within(messageComposer).getByLabelText('사진 첨부 파일 선택'),
+      imageFile,
+    )
+    expect(
+      await within(messageComposer).findByRole('img', {
+        name: 'study-plan.png 미리보기',
+      }),
+    ).toBeInTheDocument()
+    const sendButton = within(messageComposer).getByRole('button', {
+      name: '그룹톡 메시지 전송',
+    })
+    expect(sendButton).toBeEnabled()
+    await user.click(sendButton)
+    expect(
+      within(screen.getByLabelText('그룹톡 메시지')).getByRole('img', {
+        name: 'study-plan.png',
+      }),
+    ).toBeInTheDocument()
+
+    const noticeText = screen.getByTitle(/이번 주 세션은/)
+    Object.defineProperties(noticeText, {
+      clientWidth: { configurable: true, value: 240 },
+      scrollWidth: { configurable: true, value: 640 },
+    })
+    fireEvent(window, new Event('resize'))
+    await user.click(
+      screen.getByRole('button', { name: '공지 전체 보기' }),
+    )
+    expect(noticeText).not.toHaveClass('truncate')
+    expect(
+      screen.getByRole('button', { name: '공지 접기' }),
+    ).toHaveAttribute('aria-expanded', 'true')
+    await user.click(screen.getByRole('button', { name: '공지 접기' }))
+    expect(noticeText).toHaveClass('truncate')
+
+    await user.click(screen.getByRole('button', { name: '공지 수정' }))
+    const noticeInput = screen.getByRole('textbox', { name: '공지 내용' })
+    await user.clear(noticeInput)
+    await user.type(noticeInput, '금요일까지 발표 자료를 공유해 주세요.')
+    await user.click(screen.getByRole('button', { name: '공지 저장' }))
+    expect(
+      screen.getByText('금요일까지 발표 자료를 공유해 주세요.'),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '공지 삭제' }))
+    expect(
+      screen.queryByText('금요일까지 발표 자료를 공유해 주세요.'),
+    ).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '공지 작성' }))
+    await user.type(
+      screen.getByRole('textbox', { name: '공지 내용' }),
+      '새 스터디 공지입니다.',
+    )
+    await user.click(screen.getByRole('button', { name: '공지 저장' }))
+    expect(screen.getByText('새 스터디 공지입니다.')).toBeInTheDocument()
+  })
+
   it('그룹톡 높이를 유지하고 이모티콘 입력과 메시지 반응을 지원한다', async () => {
     const user = userEvent.setup()
     renderStudyGroupPage()
@@ -183,7 +281,7 @@ describe('StudyGroupPage', () => {
     })
 
     expect(chatPanel).toHaveClass('h-[32rem]', 'overflow-hidden')
-    expect(messageList).toHaveClass('overflow-y-auto')
+    expect(messageList).toHaveClass('overflow-x-hidden', 'overflow-y-auto')
 
     await user.click(screen.getByRole('button', { name: '이모지 추가' }))
     await user.click(screen.getByRole('button', { name: '😀 입력' }))
@@ -198,13 +296,15 @@ describe('StudyGroupPage', () => {
     const reactionTrigger = screen.getByRole('button', {
       name: '"발표 자료 오늘 밤까지 공유드릴게요!" 메시지에 이모지 반응 남기기',
     })
+    const targetMessage =
+      reactionTrigger.closest<HTMLElement>('.study-chat-message')
     expect(reactionTrigger).toHaveClass(
       'pointer-events-none',
       'opacity-0',
       'group-hover/message:pointer-events-auto',
       'group-hover/message:opacity-100',
     )
-    expect(reactionTrigger.closest('.study-chat-message')).toHaveClass(
+    expect(targetMessage).toHaveClass(
       'group/message',
       'relative',
       'hover:z-20',
@@ -213,27 +313,16 @@ describe('StudyGroupPage', () => {
       screen.queryByRole('group', { name: '메시지 반응 선택' }),
     ).not.toBeInTheDocument()
 
-    await user.hover(reactionTrigger)
-    const quickReactionPicker = screen.getByRole('group', {
+    await user.click(reactionTrigger)
+    const reactionPicker = screen.getByRole('group', {
       name: '메시지 반응 선택',
     })
-    expect(quickReactionPicker).toHaveClass(
+    expect(reactionPicker).toHaveClass(
       'study-reaction-picker--incoming',
-      'top-full',
-      'left-0',
-    )
-    expect(within(quickReactionPicker).getAllByRole('button')).toHaveLength(6)
-
-    await user.click(
-      within(quickReactionPicker).getByRole('button', {
-        name: '더 많은 이모지 보기',
-      }),
+      'fixed',
     )
 
-    const expandedReactionPicker = screen.getByRole('group', {
-      name: '메시지 반응 선택',
-    })
-    const additionalReaction = within(expandedReactionPicker).getByRole(
+    const [additionalReaction] = within(reactionPicker).getAllByRole(
       'button',
       {
         name: '😀 반응 남기기',
@@ -241,20 +330,24 @@ describe('StudyGroupPage', () => {
     )
     await user.click(additionalReaction)
 
-    const reactionButton = within(messageList).getByRole('button', {
-      name: '반응 😀 취소',
+    const reactionButton = within(targetMessage!).getByRole('button', {
+      name: '😀 반응 1개, 내 반응 취소',
     })
-    expect(reactionButton).toBeInTheDocument()
     expect(reactionButton).toHaveClass(
       'study-reaction-bubble',
-      'absolute',
-      '-bottom-3',
-      'right-0',
+      'inline-flex',
+    )
+    expect(reactionButton).not.toHaveClass('absolute')
+    expect(reactionButton.closest('.mt-1')).toHaveClass(
+      'flex',
+      'justify-start',
     )
     expect(reactionButton.parentElement).toHaveClass('relative')
     expect(
-      within(messageList).getByRole('button', { name: '반응 👍 취소' }),
-    ).toHaveClass('left-0')
+      within(targetMessage!).getByRole('button', {
+        name: '👍 반응 1개 추가',
+      }),
+    ).toBeInTheDocument()
     expect(
       screen.getByRole('button', {
         name: '"발표 자료 오늘 밤까지 공유드릴게요!" 메시지에 이모지 반응 남기기',

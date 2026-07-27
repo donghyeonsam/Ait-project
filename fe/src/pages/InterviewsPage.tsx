@@ -30,7 +30,6 @@ export function InterviewsPage() {
   const { currentStep, state, showApplyInfo, showCsTopics } = survey
   const isLastStep = currentStep === SURVEY_STEP_COUNT
   const showStepIntro = currentStep < 4
-  const showStepCard = currentStep < 4
 
   useEffect(() => {
     // 언마운트 후 응답이 도착해 setState가 호출되는 것을 막는 플래그.
@@ -76,26 +75,22 @@ export function InterviewsPage() {
 
   return (
     <PageLayout contentClassName="max-w-content">
-      <div className="survey-zoom-90">
-        {showStepIntro ? (
-          <section className="py-12 text-center" aria-labelledby="survey-title">
-            <h1 id="survey-title" className="text-h1">나에게 맞는 면접을 준비해 보세요</h1>
-            <p className="mt-2 text-body-1 text-text-secondary">
-              단계별 설정을 완료하면 AI가 맞춤 질문을 구성해 드려요.
-            </p>
-          </section>
-        ) : null}
+      <div className="survey-zoom-90 pt-12">
+        <div className={`survey-intro-collapse ${showStepIntro ? 'is-open' : ''}`}>
+          <div className="overflow-hidden">
+            <section className="pb-12 text-center" aria-labelledby="survey-title">
+              <h1 id="survey-title" className="text-h1">나에게 맞는 면접을 준비해 보세요</h1>
+              <p className="mt-2 text-body-1 text-text-secondary">
+                단계별 설정을 완료하면 AI가 맞춤 질문을 구성해 드려요.
+              </p>
+            </section>
+          </div>
+        </div>
 
-        <div className={`mb-16 ${showStepIntro ? '' : 'mt-12'}`}>
+        <div className="mb-16">
           <SurveyStepper currentStep={currentStep} />
 
-          <div
-            className={
-              showStepCard
-                ? 'mt-10 rounded-ait-l border border-border-default bg-surface-default p-8 shadow-elevation-1 lg:p-10'
-                : 'mt-10'
-            }
-          >
+          <div className="mt-10">
             <div key={currentStep} className="survey-step min-h-72">
               {currentStep === 1 ? (
                 <Step1InterviewType value={state.interviewType} onSelect={survey.selectInterviewType} />
