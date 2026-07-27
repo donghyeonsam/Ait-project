@@ -1,4 +1,4 @@
-package com.aitserver.global.config;
+package com.aitserver.global.gms.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
