@@ -29,7 +29,6 @@ export function InterviewsPage() {
   const { currentStep, state, showApplyInfo, showCsTopics } = survey
   const isLastStep = currentStep === SURVEY_STEP_COUNT
   const showStepIntro = currentStep < 4
-  const showStepCard = currentStep < 4
 
   useEffect(() => {
     let active = true
@@ -87,13 +86,7 @@ export function InterviewsPage() {
         <div className="mb-16">
           <SurveyStepper currentStep={currentStep} />
 
-          <div
-            className={
-              showStepCard
-                ? 'mt-10 rounded-ait-l border border-border-default bg-surface-default p-8 shadow-elevation-1 lg:p-10'
-                : 'mt-10'
-            }
-          >
+          <div className="mt-10">
             <div key={currentStep} className="survey-step min-h-72">
               {currentStep === 1 ? (
                 <Step1InterviewType value={state.interviewType} onSelect={survey.selectInterviewType} />
