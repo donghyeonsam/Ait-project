@@ -1108,6 +1108,70 @@ button:not(:disabled) {
     var(--easing-standard) both;
 }
 
+.study-chat-dock-item {
+  --study-chat-dock-scale: 1;
+  --study-chat-dock-lift: 0px;
+  transform: translateY(var(--study-chat-dock-lift))
+    scale(var(--study-chat-dock-scale));
+  transform-origin: center bottom;
+  transition:
+    transform 140ms var(--easing-emphasized),
+    border-color var(--duration-fast) var(--easing-standard),
+    box-shadow var(--duration-fast) var(--easing-standard);
+  will-change: transform;
+}
+
+.study-chat-dock-item:focus-visible {
+  --study-chat-dock-scale: 1.2;
+  --study-chat-dock-lift: -0.375rem;
+}
+
+.study-chat-dock-item-selected {
+  animation: study-chat-dock-selected-glow 1.6s var(--easing-standard)
+    infinite;
+}
+
+.study-chat-dock-item-selected::after {
+  position: absolute;
+  inset: -0.3rem;
+  border: 2px solid var(--color-status-success);
+  border-radius: inherit;
+  animation: study-chat-dock-selected-pulse 1.6s
+    var(--easing-emphasized) infinite;
+  content: '';
+  pointer-events: none;
+}
+
+@keyframes study-chat-dock-selected-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0
+        color-mix(in srgb, var(--color-status-success) 12%, transparent),
+      0 4px 12px -6px
+        color-mix(in srgb, var(--color-status-success) 35%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 0.35rem
+        color-mix(in srgb, var(--color-status-success) 18%, transparent),
+      0 10px 24px -6px
+        color-mix(in srgb, var(--color-status-success) 55%, transparent);
+  }
+}
+
+@keyframes study-chat-dock-selected-pulse {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.75;
+  }
+  65%,
+  100% {
+    transform: scale(1.32);
+    opacity: 0;
+  }
+}
+
 .document-dialog {
   left: 50vw;
   top: 50vh;
@@ -2057,6 +2121,10 @@ button:not(:disabled) {
     scroll-behavior: auto !important;
     animation: none !important;
     transition: none !important;
+  }
+
+  .study-chat-dock-item {
+    transform: none !important;
   }
 
   .stat-card,

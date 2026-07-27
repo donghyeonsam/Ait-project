@@ -1,5 +1,11 @@
 import { Pin, Send } from 'lucide-react'
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import {
   Dialog,
   DialogContent,
@@ -18,6 +24,10 @@ interface StudyChatModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
+
+const dockInfluenceDistance = 112
+const dockMaximumScale = 1.42
+const dockMaximumLift = 10
 
 // 그룹 선택, 공지 확인과 목 메시지 송신 흐름을 제공하는 그룹톡 Dialog다.
 export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
@@ -75,6 +85,50 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
     }
   }
 
+  const resetDockMagnification = (dock: HTMLElement) => {
+    dock
+      .querySelectorAll<HTMLElement>('[data-study-chat-dock-item]')
+      .forEach((item) => {
+        item.style.removeProperty('--study-chat-dock-scale')
+        item.style.removeProperty('--study-chat-dock-lift')
+      })
+  }
+
+  const updateDockMagnification = (
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => {
+    const dock = event.currentTarget
+    const dockRect = dock.getBoundingClientRect()
+
+    dock
+      .querySelectorAll<HTMLElement>('[data-study-chat-dock-item]')
+      .forEach((item) => {
+        const itemCenter =
+          dockRect.left +
+          item.offsetLeft -
+          dock.scrollLeft +
+          item.offsetWidth / 2
+        const proximity = Math.max(
+          0,
+          1 - Math.abs(event.clientX - itemCenter) / dockInfluenceDistance,
+        )
+        const easedProximity =
+          proximity * proximity * (3 - 2 * proximity)
+        const scale =
+          1 + (dockMaximumScale - 1) * easedProximity
+        const lift = -dockMaximumLift * easedProximity
+
+        item.style.setProperty(
+          '--study-chat-dock-scale',
+          scale.toFixed(3),
+        )
+        item.style.setProperty(
+          '--study-chat-dock-lift',
+          `${lift.toFixed(2)}px`,
+        )
+      })
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -90,9 +144,16 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
 
         <div className="mt-4 flex min-h-0 flex-1 flex-col gap-3">
           <div
-            className="flex shrink-0 gap-2 overflow-x-auto rounded-ait-m bg-surface-default p-2"
+            className="study-chat-dock relative flex min-h-24 shrink-0 items-center gap-7 overflow-visible px-5 py-4"
             role="tablist"
             aria-label="스터디 그룹 선택"
+            onPointerMove={updateDockMagnification}
+            onPointerLeave={(event) =>
+              resetDockMagnification(event.currentTarget)
+            }
+            onPointerCancel={(event) =>
+              resetDockMagnification(event.currentTarget)
+            }
           >
             {groups.map((group) => {
               const isSelected = group.id === selectedGroupId
@@ -106,11 +167,12 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
                   aria-controls="study-chat-panel"
                   onClick={() => setSelectedGroupId(group.id)}
                   className={cn(
-                    'flex size-12 shrink-0 items-center justify-center rounded-ait-pill border bg-profile-avatar text-body-1 font-semibold text-action-primary transition-[border-color,box-shadow]',
+                    'study-chat-dock-item relative isolate flex size-12 shrink-0 items-center justify-center rounded-ait-pill border bg-profile-avatar text-body-1 font-semibold text-action-primary',
                     isSelected
-                      ? 'border-status-success shadow-elevation-1'
+                      ? 'study-chat-dock-item-selected border-status-success'
                       : 'border-transparent hover:border-border-default',
                   )}
+                  data-study-chat-dock-item
                 >
                   {group.id}
                 </button>
