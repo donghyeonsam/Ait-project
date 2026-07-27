@@ -10,6 +10,7 @@ import { StudyGroupChatPanel } from '@/components/study/StudyGroupChatPanel'
 import { StudyGroupManagerPanel } from '@/components/study/StudyGroupManagerPanel'
 import { StudyGroupMemberPanel } from '@/components/study/StudyGroupMemberPanel'
 import { StudyHeroGlow } from '@/components/study/StudyHeroGlow'
+import { StudyLeaderTransferDialog } from '@/components/study/StudyLeaderTransferDialog'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -45,6 +46,11 @@ export function StudyGroupPage() {
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isLeaderTransferDialogOpen, setIsLeaderTransferDialogOpen] =
+    useState(false)
+  const [transferredLeaderName, setTransferredLeaderName] = useState<
+    string | null
+  >(null)
   const [memberToRemove, setMemberToRemove] =
     useState<StudyGroupMember | null>(null)
   const { ref: headerRef, isInView: isHeaderInView } =
@@ -56,7 +62,12 @@ export function StudyGroupPage() {
     return <Navigate to="/study" replace />
   }
 
-  const isLeader = study.role === '그룹장'
+  const isLeader =
+    study.role === '그룹장' && transferredLeaderName === null
+  const leaderName = transferredLeaderName ?? study.leaderName
+  const leaderCandidates = members.filter(
+    (member) => !member.isSelf && member.role !== '초대 대기',
+  )
   const chatGroup =
     mockStudyChatGroups[study.id === 101 ? 0 : 1] ?? mockStudyChatGroups[0]
   const calendarEvents = mockStudyCalendarEvents[study.id] ?? []
@@ -88,6 +99,23 @@ export function StudyGroupPage() {
     setMemberToRemove(null)
   }
 
+  const transferLeadership = (memberId: number) => {
+    const nextLeader = members.find((member) => member.id === memberId)
+    if (!nextLeader || nextLeader.isSelf || nextLeader.role === '초대 대기') {
+      return
+    }
+
+    // TODO: 실제 API 연동 필요 — 위임 성공 응답 후 그룹장과 현재 사용자의 권한을 갱신한다.
+    setMembers((currentMembers) =>
+      currentMembers.map((member) =>
+        member.id === memberId
+          ? { ...member, role: `${member.role} · 그룹장` }
+          : member,
+      ),
+    )
+    setTransferredLeaderName(nextLeader.name)
+  }
+
   return (
     <PageLayout contentClassName="relative isolate max-w-dashboard px-4 sm:px-8">
       <StudyHeroGlow />
@@ -117,7 +145,7 @@ export function StudyGroupPage() {
             </p>
             <p className="mt-2 text-caption text-chart-axis">
               구성원 {members.length}/{study.capacity} · 생성일 {study.createdAt}{' '}
-              · 그룹장 {study.leaderName}
+              · 그룹장 {leaderName}
             </p>
 
             <div
@@ -167,6 +195,9 @@ export function StudyGroupPage() {
                 isRecruiting={isRecruiting}
                 onRecruitingChange={setIsRecruiting}
                 onReviewApplications={() => setIsApplicationModalOpen(true)}
+                onTransferLeadership={() =>
+                  setIsLeaderTransferDialogOpen(true)
+                }
                 onDeleteGroup={() => setIsDeleteDialogOpen(true)}
               />
             </div>
@@ -208,6 +239,13 @@ export function StudyGroupPage() {
       <StudyApplicationModal
         open={isApplicationModalOpen}
         onOpenChange={setIsApplicationModalOpen}
+      />
+
+      <StudyLeaderTransferDialog
+        open={isLeaderTransferDialogOpen}
+        candidates={leaderCandidates}
+        onOpenChange={setIsLeaderTransferDialogOpen}
+        onTransfer={transferLeadership}
       />
 
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

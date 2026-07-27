@@ -1,4 +1,4 @@
-import { LockKeyhole } from 'lucide-react'
+import { LockKeyhole, UserRoundCog } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface StudyGroupManagerPanelProps {
@@ -6,15 +6,17 @@ interface StudyGroupManagerPanelProps {
   isRecruiting: boolean
   onRecruitingChange: (isRecruiting: boolean) => void
   onReviewApplications: () => void
+  onTransferLeadership: () => void
   onDeleteGroup: () => void
 }
 
-// 그룹장이 모집 상태와 가입 신청, 그룹 삭제 행동을 관리한다.
+// 그룹장이 모집 상태와 가입 신청, 권한 위임, 그룹 삭제 행동을 관리한다.
 export function StudyGroupManagerPanel({
   applicantCount,
   isRecruiting,
   onRecruitingChange,
   onReviewApplications,
+  onTransferLeadership,
   onDeleteGroup,
 }: StudyGroupManagerPanelProps) {
   return (
@@ -83,7 +85,15 @@ export function StudyGroupManagerPanel({
         </span>
       </button>
 
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={onTransferLeadership}
+          className="inline-flex items-center gap-1 rounded-ait-s border border-action-primary px-3 py-1 text-caption font-medium text-action-primary transition-colors hover:bg-status-info-surface"
+        >
+          <UserRoundCog className="size-3.5" aria-hidden="true" />
+          그룹장 위임
+        </button>
         <button
           type="button"
           onClick={onDeleteGroup}

@@ -111,6 +111,41 @@ describe('StudyGroupPage', () => {
     }
   })
 
+  it('선택한 멤버에게 그룹장 권한을 위임한다', async () => {
+    const user = userEvent.setup()
+    renderStudyGroupPage()
+
+    await user.click(screen.getByRole('button', { name: '그룹장 위임' }))
+
+    const transferDialog = screen.getByRole('dialog', {
+      name: '그룹장을 위임할까요?',
+    })
+    const transferButton = within(transferDialog).getByRole('button', {
+      name: '그룹장 위임',
+    })
+    expect(transferButton).toBeDisabled()
+    expect(
+      within(transferDialog).queryByRole('radio', { name: /나\(김아이\)/ }),
+    ).not.toBeInTheDocument()
+
+    await user.click(
+      within(transferDialog).getByRole('radio', { name: /김구미/ }),
+    )
+    expect(
+      within(transferDialog).getByText(
+        '김구미 님에게 그룹장 권한을 위임합니다.',
+      ),
+    ).toBeInTheDocument()
+    expect(transferButton).toBeEnabled()
+    await user.click(transferButton)
+
+    expect(
+      screen.queryByRole('heading', { name: '관리자 메뉴' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText(/그룹장 김구미/)).toBeInTheDocument()
+    expect(screen.getByText(/백엔드 지원 · 그룹장/)).toBeInTheDocument()
+  })
+
   it('날짜를 선택할 때만 일정 상세를 열고 그룹톡 메시지를 전송한다', async () => {
     const user = userEvent.setup()
     renderStudyGroupPage()
