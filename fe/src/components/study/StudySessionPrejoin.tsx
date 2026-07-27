@@ -58,12 +58,6 @@ export function StudySessionPrejoin({
   const soundTest = useSoundTest(speakerDeviceId, speakerVolume)
 
   useEffect(() => {
-    void requestAccess()
-    // 마운트 시 한 번만 기본 장치 권한을 요청한다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
     if (videoRef.current) {
       videoRef.current.srcObject = stream
     }
