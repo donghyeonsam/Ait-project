@@ -10,6 +10,7 @@ import { StudyCardGrid } from '@/components/study/StudyCardGrid'
 import { StudyChatFloatingButton } from '@/components/study/StudyChatFloatingButton'
 import { StudyChatModal } from '@/components/study/StudyChatModal'
 import { StudyCreateDialog } from '@/components/study/StudyCreateDialog'
+import { StudyHeroGlow } from '@/components/study/StudyHeroGlow'
 import {
   StudySearchFilters,
   type RecruitmentFilter,
@@ -17,6 +18,8 @@ import {
   type StudySort,
 } from '@/components/study/StudySearchFilters'
 import { Button } from '@/components/ui/button'
+import { useInView } from '@/lib/useInView'
+import { cn } from '@/lib/utils'
 import {
   mockMyStudies,
   mockStudyCards,
@@ -45,6 +48,12 @@ export function StudyPage() {
   const [applicationTarget, setApplicationTarget] =
     useState<StudyCardData | null>(null)
   const applicationMessagesRef = useRef<Record<number, string>>({})
+  const { ref: heroRef, isInView: isHeroInView } = useInView<HTMLElement>({
+    threshold: 0.1,
+  })
+  const { ref: searchRef, isInView: isSearchInView } = useInView<HTMLElement>({
+    threshold: 0.05,
+  })
 
   const filteredStudies = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('ko-KR')
@@ -113,9 +122,14 @@ export function StudyPage() {
   }
 
   return (
-    <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8">
+    <PageLayout contentClassName="relative isolate max-w-dashboard px-4 sm:px-8">
+      <StudyHeroGlow />
       <section
-        className="flex flex-col gap-6 py-10 sm:flex-row sm:items-start sm:justify-between"
+        ref={heroRef}
+        className={cn(
+          'study-reveal flex flex-col gap-6 py-10 sm:flex-row sm:items-start sm:justify-between',
+          isHeroInView && 'is-visible',
+        )}
         aria-labelledby="page-title"
       >
         <div>
@@ -144,7 +158,11 @@ export function StudyPage() {
       />
 
       <section
-        className="mb-16 mt-8 border-t border-status-achievement pt-6"
+        ref={searchRef}
+        className={cn(
+          'study-reveal mb-16 mt-8 border-t border-status-achievement pt-6',
+          isSearchInView && 'is-visible',
+        )}
         aria-labelledby="study-search-title"
       >
         <div className="flex flex-wrap items-baseline gap-3">

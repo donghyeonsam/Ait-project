@@ -1,5 +1,7 @@
 import {
   useState,
+  type AnimationEvent,
+  type CSSProperties,
   type FocusEvent,
   type KeyboardEvent,
   type MouseEvent,
@@ -17,6 +19,7 @@ interface StudyCardProps {
   study: StudyCardData
   isApplied: boolean
   onApply: (study: StudyCardData) => void
+  index?: number
 }
 
 const roleBadgeClasses: Record<StudyRole, string> = {
@@ -51,8 +54,14 @@ export function StudyCardExpandedContent({
       <div>
         <p className="font-semibold">정기모임 일정</p>
         <ul className="mt-1 list-disc space-y-1 pl-6">
-          {study.schedule.map((schedule) => (
-            <li key={schedule}>{schedule}</li>
+          {study.schedule.map((schedule, itemIndex) => (
+            <li
+              key={schedule}
+              className="study-expand-item"
+              style={{ '--item-order': itemIndex } as CSSProperties}
+            >
+              {schedule}
+            </li>
           ))}
         </ul>
       </div>
@@ -60,8 +69,18 @@ export function StudyCardExpandedContent({
       <div className="mt-3">
         <p className="font-semibold">주요 활동</p>
         <ul className="mt-1 list-disc space-y-1 pl-6">
-          {study.activities.map((activity) => (
-            <li key={activity}>{activity}</li>
+          {study.activities.map((activity, itemIndex) => (
+            <li
+              key={activity}
+              className="study-expand-item"
+              style={
+                {
+                  '--item-order': study.schedule.length + itemIndex,
+                } as CSSProperties
+              }
+            >
+              {activity}
+            </li>
           ))}
         </ul>
       </div>
@@ -70,9 +89,17 @@ export function StudyCardExpandedContent({
 }
 
 // 고정된 그리드 셀 위에서 세부 정보가 겹쳐 펼쳐지는 스터디 카드다.
-export function StudyCard({ study, isApplied, onApply }: StudyCardProps) {
+export function StudyCard({
+  study,
+  isApplied,
+  onApply,
+  index = 0,
+}: StudyCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isExpansionComplete, setIsExpansionComplete] = useState(false)
+  // 진입 스태거가 끝나면 래퍼의 잔여 transform(스태킹 컨텍스트)을 없애
+  // hover 확장이 이웃 카드 위로 겹칠 수 있게 한다.
+  const [hasEntered, setHasEntered] = useState(false)
   const isClosed = study.recruitmentStatus === '마감'
 
   const expandCard = () => {
@@ -130,10 +157,22 @@ export function StudyCard({ study, isApplied, onApply }: StudyCardProps) {
     }
   }
 
+  const handleEntranceEnd = (event: AnimationEvent<HTMLElement>) => {
+    if (
+      event.target === event.currentTarget &&
+      event.animationName === 'study-card-enter'
+    ) {
+      setHasEntered(true)
+    }
+  }
+
   return (
     <div
+      onAnimationEnd={handleEntranceEnd}
+      style={{ '--card-order': index } as CSSProperties}
       className={cn(
         'relative h-40 transition-[height] [transition-duration:var(--duration-base)] [transition-timing-function:var(--easing-emphasized)]',
+        !hasEntered && 'study-card-enter',
         isExpanded && 'max-md:h-[22rem]',
       )}
     >
@@ -152,7 +191,7 @@ export function StudyCard({ study, isApplied, onApply }: StudyCardProps) {
           toggleCard()
         }}
         className={cn(
-          'absolute inset-x-0 top-0 overflow-hidden rounded-ait-m border border-border-default bg-surface-default shadow-elevation-1 transition-[height,transform,box-shadow] [transition-duration:var(--duration-base)] [transition-timing-function:var(--easing-emphasized)]',
+          'group absolute inset-x-0 top-0 overflow-hidden rounded-ait-m border border-border-default bg-surface-default shadow-elevation-1 transition-[height,transform,box-shadow] [transition-duration:var(--duration-base)] [transition-timing-function:var(--easing-emphasized)]',
           isExpanded
             ? 'z-[var(--z-index-dropdown)] h-[22rem] -translate-y-1 shadow-elevation-2'
             : 'h-40',
@@ -163,7 +202,7 @@ export function StudyCard({ study, isApplied, onApply }: StudyCardProps) {
             <div className="flex min-w-0 items-center gap-2">
               <span
                 className={cn(
-                  'inline-flex h-6 w-[63px] shrink-0 items-center justify-center whitespace-nowrap rounded-[3px] px-1 text-center text-[10px] leading-none',
+                  'inline-flex h-6 w-[63px] shrink-0 items-center justify-center whitespace-nowrap rounded-[3px] px-1 text-center text-[10px] leading-none transition-transform [transition-duration:var(--duration-fast)] [transition-timing-function:var(--easing-standard)] group-hover:-translate-y-0.5',
                   roleBadgeClasses[study.role],
                 )}
               >

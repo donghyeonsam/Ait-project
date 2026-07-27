@@ -4,9 +4,12 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { StudyApplicationModal } from '@/components/study/StudyApplicationModal'
 import { StudyCalendar } from '@/components/study/StudyCalendar'
+import { StudyChatFloatingButton } from '@/components/study/StudyChatFloatingButton'
+import { StudyChatModal } from '@/components/study/StudyChatModal'
 import { StudyGroupChatPanel } from '@/components/study/StudyGroupChatPanel'
 import { StudyGroupManagerPanel } from '@/components/study/StudyGroupManagerPanel'
 import { StudyGroupMemberPanel } from '@/components/study/StudyGroupMemberPanel'
+import { StudyHeroGlow } from '@/components/study/StudyHeroGlow'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -16,6 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { useInView } from '@/lib/useInView'
+import { cn } from '@/lib/utils'
 import {
   mockMyStudies,
   mockStudyCalendarEvents,
@@ -37,8 +42,13 @@ export function StudyGroupPage() {
     })),
   )
   const [isRecruiting, setIsRecruiting] = useState(true)
+  const [isChatOpen, setIsChatOpen] = useState(false)
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const { ref: headerRef, isInView: isHeaderInView } =
+    useInView<HTMLDivElement>({ threshold: 0.1 })
+  const { ref: panelsRef, isInView: isPanelsInView } =
+    useInView<HTMLDivElement>({ threshold: 0.05 })
 
   if (!study) {
     return <Navigate to="/study" replace />
@@ -71,7 +81,8 @@ export function StudyGroupPage() {
   }
 
   return (
-    <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8">
+    <PageLayout contentClassName="relative isolate max-w-dashboard px-4 sm:px-8">
+      <StudyHeroGlow />
       <section className="py-8" aria-labelledby="study-group-title">
         <Link
           to="/study"
@@ -82,9 +93,12 @@ export function StudyGroupPage() {
         </Link>
 
         <div
-          className={`mt-10 grid gap-6 ${
-            isLeader ? 'lg:grid-cols-[minmax(0,1fr)_29rem]' : ''
-          }`}
+          ref={headerRef}
+          className={cn(
+            'study-reveal mt-10 grid gap-6',
+            isLeader && 'lg:grid-cols-[minmax(0,1fr)_29rem]',
+            isHeaderInView && 'is-visible',
+          )}
         >
           <div>
             <h1 id="study-group-title" className="text-h1 text-text-primary">
@@ -99,11 +113,12 @@ export function StudyGroupPage() {
             </p>
 
             <div
-              className={`mt-6 flex flex-wrap items-center justify-between gap-4 rounded-ait-m border p-4 ${
+              className={cn(
+                'mt-6 flex flex-wrap items-center justify-between gap-4 rounded-ait-m border p-4',
                 study.isLive
-                  ? 'border-status-success bg-status-success-surface'
-                  : 'border-border-default bg-background-default'
-              }`}
+                  ? 'study-live-banner border-status-success bg-status-success-surface'
+                  : 'border-border-default bg-background-default',
+              )}
             >
               <div>
                 <p
@@ -116,7 +131,7 @@ export function StudyGroupPage() {
                   <span
                     className={`size-2 rounded-ait-pill ${
                       study.isLive
-                        ? 'bg-status-success'
+                        ? 'status-live-dot bg-status-success'
                         : 'bg-status-neutral'
                     }`}
                     aria-hidden="true"
@@ -129,7 +144,7 @@ export function StudyGroupPage() {
                     : '예정된 세션 시간을 확인해 주세요.'}
                 </p>
               </div>
-              <Button asChild className="text-white">
+              <Button asChild className="cta-lift text-white">
                 <Link to="/study/session/prejoin">
                   {study.isLive ? '세션 참여하기' : '세션 준비하기'}
                 </Link>
@@ -150,7 +165,13 @@ export function StudyGroupPage() {
           ) : null}
         </div>
 
-        <div className="mt-4 grid items-stretch gap-6 lg:grid-cols-2">
+        <div
+          ref={panelsRef}
+          className={cn(
+            'study-reveal mt-4 grid items-stretch gap-6 lg:grid-cols-2',
+            isPanelsInView && 'is-visible',
+          )}
+        >
           <StudyGroupMemberPanel
             members={members}
             capacity={study.capacity}
@@ -164,6 +185,12 @@ export function StudyGroupPage() {
         <div className="my-6 border-t border-status-achievement" />
         <StudyCalendar events={calendarEvents} />
       </section>
+
+      <StudyChatFloatingButton
+        unreadCount={42}
+        onClick={() => setIsChatOpen(true)}
+      />
+      <StudyChatModal open={isChatOpen} onOpenChange={setIsChatOpen} />
 
       <StudyApplicationModal
         open={isApplicationModalOpen}

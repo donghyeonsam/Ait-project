@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import { useInView } from '@/lib/useInView'
+import { cn } from '@/lib/utils'
 import type { MyStudyData } from '@/mocks/study-lounge'
 
 interface MyStudySectionProps {
@@ -15,8 +17,14 @@ export function MyStudySection({
   onEnterStudy,
   onManageApplications,
 }: MyStudySectionProps) {
+  const { ref, isInView } = useInView<HTMLElement>({ threshold: 0.1 })
+
   return (
-    <section aria-labelledby="my-study-title">
+    <section
+      ref={ref}
+      className={cn('study-reveal', isInView && 'is-visible')}
+      aria-labelledby="my-study-title"
+    >
       <h2 id="my-study-title" className="text-h3 text-text-primary">
         마이 스터디
       </h2>
@@ -39,7 +47,7 @@ export function MyStudySection({
                   <span
                     className={`size-2 shrink-0 rounded-ait-pill ${
                       study.isLive
-                        ? 'bg-status-success'
+                        ? 'status-live-dot bg-status-success'
                         : 'bg-status-neutral-border'
                     }`}
                     aria-hidden="true"
@@ -102,7 +110,7 @@ export function MyStudySection({
               <Button
                 type="button"
                 variant={study.isLive ? 'primary' : 'secondary'}
-                className="pointer-events-auto"
+                className="cta-lift pointer-events-auto"
                 onClick={() => onEnterStudy(study)}
               >
                 입장하기

@@ -28,12 +28,13 @@ export function StudyCardGrid({
 
   return (
     <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {studies.map((study) => (
+      {studies.map((study, index) => (
         <StudyCard
           key={study.id}
           study={study}
           isApplied={appliedStudyIds.has(study.id)}
           onApply={onApply}
+          index={index}
         />
       ))}
     </div>
