@@ -27,7 +27,12 @@ export function StudyGroupManagerPanel({
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <span className="text-body-2 text-text-primary">모집 상태 변경</span>
         <div
-          className="inline-flex rounded-ait-pill border border-status-success-border bg-status-success-surface p-0.5"
+          className={cn(
+            'inline-flex rounded-ait-pill border p-0.5 transition-colors',
+            isRecruiting
+              ? 'border-status-success-border bg-status-success-surface'
+              : 'border-status-error-border bg-status-error-surface',
+          )}
           role="group"
           aria-label="모집 상태 변경"
         >
@@ -39,7 +44,7 @@ export function StudyGroupManagerPanel({
               'rounded-ait-pill px-3 py-1 text-caption transition-colors',
               isRecruiting
                 ? 'bg-surface-default font-semibold text-status-success shadow-elevation-1'
-                : 'text-status-success',
+                : 'text-text-secondary',
             )}
           >
             모집 중
@@ -51,8 +56,8 @@ export function StudyGroupManagerPanel({
             className={cn(
               'rounded-ait-pill px-3 py-1 text-caption transition-colors',
               !isRecruiting
-                ? 'bg-surface-default font-semibold text-status-success shadow-elevation-1'
-                : 'text-status-success',
+                ? 'bg-surface-default font-semibold text-status-error shadow-elevation-1'
+                : 'text-text-secondary',
             )}
           >
             모집 완료

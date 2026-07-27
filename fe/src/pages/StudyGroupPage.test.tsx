@@ -47,6 +47,18 @@ describe('StudyGroupPage', () => {
       screen.getByRole('heading', { name: '구성원 5 / 8' }),
     ).toBeInTheDocument()
 
+    const recruitmentToggle = screen.getByRole('group', {
+      name: '모집 상태 변경',
+    })
+    await user.click(screen.getByRole('button', { name: '모집 완료' }))
+    expect(recruitmentToggle).toHaveClass(
+      'border-status-error-border',
+      'bg-status-error-surface',
+    )
+    expect(
+      screen.getByRole('button', { name: '모집 완료' }),
+    ).toHaveClass('text-status-error')
+
     await user.click(screen.getByRole('button', { name: '김구미 내보내기' }))
     expect(
       screen.getByRole('heading', { name: '구성원 4 / 8' }),
