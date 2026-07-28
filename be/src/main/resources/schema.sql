@@ -406,7 +406,8 @@ CREATE TABLE `ai_comprehensive_reports` (
                                             `eye_contact_score` INT NOT NULL,
                                             `face_score` INT NOT NULL,
                                             `voice_score` INT NOT NULL,
-                                            `answer_score` INT NOT NULL,
+                                            `qna_score` INT NOT NULL,
+                                            `sentence_score` INT NOT NULL,
                                             `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
                                             PRIMARY KEY (`id`),

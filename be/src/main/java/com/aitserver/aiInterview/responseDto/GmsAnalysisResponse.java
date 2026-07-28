@@ -1,4 +1,4 @@
-package com.aitserver.aiInterview.dto;
+package com.aitserver.aiInterview.responseDto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -9,6 +9,9 @@ public record GmsAnalysisResponse(
         @JsonProperty("feedback")
         String feedback,
 
-        @JsonProperty("score")
-        Integer score
+        @JsonProperty("qna_score")
+        Integer qnaScore,
+
+        @JsonProperty("sentence_score")
+        Integer sentenceScore
 ) {}
