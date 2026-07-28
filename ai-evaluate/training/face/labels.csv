@@ -1,0 +1,4 @@
+clip_id,file_name,person_id,labeler_a,labeler_b,label_final,note
+clip_001,clip_001.mp4,p01,0.7,0.8,0.75,시선 자주 이탈
+clip_002,clip_002.mp4,p01,0.2,0.3,0.25,
+clip_003,clip_003.mp4,p02,0.9,0.9,0.90,손 떨림 육안 확인

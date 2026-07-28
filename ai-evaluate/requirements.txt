@@ -1,0 +1,24 @@
+# ── 서버(런타임) 의존성 ──
+# 표정 쪽 MediaPipe/OpenCV 가 사라진 것이 이전 버전과의 가장 큰 차이다.
+# 프론트(브라우저)가 랜드마크 추출을 담당하므로 서버는 집계와 MLP 추론만 한다.
+
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+pydantic-settings==2.5.2
+python-multipart==0.0.9      # FastAPI 파일 업로드(UploadFile) 처리에 필요
+
+celery==5.4.0
+redis==5.0.8
+
+# 음성 분석 (서버에서만 가능 - 브라우저에 대체재가 없음)
+librosa==0.10.2
+praat-parselmouth==0.4.5
+soundfile==0.12.1
+audioread==3.0.1
+
+# MLP 추론
+# CPU 전용 휠 사용 (Dockerfile 참고):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch==2.4.1
+numpy==1.26.4
