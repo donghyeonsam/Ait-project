@@ -526,11 +526,12 @@ INSERT INTO `study_group_members` (`group_id`, `user_id`, `role`, `message`, `st
 (3, 1, 'MEMBER', '프로젝트 아키텍처 위주로 리뷰받고 싶어요.', 'ACTIVE', '2026-07-21 13:00:00', '2026-07-21 12:30:00', NOW());
 
 -- 스터디 캘린더
-INSERT INTO `study_group_calendars` (`group_id`, `content`, `status`, `start_time`, `end_time`) VALUES
-(1, '1주차: Java & Spring 기초 면접', 'completed', '2026-07-15 20:00:00', '2026-07-15 22:00:00'),
-(1, '2주차: DB & JPA 심화 면접', 'scheduled', '2026-07-22 20:00:00', '2026-07-22 22:00:00'),
-(2, '알고리즘 DP/DFS 풀이 세션', 'scheduled', '2026-07-26 19:00:00', '2026-07-26 21:00:00'),
-(3, '이력서 기반 모의 면접 1회차', 'scheduled', '2026-07-27 21:00:00', '2026-07-27 23:00:00');
+INSERT INTO `study_group_calendars` (`group_id`, `content`, `start_time`, `end_time`) VALUES
+(1, '6월 샘플', '2026-06-15 20:00:00', '2026-06-15 22:00:00'),
+(1, '1주차: Java & Spring 기초 면접', '2026-07-15 20:00:00', '2026-07-15 22:00:00'),
+(1, '2주차: DB & JPA 심화 면접', '2026-07-22 20:00:00', '2026-07-22 22:00:00'),
+(2, '알고리즘 DP/DFS 풀이 세션', '2026-07-26 19:00:00', '2026-07-26 21:00:00'),
+(3, '이력서 기반 모의 면접 1회차', '2026-07-27 21:00:00', '2026-07-27 23:00:00');
 
 -- 스터디 채팅
 INSERT INTO `study_group_chats` (`group_id`, `user_id`, `message`, `created_at`) VALUES
