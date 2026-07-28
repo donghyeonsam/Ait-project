@@ -10,5 +10,4 @@ import java.time.LocalDateTime;
 public class CalendarRequest {
     private String content;
     private LocalDateTime startTime;
-    private LocalDateTime endTime;
 }

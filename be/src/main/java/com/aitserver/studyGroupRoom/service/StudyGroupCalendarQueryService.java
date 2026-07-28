@@ -29,15 +29,19 @@ public class StudyGroupCalendarQueryService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_GROUP_MEMBER));
     }
 
-    // 1. 월별 조회
+    // 1. 월별 조회 (조회 월 기준 +- 1개월)
     public List<CalendarResponse> getMonthlyCalendars(Long groupId, Long currentUserId, int year, int month) {
         validateGroupMember(groupId, currentUserId);
 
         YearMonth targetMonth = YearMonth.of(year, month);
-        LocalDateTime startOfMonth = targetMonth.atDay(1).atStartOfDay();
-        LocalDateTime startOfNextMonth = targetMonth.plusMonths(1).atDay(1).atStartOfDay();
 
-        return calendarRepository.findMonthlyCalendars(groupId, startOfMonth, startOfNextMonth).stream()
+        // 시작일: 이전 달의 1일 00:00
+        LocalDateTime startOfRange = targetMonth.minusMonths(1).atDay(1).atStartOfDay();
+
+        // 종료일: 다다음 달의 1일 00:00 (Repository 쿼리에서 '<' 조건으로 검색하므로 정확히 다음달 말일 23:59:59까지 가져옵니다)
+        LocalDateTime endOfRange = targetMonth.plusMonths(2).atDay(1).atStartOfDay();
+
+        return calendarRepository.findMonthlyCalendars(groupId, startOfRange, endOfRange).stream()
                 .map(CalendarResponse::from)
                 .collect(Collectors.toList());
     }

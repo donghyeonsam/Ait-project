@@ -480,7 +480,6 @@ CREATE TABLE `study_group_calendars` (
                                          `group_id` BIGINT NOT NULL,
                                          `content` VARCHAR(255) NOT NULL,
                                          `start_time` DATETIME NOT NULL,
-                                         `end_time` DATETIME NOT NULL,
                                          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                          updated_at DATETIME NOT NULL
                                                 DEFAULT CURRENT_TIMESTAMP
