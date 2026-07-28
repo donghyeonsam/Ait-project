@@ -17,7 +17,6 @@ public class MyStudyGroupResponseDto {
     private int capacity;
     private int currentMemberCount;
     private StudyGroupStatus groupStatus;
-    private LocalDateTime joinedAt;
 
     // StudyGroupMember 엔티티를 받아서 변환
     public static MyStudyGroupResponseDto from(StudyGroupMember member) {
@@ -30,7 +29,6 @@ public class MyStudyGroupResponseDto {
                 .capacity(StudyGroup.MAX_CAPACITY)
                 .currentMemberCount(group.getCurrentMemberCount())
                 .groupStatus(group.getStatus())
-                .joinedAt(member.getJoinedAt())
                 .build();
     }
 }

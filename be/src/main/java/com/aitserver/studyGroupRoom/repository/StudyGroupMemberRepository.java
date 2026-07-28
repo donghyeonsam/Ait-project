@@ -23,7 +23,7 @@ public interface StudyGroupMemberRepository
     @Query("SELECT m FROM StudyGroupMember m " +
             "JOIN FETCH m.studyGroup " +
             "WHERE m.user.id = :userId AND m.status = :memberStatus " +
-            "ORDER BY m.joinedAt DESC")
+            "ORDER BY m.updatedAt DESC")
     List<StudyGroupMember> findAllMyStudyGroups(
             @Param("userId") Long userId,
             @Param("memberStatus") StudyGroupMemberStatus memberStatus
@@ -35,7 +35,7 @@ public interface StudyGroupMemberRepository
             "WHERE m.user.id = :userId " +
             "AND m.status = :memberStatus " +
             "AND g.status != :excludedGroupStatus " +
-            "ORDER BY m.joinedAt DESC")
+            "ORDER BY m.updatedAt DESC")
     List<StudyGroupMember> findActiveMyStudyGroups(
             @Param("userId") Long userId,
             @Param("memberStatus") StudyGroupMemberStatus memberStatus,
