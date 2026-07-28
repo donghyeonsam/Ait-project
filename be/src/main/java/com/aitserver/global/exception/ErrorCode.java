@@ -60,6 +60,13 @@ public enum ErrorCode {
     CALENDAR_ACCESS_DENIED(HttpStatus.FORBIDDEN, "CALENDAR_004", "일정을 수정하거나 삭제할 권한이 없습니다."),
     CALENDAR_SCHEDULE_CONFLICT(HttpStatus.CONFLICT, "CALENDAR_005", "해당 시간에 이미 다른 일정이 등록되어 있습니다."),
 
+    // 스터디 가입
+    ALREADY_MEMBER_OR_APPLIED(HttpStatus.CONFLICT, "APPLICATION_001", "이미 가입되었거나 가입 신청 대기 중인 상태입니다."),
+    NOT_GROUP_OWNER(HttpStatus.FORBIDDEN, "APPLICATION_002", "스터디 그룹의 방장만 접근할 수 있습니다."),
+    APPLICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "APPLICATION_003", "해당 가입 신청 내역을 찾을 수 없습니다."),
+    INVALID_APPLICATION(HttpStatus.BAD_REQUEST, "APPLICATION_004", "유효하지 않은 가입 신청이거나 이미 처리된 신청입니다."),
+    STUDY_GROUP_FULL(HttpStatus.CONFLICT, "GROUP_005", "스터디 그룹의 모집 정원이 마감되었습니다."),
+
     // Study Session
     STUDY_SESSION_ALREADY_ACTIVE(HttpStatus.CONFLICT, "STUDY_SESSION_001", "이미 진행 중이거나 대기 중인 화상 스터디 세션이 있습니다."),
     STUDY_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "STUDY_SESSION_002", "화상 스터디 세션을 찾을 수 없습니다."),

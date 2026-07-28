@@ -2,9 +2,11 @@
 package com.aitserver.studyGroupRoom.entity;
 
 import com.aitserver.auth.entity.User;
+import com.aitserver.global.exception.BusinessException;
+import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.studyGroupRoom.domain.StudyGroupStatus;
-import jakarta.persistence.*;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -117,6 +119,16 @@ public class StudyGroup {
     public void deleteGroup() {
         this.status = StudyGroupStatus.CLOSED;
         this.deletedAt = LocalDateTime.now();
+    }
+
+    public boolean isFull() {
+        return this.currentMemberCount >= MAX_CAPACITY;
+    }
+
+    public void validateCapacity() {
+        if (isFull()) {
+            throw new BusinessException(ErrorCode.STUDY_GROUP_FULL);
+        }
     }
 
 }

@@ -539,7 +539,7 @@ CREATE TABLE study_group_members (
                                      role VARCHAR(20) NOT NULL DEFAULT 'MEMBER',
                                      status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
 
-                                     joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                     joined_at DATETIME NULL,
                                      left_at DATETIME NULL,
 
                                      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
