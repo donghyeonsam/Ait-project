@@ -74,7 +74,10 @@ export function ParticipantTile({
       )}
     >
       {showVideo && trackRef ? (
-        <VideoTrack trackRef={trackRef} className="size-full object-cover" />
+        <VideoTrack
+          trackRef={trackRef}
+          className={cn('size-full object-cover', participant.isSelf && '-scale-x-100')}
+        />
       ) : (
         <div className="flex size-full items-center justify-center">
           {participant.isSelf ? (

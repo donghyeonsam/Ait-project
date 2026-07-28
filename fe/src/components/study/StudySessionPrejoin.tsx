@@ -57,6 +57,10 @@ export function StudySessionPrejoin({
   const speakerDeviceId = selectedSpeakerId ?? devices.speaker[0]?.id ?? null
   const coverLetterId = selectedCoverLetterId ?? coverLetters[0]?.coverLetterId ?? null
 
+  // enumerateDevices 목록은 권한 허용 이후 한 박자 늦게 갱신되므로, 미리보기 렌더링 여부는
+  // 지연되는 devices.camera 대신 stream 자체의 비디오 트랙 유무로 판단한다.
+  const hasCameraTrack = stream !== null && stream.getVideoTracks().length > 0
+
   const micLevel = useAudioLevel(stream, micGain)
   const soundTest = useSoundTest(speakerDeviceId, speakerVolume)
 
@@ -123,8 +127,14 @@ export function StudySessionPrejoin({
         aria-label="카메라 미리보기"
       >
         {permission === 'granted' ? (
-          devices.camera.length > 0 ? (
-            <video ref={videoRef} autoPlay playsInline muted className="size-full object-cover" />
+          hasCameraTrack ? (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="size-full -scale-x-100 object-cover"
+            />
           ) : (
             <div className="flex flex-col items-center gap-4 px-6 text-center">
               <Video className="size-14" aria-hidden="true" />
