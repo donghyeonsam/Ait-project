@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/backend/:path*",
-      "destination": "http://i15d202.p.ssafy.io/:path*"
+      "destination": "https://i15d202.p.ssafy.io/:path*"
     },
     {
       "source": "/(.*)",
