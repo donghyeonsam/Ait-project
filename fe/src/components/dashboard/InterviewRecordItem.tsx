@@ -48,9 +48,7 @@ export function InterviewRecordItem({
 
   return (
     <BorderGlow
-      observeRef={(node) => {
-        ref.current = node
-      }}
+      observeRef={ref}
       borderRadius={28}
       edgeSensitivity={30}
       glowColor="40 80 80"
