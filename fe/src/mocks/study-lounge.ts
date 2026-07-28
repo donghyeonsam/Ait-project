@@ -29,14 +29,6 @@ export interface StudyChatGroup {
   messages: StudyChatMessage[]
 }
 
-export interface StudyApplication {
-  id: number
-  name: string
-  role: string
-  introduction: string
-  status: 'pending' | 'approved' | 'rejected'
-}
-
 // TODO: 실제 API 연동 필요 — 그룹 일정과 출석 기록 응답으로 교체.
 export const mockStudyCalendarEvents: Record<number, StudyCalendarEvent[]> = {
   101: [
@@ -157,25 +149,5 @@ export const mockStudyChatGroups: StudyChatGroup[] = [
         isSelf: false,
       },
     ],
-  },
-]
-
-// TODO: 실제 API 연동 필요 — 그룹장에게 도착한 가입 신청 목록으로 교체.
-export const mockStudyApplications: StudyApplication[] = [
-  {
-    id: 201,
-    name: '김아이',
-    role: '프론트엔드 지원',
-    introduction:
-      '안녕하세요! 증권사 프론트엔드 직무를 준비 중인 김아이입니다. 금융권 PT면접 경험을 쌓고 싶어 신청드려요. 매주 화, 목 세션 모두 참여 가능합니다.',
-    status: 'pending',
-  },
-  {
-    id: 202,
-    name: '이싸피',
-    role: '백엔드 지원',
-    introduction:
-      'Java와 Spring 기반 백엔드 직무를 준비하고 있습니다. 금융 서비스 설계 경험을 나누고 싶습니다.',
-    status: 'pending',
   },
 ]

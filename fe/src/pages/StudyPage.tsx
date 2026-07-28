@@ -1,5 +1,5 @@
 import { Plus } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { MyStudySection } from '@/components/study/MyStudySection'
@@ -21,6 +21,7 @@ import {
 } from '@/components/study/StudySearchFilters'
 import { Button } from '@/components/ui/button'
 import {
+  applyToStudyGroup,
   getMyStudyGroups,
   getStudyGroups,
   type MyStudyGroup,
@@ -87,7 +88,6 @@ export function StudyPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [applicationTarget, setApplicationTarget] =
     useState<StudyCardData | null>(null)
-  const applicationMessagesRef = useRef<Record<number, string>>({})
   const { ref: heroRef, isInView: isHeroInView } = useInView<HTMLElement>({
     threshold: 0.1,
   })
@@ -165,15 +165,18 @@ export function StudyPage() {
 
   const resetVisibleCount = () => setVisibleCount(INITIAL_VISIBLE_STUDIES)
 
-  const completeApplication = (message: string) => {
+  const completeApplication = async (message: string) => {
     if (!applicationTarget) return
-    // TODO: 실제 API 연동 필요 — 가입 신청 엔드포인트가 없어 화면에서만 신청 상태를 표시한다.
-    applicationMessagesRef.current[applicationTarget.id] = message
-    setAppliedStudyIds((currentIds) =>
-      new Set(currentIds).add(applicationTarget.id),
-    )
+    const target = applicationTarget
     setApplicationTarget(null)
-    setToastMessage('스터디 신청은 아직 서버에 저장되지 않습니다.')
+
+    try {
+      await applyToStudyGroup(target.id, message)
+      setAppliedStudyIds((currentIds) => new Set(currentIds).add(target.id))
+      setToastMessage('스터디 신청을 보냈습니다.')
+    } catch (error) {
+      setToastMessage(toErrorMessage(error))
+    }
   }
 
   return (

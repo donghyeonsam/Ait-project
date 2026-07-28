@@ -20,6 +20,7 @@
 | 그룹 상세·구성원 목록 | `GET /api/study-groups/{groupId}` |
 | 모집 상태 변경 | `PATCH /api/study-groups/{groupId}/status` |
 | 화상 세션 시작 | `POST /api/study-groups/{groupId}/sessions` |
+| 가입 신청·신청 목록 조회·승인/거절 | `POST/GET /api/study-groups/{groupId}/applications`, `PATCH .../applications/{applicationId}` |
 | 입장 전 자소서 선택 | `GET /api/cover-letters/me` |
 | 세션 접속 정보 | `POST /api/study-sessions/{sessionId}/connection` |
 
@@ -75,21 +76,6 @@
 ## 3. 엔드포인트 자체가 없는 항목
 
 프론트에서 우회할 방법이 없다. 해당 UI는 화면 동작만 하고 서버에 저장되지 않으며, 코드에 `// TODO: 실제 API 연동 필요` 주석을 남겨 뒀다.
-
-### 3-1. 스터디 가입 신청 (가장 큰 공백)
-
-라운지의 핵심 흐름인데 엔드포인트가 하나도 없다. `DELETE /{groupId}/leave`(탈퇴)만 존재한다.
-
-필요한 것:
-
-- 가입 신청: `POST /api/study-groups/{groupId}/applications`
-- 그룹장의 신청 목록 조회: `GET /api/study-groups/{groupId}/applications`
-- 승인·거절: `PATCH /api/study-groups/{groupId}/applications/{applicationId}`
-
-현재 상태: 신청 버튼을 누르면 화면에서만 "신청 완료"로 바뀌고, 토스트로 저장되지 않았음을 알린다.
-그룹 페이지의 신청자 수는 **0으로 고정**돼 있다.
-
-- 위치: [`StudyPage.tsx`](../src/pages/StudyPage.tsx) `completeApplication`, [`StudyApplicationModal.tsx`](../src/components/study/StudyApplicationModal.tsx)
 
 ### 3-2. 구성원 관리 (초대·내보내기·그룹장 위임)
 

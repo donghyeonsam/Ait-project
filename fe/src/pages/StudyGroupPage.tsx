@@ -1,5 +1,5 @@
 import { ArrowLeft } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { StudyApplicationModal } from '@/components/study/StudyApplicationModal'
@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dialog'
 import {
   getMyStudyGroups,
+  getStudyGroupApplications,
   getStudyGroupDetail,
   updateStudyGroupStatus,
   type StudyGroupDetail,
@@ -65,6 +66,7 @@ export function StudyGroupPage() {
   const [isStartingSession, setIsStartingSession] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false)
+  const [applicantCount, setApplicantCount] = useState(0)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isLeaderTransferDialogOpen, setIsLeaderTransferDialogOpen] =
     useState(false)
@@ -119,6 +121,19 @@ export function StudyGroupPage() {
       isActive = false
     }
   }, [groupId, currentUserId, isValidGroupId])
+
+  // 신청 목록 API는 방장만 호출할 수 있어 방장이 아닐 때는 요청하지 않는다.
+  const loadApplicantCount = useCallback(() => {
+    if (!detail || detail.ownerId !== currentUserId) return
+
+    getStudyGroupApplications(groupId)
+      .then((applications) => setApplicantCount(applications.length))
+      .catch(() => {})
+  }, [groupId, detail, currentUserId])
+
+  useEffect(() => {
+    loadApplicantCount()
+  }, [loadApplicantCount])
 
   if (!isValidGroupId) {
     return (
@@ -316,9 +331,8 @@ export function StudyGroupPage() {
 
           {isLeader ? (
             <div className="self-end">
-              {/* TODO: 실제 API 연동 필요 — 가입 신청 목록 API가 없어 신청자 수를 0으로 둔다. */}
               <StudyGroupManagerPanel
-                applicantCount={0}
+                applicantCount={applicantCount}
                 isRecruiting={isRecruiting}
                 onRecruitingChange={(next) => void changeRecruiting(next)}
                 onReviewApplications={() => setIsApplicationModalOpen(true)}
@@ -369,8 +383,10 @@ export function StudyGroupPage() {
       <StudyChatModal open={isChatOpen} onOpenChange={setIsChatOpen} />
 
       <StudyApplicationModal
+        groupId={groupId}
         open={isApplicationModalOpen}
         onOpenChange={setIsApplicationModalOpen}
+        onApplicationProcessed={loadApplicantCount}
       />
 
       <StudyLeaderTransferDialog

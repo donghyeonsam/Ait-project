@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudyPage } from '@/pages/StudyPage'
 import {
+  applyToStudyGroup,
   getMyStudyGroups,
   getStudyGroupDetail,
   getStudyGroups,
@@ -21,6 +22,7 @@ vi.mock('@/api/study-groups', () => ({
   getMyStudyGroups: vi.fn(),
   getStudyGroupDetail: vi.fn(),
   createStudyGroup: vi.fn(),
+  applyToStudyGroup: vi.fn(),
 }))
 
 vi.mock('@/lib/useAuth', () => ({
@@ -120,6 +122,7 @@ describe('StudyPage', () => {
         members: [],
       }),
     )
+    vi.mocked(applyToStudyGroup).mockResolvedValue(undefined)
   })
 
   it('서버에서 받은 스터디 목록에 검색과 더보기를 반영한다', async () => {
@@ -229,13 +232,18 @@ describe('StudyPage', () => {
     )
     await user.click(screen.getByRole('button', { name: '신청 보내기' }))
 
+    expect(applyToStudyGroup).toHaveBeenCalledWith(
+      1,
+      '매주 화요일과 목요일 모두 참여할 수 있습니다.',
+    )
+
     fireEvent.mouseEnter(firstStudyCard)
     fireEvent.transitionEnd(firstStudyCard, { propertyName: 'height' })
     expect(
-      within(firstStudyCard).getByRole('button', { name: '신청 완료' }),
+      await within(firstStudyCard).findByRole('button', { name: '신청 완료' }),
     ).toBeDisabled()
-    expect(screen.getByRole('status')).toHaveTextContent(
-      '스터디 신청은 아직 서버에 저장되지 않습니다.',
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      '스터디 신청을 보냈습니다.',
     )
   })
 
