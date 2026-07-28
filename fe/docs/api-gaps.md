@@ -61,6 +61,15 @@
 
 - 프론트 대응 위치: [`src/pages/StudyGroupPage.tsx`](../src/pages/StudyGroupPage.tsx)
 
+### 2-5. `GET /api/study-groups/me/all` — owner 여부·활성 세션 정보 누락
+
+마이 스터디 카드에 "그룹장/그룹원" 뱃지와 실시간 세션 상태(진행 중 표시, "세션 참여하기"/"세션 생성하기" 버튼 구분)를 넣어야 하는데, 이 응답에는 둘 다 없다.
+
+- **owner 여부**: `MyStudyGroupResponseDto.from(StudyGroupMember member)`가 이미 `member`를 받고 있고, `member.isOwner()`가 `GroupDetailResponse.MemberInfo`에서 이미 쓰이고 있는 값이라 **필드 하나만 추가**하면 된다. 프론트는 임시로 그룹당 `GET /api/study-groups/{groupId}` 호출을 추가해 `ownerId`로 우회 계산 중이라(`MyStudySection.tsx`), 목록 응답에 필드가 생기면 이 N+1 호출을 없앨 수 있다.
+- **활성 세션 정보**: `StudySessionRepository`에 `existsByStudyGroupIdAndStatusIn`, `findFirstByStudyGroupIdAndStatusInOrderByCreatedAtDesc`가 이미 있어 DB 조회는 가능하지만, 목록에 내려주는 필드/엔드포인트가 없다. 이게 없으면 실시간 상태 점은 항상 회색(비활성)으로만 표시되고, 그룹원은 진행 중인 세션이 있어도 참여할 방법이 없다 (3-4항과 동일한 근본 원인).
+
+- 프론트 대응 위치: [`src/components/study/MyStudySection.tsx`](../src/components/study/MyStudySection.tsx)
+
 ---
 
 ## 3. 엔드포인트 자체가 없는 항목

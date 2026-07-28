@@ -5,6 +5,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudyPage } from '@/pages/StudyPage'
 import {
   getMyStudyGroups,
+  getStudyGroupDetail,
   getStudyGroups,
   type MyStudyGroup,
   type StudyGroupListItem,
@@ -18,6 +19,7 @@ vi.mock('@/api/auth', () => ({
 vi.mock('@/api/study-groups', () => ({
   getStudyGroups: vi.fn(),
   getMyStudyGroups: vi.fn(),
+  getStudyGroupDetail: vi.fn(),
   createStudyGroup: vi.fn(),
 }))
 
@@ -106,6 +108,18 @@ describe('StudyPage', () => {
   beforeEach(() => {
     vi.mocked(getStudyGroups).mockResolvedValue(toPage(studyGroups))
     vi.mocked(getMyStudyGroups).mockResolvedValue(myStudyGroups)
+    vi.mocked(getStudyGroupDetail).mockImplementation((groupId) =>
+      Promise.resolve({
+        groupId,
+        title: '',
+        description: '',
+        currentMemberCount: 0,
+        capacity: 0,
+        createdAt: '',
+        ownerId: 1,
+        members: [],
+      }),
+    )
   })
 
   it('서버에서 받은 스터디 목록에 검색과 더보기를 반영한다', async () => {
