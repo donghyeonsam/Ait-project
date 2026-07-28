@@ -479,10 +479,13 @@ CREATE TABLE `study_group_calendars` (
                                          `id` BIGINT NOT NULL AUTO_INCREMENT,
                                          `group_id` BIGINT NOT NULL,
                                          `content` VARCHAR(255) NOT NULL,
-                                         `status` VARCHAR(20) DEFAULT 'recruiting',
                                          `start_time` DATETIME NOT NULL,
                                          `end_time` DATETIME NOT NULL,
-
+                                         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                         updated_at DATETIME NOT NULL
+                                                DEFAULT CURRENT_TIMESTAMP
+                                                ON UPDATE CURRENT_TIMESTAMP,
+                                         deleted_at DATETIME NULL,
                                          PRIMARY KEY (`id`),
 
                                          KEY `idx_study_group_calendars_group_id` (`group_id`),
@@ -534,7 +537,7 @@ CREATE TABLE study_group_members (
                                      `message` VARCHAR(255) NOT NULL,
 
                                      role VARCHAR(20) NOT NULL DEFAULT 'MEMBER',
-                                     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+                                     status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
 
                                      joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                      left_at DATETIME NULL,
