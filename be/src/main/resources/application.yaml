@@ -7,6 +7,10 @@ jwt:
   access-token-expiration: 3600000      # 1시간 (밀리초)
   refresh-token-expiration: 604800000   # 7일 (밀리초)
 
+server:
+  port: 8080
+  address: 0.0.0.0
+
 fastapi:
   url: ${FASTAPI_URL}
 
@@ -28,7 +32,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update # 혹은 create, validate 등 팀 컨벤션에 맞게 설정
+      ddl-auto: validate # 혹은 create, validate 등 팀 컨벤션에 맞게 설정
     show-sql: false
     properties:
       hibernate:
@@ -37,7 +41,7 @@ spring:
 
   sql:
     init:
-      mode: always
+      mode: never
 
   docker:
     compose:

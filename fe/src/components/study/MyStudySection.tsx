@@ -1,9 +1,11 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/lib/useAuth'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
-import type { MyStudyGroup, StudyGroupStatus } from '@/api/study-groups'
+import { getStudyGroupDetail, type MyStudyGroup } from '@/api/study-groups'
 
 interface MyStudySectionProps {
   studies: MyStudyGroup[]
@@ -14,12 +16,6 @@ interface MyStudySectionProps {
 
 const MAX_VISIBLE_AVATARS = 4
 
-const statusLabels: Record<StudyGroupStatus, string> = {
-  RECRUITING: '모집 중',
-  ACTIVE: '활동 중',
-  CLOSED: '종료',
-}
-
 // 로그인 사용자가 참여 중인 스터디 목록을 보여주고 그룹 페이지로 연결한다.
 export function MyStudySection({
   studies,
@@ -28,6 +24,31 @@ export function MyStudySection({
   onOpenStudy,
 }: MyStudySectionProps) {
   const { ref, isInView } = useInView<HTMLElement>({ threshold: 0.1 })
+  const { user } = useAuth()
+  const currentUserId = user?.userId ?? null
+  // 목록 응답(/me/all)에는 owner 여부가 없어 그룹당 상세 조회로 보충한다.
+  const [ownerIdByGroup, setOwnerIdByGroup] = useState<Record<number, number>>({})
+
+  useEffect(() => {
+    let isActive = true
+
+    void Promise.all(
+      studies.map((study) =>
+        getStudyGroupDetail(study.id)
+          .then((detail) => [study.id, detail.ownerId] as const)
+          .catch(() => null),
+      ),
+    ).then((results) => {
+      if (!isActive) return
+      setOwnerIdByGroup(
+        Object.fromEntries(results.filter((result) => result !== null)),
+      )
+    })
+
+    return () => {
+      isActive = false
+    }
+  }, [studies])
 
   return (
     <section
@@ -76,17 +97,35 @@ export function MyStudySection({
 
                 <div className="pointer-events-none relative z-10 flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <h3 className="truncate text-body-1 font-semibold text-text-primary">
-                      {study.title}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      {/* TODO: 실제 API 연동 필요 — 그룹의 활성 세션 조회 엔드포인트가 없어 항상 비활성(회색)으로 표시한다. */}
+                      <span
+                        className="size-2 shrink-0 rounded-ait-pill bg-status-neutral"
+                        aria-hidden="true"
+                      />
+                      <h3 className="truncate text-body-1 font-semibold text-text-primary">
+                        {study.title}
+                      </h3>
+                    </div>
                     <p className="mt-2 truncate text-caption text-text-secondary">
                       {study.description}
                     </p>
                   </div>
 
-                  <span className="shrink-0 rounded-ait-s border border-border-default bg-background-default px-3 py-1 text-caption text-text-secondary">
-                    {statusLabels[study.groupStatus]}
-                  </span>
+                  {ownerIdByGroup[study.id] !== undefined ? (
+                    <span
+                      className={cn(
+                        'shrink-0 rounded-ait-s border px-3 py-1 text-caption',
+                        ownerIdByGroup[study.id] === currentUserId
+                          ? 'border-status-achievement-border bg-status-achievement-surface text-action-primary'
+                          : 'border-border-default bg-background-default text-text-secondary',
+                      )}
+                    >
+                      {ownerIdByGroup[study.id] === currentUserId
+                        ? '그룹장'
+                        : '그룹원'}
+                    </span>
+                  ) : null}
                 </div>
 
                 <div className="pointer-events-none relative z-10 mt-6 flex flex-wrap items-end justify-between gap-4">
@@ -122,7 +161,12 @@ export function MyStudySection({
                     className="cta-lift pointer-events-auto"
                     onClick={() => onOpenStudy(study)}
                   >
-                    그룹 페이지
+                    {/* TODO: 실제 API 연동 필요 — 활성 세션 조회가 없어 항상 비활성으로 가정한다.
+                        그룹장은 세션을 새로 만들 수 있어 "세션 생성하기"로 안내하고, 그룹원은
+                        직접 만들 수 없어 그룹 페이지로 안내한다. */}
+                    {ownerIdByGroup[study.id] === currentUserId
+                      ? '세션 생성하기'
+                      : '그룹 페이지'}
                   </Button>
                 </div>
               </article>

@@ -20,6 +20,7 @@
 | 그룹 상세·구성원 목록 | `GET /api/study-groups/{groupId}` |
 | 모집 상태 변경 | `PATCH /api/study-groups/{groupId}/status` |
 | 화상 세션 시작 | `POST /api/study-groups/{groupId}/sessions` |
+| 가입 신청·신청 목록 조회·승인/거절 | `POST/GET /api/study-groups/{groupId}/applications`, `PATCH .../applications/{applicationId}` |
 | 입장 전 자소서 선택 | `GET /api/cover-letters/me` |
 | 세션 접속 정보 | `POST /api/study-sessions/{sessionId}/connection` |
 
@@ -61,26 +62,20 @@
 
 - 프론트 대응 위치: [`src/pages/StudyGroupPage.tsx`](../src/pages/StudyGroupPage.tsx)
 
+### 2-5. `GET /api/study-groups/me/all` — owner 여부·활성 세션 정보 누락
+
+마이 스터디 카드에 "그룹장/그룹원" 뱃지와 실시간 세션 상태(진행 중 표시, "세션 참여하기"/"세션 생성하기" 버튼 구분)를 넣어야 하는데, 이 응답에는 둘 다 없다.
+
+- **owner 여부**: `MyStudyGroupResponseDto.from(StudyGroupMember member)`가 이미 `member`를 받고 있고, `member.isOwner()`가 `GroupDetailResponse.MemberInfo`에서 이미 쓰이고 있는 값이라 **필드 하나만 추가**하면 된다. 프론트는 임시로 그룹당 `GET /api/study-groups/{groupId}` 호출을 추가해 `ownerId`로 우회 계산 중이라(`MyStudySection.tsx`), 목록 응답에 필드가 생기면 이 N+1 호출을 없앨 수 있다.
+- **활성 세션 정보**: `StudySessionRepository`에 `existsByStudyGroupIdAndStatusIn`, `findFirstByStudyGroupIdAndStatusInOrderByCreatedAtDesc`가 이미 있어 DB 조회는 가능하지만, 목록에 내려주는 필드/엔드포인트가 없다. 이게 없으면 실시간 상태 점은 항상 회색(비활성)으로만 표시되고, 그룹원은 진행 중인 세션이 있어도 참여할 방법이 없다 (3-4항과 동일한 근본 원인).
+
+- 프론트 대응 위치: [`src/components/study/MyStudySection.tsx`](../src/components/study/MyStudySection.tsx)
+
 ---
 
 ## 3. 엔드포인트 자체가 없는 항목
 
 프론트에서 우회할 방법이 없다. 해당 UI는 화면 동작만 하고 서버에 저장되지 않으며, 코드에 `// TODO: 실제 API 연동 필요` 주석을 남겨 뒀다.
-
-### 3-1. 스터디 가입 신청 (가장 큰 공백)
-
-라운지의 핵심 흐름인데 엔드포인트가 하나도 없다. `DELETE /{groupId}/leave`(탈퇴)만 존재한다.
-
-필요한 것:
-
-- 가입 신청: `POST /api/study-groups/{groupId}/applications`
-- 그룹장의 신청 목록 조회: `GET /api/study-groups/{groupId}/applications`
-- 승인·거절: `PATCH /api/study-groups/{groupId}/applications/{applicationId}`
-
-현재 상태: 신청 버튼을 누르면 화면에서만 "신청 완료"로 바뀌고, 토스트로 저장되지 않았음을 알린다.
-그룹 페이지의 신청자 수는 **0으로 고정**돼 있다.
-
-- 위치: [`StudyPage.tsx`](../src/pages/StudyPage.tsx) `completeApplication`, [`StudyApplicationModal.tsx`](../src/components/study/StudyApplicationModal.tsx)
 
 ### 3-2. 구성원 관리 (초대·내보내기·그룹장 위임)
 

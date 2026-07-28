@@ -5,6 +5,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudyGroupPage } from '@/pages/StudyGroupPage'
 import {
   getMyStudyGroups,
+  getStudyGroupApplications,
   getStudyGroupDetail,
   type MyStudyGroup,
   type StudyGroupDetail,
@@ -17,6 +18,7 @@ vi.mock('@/api/auth', () => ({
 vi.mock('@/api/study-groups', () => ({
   getStudyGroupDetail: vi.fn(),
   getMyStudyGroups: vi.fn(),
+  getStudyGroupApplications: vi.fn(),
   updateStudyGroupStatus: vi.fn(),
 }))
 
@@ -88,6 +90,7 @@ describe('StudyGroupPage', () => {
   beforeEach(() => {
     vi.mocked(getStudyGroupDetail).mockResolvedValue(groupDetail)
     vi.mocked(getMyStudyGroups).mockResolvedValue(myStudyGroups)
+    vi.mocked(getStudyGroupApplications).mockResolvedValue([])
   })
 
   it('그룹 운영 정보와 구성원 관리 흐름을 제공한다', async () => {

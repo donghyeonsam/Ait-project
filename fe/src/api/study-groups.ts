@@ -64,6 +64,15 @@ export interface StudyGroupQuery {
   size?: number
 }
 
+export interface StudyGroupApplication {
+  applicationId: number
+  userId: number
+  nickname: string
+  profileImageUrl: string | null
+  message: string
+  appliedAt: string
+}
+
 export function getStudyGroups({ status, keyword, page, size }: StudyGroupQuery = {}) {
   const searchParams = new URLSearchParams()
   if (status) searchParams.set('status', status)
@@ -110,4 +119,31 @@ export function updateStudyGroupStatus(
     method: 'PATCH',
     body: JSON.stringify({ status }),
   })
+}
+
+export function applyToStudyGroup(groupId: number, message: string) {
+  return backendRequest<void>(`/api/study-groups/${groupId}/applications`, {
+    method: 'POST',
+    body: JSON.stringify({ message }),
+  })
+}
+
+export function getStudyGroupApplications(groupId: number) {
+  return backendRequest<StudyGroupApplication[]>(
+    `/api/study-groups/${groupId}/applications`,
+  )
+}
+
+export function processStudyGroupApplication(
+  groupId: number,
+  applicationId: number,
+  isApprove: boolean,
+) {
+  return backendRequest<void>(
+    `/api/study-groups/${groupId}/applications/${applicationId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ isApprove }),
+    },
+  )
 }

@@ -1,19 +1,16 @@
 package com.aitserver.aiInterview.service;
 
+import com.aitserver.aiInterview.client.FastApiClient;
 import com.aitserver.aiInterview.dto.*;
 import com.aitserver.aiInterview.entity.AiInterview;
 import com.aitserver.aiInterview.repository.AiInterviewCoverLetterRepository;
 import com.aitserver.aiInterview.repository.AiInterviewGithubRepoRepository;
 import com.aitserver.aiInterview.repository.AiInterviewsRepository;
-import com.aitserver.global.exception.BusinessException;
-import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.user.repository.UserSkillRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -27,7 +24,8 @@ public class AiInterviewServiceImpl implements AiInterviewService {
     private final AiInterviewGithubRepoRepository githubRepoRepository;
     private final AiInterviewsRepository aiInterviewsRepository;
     private final UserSkillRepository userSkillRepository;
-    private final RestClient fastApiRestClient;
+    private final FastApiClient fastApiClient;
+    private final AiInterviewAsyncService asyncService;
 
     @Override
     @Transactional(readOnly = true)
@@ -79,7 +77,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
         log.info("[AiInterview, insertAndGenerate] FastAPI 질문 생성 요청 전송: {}", fastRequest);
 
-        FastQuestionGenerateResponse fastResponse = sendToFastApi(
+        FastQuestionGenerateResponse fastResponse = fastApiClient.sendToFastApi(
                 "/api/v1/interviews/questions",
                 fastRequest,
                 FastQuestionGenerateResponse.class
@@ -114,42 +112,28 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         fastFollowUpRequest.setAiInterviewId(aiInterviewId); // aiInterviewId 붙이기
         fastFollowUpRequest.setRequest(questionRequest); // 프론트에서 전달받은 내용 붙이기
 
-        FollowUpQuestionResponse followUpResponse = sendToFastApi(
+        FollowUpQuestionResponse followUpResponse = fastApiClient.sendToFastApi( // -> 꼬리 질문을 생성하기 위해 보내는 요청
                 "/api/v1/interviews/followup",
                 fastFollowUpRequest,
                 FollowUpQuestionResponse.class
         );
 
         // 2. DB 저장과 AI 분석을 위해 다른 서비스로 내용 전송(비동기)
+        asyncService.insertAndAnalysisAsync(userId, aiInterviewId, questionRequest);
 
         // 3. 사용자의 답변 음성 파일 원본 FastAPI 전달(목소리 분석을 통한 채점을 위해)
+        try {
+            byte[] audioBytes = audioFile.getBytes();
+            String filename = audioFile.getOriginalFilename();
+            String contentType = audioFile.getContentType();
+
+            // 비동기 메서드로 바이트 데이터와 메타데이터 전송
+            asyncService.sendAudioToFastApiAsync(userId, aiInterviewId, audioBytes, filename, contentType);
+
+        } catch (Exception e) { // IOException 처리
+            log.error("[AiInterviewServiceImpl] 음성 파일 바이트 변환 중 에러 발생, userId: {}, aiInterviewId: {}", userId, aiInterviewId, e);
+        }
 
         return followUpResponse;
-    }
-
-    // FastAPI로 호출 보내고 결과값을 리턴받는 공통 메서드
-    private <T, R> R sendToFastApi(String uri, T requestBody, Class<R> responseType) {
-        try {
-            log.info("[FastAPI 통신 요청] URI: {}, Payload: {}", uri, requestBody);
-
-            R response = fastApiRestClient.post()
-                    .uri(uri)
-                    .body(requestBody)
-                    .retrieve()
-                    .onStatus(HttpStatusCode::isError, (req, res) -> {
-                        log.error("[FastAPI 통신 에러] Status: {}, URI: {}", res.getStatusCode(), uri);
-                        throw new BusinessException(ErrorCode.FASTAPI_SERVER_ERROR);
-                    })
-                    .body(responseType);
-
-            log.info("[FastAPI 통신 응답 성공] URI: {}", uri);
-            return response;
-
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("[FastAPI 통신 시스템 에러] URI: " + uri, e);
-            throw new BusinessException(ErrorCode.FASTAPI_SERVER_ERROR);
-        }
     }
 }
