@@ -57,4 +57,10 @@ public interface StudyGroupMemberRepository
             Long userId,
             StudyGroupMemberStatus status
     );
+
+    // 1. 이미 가입했거나 신청 중인지 확인
+    boolean existsByStudyGroupIdAndUserId(Long groupId, Long userId);
+
+    // 2. 특정 그룹의 PENDING인 멤버 목록 조회
+    List<StudyGroupMember> findByStudyGroupIdAndStatus(Long groupId, StudyGroupMemberStatus status);
 }
