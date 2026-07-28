@@ -160,6 +160,7 @@ public class StudyGroupMember {
         }
 
         this.status = StudyGroupMemberStatus.KICKED;
+        this.deletedAt = LocalDateTime.now();
     }
 
     public void rejoin() {

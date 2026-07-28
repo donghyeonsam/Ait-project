@@ -147,4 +147,22 @@ public class StudyGroupController {
                 servletRequest
         ));
     }
+
+    // [D] 멤버 추방 (방장 전용)
+    @DeleteMapping("/{groupId}/members/{targetUserId}")
+    public ResponseEntity<ApiResponse<Void>> kickMember(
+            @PathVariable Long groupId,
+            @PathVariable Long targetUserId,
+            @AuthenticationPrincipal Long currentUserId,
+            HttpServletRequest servletRequest) {
+
+        studyGroupCommandService.kickMember(groupId, targetUserId, currentUserId);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                "멤버를 성공적으로 추방했습니다.",
+                null,
+                servletRequest
+        ));
+    }
 }

@@ -15,8 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -89,5 +87,28 @@ public class StudyGroupCommandService {
                     .orElseThrow(() -> new BusinessException(ErrorCode.NOT_GROUP_MEMBER));
             member.leave();
         }
+    }
+
+    public void kickMember(Long groupId, Long targetUserId, Long currentUserId) {
+
+        // 1. 자기 자신을 추방하려고 하는지 확인
+        if (currentUserId.equals(targetUserId)) {
+            throw new BusinessException(ErrorCode.CANNOT_KICK_SELF);
+        }
+
+        // 2. 그룹 조회 및 방장 권한 확인
+        StudyGroup group = studyGroupRepository.findById(groupId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND));
+
+        if (!group.isOwner(currentUserId)) {
+            throw new BusinessException(ErrorCode.NOT_GROUP_OWNER);
+        }
+
+        // 3. 추방할 타겟 멤버가 실제 그룹에 있는지 확인
+        StudyGroupMember targetMember = studyGroupMemberRepository.findByStudyGroupIdAndUserId(groupId, targetUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_GROUP_MEMBER));
+
+        // 4. 멤버 삭제 처리
+        targetMember.kick();
     }
 }
