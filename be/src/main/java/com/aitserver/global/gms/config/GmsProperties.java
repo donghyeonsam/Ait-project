@@ -7,5 +7,4 @@ public record GmsProperties(
         String baseUrl,
         String apiKey,
         String model
-) {
-}
+) {}
