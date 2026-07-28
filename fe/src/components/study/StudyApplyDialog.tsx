@@ -10,7 +10,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
-import type { StudyCardData } from '@/mocks/study-lounge'
+import type { StudyCardData } from '@/components/study/StudyCard'
+import { useAuth } from '@/lib/useAuth'
 
 interface StudyApplyDialogProps {
   study: StudyCardData | null
@@ -26,6 +27,7 @@ export function StudyApplyDialog({
   onOpenChange,
   onSubmit,
 }: StudyApplyDialogProps) {
+  const { user } = useAuth()
   const [message, setMessage] = useState('')
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -60,11 +62,11 @@ export function StudyApplyDialog({
           <div className="flex items-center gap-3">
             <Avatar className="size-10">
               <AvatarFallback className="border-0 bg-profile-avatar text-transparent">
-                신청자
+                {user?.nickname ?? '신청자'}
               </AvatarFallback>
             </Avatar>
             <p className="text-body-1 font-medium text-text-primary">
-              김아이
+              {user?.nickname ?? '신청자'}
             </p>
           </div>
 

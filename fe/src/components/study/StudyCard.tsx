@@ -9,11 +9,35 @@ import {
 } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type {
-  RecruitmentStatus,
-  StudyCardData,
-  StudyRole,
-} from '@/mocks/study-lounge'
+
+export type StudyRole =
+  | '프론트엔드'
+  | '백엔드'
+  | 'AI'
+  | '서버'
+  | 'DATA'
+  | 'INFRA'
+  | 'PM/PO'
+  | 'PT면접'
+  | '인성면접'
+
+export type RecruitmentStatus = '모집 중' | '마감 임박' | '신청 대기' | '마감'
+
+export interface StudyCardData {
+  id: number
+  title: string
+  description: string
+  recruitmentStatus: RecruitmentStatus
+  capacity: number
+  /** 정렬 기준. 서버의 createdAt(ISO 문자열)을 그대로 쓴다. */
+  createdAt: string
+  // 아래 항목은 스터디 그룹 목록 응답에 아직 없어서, 값이 있을 때만 렌더한다.
+  role?: StudyRole
+  badgeLabel?: string
+  currentMembers?: number
+  schedule?: string[]
+  activities?: string[]
+}
 
 interface StudyCardProps {
   study: StudyCardData
@@ -46,44 +70,63 @@ interface StudyCardExpandedContentProps {
 }
 
 // 카드가 확장됐을 때 일정과 주요 활동을 짧게 보충한다.
+// 일정·활동은 서버 응답에 없을 수 있어, 그때는 잘려 있던 소개 전문을 대신 펼쳐 보여준다.
 export function StudyCardExpandedContent({
   study,
 }: StudyCardExpandedContentProps) {
+  const schedule = study.schedule ?? []
+  const activities = study.activities ?? []
+
+  if (schedule.length === 0 && activities.length === 0) {
+    return (
+      <div className="px-4 pb-20 pt-4 text-body-2 text-text-primary">
+        <p className="font-semibold">스터디 소개</p>
+        <p className="study-expand-item mt-1 whitespace-pre-line text-text-secondary">
+          {study.description}
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="px-4 pb-20 pt-4 text-body-2 text-text-primary">
-      <div>
-        <p className="font-semibold">정기모임 일정</p>
-        <ul className="mt-1 list-disc space-y-1 pl-6">
-          {study.schedule.map((schedule, itemIndex) => (
-            <li
-              key={schedule}
-              className="study-expand-item"
-              style={{ '--item-order': itemIndex } as CSSProperties}
-            >
-              {schedule}
-            </li>
-          ))}
-        </ul>
-      </div>
+      {schedule.length > 0 ? (
+        <div>
+          <p className="font-semibold">정기모임 일정</p>
+          <ul className="mt-1 list-disc space-y-1 pl-6">
+            {schedule.map((item, itemIndex) => (
+              <li
+                key={item}
+                className="study-expand-item"
+                style={{ '--item-order': itemIndex } as CSSProperties}
+              >
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
-      <div className="mt-3">
-        <p className="font-semibold">주요 활동</p>
-        <ul className="mt-1 list-disc space-y-1 pl-6">
-          {study.activities.map((activity, itemIndex) => (
-            <li
-              key={activity}
-              className="study-expand-item"
-              style={
-                {
-                  '--item-order': study.schedule.length + itemIndex,
-                } as CSSProperties
-              }
-            >
-              {activity}
-            </li>
-          ))}
-        </ul>
-      </div>
+      {activities.length > 0 ? (
+        <div className="mt-3">
+          <p className="font-semibold">주요 활동</p>
+          <ul className="mt-1 list-disc space-y-1 pl-6">
+            {activities.map((activity, itemIndex) => (
+              <li
+                key={activity}
+                className="study-expand-item"
+                style={
+                  {
+                    '--item-order': schedule.length + itemIndex,
+                  } as CSSProperties
+                }
+              >
+                {activity}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -200,14 +243,16 @@ export function StudyCard({
         <div className="p-4 pb-0">
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
-              <span
-                className={cn(
-                  'inline-flex h-6 w-[63px] shrink-0 items-center justify-center whitespace-nowrap rounded-[3px] px-1 text-center text-[10px] leading-none transition-transform [transition-duration:var(--duration-fast)] [transition-timing-function:var(--easing-standard)] group-hover:-translate-y-0.5',
-                  roleBadgeClasses[study.role],
-                )}
-              >
-                {study.badgeLabel ?? study.role}
-              </span>
+              {study.role ? (
+                <span
+                  className={cn(
+                    'inline-flex h-6 w-[63px] shrink-0 items-center justify-center whitespace-nowrap rounded-[3px] px-1 text-center text-[10px] leading-none transition-transform [transition-duration:var(--duration-fast)] [transition-timing-function:var(--easing-standard)] group-hover:-translate-y-0.5',
+                    roleBadgeClasses[study.role],
+                  )}
+                >
+                  {study.badgeLabel ?? study.role}
+                </span>
+              ) : null}
               {study.recruitmentStatus === '마감 임박' ? (
                 <span className="inline-flex h-6 w-[63px] shrink-0 items-center justify-center whitespace-nowrap rounded-[3px] border border-[#B20000] bg-[#FFF4F4] px-1 text-[10px] font-medium leading-none text-[#B20000]">
                   마감 임박
@@ -239,8 +284,9 @@ export function StudyCard({
 
         <div className="absolute inset-x-4 bottom-4 flex items-center justify-between gap-4">
           <span className="text-caption text-chart-axis">
-            {study.membersLabel ??
-              `${study.currentMembers}/${study.capacity}명`}
+            {study.currentMembers === undefined
+              ? `정원 ${study.capacity}명`
+              : `${study.currentMembers}/${study.capacity}명`}
           </span>
           {isExpansionComplete ? (
             <Button

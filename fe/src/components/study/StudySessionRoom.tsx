@@ -43,7 +43,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { mockPrejoinCoverLetters, type StudyParticipant } from '@/mocks/study'
+import type { StudyParticipant } from '@/mocks/study'
+import { getMyCoverLetters, type CoverLetterListItem } from '@/api/cover-letters'
 import type { StudySessionConnection } from '@/api/study-sessions'
 import { cn } from '@/lib/utils'
 
@@ -174,23 +175,29 @@ export function StudySessionRoom({
   connection,
   onLeave,
 }: StudySessionRoomProps) {
-  const [room] = useState(() => new Room())
+  const [room, setRoom] = useState(() => new Room())
   const [connectionError, setConnectionError] = useState<string | null>(null)
 
   useEffect(() => {
+    // 매 이펙트 실행마다 새 Room을 만든다. React StrictMode의 개발 모드 이중 실행(mount→cleanup→mount)에서
+    // 첫 시도가 connect 도중 취소되면 그 Room의 내부 엔진(RTCEngine)이 손상된 상태로 남는데,
+    // 같은 인스턴스로 재연결을 시도하면 "PC manager is closed" 오류가 난다. 취소된 Room은 버리고
+    // 재시도 때마다 새 인스턴스로 연결해야 안전하다.
+    const activeRoom = new Room()
     let cancelled = false
 
     const connectToRoom = async () => {
+      setRoom(activeRoom)
       try {
-        await room.connect(connection.serverUrl, connection.participantToken)
+        await activeRoom.connect(connection.serverUrl, connection.participantToken)
         if (cancelled) return
 
         await Promise.all([
-          room.localParticipant.setCameraEnabled(
+          activeRoom.localParticipant.setCameraEnabled(
             true,
             initialDevices.cameraDeviceId ? { deviceId: initialDevices.cameraDeviceId } : undefined,
           ),
-          room.localParticipant.setMicrophoneEnabled(
+          activeRoom.localParticipant.setMicrophoneEnabled(
             true,
             initialDevices.micDeviceId ? { deviceId: initialDevices.micDeviceId } : undefined,
           ),
@@ -207,11 +214,11 @@ export function StudySessionRoom({
 
     return () => {
       cancelled = true
-      void room.disconnect()
+      void activeRoom.disconnect()
     }
     // 최초 접속 정보로 한 번만 연결한다. 재연결이 필요한 경우는 이 화면을 다시 마운트해서 처리한다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room])
+  }, [connection.serverUrl, connection.participantToken])
 
   return (
     <RoomContext.Provider value={room}>
@@ -255,6 +262,8 @@ function StudySessionRoomStage({
   // 보일 때만 다음 렌더 전에 매핑을 갱신한다.
   const [identityIdMap, setIdentityIdMap] = useState<Map<string, number>>(new Map())
   const [knownIdentities, setKnownIdentities] = useState<string[]>([])
+  // 본인 카드에 선택한 자소서 제목을 보여주기 위해 서류함 목록을 조회한다. 실패해도 세션 진행은 막지 않는다.
+  const [myCoverLetters, setMyCoverLetters] = useState<CoverLetterListItem[]>([])
   const currentIdentities = remoteParticipants.map((participant) => participant.identity)
   const identitiesChanged =
     currentIdentities.length !== knownIdentities.length ||
@@ -279,8 +288,24 @@ function StudySessionRoomStage({
     [identityIdMap],
   )
 
+  useEffect(() => {
+    let isActive = true
+
+    getMyCoverLetters()
+      .then((list) => {
+        if (isActive) setMyCoverLetters(list.coverLetters)
+      })
+      .catch(() => {
+        if (isActive) setMyCoverLetters([])
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [])
+
   const participants = useMemo<StudyParticipant[]>(() => {
-    const selectedCoverLetter = mockPrejoinCoverLetters.find(
+    const selectedCoverLetter = myCoverLetters.find(
       (coverLetter) => coverLetter.coverLetterId === selfCoverLetterId,
     )
 
@@ -306,7 +331,13 @@ function StudySessionRoomStage({
     }))
 
     return [selfEntry, ...remoteEntries]
-  }, [remoteParticipants, selfCoverLetterId, connection.participantName, resolveParticipantId])
+  }, [
+    remoteParticipants,
+    selfCoverLetterId,
+    myCoverLetters,
+    connection.participantName,
+    resolveParticipantId,
+  ])
 
   const cameraTrackByParticipantId = useMemo(() => {
     const map = new Map<number, (typeof cameraTracks)[number]>()

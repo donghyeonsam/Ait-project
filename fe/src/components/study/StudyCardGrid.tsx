@@ -1,6 +1,6 @@
 import { SearchX } from 'lucide-react'
 import { StudyCard } from '@/components/study/StudyCard'
-import type { StudyCardData } from '@/mocks/study-lounge'
+import type { StudyCardData } from '@/components/study/StudyCard'
 
 interface StudyCardGridProps {
   studies: StudyCardData[]
@@ -20,7 +20,7 @@ export function StudyCardGrid({
         <SearchX className="size-8 text-text-secondary" aria-hidden="true" />
         <p className="mt-4 text-h3 text-text-primary">조건에 맞는 스터디가 없어요.</p>
         <p className="mt-2 text-body-2 text-text-secondary">
-          검색어를 줄이거나 다른 직무와 모집 상태를 선택해보세요.
+          검색어를 줄이거나 다른 모집 상태를 선택해보세요.
         </p>
       </div>
     )

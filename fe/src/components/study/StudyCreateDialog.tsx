@@ -10,33 +10,47 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { createStudyGroup } from '@/api/study-groups'
+import { toErrorMessage } from '@/api/http'
 
 interface StudyCreateDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onCreated: () => void
+  onCreated: (groupId: number) => void
 }
 
-// 별도 생성 화면이 연결되기 전 라운지에서 생성 입력 흐름을 확인하는 목 Dialog다.
+// 스터디 그룹 생성 Dialog. 생성 API 스펙이 제목·소개만 받으므로 그 두 가지만 입력받는다.
 export function StudyCreateDialog({
   open,
   onOpenChange,
   onCreated,
 }: StudyCreateDialogProps) {
   const [title, setTitle] = useState('')
-  const [role, setRole] = useState('프론트엔드')
   const [description, setDescription] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!title.trim() || !description.trim()) return
+    if (!title.trim() || !description.trim() || isSubmitting) return
 
-    // TODO: 실제 API 연동 필요 — 생성 API 성공 후 라운지 목록을 갱신한다.
-    setTitle('')
-    setRole('프론트엔드')
-    setDescription('')
-    onOpenChange(false)
-    onCreated()
+    setIsSubmitting(true)
+    setErrorMessage(null)
+
+    try {
+      const groupId = await createStudyGroup({
+        title: title.trim(),
+        description: description.trim(),
+      })
+      setTitle('')
+      setDescription('')
+      onOpenChange(false)
+      onCreated(groupId)
+    } catch (error) {
+      setErrorMessage(toErrorMessage(error))
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -64,23 +78,6 @@ export function StudyCreateDialog({
 
           <label className="block">
             <span className="mb-2 block text-body-2 font-medium text-text-primary">
-              직무
-            </span>
-            <select
-              value={role}
-              onChange={(event) => setRole(event.target.value)}
-              className="h-10 w-full rounded-ait-s border border-input bg-surface-default px-3 text-body-2 text-text-primary shadow-elevation-1 focus:border-action-primary"
-            >
-              <option>프론트엔드</option>
-              <option>백엔드</option>
-              <option>AI</option>
-              <option>PT면접</option>
-              <option>인성면접</option>
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="mb-2 block text-body-2 font-medium text-text-primary">
               소개
             </span>
             <Textarea
@@ -91,6 +88,12 @@ export function StudyCreateDialog({
             />
           </label>
 
+          {errorMessage ? (
+            <p className="text-caption text-status-error" role="alert">
+              {errorMessage}
+            </p>
+          ) : null}
+
           <DialogFooter className="pt-2">
             <Button
               type="button"
@@ -99,7 +102,9 @@ export function StudyCreateDialog({
             >
               취소
             </Button>
-            <Button type="submit">스터디 만들기</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? '만드는 중...' : '스터디 만들기'}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

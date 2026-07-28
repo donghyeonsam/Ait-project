@@ -4,7 +4,14 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import type { StudyGroupMember } from '@/mocks/study-lounge'
+
+/** 구성원 패널이 그리는 최소 정보. 그룹 상세 응답의 members를 이 형태로 변환해 넘긴다. */
+export interface StudyGroupMember {
+  id: number
+  name: string
+  role: string
+  isSelf: boolean
+}
 
 interface StudyGroupMemberPanelProps {
   members: StudyGroupMember[]

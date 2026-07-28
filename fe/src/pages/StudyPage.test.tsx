@@ -1,11 +1,28 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudyPage } from '@/pages/StudyPage'
+import {
+  applyToStudyGroup,
+  getMyStudyGroups,
+  getStudyGroupDetail,
+  getStudyGroups,
+  type MyStudyGroup,
+  type StudyGroupListItem,
+  type StudyGroupPage,
+} from '@/api/study-groups'
 
 vi.mock('@/api/auth', () => ({
   logout: vi.fn(),
+}))
+
+vi.mock('@/api/study-groups', () => ({
+  getStudyGroups: vi.fn(),
+  getMyStudyGroups: vi.fn(),
+  getStudyGroupDetail: vi.fn(),
+  createStudyGroup: vi.fn(),
+  applyToStudyGroup: vi.fn(),
 }))
 
 vi.mock('@/lib/useAuth', () => ({
@@ -21,6 +38,62 @@ vi.mock('@/lib/useAuth', () => ({
   }),
 }))
 
+const groupTitles = [
+  'ML 엔지니어 실전 면접',
+  'REACT 프론트엔드 면접 대비',
+  '백엔드 시스템 설계 스터디',
+  '인성 면접 집중 훈련',
+  'PT 면접 실전 연습',
+  '데이터 분석 직무 면접',
+  '클라우드 인프라 면접',
+  'CS 전공 지식 다지기',
+  '포트폴리오 리뷰 모임',
+]
+
+// 최신순 정렬을 확인할 수 있도록 생성일을 하루씩 벌려 둔다.
+const studyGroups: StudyGroupListItem[] = groupTitles.map((title, index) => ({
+  id: index + 1,
+  title,
+  description: `${title} 소개`,
+  capacity: 6,
+  groupStatus: index === 8 ? 'CLOSED' : 'RECRUITING',
+  createdAt: `2026-07-${String(20 - index).padStart(2, '0')}T09:00:00`,
+}))
+
+const myStudyGroups: MyStudyGroup[] = [
+  {
+    id: 101,
+    title: '금융권 면접 PT 대비',
+    description: '금융권 PT 면접을 함께 준비해요.',
+    capacity: 6,
+    currentMemberCount: 4,
+    groupStatus: 'ACTIVE',
+    joinedAt: '2026-07-01T09:00:00',
+  },
+  {
+    id: 102,
+    title: '백엔드 기술 연습',
+    description: '백엔드 기술 면접을 연습해요.',
+    capacity: 8,
+    currentMemberCount: 3,
+    groupStatus: 'RECRUITING',
+    joinedAt: '2026-07-05T09:00:00',
+  },
+]
+
+function toPage(content: StudyGroupListItem[]): StudyGroupPage {
+  return {
+    content,
+    totalElements: content.length,
+    totalPages: 1,
+    number: 0,
+    size: 100,
+    first: true,
+    last: true,
+    empty: content.length === 0,
+  }
+}
+
 function renderStudyPage() {
   return render(
     <MemoryRouter initialEntries={['/study']}>
@@ -34,12 +107,30 @@ describe('StudyPage', () => {
     HTMLElement.prototype.scrollTo = vi.fn()
   })
 
-  it('검색과 더보기를 실제 카드 목록에 반영한다', async () => {
+  beforeEach(() => {
+    vi.mocked(getStudyGroups).mockResolvedValue(toPage(studyGroups))
+    vi.mocked(getMyStudyGroups).mockResolvedValue(myStudyGroups)
+    vi.mocked(getStudyGroupDetail).mockImplementation((groupId) =>
+      Promise.resolve({
+        groupId,
+        title: '',
+        description: '',
+        currentMemberCount: 0,
+        capacity: 0,
+        createdAt: '',
+        ownerId: 1,
+        members: [],
+      }),
+    )
+    vi.mocked(applyToStudyGroup).mockResolvedValue(undefined)
+  })
+
+  it('서버에서 받은 스터디 목록에 검색과 더보기를 반영한다', async () => {
     const user = userEvent.setup()
     renderStudyPage()
 
     expect(
-      screen.getAllByRole('article', { name: /상세 정보$/ }),
+      await screen.findAllByRole('article', { name: /상세 정보$/ }),
     ).toHaveLength(6)
 
     await user.click(screen.getByRole('button', { name: '더보기' }))
@@ -59,11 +150,36 @@ describe('StudyPage', () => {
     expect(screen.getByText('총 1개의 스터디')).toBeInTheDocument()
   })
 
-  it('마이 스터디 그룹 카드를 그룹 상세 라우트에 연결한다', () => {
+  it('모집 상태 필터를 서버 응답의 groupStatus에 맞춰 적용한다', async () => {
+    const user = userEvent.setup()
+    renderStudyPage()
+    await screen.findAllByRole('article', { name: /상세 정보$/ })
+
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: '모집 상태 선택' }),
+      'closed',
+    )
+
+    expect(screen.getByText('총 1개의 스터디')).toBeInTheDocument()
+    expect(
+      screen.getByRole('article', { name: '포트폴리오 리뷰 모임 상세 정보' }),
+    ).toBeInTheDocument()
+  })
+
+  it('현재 인원을 모르는 목록에서는 정원만 표시한다', async () => {
+    renderStudyPage()
+    const firstCard = (
+      await screen.findAllByRole('article', { name: /상세 정보$/ })
+    )[0]
+
+    expect(within(firstCard).getByText('정원 6명')).toBeInTheDocument()
+  })
+
+  it('마이 스터디 카드를 그룹 상세 라우트에 연결한다', async () => {
     renderStudyPage()
 
     expect(
-      screen.getByRole('link', {
+      await screen.findByRole('link', {
         name: '금융권 면접 PT 대비 그룹 페이지로 이동',
       }),
     ).toHaveAttribute('href', '/study/groups/101')
@@ -74,13 +190,28 @@ describe('StudyPage', () => {
     ).toHaveAttribute('href', '/study/groups/102')
   })
 
+  it('목록 조회에 실패하면 오류와 다시 시도를 안내한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getStudyGroups).mockRejectedValueOnce(new Error('network'))
+    renderStudyPage()
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+
+    vi.mocked(getStudyGroups).mockResolvedValue(toPage(studyGroups))
+    await user.click(screen.getByRole('button', { name: '다시 시도' }))
+
+    expect(
+      await screen.findAllByRole('article', { name: /상세 정보$/ }),
+    ).toHaveLength(6)
+  })
+
   it('스터디 신청 상태와 완료 알림을 갱신한다', async () => {
     const user = userEvent.setup()
     renderStudyPage()
 
-    const firstStudyCard = screen.getAllByRole('article', {
-      name: /상세 정보$/,
-    })[0]
+    const firstStudyCard = (
+      await screen.findAllByRole('article', { name: /상세 정보$/ })
+    )[0]
 
     expect(
       within(firstStudyCard).queryByRole('button', { name: '신청하기' }),
@@ -101,19 +232,25 @@ describe('StudyPage', () => {
     )
     await user.click(screen.getByRole('button', { name: '신청 보내기' }))
 
+    expect(applyToStudyGroup).toHaveBeenCalledWith(
+      1,
+      '매주 화요일과 목요일 모두 참여할 수 있습니다.',
+    )
+
     fireEvent.mouseEnter(firstStudyCard)
     fireEvent.transitionEnd(firstStudyCard, { propertyName: 'height' })
     expect(
-      within(firstStudyCard).getByRole('button', { name: '신청 완료' }),
+      await within(firstStudyCard).findByRole('button', { name: '신청 완료' }),
     ).toBeDisabled()
-    expect(screen.getByRole('status')).toHaveTextContent(
-      '스터디 신청이 완료되었습니다.',
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      '스터디 신청을 보냈습니다.',
     )
   })
 
-  it('그룹톡 메시지 전송과 가입 신청 승인을 처리한다', async () => {
+  it('그룹톡 Dock 인터랙션과 메시지 전송을 처리한다', async () => {
     const user = userEvent.setup()
     renderStudyPage()
+    await screen.findAllByRole('article', { name: /상세 정보$/ })
 
     const chatButton = screen.getByRole('button', {
       name: '그룹톡 열기',
@@ -181,17 +318,5 @@ describe('StudyPage', () => {
     expect(
       within(chatDialog).getByText('자료 확인했습니다.'),
     ).toBeInTheDocument()
-
-    await user.keyboard('{Escape}')
-    await user.click(
-      screen.getByRole('button', {
-        name: '금융권 면접 PT 대비 가입 신청 관리',
-      }),
-    )
-    const applicationDialog = screen.getByRole('dialog')
-    await user.click(
-      within(applicationDialog).getByRole('button', { name: '승인' }),
-    )
-    expect(within(applicationDialog).getByText('승인 완료')).toBeInTheDocument()
   })
 })

@@ -86,7 +86,7 @@ export function Step5DeviceSetup({
       <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
         <div className="flex aspect-video w-full shrink-0 flex-col items-center justify-center gap-3 overflow-hidden rounded-ait-m border border-border-default bg-status-neutral-surface text-text-secondary lg:w-3/5">
           {permission === 'granted' ? (
-            <video ref={videoRef} autoPlay playsInline muted className="size-full object-cover" />
+            <video ref={videoRef} autoPlay playsInline muted className="size-full -scale-x-100 object-cover" />
           ) : permission === 'pending' ? (
             <p className="text-body-2">카메라 권한을 요청하고 있어요…</p>
           ) : permission === 'denied' ? (

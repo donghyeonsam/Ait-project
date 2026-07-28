@@ -142,7 +142,11 @@ public class StudyGroupMember {
      * 가입 승인 처리
      * 상태를 approved로 변경하고 가입 시간을 현재 시간으로 세팅합니다.
      */
+    // StudyGroupMember.java 내부 수정
     public void approve() {
+        this.studyGroup.validateCapacity();
+
+        // 2. 자리 검증을 통과했다면 내 상태를 ACTIVE로 변경
         this.status = StudyGroupMemberStatus.ACTIVE;
         this.joinedAt = LocalDateTime.now();
     }
@@ -182,5 +186,10 @@ public class StudyGroupMember {
 
     public boolean isOwner() {
         return this.role == StudyGroupMemberRole.OWNER;
+    }
+
+    public void reject() {
+        this.status = StudyGroupMemberStatus.REJECTED;
+        this.deletedAt = LocalDateTime.now();
     }
 }

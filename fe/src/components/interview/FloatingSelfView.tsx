@@ -103,7 +103,7 @@ export function FloatingSelfView({
       onPointerCancel={handlePointerUp}
     >
       {stream ? (
-        <video ref={videoRef} autoPlay playsInline muted className="size-full object-cover" />
+        <video ref={videoRef} autoPlay playsInline muted className="size-full -scale-x-100 object-cover" />
       ) : (
         <div className="flex size-full items-center justify-center">
           <User className="size-8" aria-hidden="true" />
