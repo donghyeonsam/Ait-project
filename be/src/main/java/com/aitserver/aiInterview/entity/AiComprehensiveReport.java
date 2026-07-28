@@ -39,8 +39,11 @@ public class AiComprehensiveReport {
     @Column(name = "voice_score", nullable = false)
     private Integer voiceScore;
 
-    @Column(name = "answer_score", nullable = false)
-    private Integer answerScore;
+    @Column(name = "qna_score", nullable = false)
+    private Integer qnaScore;
+
+    @Column(name = "sentence_score", nullable = false)
+    private Integer sentenceScore;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -48,12 +51,13 @@ public class AiComprehensiveReport {
 
     @Builder
     public AiComprehensiveReport(Long aiInterviewId, String content, Integer eyeContactScore,
-                                 Integer faceScore, Integer voiceScore, Integer answerScore) {
+                                 Integer faceScore, Integer voiceScore, Integer qnaScore, Integer sentenceScore) {
         this.aiInterviewId = aiInterviewId;
         this.content = content;
         this.eyeContactScore = eyeContactScore;
         this.faceScore = faceScore;
         this.voiceScore = voiceScore;
-        this.answerScore = answerScore;
+        this.qnaScore = qnaScore;
+        this.sentenceScore = sentenceScore;
     }
 }

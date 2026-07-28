@@ -152,6 +152,7 @@ CREATE TABLE `resumes` (
                            `analysis_content` MEDIUMTEXT DEFAULT NULL,
                            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                            `updated_at` DATETIME DEFAULT NULL,
+                           `deleted_at` DATETIME DEFAULT NULL,
 
                            PRIMARY KEY (`id`),
 
