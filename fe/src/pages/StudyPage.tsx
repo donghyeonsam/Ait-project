@@ -29,6 +29,7 @@ import {
   type StudyGroupStatus,
 } from '@/api/study-groups'
 import { toErrorMessage } from '@/api/http'
+import { useAuth } from '@/lib/useAuth'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
 
@@ -70,6 +71,7 @@ function matchesRecruitmentFilter(
 // 스터디 탐색부터 신청, 그룹 대화까지 라운지 UI 흐름을 조합한다.
 export function StudyPage() {
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
   const [query, setQuery] = useState('')
   const [recruitment, setRecruitment] = useState<RecruitmentFilter>('all')
   const [sort, setSort] = useState<StudySort>('latest')
@@ -83,7 +85,9 @@ export function StudyPage() {
   const [appliedStudyIds, setAppliedStudyIds] = useState<Set<number>>(
     () => new Set(),
   )
-  const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [toast, setToast] = useState<
+    { message: string; variant: 'success' | 'error' } | null
+  >(null)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [applicationTarget, setApplicationTarget] =
@@ -158,12 +162,21 @@ export function StudyPage() {
   const visibleStudies = filteredStudies.slice(0, visibleCount)
 
   useEffect(() => {
-    if (!toastMessage) return
-    const timer = window.setTimeout(() => setToastMessage(null), 3500)
+    if (!toast) return
+    const timer = window.setTimeout(() => setToast(null), 3500)
     return () => window.clearTimeout(timer)
-  }, [toastMessage])
+  }, [toast])
 
   const resetVisibleCount = () => setVisibleCount(INITIAL_VISIBLE_STUDIES)
+
+  // 로그인 세션이 없으면 신청 다이얼로그를 열지 않고 로그인 화면으로 보낸다.
+  const openApplicationDialog = (study: StudyCardData) => {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: '/study' } })
+      return
+    }
+    setApplicationTarget(study)
+  }
 
   const completeApplication = async (message: string) => {
     if (!applicationTarget) return
@@ -173,9 +186,9 @@ export function StudyPage() {
     try {
       await applyToStudyGroup(target.id, message)
       setAppliedStudyIds((currentIds) => new Set(currentIds).add(target.id))
-      setToastMessage('스터디 신청을 보냈습니다.')
+      setToast({ message: '스터디 신청을 보냈습니다.', variant: 'success' })
     } catch (error) {
-      setToastMessage(toErrorMessage(error))
+      setToast({ message: toErrorMessage(error), variant: 'error' })
     }
   }
 
@@ -276,7 +289,7 @@ export function StudyPage() {
             <StudyCardGrid
               studies={visibleStudies}
               appliedStudyIds={appliedStudyIds}
-              onApply={setApplicationTarget}
+              onApply={openApplicationDialog}
             />
 
             {visibleCount < filteredStudies.length ? (
@@ -307,7 +320,7 @@ export function StudyPage() {
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         onCreated={() => {
-          setToastMessage('스터디를 만들었습니다.')
+          setToast({ message: '스터디를 만들었습니다.', variant: 'success' })
           void loadGroups()
           void loadMyStudies()
         }}
@@ -320,10 +333,11 @@ export function StudyPage() {
         }}
         onSubmit={completeApplication}
       />
-      {toastMessage ? (
+      {toast ? (
         <StudyApplicationToast
-          message={toastMessage}
-          onClose={() => setToastMessage(null)}
+          message={toast.message}
+          variant={toast.variant}
+          onClose={() => setToast(null)}
         />
       ) : null}
     </PageLayout>
