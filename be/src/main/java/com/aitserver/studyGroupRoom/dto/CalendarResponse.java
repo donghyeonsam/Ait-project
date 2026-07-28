@@ -11,14 +11,12 @@ public class CalendarResponse {
     private Long calendarId;
     private String content;
     private LocalDateTime startTime;
-    private LocalDateTime endTime;
 
     public static CalendarResponse from(StudyGroupCalendar calendar) {
         return CalendarResponse.builder()
                 .calendarId(calendar.getId())
                 .content(calendar.getContent())
                 .startTime(calendar.getStartTime())
-                .endTime(calendar.getEndTime())
                 .build();
     }
 }

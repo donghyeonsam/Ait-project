@@ -37,7 +37,6 @@ public class StudyGroupCalendarCommandService {
                 .studyGroup(group)
                 .content(request.getContent())
                 .startTime(request.getStartTime())
-                .endTime(request.getEndTime())
                 .build();
 
         calendarRepository.save(calendar);
@@ -55,7 +54,7 @@ public class StudyGroupCalendarCommandService {
             throw new BusinessException(ErrorCode.INVALID_CALENDAR_GROUP);
         }
 
-        calendar.update(request.getContent(), request.getStartTime(), request.getEndTime());
+        calendar.update(request.getContent(), request.getStartTime());
     }
 
     // 3. 일정 삭제

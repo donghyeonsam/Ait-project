@@ -58,10 +58,10 @@ public class StudyGroup {
     )
     private String title;
 
-    @Lob
     @Column(
             name = "description",
-            nullable = false
+            nullable = false,
+            columnDefinition = "TEXT"
     )
     private String description;
 

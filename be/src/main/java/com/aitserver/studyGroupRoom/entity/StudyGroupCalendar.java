@@ -34,9 +34,6 @@ public class StudyGroupCalendar {
     @Column(name = "start_time", nullable = false)
     private LocalDateTime startTime;
 
-    @Column(name = "end_time", nullable = false)
-    private LocalDateTime endTime;
-
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -49,17 +46,15 @@ public class StudyGroupCalendar {
     private LocalDateTime deletedAt;
 
     @Builder
-    public StudyGroupCalendar(StudyGroup studyGroup, String content, LocalDateTime startTime, LocalDateTime endTime) {
+    public StudyGroupCalendar(StudyGroup studyGroup, String content, LocalDateTime startTime) {
         this.studyGroup = studyGroup;
         this.content = content;
         this.startTime = startTime;
-        this.endTime = endTime;
     }
 
-    public void update(String content, LocalDateTime startTime, LocalDateTime endTime) {
+    public void update(String content, LocalDateTime startTime) {
         this.content = content;
         this.startTime = startTime;
-        this.endTime = endTime;
     }
 
     public void deleteCalendar() {
