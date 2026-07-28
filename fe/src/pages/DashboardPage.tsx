@@ -27,7 +27,11 @@ export function DashboardPage() {
 
   return (
     <PageLayout contentClassName="max-w-dashboard">
-      <section className="pb-10 pt-10" aria-labelledby="page-title">
+      <section
+        className="study-reveal is-visible pb-10 pt-10"
+        style={{ '--reveal-order': 0 } as React.CSSProperties}
+        aria-labelledby="page-title"
+      >
         <h1 id="page-title" className="text-h1">
           좋은 아침이에요, {user?.nickname ?? '사용자'}님
         </h1>
@@ -36,7 +40,11 @@ export function DashboardPage() {
         </p>
       </section>
 
-      <section className="dashboard-stats grid grid-cols-4 gap-4" aria-label="활동 요약">
+      <section
+        className="study-reveal is-visible dashboard-stats grid grid-cols-4 gap-4"
+        style={{ '--reveal-order': 1 } as React.CSSProperties}
+        aria-label="활동 요약"
+      >
         {emptyMetrics.map(({ label, unit, icon: Icon }) => (
           <article key={label} className="rounded-ait-m border border-border-default bg-background-default p-6 shadow-elevation-1">
             <div className="flex items-center gap-4">
@@ -58,14 +66,20 @@ export function DashboardPage() {
 
       <div className="my-8 border-t border-border-default" />
 
-      <div className="dashboard-main-grid grid gap-10">
+      <div
+        className="study-reveal is-visible dashboard-main-grid grid gap-10"
+        style={{ '--reveal-order': 2 } as React.CSSProperties}
+      >
         <EmptyPanel title="최근 AI면접 기록" description="저장된 면접 기록이 없습니다." />
         <EmptyPanel title="종합 점수 추이" description="면접 분석 데이터가 연결되면 점수 추이가 표시됩니다." />
       </div>
 
       <div className="my-10 border-t border-border-default" />
 
-      <div className="dashboard-main-grid grid gap-10 pb-20">
+      <div
+        className="study-reveal is-visible dashboard-main-grid grid gap-10 pb-20"
+        style={{ '--reveal-order': 2 } as React.CSSProperties}
+      >
         <EmptyPanel title="최근 스터디 기록" description="저장된 스터디 기록이 없습니다." />
         <EmptyPanel title="나의 스터디 일정" description="등록된 스터디 일정이 없습니다." />
       </div>
