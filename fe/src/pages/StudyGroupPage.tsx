@@ -34,7 +34,6 @@ import { toErrorMessage } from '@/api/http'
 import { useAuth } from '@/lib/useAuth'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
-import { mockStudyCalendarEvents } from '@/mocks/study-lounge'
 
 function formatCreatedAt(value: string) {
   const parsed = new Date(value)
@@ -180,7 +179,6 @@ export function StudyGroupPage() {
   const leaderCandidates = members.filter(
     (member) => !member.isSelf && member.role !== '초대 대기',
   )
-  const calendarEvents = mockStudyCalendarEvents[groupId] ?? []
 
   const changeRecruiting = async (nextIsRecruiting: boolean) => {
     const previous = isRecruiting
@@ -354,7 +352,7 @@ export function StudyGroupPage() {
         </div>
 
         <div className="my-6 border-t border-status-achievement" />
-        <StudyCalendar events={calendarEvents} />
+        <StudyCalendar groupId={groupId} />
       </section>
 
       <StudyChatFloatingButton onClick={() => setIsChatOpen(true)} />

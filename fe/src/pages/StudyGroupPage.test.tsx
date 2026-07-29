@@ -11,6 +11,10 @@ import {
   type StudyGroupDetail,
 } from '@/api/study-groups'
 import {
+  createStudyCalendar,
+  getMonthlyStudyCalendars,
+} from '@/api/study-calendars'
+import {
   connectStudyGroupChat,
   deleteStudyGroupChatNotice,
   getStudyGroupChats,
@@ -34,6 +38,13 @@ vi.mock('@/api/study-groups', () => ({
 
 vi.mock('@/api/study-sessions', () => ({
   createStudySession: vi.fn(),
+}))
+
+vi.mock('@/api/study-calendars', () => ({
+  getMonthlyStudyCalendars: vi.fn(),
+  createStudyCalendar: vi.fn(),
+  updateStudyCalendar: vi.fn(),
+  deleteStudyCalendar: vi.fn(),
 }))
 
 vi.mock('@/api/study-group-chat', () => ({
@@ -101,6 +112,32 @@ const myStudyGroups: MyStudyGroup[] = [
   },
 ]
 
+function toDateKey(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// 캘린더는 이번 달을 조회하므로 고정 날짜 대신 이번 달 기준으로 픅스처를 만든다.
+const monthPrefix = toDateKey(new Date()).slice(0, 7)
+const scheduledDateKey = `${monthPrefix}-21`
+const scheduledCellName = `${scheduledDateKey}${
+  scheduledDateKey === toDateKey(new Date()) ? ', 오늘' : ''
+}, 스터디 일정 있음`
+const studyCalendars = [
+  {
+    calendarId: 11,
+    content: '개인별 질문 2개 준비',
+    startTime: `${scheduledDateKey}T20:00:00`,
+  },
+  {
+    calendarId: 12,
+    content: '모의 면접 회고',
+    startTime: `${scheduledDateKey}T20:00:00`,
+  },
+]
+
 async function renderStudyGroupPage() {
   const result = render(
     <MemoryRouter initialEntries={['/study/groups/101']}>
@@ -123,6 +160,8 @@ describe('StudyGroupPage', () => {
     vi.mocked(getStudyGroupDetail).mockResolvedValue(groupDetail)
     vi.mocked(getMyStudyGroups).mockResolvedValue(myStudyGroups)
     vi.mocked(getStudyGroupApplications).mockResolvedValue([])
+    vi.mocked(getMonthlyStudyCalendars).mockResolvedValue(studyCalendars)
+    vi.mocked(createStudyCalendar).mockResolvedValue(undefined)
 
     vi.mocked(getStudyGroupChats).mockResolvedValue({
       chats: [],
@@ -256,13 +295,15 @@ describe('StudyGroupPage', () => {
     expect(
       screen.queryByRole('button', { name: '날짜 상세 닫기' }),
     ).not.toBeInTheDocument()
+    // 일정은 그룹 정보와 별개로 조회되므로 표시될 때까지 기다린다.
     await user.click(
-      screen.getByRole('gridcell', {
-        name: '2026-07-21, 스터디 일정 있음',
-      }),
+      await screen.findByRole('gridcell', { name: scheduledCellName }),
     )
-    expect(screen.getByText('2026. 07. 21')).toBeInTheDocument()
+    expect(
+      screen.getByText(scheduledDateKey.replaceAll('-', '. ')),
+    ).toBeInTheDocument()
     expect(screen.getByText('개인별 질문 2개 준비')).toBeInTheDocument()
+    expect(screen.getByText('모의 면접 회고')).toBeInTheDocument()
 
     const messageInput = screen.getByRole('textbox', {
       name: '그룹톡 메시지 입력',
