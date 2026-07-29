@@ -1,6 +1,6 @@
 import type { Editor } from '@tiptap/react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Loader2 } from 'lucide-react'
+import { Loader2, PenLine } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { createPost } from '@/api/community'
@@ -15,6 +15,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Dropdown } from '@/components/ui/dropdown'
 import { ToastStack } from '@/components/ui/toast'
 import { CATEGORY_OPTIONS } from '@/lib/community-categories'
+import { formatRelativeTime } from '@/lib/format'
 import { collapseSection } from '@/lib/motion'
 import { useToasts } from '@/lib/useToasts'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
@@ -262,22 +263,33 @@ export function CommunityWritePage() {
                 exit="collapsed"
                 className="overflow-hidden"
               >
-                <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-ait-s border border-brand-blue/30 bg-brand-blue/[0.05] px-4 py-3">
-                  <p className="text-body-2 text-ink-700">
-                    작성 중인 글이 있어요. 이어서 쓸까요?
-                  </p>
+                <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-ait-m border border-line bg-surface-default px-5 py-4">
+                  <span
+                    aria-hidden="true"
+                    className="flex size-9 shrink-0 items-center justify-center rounded-ait-pill bg-surface-muted"
+                  >
+                    <PenLine className="size-4 text-navy-800" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-body-2 font-medium text-ink-900">
+                      작성 중인 글이 있어요. 이어서 쓸까요?
+                    </p>
+                    <p className="mt-0.5 text-caption text-ink-500">
+                      {formatRelativeTime(pendingDraft.savedAt)} 저장됨
+                    </p>
+                  </div>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={resumeDraft}
-                      className="rounded-ait-s bg-brand-blue px-3.5 py-1.5 text-caption font-semibold text-surface-default transition-[filter] hover:brightness-[.94]"
+                      className="rounded-ait-s bg-navy-900 px-4 py-2 text-caption font-semibold text-surface-default transition-[filter] duration-150 hover:brightness-[.92]"
                     >
                       이어쓰기
                     </button>
                     <button
                       type="button"
                       onClick={discardDraft}
-                      className="rounded-ait-s border border-line bg-surface-default px-3.5 py-1.5 text-caption font-medium text-ink-700 transition-colors hover:bg-surface-muted"
+                      className="rounded-ait-s border border-line bg-surface-default px-4 py-2 text-caption font-medium text-ink-700 transition-colors hover:bg-surface-muted"
                     >
                       새로 쓰기
                     </button>
@@ -288,160 +300,162 @@ export function CommunityWritePage() {
           </AnimatePresence>
 
           <form
-            className="mt-6 rounded-ait-m border border-line bg-surface-default"
+            className="mt-6"
             onSubmit={(event) => {
               event.preventDefault()
               void submit()
             }}
           >
-            {/* 게시판 */}
-            <FormSection
-              ref={categoryFieldRef}
-              label="게시판"
-              labelId="write-board"
-              error={errors.category}
-              isShaking={shakeField === 'category'}
-              onShakeEnd={() => setShakeField(null)}
-            >
-              <Dropdown
-                options={CATEGORY_OPTIONS}
-                value={category}
-                onChange={(value) => {
-                  setCategory(value)
-                  setErrors((prev) => ({ ...prev, category: undefined }))
-                }}
-                ariaLabel="게시판 선택"
-                placeholder="게시판을 선택해주세요."
-                className="w-full max-w-72"
-                invalid={Boolean(errors.category)}
-              />
-            </FormSection>
-
-            {/* 제목 */}
-            <FormSection
-              ref={titleFieldRef}
-              label="제목"
-              labelId="write-title"
-              error={errors.title}
-              isShaking={shakeField === 'title'}
-              onShakeEnd={() => setShakeField(null)}
-            >
-              <div className="relative">
-                <input
-                  id="write-title"
-                  type="text"
-                  value={title}
-                  maxLength={TITLE_MAX}
-                  onChange={(event) => {
-                    setTitle(event.target.value.slice(0, TITLE_MAX))
-                    setErrors((prev) => ({ ...prev, title: undefined }))
+            <div className="rounded-ait-m border border-line bg-surface-default">
+              {/* 게시판 */}
+              <FormSection
+                ref={categoryFieldRef}
+                label="게시판"
+                labelId="write-board"
+                error={errors.category}
+                isShaking={shakeField === 'category'}
+                onShakeEnd={() => setShakeField(null)}
+              >
+                <Dropdown
+                  options={CATEGORY_OPTIONS}
+                  value={category}
+                  onChange={(value) => {
+                    setCategory(value)
+                    setErrors((prev) => ({ ...prev, category: undefined }))
                   }}
-                  placeholder={`제목을 입력해주세요. (최대 ${TITLE_MAX}자)`}
-                  className={cn(
-                    'w-full rounded-ait-s border bg-surface-default px-4 py-3 pr-20 text-body-2 text-ink-900 outline-none transition-[border-color] duration-[180ms] placeholder:text-ink-400 focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/15',
-                    errors.title ? 'border-danger' : 'border-line',
-                  )}
+                  ariaLabel="게시판 선택"
+                  placeholder="게시판을 선택해주세요."
+                  className="w-full max-w-72"
+                  invalid={Boolean(errors.category)}
                 />
-                <span
-                  className={cn(
-                    'pointer-events-none absolute bottom-3 right-4 text-caption tabular-nums',
-                    title.length > TITLE_WARN ? 'text-danger' : 'text-ink-400',
-                  )}
-                >
-                  {title.length} / {TITLE_MAX}
-                </span>
-              </div>
-            </FormSection>
+              </FormSection>
 
-            {/* 내용 */}
-            <FormSection
-              ref={contentFieldRef}
-              label="내용"
-              labelId="write-content"
-              error={errors.content}
-              isShaking={shakeField === 'content'}
-              onShakeEnd={() => setShakeField(null)}
-            >
-              <RichTextEditor
-                placeholderKey={placeholderKey}
-                placeholderLines={CONTENT_PLACEHOLDERS[placeholderKey]}
-                invalid={Boolean(errors.content)}
-                onReady={(editor) => {
-                  editorRef.current = editor
-                }}
-                onUpdate={({ html, text }) => {
-                  setContentHtml(html)
-                  setContentText(text)
-                  setErrors((prev) => ({ ...prev, content: undefined }))
-                }}
-              />
-            </FormSection>
-
-            {/* 파일 첨부 */}
-            <FormSection label="파일 첨부" labelId="write-files">
-              <FileDropzone files={files} onChange={setFiles} />
-            </FormSection>
-
-            {/* 태그 */}
-            <FormSection label="태그" labelId="write-tags">
-              <TagInput tags={tags} onChange={setTags} suggestions={mockTagSuggestions} />
-            </FormSection>
-
-            {/* 게시 설정 */}
-            <FormSection label="게시 설정" labelId="write-settings">
-              <div className="flex flex-col gap-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span id="write-visibility" className="text-body-2 text-ink-700">
-                    공개 범위
-                  </span>
-                  <SegmentedControl
-                    options={[
-                      { value: 'public', label: '전체 공개' },
-                      { value: 'members', label: '멤버만' },
-                    ]}
-                    value={visibility}
-                    onChange={setVisibility}
-                    ariaLabel="공개 범위"
+              {/* 제목 */}
+              <FormSection
+                ref={titleFieldRef}
+                label="제목"
+                labelId="write-title"
+                error={errors.title}
+                isShaking={shakeField === 'title'}
+                onShakeEnd={() => setShakeField(null)}
+              >
+                <div className="relative">
+                  <input
+                    id="write-title"
+                    type="text"
+                    value={title}
+                    maxLength={TITLE_MAX}
+                    onChange={(event) => {
+                      setTitle(event.target.value.slice(0, TITLE_MAX))
+                      setErrors((prev) => ({ ...prev, title: undefined }))
+                    }}
+                    placeholder={`제목을 입력해주세요. (최대 ${TITLE_MAX}자)`}
+                    className={cn(
+                      'w-full rounded-ait-s border bg-surface-default px-4 py-3 pr-20 text-body-2 text-ink-900 outline-none transition-[border-color] duration-[180ms] placeholder:text-ink-400 focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/15',
+                      errors.title ? 'border-danger' : 'border-line',
+                    )}
                   />
-                </div>
-
-                <div className="flex items-center justify-between gap-3">
-                  <span id="write-allow-comments" className="text-body-2 text-ink-700">
-                    댓글 허용
+                  <span
+                    className={cn(
+                      'pointer-events-none absolute bottom-3 right-4 text-caption tabular-nums',
+                      title.length > TITLE_WARN ? 'text-danger' : 'text-ink-400',
+                    )}
+                  >
+                    {title.length} / {TITLE_MAX}
                   </span>
-                  <Toggle
-                    checked={allowComments}
-                    onChange={setAllowComments}
-                    aria-labelledby="write-allow-comments"
-                  />
                 </div>
+              </FormSection>
 
-                <div
-                  className={cn(
-                    'flex items-start justify-between gap-3 transition-opacity',
-                    !allowComments && 'opacity-45',
-                  )}
-                >
-                  <div>
-                    <span id="write-notify" className="text-body-2 text-ink-700">
-                      알림 받기
+              {/* 내용 */}
+              <FormSection
+                ref={contentFieldRef}
+                label="내용"
+                labelId="write-content"
+                error={errors.content}
+                isShaking={shakeField === 'content'}
+                onShakeEnd={() => setShakeField(null)}
+              >
+                <RichTextEditor
+                  placeholderKey={placeholderKey}
+                  placeholderLines={CONTENT_PLACEHOLDERS[placeholderKey]}
+                  invalid={Boolean(errors.content)}
+                  onReady={(editor) => {
+                    editorRef.current = editor
+                  }}
+                  onUpdate={({ html, text }) => {
+                    setContentHtml(html)
+                    setContentText(text)
+                    setErrors((prev) => ({ ...prev, content: undefined }))
+                  }}
+                />
+              </FormSection>
+
+              {/* 파일 첨부 */}
+              <FormSection label="파일 첨부" labelId="write-files">
+                <FileDropzone files={files} onChange={setFiles} />
+              </FormSection>
+
+              {/* 태그 */}
+              <FormSection label="태그" labelId="write-tags">
+                <TagInput tags={tags} onChange={setTags} suggestions={mockTagSuggestions} />
+              </FormSection>
+
+              {/* 게시 설정 */}
+              <FormSection label="게시 설정" labelId="write-settings">
+                <div className="flex flex-col gap-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span id="write-visibility" className="text-body-2 text-ink-700">
+                      공개 범위
                     </span>
-                    <p className="mt-0.5 text-caption text-ink-400">
-                      댓글과 공감 알림을 받습니다.
-                    </p>
+                    <SegmentedControl
+                      options={[
+                        { value: 'public', label: '전체 공개' },
+                        { value: 'members', label: '멤버만' },
+                      ]}
+                      value={visibility}
+                      onChange={setVisibility}
+                      ariaLabel="공개 범위"
+                    />
                   </div>
-                  <Toggle
-                    checked={notify}
-                    onChange={setNotify}
-                    disabled={!allowComments}
-                    aria-labelledby="write-notify"
-                  />
+
+                  <div className="flex items-center justify-between gap-3">
+                    <span id="write-allow-comments" className="text-body-2 text-ink-700">
+                      댓글 허용
+                    </span>
+                    <Toggle
+                      checked={allowComments}
+                      onChange={setAllowComments}
+                      aria-labelledby="write-allow-comments"
+                    />
+                  </div>
+
+                  <div
+                    className={cn(
+                      'flex items-start justify-between gap-3 transition-opacity',
+                      !allowComments && 'opacity-45',
+                    )}
+                  >
+                    <div>
+                      <span id="write-notify" className="text-body-2 text-ink-700">
+                        알림 받기
+                      </span>
+                      <p className="mt-0.5 text-caption text-ink-400">
+                        댓글과 공감 알림을 받습니다.
+                      </p>
+                    </div>
+                    <Toggle
+                      checked={notify}
+                      onChange={setNotify}
+                      disabled={!allowComments}
+                      aria-labelledby="write-notify"
+                    />
+                  </div>
                 </div>
-              </div>
-            </FormSection>
+              </FormSection>
+            </div>
 
             {/* 하단 액션 */}
-            <div className="flex items-center justify-end gap-3 border-t border-line-soft px-8 py-5">
+            <div className="flex items-center justify-end gap-3 py-5">
               <button
                 type="button"
                 onClick={saveDraft}
