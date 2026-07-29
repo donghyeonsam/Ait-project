@@ -38,8 +38,7 @@ export function AppRouter() {
       <Route path="/interviews/session" element={<ProtectedRoute><InterviewSessionPage /></ProtectedRoute>} />
       <Route path="/study" element={<ProtectedRoute><StudyPage /></ProtectedRoute>} />
       <Route path="/study/groups/:studyId" element={<ProtectedRoute><StudyGroupPage /></ProtectedRoute>} />
-      {/* TODO: 임시 진입 경로 — 스터디 라운지 → 내 스터디 그룹 → 세션 생성/참가 구현 시 해당 흐름에서 연결한다. */}
-      <Route path="/study/session/:sessionId/prejoin" element={<ProtectedRoute><StudySessionPrejoinPage /></ProtectedRoute>} />
+      <Route path="/study/groups/:groupId/session/prejoin" element={<ProtectedRoute><StudySessionPrejoinPage /></ProtectedRoute>} />
       <Route path="/study/session/:sessionId/room" element={<ProtectedRoute><StudySessionRoomPage /></ProtectedRoute>} />
       <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
       <Route path="/community/write" element={<ProtectedRoute><CommunityWritePage /></ProtectedRoute>} />
