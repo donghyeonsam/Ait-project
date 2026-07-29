@@ -4,11 +4,11 @@ type ActivityTabId = 'written' | 'scrapped' | 'liked'
 
 const activityTabs: Array<{ id: ActivityTabId; label: string }> = [
   { id: 'written', label: '작성한 게시글' },
-  { id: 'scrapped', label: '스크랩한 게시글' },
+  { id: 'scrapped', label: '저장한 게시글' },
   { id: 'liked', label: '좋아요한 게시글' },
 ]
 
-// 마이페이지의 활동 탭(작성/스크랩/좋아요). 탭 전환 UI만 구현하고 목록은 API 연동 전 빈 상태다.
+// 마이페이지의 활동 탭(작성/저장/좋아요). 탭 전환 UI만 구현하고 목록은 API 연동 전 빈 상태다.
 export function ActivityTabs() {
   const [activeTab, setActiveTab] = useState<ActivityTabId>('written')
   const activeIndex = activityTabs.findIndex((tab) => tab.id === activeTab)
