@@ -2,6 +2,8 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Clock,
+  History,
   Pencil,
   Plus,
   Trash2,
@@ -17,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Dropdown, type DropdownOption } from '@/components/ui/dropdown'
 import { Input } from '@/components/ui/input'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
@@ -26,12 +29,33 @@ interface StudyCalendarProps {
   events: StudyCalendarEvent[]
 }
 
+type DurationValue = 'none' | '30' | '60' | '90' | '120'
+type RepeatValue = 'none' | '2' | '4' | '8'
+
 // 일정 추가·편집 폼이 다루는 상태로, agenda는 편집 중인 진행 내용 줄 목록이다.
 interface ScheduleFormState {
   mode: 'create' | 'edit'
   dateKey: string
+  startTime: string
+  duration: DurationValue
+  repeat: RepeatValue
   agenda: string[]
 }
+
+const durationOptions: DropdownOption<DurationValue>[] = [
+  { value: 'none', label: '미정' },
+  { value: '30', label: '30분' },
+  { value: '60', label: '1시간' },
+  { value: '90', label: '1시간 30분' },
+  { value: '120', label: '2시간' },
+]
+
+const repeatOptions: DropdownOption<RepeatValue>[] = [
+  { value: 'none', label: '반복 안 함' },
+  { value: '2', label: '매주 · 2회' },
+  { value: '4', label: '매주 · 4회' },
+  { value: '8', label: '매주 · 8회' },
+]
 
 const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -44,6 +68,26 @@ function toDateKey(date: Date) {
 
 function formatSelectedDate(dateKey: string) {
   return dateKey.replaceAll('-', '. ')
+}
+
+function addWeeksToDateKey(dateKey: string, weeks: number) {
+  const [year, month, day] = dateKey.split('-').map(Number)
+  return toDateKey(new Date(year, month - 1, day + weeks * 7))
+}
+
+function formatDuration(minutes: number) {
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  if (hours === 0) return `${rest}분`
+  return rest === 0 ? `${hours}시간` : `${hours}시간 ${rest}분`
+}
+
+// 드롭다운 선택지에 없는 값은 미정으로 되돌려 폼 상태를 안전하게 유지한다.
+function toDurationValue(minutes?: number): DurationValue {
+  const value = String(minutes ?? '')
+  return value === '30' || value === '60' || value === '90' || value === '120'
+    ? value
+    : 'none'
 }
 
 // 기본에는 월력을 가득 보여주고 날짜 선택 시 왼쪽 상세 패널에서 일정을 추가·편집·삭제한다.
@@ -110,14 +154,52 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
   }
 
   const openCreateForm = (dateKey: string) =>
-    setScheduleForm({ mode: 'create', dateKey, agenda: [''] })
+    setScheduleForm({
+      mode: 'create',
+      dateKey,
+      startTime: '',
+      duration: 'none',
+      repeat: 'none',
+      agenda: [''],
+    })
 
   const openEditForm = (event: StudyCalendarEvent) =>
     setScheduleForm({
       mode: 'edit',
       dateKey: event.date,
+      startTime: event.startTime ?? '',
+      duration: toDurationValue(event.durationMinutes),
+      repeat: 'none',
       agenda: event.agenda.length > 0 ? [...event.agenda] : [''],
     })
+
+  // 폼 날짜보다 앞선 일정 중 가장 최근 것을 불러오기 템플릿으로 쓴다.
+  const latestPastEvent = useMemo(() => {
+    if (!scheduleForm) return undefined
+    return events
+      .filter(
+        (event) =>
+          event.date < scheduleForm.dateKey && event.agenda.length > 0,
+      )
+      .sort((a, b) => b.date.localeCompare(a.date))[0]
+  }, [events, scheduleForm])
+
+  const loadLatestPastEvent = () => {
+    if (!latestPastEvent) return
+    setScheduleForm((current) =>
+      current
+        ? {
+            ...current,
+            startTime: latestPastEvent.startTime ?? current.startTime,
+            duration:
+              latestPastEvent.durationMinutes !== undefined
+                ? toDurationValue(latestPastEvent.durationMinutes)
+                : current.duration,
+            agenda: [...latestPastEvent.agenda],
+          }
+        : current,
+    )
+  }
 
   const updateAgendaLine = (index: number, value: string) =>
     setScheduleForm((current) =>
@@ -153,18 +235,46 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
       .filter((line) => line.length > 0)
     if (cleanedAgenda.length === 0) return
 
-    const { dateKey } = scheduleForm
+    const { dateKey, mode, startTime, duration, repeat } = scheduleForm
+    const timeFields = {
+      startTime: startTime || undefined,
+      durationMinutes: duration === 'none' ? undefined : Number(duration),
+    }
     setEvents((current) => {
       const exists = current.some((event) => event.date === dateKey)
-      if (exists) {
-        return current.map((event) =>
-          event.date === dateKey ? { ...event, agenda: cleanedAgenda } : event,
-        )
+      let next = exists
+        ? current.map((event) =>
+            event.date === dateKey
+              ? { ...event, ...timeFields, agenda: cleanedAgenda }
+              : event,
+          )
+        : [
+            ...current,
+            {
+              date: dateKey,
+              ...timeFields,
+              attendance: [],
+              agenda: cleanedAgenda,
+            },
+          ]
+      // TODO: 실제 API 연동 필요 — 반복 생성은 서버 처리 대상이며, 여기서는 주 단위 복제로 흉내 내고 이미 일정이 있는 주는 건너뛴다.
+      if (mode === 'create' && repeat !== 'none') {
+        const occupied = new Set(next.map((event) => event.date))
+        for (let week = 1; week < Number(repeat); week += 1) {
+          const repeatKey = addWeeksToDateKey(dateKey, week)
+          if (occupied.has(repeatKey)) continue
+          next = [
+            ...next,
+            {
+              date: repeatKey,
+              ...timeFields,
+              attendance: [],
+              agenda: [...cleanedAgenda],
+            },
+          ]
+        }
       }
-      return [
-        ...current,
-        { date: dateKey, attendance: [], agenda: cleanedAgenda },
-      ]
+      return next
     })
     setSelectedDateKey(dateKey)
     setScheduleForm(null)
@@ -241,6 +351,16 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
 
             {selectedEvent ? (
               <>
+                <p className="mt-2 flex items-center gap-1.5 text-caption text-text-secondary">
+                  <Clock className="size-3.5 shrink-0" aria-hidden="true" />
+                  {selectedEvent.startTime
+                    ? `${selectedEvent.startTime} 시작${
+                        selectedEvent.durationMinutes
+                          ? ` · ${formatDuration(selectedEvent.durationMinutes)}`
+                          : ''
+                      }`
+                    : '시간 미정'}
+                </p>
                 <div className="mt-6">
                   <h4 className="text-body-2 font-semibold text-text-primary">
                     참석 현황
@@ -418,10 +538,84 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
             </DialogDescription>
           </DialogHeader>
 
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-body-2 font-semibold text-text-primary">
+                시작 시간
+              </p>
+              <Input
+                type="time"
+                className="mt-2"
+                value={scheduleForm?.startTime ?? ''}
+                onChange={(changeEvent) =>
+                  setScheduleForm((current) =>
+                    current
+                      ? { ...current, startTime: changeEvent.target.value }
+                      : current,
+                  )
+                }
+                aria-label="시작 시간"
+              />
+            </div>
+            <div>
+              <p className="text-body-2 font-semibold text-text-primary">
+                소요 시간
+              </p>
+              <Dropdown
+                className="mt-2"
+                buttonClassName="h-10 py-0"
+                options={durationOptions}
+                value={scheduleForm?.duration ?? 'none'}
+                onChange={(duration) =>
+                  setScheduleForm((current) =>
+                    current ? { ...current, duration } : current,
+                  )
+                }
+                ariaLabel="소요 시간"
+              />
+            </div>
+          </div>
+
+          {scheduleForm?.mode === 'create' ? (
+            <div className="mt-4">
+              <p className="text-body-2 font-semibold text-text-primary">
+                반복
+              </p>
+              <Dropdown
+                className="mt-2"
+                buttonClassName="h-10 py-0"
+                options={repeatOptions}
+                value={scheduleForm.repeat}
+                onChange={(repeat) =>
+                  setScheduleForm((current) =>
+                    current ? { ...current, repeat } : current,
+                  )
+                }
+                ariaLabel="반복"
+              />
+              <p className="mt-1.5 text-caption text-text-secondary">
+                같은 요일에 매주 반복 생성되며, 이미 일정이 있는 날은
+                건너뜁니다.
+              </p>
+            </div>
+          ) : null}
+
           <div className="mt-4">
-            <p className="text-body-2 font-semibold text-text-primary">
-              진행 내용
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-body-2 font-semibold text-text-primary">
+                진행 내용
+              </p>
+              <Button
+                type="button"
+                variant="text"
+                className="h-8 gap-1 py-0 text-caption [&_svg]:size-3.5"
+                onClick={loadLatestPastEvent}
+                disabled={!latestPastEvent}
+              >
+                <History aria-hidden="true" />
+                지난 일정 불러오기
+              </Button>
+            </div>
             <div className="mt-2 space-y-2">
               {scheduleAgenda.map((line, index) => (
                 <div key={index} className="flex items-center gap-2">

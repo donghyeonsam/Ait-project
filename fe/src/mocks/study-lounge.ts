@@ -5,6 +5,9 @@ export interface StudyCalendarAttendance {
 
 export interface StudyCalendarEvent {
   date: string
+  // 시작 시간(HH:mm)과 소요 시간(분)은 미정일 수 있어 선택 필드로 둔다.
+  startTime?: string
+  durationMinutes?: number
   attendance: StudyCalendarAttendance[]
   agenda: string[]
 }
@@ -34,6 +37,8 @@ export const mockStudyCalendarEvents: Record<number, StudyCalendarEvent[]> = {
   101: [
     {
       date: '2026-07-07',
+      startTime: '20:00',
+      durationMinutes: 90,
       attendance: [
         { name: '김구미', attended: true },
         { name: '최싸피', attended: true },
@@ -45,21 +50,29 @@ export const mockStudyCalendarEvents: Record<number, StudyCalendarEvent[]> = {
     },
     {
       date: '2026-07-09',
+      startTime: '20:30',
+      durationMinutes: 60,
       attendance: [],
       agenda: ['은행권 직무 분석', '지원 동기 피드백'],
     },
     {
       date: '2026-07-14',
+      startTime: '20:00',
+      durationMinutes: 90,
       attendance: [],
       agenda: ['PT 발표 실습', '개인별 꼬리 질문'],
     },
     {
       date: '2026-07-16',
+      startTime: '20:30',
+      durationMinutes: 60,
       attendance: [],
       agenda: ['토론 면접 역할 분담', '논리 구조 피드백'],
     },
     {
       date: '2026-07-21',
+      startTime: '20:00',
+      durationMinutes: 90,
       attendance: [
         { name: '김싸피', attended: true },
         { name: '최싸피', attended: true },
@@ -71,11 +84,15 @@ export const mockStudyCalendarEvents: Record<number, StudyCalendarEvent[]> = {
     },
     {
       date: '2026-07-23',
+      startTime: '20:30',
+      durationMinutes: 60,
       attendance: [],
       agenda: ['금융 상품 분석', '상호 질의응답'],
     },
     {
       date: '2026-07-28',
+      startTime: '20:00',
+      durationMinutes: 90,
       attendance: [],
       agenda: ['최종 PT 리허설', '발표 시간 점검'],
     },
@@ -88,6 +105,8 @@ export const mockStudyCalendarEvents: Record<number, StudyCalendarEvent[]> = {
   102: [
     {
       date: '2026-07-22',
+      startTime: '20:30',
+      durationMinutes: 120,
       attendance: [],
       agenda: ['대규모 트래픽 설계', '캐시 전략 비교'],
     },
