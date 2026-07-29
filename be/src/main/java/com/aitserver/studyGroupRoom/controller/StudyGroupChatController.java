@@ -7,7 +7,7 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 
 @Controller
@@ -27,7 +27,9 @@ public class StudyGroupChatController {
     public void sendMessage(
             @DestinationVariable Long groupId,
             @Payload ChatDto.Request request,
-            @AuthenticationPrincipal Long currentUserId) {
+            Authentication authentication) {
+
+        Long currentUserId = Long.valueOf(authentication.getPrincipal().toString());
 
         // 1. 서비스 로직 호출: 채팅을 DB에 저장하고, 유저 닉네임/프사가 포함된 Response DTO로 반환받습니다.
         ChatDto.Response response = chatService.saveChat(groupId, currentUserId, request.getMessage());
