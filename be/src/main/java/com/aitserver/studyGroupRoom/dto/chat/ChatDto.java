@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class ChatDto {
 
@@ -43,5 +44,12 @@ public class ChatDto {
                     .createdAt(chat.getCreatedAt())
                     .build();
         }
+    }
+
+    @Getter
+    @AllArgsConstructor
+    public static class CursorResponse {
+        private List<Response> chats; // 채팅 목록
+        private boolean hasNext;      // 다음 데이터 존재 여부
     }
 }
