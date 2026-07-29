@@ -107,6 +107,14 @@ export function getMyActiveStudyGroups() {
   return backendRequest<MyStudyGroup[]>('/api/study-groups/me/active')
 }
 
+// 방장만 호출할 수 있고, 대상은 이미 그룹에 속한 사용자여야 한다.
+export function kickStudyGroupMember(groupId: number, targetUserId: number) {
+  return backendRequest<void>(
+    `/api/study-groups/${groupId}/members/${targetUserId}`,
+    { method: 'DELETE' },
+  )
+}
+
 export function leaveStudyGroup(groupId: number) {
   return backendRequest<void>(`/api/study-groups/${groupId}/leave`, {
     method: 'DELETE',

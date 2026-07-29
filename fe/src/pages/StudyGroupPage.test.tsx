@@ -7,6 +7,7 @@ import {
   getMyStudyGroups,
   getStudyGroupApplications,
   getStudyGroupDetail,
+  kickStudyGroupMember,
   type MyStudyGroup,
   type StudyGroupDetail,
 } from '@/api/study-groups'
@@ -31,6 +32,7 @@ vi.mock('@/api/study-groups', () => ({
   getMyStudyGroups: vi.fn(),
   getStudyGroupApplications: vi.fn(),
   updateStudyGroupStatus: vi.fn(),
+  kickStudyGroupMember: vi.fn(),
 }))
 
 vi.mock('@/api/study-sessions', () => ({
@@ -129,6 +131,7 @@ describe('StudyGroupPage', () => {
       hasActiveSession: false,
       sessionId: null,
     })
+    vi.mocked(kickStudyGroupMember).mockResolvedValue(undefined)
 
     vi.mocked(getStudyGroupChats).mockResolvedValue({
       chats: [],
@@ -186,8 +189,10 @@ describe('StudyGroupPage', () => {
     await user.click(
       within(removalDialog).getByRole('button', { name: '내보내기' }),
     )
+    expect(kickStudyGroupMember).toHaveBeenCalledWith(101, 2)
+    // 내보내기는 서버 요청이므로 응답 후 목록이 줄어드는 것을 기다린다.
     expect(
-      screen.getByRole('heading', { name: '구성원 4 / 8' }),
+      await screen.findByRole('heading', { name: '구성원 4 / 8' }),
     ).toBeInTheDocument()
 
     await user.click(
