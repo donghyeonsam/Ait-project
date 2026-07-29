@@ -324,10 +324,8 @@ export function StudyPage() {
       <StudyCreateDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
-        onCreated={() => {
-          setToast({ message: '스터디를 만들었습니다.', variant: 'success' })
-          void loadGroups()
-          void loadMyStudies()
+        onCreated={(groupId) => {
+          navigate(`/study/groups/${groupId}`)
         }}
       />
       <StudyApplyDialog
