@@ -1,9 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  transcribeAnswer,
-  synthesizeQuestionSpeech,
-  ttsResponseToBlob,
-} from '@/api/speech'
+import { transcribeAnswer } from '@/api/speech'
 
 function apiResponse(data: unknown) {
   return new Response(
@@ -62,6 +58,8 @@ describe('transcribeAnswer', () => {
   })
 })
 
+// TODO: 서버 TTS(예: OpenAI TTS) 도입이 확정되면 아래 테스트를 복원한다.
+/*
 describe('synthesizeQuestionSpeech', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -100,3 +98,4 @@ describe('ttsResponseToBlob', () => {
     expect(new Uint8Array(await blob.arrayBuffer())).toEqual(bytes)
   })
 })
+*/

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { synthesizeQuestionSpeech, ttsResponseToBlob } from '@/api/speech'
+// TODO: Whisper는 STT 전용이라 서버 TTS 도입이 확정되면 import를 복원한다.
+// import { synthesizeQuestionSpeech, ttsResponseToBlob } from '@/api/speech'
 
 interface UseQuestionSpeechOptions {
   text: string
@@ -12,7 +13,7 @@ function clampVolume(volume: number) {
   return Math.min(1, Math.max(0, volume / 100))
 }
 
-// 질문 텍스트를 서버 TTS mp3로 재생하고, 실패 시 브라우저 음성 합성으로 폴백한다.
+// 질문 텍스트를 브라우저 음성 합성으로 재생한다. 서버 TTS 도입 시 mp3 재생 경로를 복원한다.
 export function useQuestionSpeech({
   text,
   volume,
@@ -75,6 +76,8 @@ export function useQuestionSpeech({
     window.speechSynthesis.speak(utterance)
   }, [])
 
+  // TODO: 서버 TTS mp3 재생 경로 — 서버 TTS(예: OpenAI TTS) 도입이 확정되면 복원한다.
+  /*
   const playFromUrl = useCallback(
     async (url: string, generation: number) => {
       audioRef.current?.pause()
@@ -109,6 +112,7 @@ export function useQuestionSpeech({
     },
     [speakWithSynthesis],
   )
+  */
 
   const speak = useCallback(() => {
     cancel()
@@ -116,6 +120,8 @@ export function useQuestionSpeech({
     if (mutedRef.current || !enabledRef.current) return
 
     const generation = generationRef.current
+    // TODO: 서버 TTS 도입 전까지 브라우저 음성 합성으로만 재생한다 — 도입 확정 시 아래 mp3 경로를 복원한다.
+    /*
     const questionText = textRef.current
     const cachedUrl = cacheRef.current.get(questionText)
     if (cachedUrl) {
@@ -136,7 +142,9 @@ export function useQuestionSpeech({
         speakWithSynthesis(generation)
       }
     })()
-  }, [cancel, playFromUrl, speakWithSynthesis])
+    */
+    speakWithSynthesis(generation)
+  }, [cancel, speakWithSynthesis])
 
   useEffect(() => {
     const timer = window.setTimeout(speak, 0)
