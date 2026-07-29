@@ -136,9 +136,16 @@ export function StudyPage() {
     void loadMyStudies()
   }, [loadGroups, loadMyStudies])
 
+  const myStudyIds = useMemo(
+    () => new Set(myStudies.map((study) => study.id)),
+    [myStudies],
+  )
+
   const filteredStudies = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('ko-KR')
     const matched = groups.filter((group) => {
+      if (myStudyIds.has(group.id)) return false
+
       const matchesQuery =
         !normalizedQuery ||
         [group.title, group.description].some((value) =>
@@ -158,7 +165,7 @@ export function StudyPage() {
           new Date(first.createdAt).getTime()
         return sort === 'oldest' ? -difference : difference
       })
-  }, [groups, query, recruitment, sort])
+  }, [groups, myStudyIds, query, recruitment, sort])
 
   const visibleStudies = filteredStudies.slice(0, visibleCount)
 
