@@ -1,6 +1,10 @@
 package com.aitserver.aiInterview.controller;
 
-import com.aitserver.aiInterview.dto.*;
+import com.aitserver.aiInterview.requestDto.AiInterviewQuestionRequest;
+import com.aitserver.aiInterview.requestDto.FollowUpQuestionRequest;
+import com.aitserver.aiInterview.responseDto.AiInterviewPreparationResponse;
+import com.aitserver.aiInterview.responseDto.AiInterviewQuestionResponse;
+import com.aitserver.aiInterview.responseDto.FollowUpQuestionResponse;
 import com.aitserver.aiInterview.service.AiInterviewService;
 import com.aitserver.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;

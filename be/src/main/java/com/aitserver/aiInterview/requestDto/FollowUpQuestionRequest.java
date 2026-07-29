@@ -21,7 +21,7 @@
 //            @JsonProperty("depth")    Integer depth
 //    ) {}
 //}
-package com.aitserver.aiInterview.dto;
+package com.aitserver.aiInterview.requestDto;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
