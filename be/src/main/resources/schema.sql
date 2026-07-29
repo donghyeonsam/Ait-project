@@ -613,6 +613,8 @@ CREATE TABLE study_session_participants (
 
                                             session_id BIGINT NOT NULL,
                                             user_id BIGINT NOT NULL,
+                                            resume_id BIGINT NULL,
+                                            cover_letter_id BIGINT NULL,
 
                                             role VARCHAR(20) NOT NULL DEFAULT 'MEMBER',
                                             status VARCHAR(20) NOT NULL DEFAULT 'JOINED',
