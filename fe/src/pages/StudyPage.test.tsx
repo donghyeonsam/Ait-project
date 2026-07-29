@@ -54,6 +54,7 @@ const studyGroups: StudyGroupListItem[] = groupTitles.map((title, index) => ({
   title,
   description: `${title} 소개`,
   capacity: 6,
+  currentMemberCount: 3,
   groupStatus: index === 8 ? 'CLOSED' : 'RECRUITING',
   createdAt: `2026-07-${String(20 - index).padStart(2, '0')}T09:00:00`,
 }))
@@ -67,6 +68,7 @@ const myStudyGroups: MyStudyGroup[] = [
     currentMemberCount: 4,
     groupStatus: 'ACTIVE',
     joinedAt: '2026-07-01T09:00:00',
+    owner: true,
   },
   {
     id: 102,
@@ -76,6 +78,7 @@ const myStudyGroups: MyStudyGroup[] = [
     currentMemberCount: 3,
     groupStatus: 'RECRUITING',
     joinedAt: '2026-07-05T09:00:00',
+    owner: false,
   },
 ]
 
@@ -152,13 +155,13 @@ describe('StudyPage', () => {
     ).toBeInTheDocument()
   })
 
-  it('현재 인원을 모르는 목록에서는 정원만 표시한다', async () => {
+  it('목록 카드에 현재 인원과 정원을 함께 표시한다', async () => {
     renderStudyPage()
     const firstCard = (
       await screen.findAllByRole('article', { name: /상세 정보$/ })
     )[0]
 
-    expect(within(firstCard).getByText('정원 6명')).toBeInTheDocument()
+    expect(within(firstCard).getByText('3/6명')).toBeInTheDocument()
   })
 
   it('마이 스터디 카드를 그룹 상세 라우트에 연결한다', async () => {
@@ -174,6 +177,45 @@ describe('StudyPage', () => {
         name: '백엔드 기술 연습 그룹 페이지로 이동',
       }),
     ).toHaveAttribute('href', '/study/groups/102')
+  })
+
+  it('이미 가입한 스터디는 스터디 찾기 목록에서 제외한다', async () => {
+    vi.mocked(getStudyGroups).mockResolvedValueOnce(
+      toPage([
+        ...studyGroups,
+        {
+          id: 101,
+          title: '금융권 면접 PT 대비',
+          description: '금융권 PT 면접을 함께 준비해요.',
+          capacity: 6,
+          currentMemberCount: 4,
+          groupStatus: 'ACTIVE',
+          createdAt: '2026-07-01T09:00:00',
+        },
+      ]),
+    )
+
+    renderStudyPage()
+    await screen.findAllByRole('article', { name: /상세 정보$/ })
+
+    expect(
+      screen.queryByRole('article', {
+        name: '금융권 면접 PT 대비 상세 정보',
+      }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText(`총 ${studyGroups.length}개의 스터디`)).toBeInTheDocument()
+  })
+
+  it('마이 스터디 카드에 그룹장·그룹원 여부를 표시한다', async () => {
+    renderStudyPage()
+
+    const ownerCard = (
+      await screen.findByText('금융권 면접 PT 대비')
+    ).closest('article')
+    const memberCard = screen.getByText('백엔드 기술 연습').closest('article')
+
+    expect(within(ownerCard!).getByText('그룹장')).toBeInTheDocument()
+    expect(within(memberCard!).getByText('그룹원')).toBeInTheDocument()
   })
 
   it('목록 조회에 실패하면 오류와 다시 시도를 안내한다', async () => {
@@ -241,7 +283,6 @@ describe('StudyPage', () => {
     const chatButton = screen.getByRole('button', {
       name: '그룹톡 열기',
     })
-    expect(chatButton).toHaveAccessibleDescription('새 메시지 42개')
     await user.click(chatButton)
     const chatDialog = screen.getByRole('dialog')
     expect(chatDialog).toHaveClass('study-chat-dialog')

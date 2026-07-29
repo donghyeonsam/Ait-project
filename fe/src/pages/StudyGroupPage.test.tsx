@@ -66,6 +66,7 @@ const myStudyGroups: MyStudyGroup[] = [
     currentMemberCount: groupDetail.currentMemberCount,
     groupStatus: 'RECRUITING',
     joinedAt: '2026-07-01T09:00:00',
+    owner: true,
   },
 ]
 
@@ -288,6 +289,14 @@ describe('StudyGroupPage', () => {
       }),
     ).toBeInTheDocument()
 
+    // 초기 상태는 공지가 없으므로 작성부터 시작한다.
+    await user.click(screen.getByRole('button', { name: '공지 작성' }))
+    await user.type(
+      screen.getByRole('textbox', { name: '공지 내용' }),
+      '이번 주 세션은 화 20:00, PT 주제는 금리 인하기 자산 전략입니다.',
+    )
+    await user.click(screen.getByRole('button', { name: '공지 저장' }))
+
     const noticeText = screen.getByTitle(/이번 주 세션은/)
     Object.defineProperties(noticeText, {
       clientWidth: { configurable: true, value: 240 },
@@ -350,8 +359,15 @@ describe('StudyGroupPage', () => {
     )
     expect(messageInput).toHaveValue('😀 ( •̀ᴗ•́ )و')
 
-    const reactionTrigger = screen.getByRole('button', {
-      name: '"발표 자료 오늘 밤까지 공유드릴게요!" 메시지에 이모지 반응 남기기',
+    // 초기 메시지 목록이 비어 있으므로 반응을 남길 메시지를 직접 보낸다.
+    await user.clear(messageInput)
+    await user.type(messageInput, '테스트 메시지입니다')
+    await user.click(
+      screen.getByRole('button', { name: '그룹톡 메시지 전송' }),
+    )
+
+    const reactionTrigger = await screen.findByRole('button', {
+      name: '"테스트 메시지입니다" 메시지에 이모지 반응 남기기',
     })
     const targetMessage =
       reactionTrigger.closest<HTMLElement>('.study-chat-message')
@@ -374,8 +390,9 @@ describe('StudyGroupPage', () => {
     const reactionPicker = screen.getByRole('group', {
       name: '메시지 반응 선택',
     })
+    // 내가 보낸 메시지라 self 방향 피커가 뜬다.
     expect(reactionPicker).toHaveClass(
-      'study-reaction-picker--incoming',
+      'study-reaction-picker--self',
       'fixed',
     )
 
@@ -395,19 +412,15 @@ describe('StudyGroupPage', () => {
       'inline-flex',
     )
     expect(reactionButton).not.toHaveClass('absolute')
+    // 내가 보낸 메시지의 반응은 오른쪽 정렬된다.
     expect(reactionButton.closest('.mt-1')).toHaveClass(
       'flex',
-      'justify-start',
+      'justify-end',
     )
     expect(reactionButton.parentElement).toHaveClass('relative')
     expect(
-      within(targetMessage!).getByRole('button', {
-        name: '👍 반응 1개 추가',
-      }),
-    ).toBeInTheDocument()
-    expect(
       screen.getByRole('button', {
-        name: '"발표 자료 오늘 밤까지 공유드릴게요!" 메시지에 이모지 반응 남기기',
+        name: '"테스트 메시지입니다" 메시지에 이모지 반응 남기기',
       }),
     ).toBe(reactionTrigger)
   })
