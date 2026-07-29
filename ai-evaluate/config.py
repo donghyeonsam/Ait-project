@@ -54,6 +54,21 @@ class Settings(BaseSettings):
     voice_model_path: str = "core/voice/model/voice_mlp.pt"
     voice_scaler_path: str = "core/voice/model/voice_scaler.json"
 
+    # ── 종합 점수(score, BE 응답 필드명) 산출 곡선 ──
+    # "자신감 높을수록 좋다"(단조 증가)가 아니라 "적당히 긴장한 상태가 제일 좋다"
+    # (여키스-도슨 법칙 스타일의 종형 곡선)로 바꾼 값이다. 정점 위치(voice_ideal_tension)
+    # 와 퍼짐 정도(voice_tension_score_width) 둘 다 아직 잠정값이다.
+    # ⚠️ training/voice/sanity_check_sample.py 로 뽑은 표본을 실제로 들어보고,
+    #    "이 정도 긴장이 딱 적당하다" 싶은 tension_score 근처로 voice_ideal_tension 을
+    #    조정할 것. 재학습 필요 없이 이 값만 바꾸면 바로 반영된다(core/voice/predictor.py 참고).
+    voice_ideal_tension: float = 0.4
+    # 정점에서 얼마나 멀어지면 점수가 급하게 떨어지는지. 작을수록 뾰족한 곡선(정점만
+    # 후하게 주고 나머지는 박하게), 클수록 완만한 곡선(정점에서 좀 벗어나도 큰 감점 없음).
+    # ⚠️ 2026-07-29 sanity check 결과 0.25 는 너무 가팔라서(tension=0.0 -> 2.8점,
+    #    tension=1.0 -> 0.6점) teacher/student 가 "확실히 편안함/확실히 긴장"이라고
+    #    강하게 동의한 샘플조차 지나치게 박하게 깎인다는 청취 피드백으로 0.35 로 완화.
+    voice_tension_score_width: float = 0.35
+
     # 음성 분석을 '동시에 몇 개까지' 돌릴지 정하는 값.
     # 음성 분석은 CPU 를 많이 쓴다. 제한이 없으면 BE(Spring)의 @Async 스레드 수만큼
     # 요청이 한꺼번에 몰려 CPU 가 꽉 차고, 같은 서버에서 도는 화상면접(LiveKit)이

@@ -81,13 +81,47 @@ def _load() -> None:
                     ckpt["in_dim"], ckpt["loss_name"])
 
 
+def _tension_to_interview_score_10(tension: float) -> float:
+    """
+    tension_score(0~1) -> interview_score_10(0~10).
+
+    [단조 증가에서 종형 곡선으로 바꾼 이유]
+    이전엔 "긴장이 적을수록(confidence_score 가 높을수록) 좋은 점수"였다. 그런데
+    실제 면접에서는 너무 편안해도(준비 안 된 느낌, 무성의해 보임) 좋은 인상이 아니다 -
+    적당히 긴장한 상태가 오히려 좋은 신호다(여키스-도슨 법칙: 각성이 너무 낮아도
+    너무 높아도 수행이 떨어지고, 중간 지점에서 최고치를 찍는다는 심리학 개념과 같은 결).
+
+    그래서 정점(voice_ideal_tension)에서 멀어질수록(양방향 대칭으로) 점수가 깎이는
+    가우시안(종형) 곡선을 쓴다:
+        score = 10 * exp( -(tension - ideal)^2 / (2 * width^2) )
+    tension == ideal 이면 10점, 멀어질수록 0에 가까워진다. 방향(너무 편안함 vs
+    너무 긴장함)에 따라 감점 폭을 다르게 주지 않기로 했으므로 좌우 대칭이다.
+
+    ⚠️ voice_ideal_tension/voice_tension_score_width(config.py)는 아직 잠정값이다.
+       training/voice/sanity_check_sample.py 로 뽑은 표본을 실제로 들어보고 "이 정도
+       긴장이 딱 좋다" 싶은 지점으로 voice_ideal_tension 을 조정할 것 - 재학습 없이
+       이 두 숫자만 바꾸면 바로 반영된다.
+    """
+    ideal = settings.voice_ideal_tension
+    width = settings.voice_tension_score_width
+    score = 10.0 * np.exp(-((tension - ideal) ** 2) / (2 * width ** 2))
+    return round(float(score), 1)
+
+
 def predict_voice(feature: np.ndarray) -> dict:
-    """피처벡터 -> {"confidence_score": 0~1, "tension_score": 0~1}
+    """피처벡터 -> {"confidence_score": 0~1, "tension_score": 0~1, "score": 0~10}
 
     ⚠️ 키 이름이 api/schemas/analysis.py 의 VoiceResult 필드명과 정확히 같아야 한다.
        api/routers/analysis.py 가 VoiceResult(**result) 로 그대로 언패킹하기 때문에,
        여기서 이름이 어긋나면 pydantic 검증 에러로 바로 터진다(다행히 조용히 틀리는
        종류의 실수는 아니다).
+
+    [score] BE 가 "10점 만점" 점수로 바로 쓰라고 편의상 추가한 필드다(예전 이름은
+    interview_score_10, 2026-07-29 BE 응답 스펙을 이 필드 하나로 좁히면서 score 로
+    개명). 모델이 새로 뭘 예측하는 게 아니라 이미 나온 tension_score(0~1)를 종형
+    곡선에 통과시킨 후처리 값이라 - 이 계산식을 바꾸려고 teacher/student 를 재학습할
+    필요는 없다. (연속값 confidence_score/tension_score 자체는 내부적으로 계속
+    계산하되 응답 스키마에서만 뺀 것과 같은 원칙이다.)
     """
     _load()
     x = (feature - _mean) / np.maximum(_std, 1e-6)
@@ -103,4 +137,8 @@ def predict_voice(feature: np.ndarray) -> dict:
         values = np.clip(out.numpy(), 0.0, 1.0)
 
     confidence, tension = [float(v) for v in values]
-    return {"confidence_score": confidence, "tension_score": tension}
+    return {
+        "confidence_score": confidence,
+        "tension_score": tension,
+        "score": _tension_to_interview_score_10(tension),
+    }

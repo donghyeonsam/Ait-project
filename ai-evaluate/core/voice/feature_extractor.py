@@ -1,5 +1,19 @@
 """
-오디오 클립 1개 -> 경량 피처벡터 (38차원).
+오디오 클립 1개 -> 경량 피처벡터 (44차원).
+
+[2026-07-29 추가된 6차원]
+student 가 teacher(jungjongho) 를 따라가는 정도(r=0.809)를 좀 더 끌어올리려고
+"평균/표준편차로만 뭉뚱그리면 사라지는 신호"를 보강했다. 셋 다 이미 계산해두고
+있던 Praat/librosa 객체에 호출 하나씩만 더 얹는 수준이라 연산 비용 증가는 미미하다.
+  - f0_delta/f0_slope   : 피치의 시간적 변화(표정 aggregator.py 의 ear_delta/
+                          dev_slope 와 같은 개념). "처음엔 떨다가 안정됨"과
+                          "처음엔 괜찮다가 후반에 무너짐"을 구분하기 위함.
+  - formant1/2_mean     : 성도(목/턱/혀) 긴장이 공명주파수를 바꾸는 것을 잡기 위함.
+  - spectral_centroid   : 목소리의 "밝기/거칠기". 긴장하면 고주파 에너지가 늘어
+                          거칠게 들리는 경향과 관련이 있을 수 있다는 가설.
+⚠️ jitter/shimmer 와 마찬가지로 이 6개도 "면접 긴장도"와 실제 상관관계가 검증된
+   것은 아니다. train_mlp.py 재학습 후 축별 상관계수로 기여도를 확인할 것 -
+   기여가 없으면 다음 정리 때 미련 없이 뺄 것.
 
 [이전 버전에서 고친 것 두 가지]
  1) librosa.pyin 제거.
@@ -37,8 +51,15 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 N_MFCC = 13
-# 3(F0) + 2(RMS) + 4(휴지/속도/길이) + 3(음질) + 13*2(MFCC) = 38
-FEATURE_DIM = 3 + 2 + 4 + 3 + N_MFCC * 2
+# 3(F0) + 2(RMS) + 4(휴지/속도/길이) + 3(음질) + 13*2(MFCC)
+#   + 2(F0 시간변화) + 2(포먼트) + 2(스펙트럼 무게중심) = 44
+FEATURE_DIM = 3 + 2 + 4 + 3 + N_MFCC * 2 + 2 + 2 + 2
+
+# 포먼트 추출 최대 주파수(Hz). 화자 성별을 미리 알 수 없어 Praat 매뉴얼이 권장하는
+# 성인 평균값(남/녀 중간 지점)으로 고정한다 - 성별별 최적값(남 5000/여 5500)보다는
+# 부정확하지만, 우리 목적은 절대 포먼트값이 아니라 "긴장 시 얼마나 이동하는가"의
+# 상대 비교라 이 정도 근사로 충분하다.
+FORMANT_MAX_HZ = 5500.0
 
 MIN_DURATION_SEC = 1.0
 
@@ -113,19 +134,45 @@ def _praat_features(path: str) -> dict[str, float]:
     harmonicity = praat_call(snd, "To Harmonicity (cc)", 0.01, floor, 0.1, 1.0)
     hnr = _clean(praat_call(harmonicity, "Get mean", 0, 0))
 
+    # ── F0 의 시간적 변화 (표정 aggregator.py 의 ear_delta/dev_slope 와 같은 개념) ──
+    # pitch 객체는 이미 위에서 "To Pitch" 로 만들어뒀으므로 재계산 없이 프레임별
+    # F0 배열만 꺼내 쓴다. selected_array['frequency'] 는 무성 프레임을 0.0 으로 채운다.
+    f0_track = pitch.selected_array["frequency"]
+    voiced = f0_track[f0_track > 0]
+    if voiced.size >= 6:  # 최소 몇 개는 있어야 앞/뒤 구간 비교가 의미를 가진다
+        third = max(1, voiced.size // 3)
+        f0_delta = float(voiced[-third:].mean() - voiced[:third].mean())
+        # 1차 다항 회귀 기울기. 양수면 답변 후반으로 갈수록 피치가 올라감(긴장 상승 신호일 수 있음).
+        f0_slope = float(np.polyfit(np.arange(voiced.size), voiced, 1)[0])
+    else:
+        f0_delta, f0_slope = 0.0, 0.0
+
+    # ── 포먼트(성도 공명 주파수) ──
+    # "To Formant (burg)" 인자: (time_step, max_number_of_formants, max_formant_hz,
+    #                            window_length_sec, pre_emphasis_from_hz)
+    # 5개 포먼트까지 추적하되 우리가 쓰는 건 F1/F2 뿐이다(F3 이상은 개인차가 커서
+    # 이 용도엔 신호보다 잡음에 가깝다는 판단, 추후 상관계수 보고 재검토 가능).
+    formant = praat_call(snd, "To Formant (burg)", 0.0, 5, FORMANT_MAX_HZ, 0.025, 50)
+    f1 = _clean(praat_call(formant, "Get mean", 1, 0, 0, "Hertz"))
+    f2 = _clean(praat_call(formant, "Get mean", 2, 0, 0, "Hertz"))
+
     return {
         "f0_mean": f0_mean,
         "f0_std": f0_std,
         "f0_range": f0_range,
+        "f0_delta": _clean(f0_delta),
+        "f0_slope": _clean(f0_slope),
         "jitter": jitter,
         "shimmer": shimmer,
         "hnr": hnr,
+        "formant1": f1,
+        "formant2": f2,
     }
 
 
 def extract_voice_features(path: str) -> tuple[np.ndarray, dict]:
     """
-    오디오 경로 -> (피처벡터 38차원, API 응답용 부가지표).
+    오디오 경로 -> (피처벡터 44차원, API 응답용 부가지표).
 
     표정과 마찬가지로 학습(training/voice/build_dataset.py)과 추론(worker/tasks.py)이
     이 함수를 공유해 training-serving skew 를 원천 차단한다.
@@ -162,6 +209,10 @@ def extract_voice_features(path: str) -> tuple[np.ndarray, dict]:
     # 사람의 청각 특성을 반영한 스펙트럼 요약. 음색/발음의 전반적 특징을 담는다.
     mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=N_MFCC)
 
+    # ── 스펙트럼 무게중심 (밝기/거칠기) ──
+    # MFCC 계산과 같은 STFT 프레임을 재사용하는 수준이라 추가 비용이 거의 없다.
+    centroid = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
+
     feature = np.concatenate([
         [praat["f0_mean"], praat["f0_std"], praat["f0_range"]],     # 3
         [float(rms.mean()), float(rms.std())],                       # 2
@@ -169,6 +220,9 @@ def extract_voice_features(path: str) -> tuple[np.ndarray, dict]:
         [praat["jitter"], praat["shimmer"], praat["hnr"]],           # 3
         mfcc.mean(axis=1),                                           # 13
         mfcc.std(axis=1),                                            # 13
+        [praat["f0_delta"], praat["f0_slope"]],                       # 2
+        [praat["formant1"], praat["formant2"]],                       # 2
+        [float(centroid.mean()), float(centroid.std())],              # 2
     ]).astype(np.float32)
 
     if feature.shape[0] != FEATURE_DIM:

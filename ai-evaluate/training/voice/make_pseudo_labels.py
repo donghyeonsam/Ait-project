@@ -187,7 +187,7 @@ def discover_audio_files(root: Path, recursive: bool, filename_contains: str | N
     return sorted(files)
 
 
-def load_teacher(teacher: str):
+def load_teacher(teacher: str, device: torch.device):
     model_name = TEACHER_MODEL_NAMES[teacher]
     feature_extractor = AutoFeatureExtractor.from_pretrained(model_name)
     config = AutoConfig.from_pretrained(model_name)
@@ -198,12 +198,13 @@ def load_teacher(teacher: str):
     else:
         raise ValueError(f"알 수 없는 teacher: {teacher}")
     model.eval()
+    model.to(device)  # GPU 가 있으면 여기서 VRAM 에 올라간다. inputs 쪽도 같은 device 로 옮겨야 한다.
     return feature_extractor, model, config
 
 
-def run_audeering(model, inputs) -> dict:
+def run_audeering(model, input_values) -> dict:
     with torch.no_grad():
-        out = model(inputs.input_values).squeeze(0).numpy()
+        out = model(input_values).squeeze(0).cpu().numpy()
     # ⚠️ 이 모델의 출력 순서는 (arousal, dominance, valence) 다.
     #    valence 가 세 번째라는 점을 놓치기 쉽다 - a/v/d 순서라고 착각하면
     #    에러 없이 값만 뒤바뀐다.
@@ -212,10 +213,10 @@ def run_audeering(model, inputs) -> dict:
             "dominance": round(dominance, 4)}
 
 
-def run_jungjongho(model, config, inputs) -> dict:
+def run_jungjongho(model, config, input_values) -> dict:
     with torch.no_grad():
-        logits = model(inputs.input_values).squeeze(0)
-    probs = torch.softmax(logits, dim=-1).numpy()
+        logits = model(input_values).squeeze(0)
+    probs = torch.softmax(logits, dim=-1).cpu().numpy()
     id2label = config.id2label  # {0: "기쁨", 1: "당황", ...} (transformers 가 str 키를 int 로 정리해줌)
     label_probs = {id2label[i]: float(p) for i, p in enumerate(probs)}
 
@@ -245,9 +246,16 @@ def main():
     parser.add_argument("--filename-contains", default=None,
                         help='파일명에 이 문자열이 포함된 것만 사용. 예: "_a_" '
                              '(AIHub 채용면접 음성에서 질문(_q_)이 아닌 답변만 거를 때)')
+    parser.add_argument("--device", default=None,
+                         help='"cuda"/"cpu" 직접 지정. 생략하면 GPU 가 있으면 자동으로 씀')
     args = parser.parse_args()
 
-    feature_extractor, model, config = load_teacher(args.teacher)
+    device = torch.device(
+        args.device if args.device else ("cuda" if torch.cuda.is_available() else "cpu")
+    )
+    print(f"[device] {device} 사용 (torch {torch.__version__})")
+
+    feature_extractor, model, config = load_teacher(args.teacher, device)
 
     chunks_dir = Path(args.chunks_dir)
     if args.window > 0:
@@ -277,12 +285,13 @@ def main():
             # feature_extractor 가 모델 규격에 맞는 정규화를 수행한다.
             # 이걸 건너뛰고 raw 파형을 넣으면 출력이 크게 틀어진다.
             inputs = feature_extractor(chunk, sampling_rate=SAMPLE_RATE, return_tensors="pt")
+            input_values = inputs.input_values.to(device)  # 모델과 같은 device 로 옮겨야 한다
 
             if args.teacher == "audeering":
-                extra = run_audeering(model, inputs)
+                extra = run_audeering(model, input_values)
                 summary = f"a={extra['arousal']:.3f} v={extra['valence']:.3f} d={extra['dominance']:.3f}"
             else:
-                extra = run_jungjongho(model, config, inputs)
+                extra = run_jungjongho(model, config, input_values)
                 summary = f"confidence={extra['confidence']:.3f} tension={extra['tension']:.3f}"
 
             rows.append({"file_name": file_name, "source_clip": path.stem, **extra})

@@ -53,19 +53,15 @@ request_id: (선택) 로그 추적용 식별자. 예: "42-3" = 면접 42번의 3
 
 ```json
 {
-  "confidence_score": 0.65,
-  "tension_score": 0.35,
-  "speech_rate": 4.2,
-  "pause_ratio": 0.18
+  "score": 8.1
 }
 ```
 
 | 필드 | 뜻 | 범위 |
 |---|---|---|
-| `confidence_score` | 자신감. 낮으면 위축, 높으면 당당 (`1 - tension_score`) | 0~1 |
-| `tension_score` | 긴장도. 낮으면 차분, 높으면 긴장 | 0~1 |
-| `speech_rate` | 발화 속도 (초당 소리 시작점 개수) | 실수 |
-| `pause_ratio` | 전체 중 말 안 한 시간 비율 | 0~1 |
+| `score` | 답변 종합 점수(10점 만점). ⚠️ 자신감이 높을수록 좋은 점수가 아니다 - 적당히 긴장한 상태를 정점으로 하는 종형 곡선이라, 너무 편안해도 너무 긴장해도 둘 다 감점된다. 정점 위치는 `voice_ideal_tension`(`config.py`)로 조정하며, sanity check 결과를 보고 튜닝한 값이다. | 0~10 |
+
+⚠️ [2026-07-29] 응답을 이 필드 하나로 좁혔다. 이전 버전은 `confidence_score`/`tension_score`/`speech_rate`/`pause_ratio`도 같이 내려줬으나, BE 스펙을 종합 점수 하나만 노출하는 것으로 확정했다. 내부적으로는 `core/voice/predictor.py`가 여전히 그 값들을 계산한다(점수 산출에 필요) - 나중에 근거 데이터를 BE/FE 에 다시 보여줘야 하면 `api/schemas/analysis.py` 의 `VoiceResult` 에 필드만 다시 선언하면 된다(재학습 불필요).
 
 ⚠️ [teacher 교체] 이전 버전은 audeering(영어, arousal/valence/dominance 3축)을
 teacher 로 썼으나, 한국어로 학습된 jungjongho 모델로 교체하면서 표정 쪽과 같은
@@ -160,25 +156,12 @@ public RestTemplate aiMediaRestTemplate(RestTemplateBuilder builder) {
 
 ```java
 public record VoiceScoreResponse(
-        double confidenceScore,
-        double tensionScore,
-        double speechRate,      // JSON 은 speech_rate → 아래 설정 필요
-        double pauseRatio
+        double score   // 답변 종합 10점 점수. JSON 필드명도 score 라 별도 매핑 설정이 필요 없다.
 ) {
     public static VoiceScoreResponse failed() {
-        return new VoiceScoreResponse(-1, -1, -1, -1);
+        return new VoiceScoreResponse(-1);
     }
 }
-```
-
-JSON 필드가 `speech_rate` 처럼 밑줄 형식이므로, 매핑 설정을 해줘야 한다.
-
-```java
-// 방법 1: 필드마다 지정
-@JsonProperty("speech_rate") double speechRate
-
-// 방법 2: 이 DTO 전체에 적용
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 ```
 
 ---

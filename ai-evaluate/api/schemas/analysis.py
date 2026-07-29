@@ -108,10 +108,25 @@ class VoiceResult(BaseModel):
     make_pseudo_labels.py --teacher audeering 결과와 평균 내어 쓰면 된다(이 스키마
     자체를 다시 3축으로 되돌릴 필요는 없다).
     """
-    confidence_score: float = Field(..., ge=0.0, le=1.0, description="자신감 (1 - tension_score)")
-    tension_score: float = Field(..., ge=0.0, le=1.0, description="긴장도 (0=침착, 1=긴장)")
-    speech_rate: float = Field(..., description="발화 속도 (온셋 개수/초, 음절 근사)")
-    pause_ratio: float = Field(..., ge=0.0, le=1.0, description="전체 중 무음 비율")
+    score: float = Field(
+        ..., ge=0.0, le=10.0,
+        description=(
+            "답변 종합 점수(10점 만점). confidence_score 를 그대로 스케일한 값이 아니라, "
+            "적당히 긴장한 상태(voice_ideal_tension)를 정점으로 하는 종형 곡선으로 계산한다 "
+            "- 너무 편안하거나 너무 긴장하면 둘 다 감점된다(core/voice/predictor.py 참고)."
+        ))
+
+    # ⚠️ [2026-07-29] BE 응답 스펙을 score 단일 필드로 좁히기로 결정(필드명도
+    # interview_score_10 -> score 로 변경). confidence_score/tension_score/speech_rate/
+    # pause_ratio 는 core/voice/predictor.py 와 worker/tasks.py, api/routers/analysis.py 의
+    # _analyze_audio_bytes 내부에서는 여전히 계산되지만(score 산출에 필요), 이 스키마에
+    # 선언돼 있지 않으면 pydantic 이 응답 직렬화 시 자동으로 걸러내므로 BE 에는 노출되지 않는다.
+    # 나중에 "왜 이 점수인지" 근거를 BE/FE 에 다시 보여줘야 하면, 재학습 없이 아래 필드들을
+    # 다시 선언하기만 하면 된다(예전에 있던 정의를 git 히스토리에서 그대로 복원 가능):
+    #   confidence_score: float = Field(..., ge=0.0, le=1.0, description="자신감 (1 - tension_score)")
+    #   tension_score: float = Field(..., ge=0.0, le=1.0, description="긴장도 (0=침착, 1=긴장)")
+    #   speech_rate: float = Field(..., description="발화 속도 (온셋 개수/초, 음절 근사)")
+    #   pause_ratio: float = Field(..., ge=0.0, le=1.0, description="전체 중 무음 비율")
 
 
 class VoiceResultResponse(BaseModel):
