@@ -1,6 +1,7 @@
 package com.aitserver.studyGroupRoom.repository;
 
 
+import com.aitserver.studyGroupRoom.domain.StudyGroupMemberStatus;
 import com.aitserver.studyGroupRoom.domain.StudyGroupStatus;
 import com.aitserver.studyGroupRoom.entity.StudyGroup;
 import jakarta.persistence.LockModeType;
@@ -12,6 +13,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface StudyGroupRepository
@@ -24,10 +26,18 @@ public interface StudyGroupRepository
     // 검색 및 페이징 (String -> Enum 타입으로 변경)
     @Query("SELECT s FROM StudyGroup s " +
             "WHERE (:status IS NULL OR s.status = :status) " +
-            "AND (:keyword IS NULL OR s.title LIKE %:keyword% OR s.description LIKE %:keyword%)")
-    Page<StudyGroup> findByCondition(
-            @Param("status") StudyGroupStatus status, // Enum 적용
+            "AND (:keyword IS NULL OR s.title LIKE %:keyword% OR s.description LIKE %:keyword%) " +
+            "AND NOT EXISTS (" +
+            "    SELECT 1 FROM StudyGroupMember m " +
+            "    WHERE m.studyGroup = s " +
+            "    AND m.user.id = :userId " +
+            "    AND m.status IN :excludedStatuses" +
+            ")")
+    Page<StudyGroup> findByConditionAndUserStatus(
+            @Param("status") StudyGroupStatus status,
             @Param("keyword") String keyword,
+            @Param("userId") Long userId,             // 현재 로그인한 유저 ID
+            @Param("excludedStatuses") List<StudyGroupMemberStatus> excludedStatuses, // 숨길 상태들
             Pageable pageable
     );
 
