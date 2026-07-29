@@ -4,21 +4,16 @@ export interface SttResponse {
   text: string
 }
 
-export interface TtsResponse {
-  audioBase64: string
-  format: string
-}
-
 interface SpeechRequestOptions {
   signal?: AbortSignal
 }
 
-// Clova가 확장자로 오디오 컨테이너를 판별하므로 Blob mime에서 파일명을 추론한다.
+// Whisper가 파일 확장자로 오디오 컨테이너를 판별하므로 Blob mime에서 파일명을 추론한다.
 function inferFilename(blob: Blob) {
   return blob.type.includes('mp4') ? 'answer.mp4' : 'answer.webm'
 }
 
-// 답변 녹음 Blob을 BE 중계 경유 Clova STT로 보내 전사 텍스트를 받는다.
+// 답변 녹음 Blob을 BE 중계 경유 OpenAI Whisper STT로 보내 전사 텍스트를 받는다.
 export function transcribeAnswer(
   audio: Blob,
   { signal }: SpeechRequestOptions = {},
@@ -32,7 +27,14 @@ export function transcribeAnswer(
   })
 }
 
-// 질문 텍스트를 Clova TTS mp3(base64)로 변환한다.
+// TODO: Whisper는 STT 전용이라 서버 TTS는 미정 — 질문 음성은 브라우저 음성 합성을 사용하며, 서버 TTS(예: OpenAI TTS) 도입이 확정되면 복원한다.
+/*
+export interface TtsResponse {
+  audioBase64: string
+  format: string
+}
+
+// 질문 텍스트를 서버 TTS mp3(base64)로 변환한다.
 export function synthesizeQuestionSpeech(
   text: string,
   { signal }: SpeechRequestOptions = {},
@@ -53,3 +55,4 @@ export function ttsResponseToBlob(res: TtsResponse): Blob {
   }
   return new Blob([bytes], { type: 'audio/mpeg' })
 }
+*/
