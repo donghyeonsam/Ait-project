@@ -63,4 +63,9 @@ public interface StudyGroupMemberRepository
 
     // 2. 특정 그룹의 PENDING인 멤버 목록 조회
     List<StudyGroupMember> findByStudyGroupIdAndStatus(Long groupId, StudyGroupMemberStatus status);
+
+    List<StudyGroupMember> findByUserIdAndStatus(
+            Long userId,
+            StudyGroupMemberStatus status
+    );
 }

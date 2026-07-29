@@ -19,3 +19,19 @@ export function confirmGithubInstallation(installationId: string) {
     `/api/github/callback?installation_id=${encodeURIComponent(installationId)}`,
   )
 }
+
+export function updateGithubRepositoryNickname(
+  repositoryId: number,
+  repoNickname: string,
+) {
+  return backendRequest<void>(`/api/github/repos/${repositoryId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ repoNickname }),
+  })
+}
+
+export function deleteGithubRepository(repositoryId: number) {
+  return backendRequest<void>(`/api/github/repos/${repositoryId}`, {
+    method: 'DELETE',
+  })
+}

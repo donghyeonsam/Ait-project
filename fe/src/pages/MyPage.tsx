@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { withdraw } from '@/api/auth'
 import { getMyGithubRepositories, type GithubRepository } from '@/api/github'
 import { toErrorMessage } from '@/api/http'
 import { getMyPageData } from '@/api/my-page'
@@ -8,6 +10,7 @@ import { PageLayout } from '@/components/layout/PageLayout'
 import { ActivityTabs } from '@/components/mypage/ActivityTabs'
 import { ProfileSection } from '@/components/mypage/ProfileSection'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useAuth } from '@/lib/useAuth'
 import type { ProfileData } from '@/types/profile'
 
@@ -63,7 +66,8 @@ function createProfile(
 
 // 마이페이지. 프로필과 등록 자료를 불러와 보여주고, 저장소 조회는 별도로 재시도할 수 있다.
 export function MyPage() {
-  const { user } = useAuth()
+  const navigate = useNavigate()
+  const { user, signOut } = useAuth()
   const [resume, setResume] = useState<Resume | null>(null)
   const [repositories, setRepositories] = useState<GithubRepository[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -71,6 +75,9 @@ export function MyPage() {
   const [isRepositoryLoading, setIsRepositoryLoading] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [documentBoxOpen, setDocumentBoxOpen] = useState(false)
+  const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false)
+  const [isWithdrawing, setIsWithdrawing] = useState(false)
+  const [withdrawError, setWithdrawError] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -124,6 +131,21 @@ export function MyPage() {
     return createProfile(resume, repositories, user.nickname, user.email)
   }, [repositories, resume, user])
 
+  const handleWithdraw = async () => {
+    setIsWithdrawing(true)
+    setWithdrawError(null)
+    try {
+      await withdraw()
+      signOut()
+      navigate('/', { replace: true })
+    } catch (requestError) {
+      setWithdrawError(toErrorMessage(requestError))
+      setIsWithdrawDialogOpen(false)
+    } finally {
+      setIsWithdrawing(false)
+    }
+  }
+
   return (
     <PageLayout>
       <section className="pb-10 pt-10" aria-labelledby="mypage-title">
@@ -167,9 +189,54 @@ export function MyPage() {
             <ActivityTabs />
           </div>
 
+          <section
+            className="mb-16 flex flex-wrap items-center justify-between gap-4 rounded-ait-m border border-status-error-border bg-status-error-surface p-6"
+            aria-labelledby="account-management-title"
+          >
+            <div>
+              <h2
+                id="account-management-title"
+                className="text-body-1 font-semibold text-text-primary"
+              >
+                계정 관리
+              </h2>
+              <p className="mt-1 text-caption text-text-secondary">
+                탈퇴하면 계정 정보가 익명화되고 다시 로그인할 수 없습니다.
+              </p>
+              {withdrawError ? (
+                <p className="mt-2 text-caption text-status-error" role="alert">
+                  {withdrawError}
+                </p>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                setWithdrawError(null)
+                setIsWithdrawDialogOpen(true)
+              }}
+            >
+              회원탈퇴
+            </Button>
+          </section>
+
           {documentBoxOpen ? (
             <DocumentBoxDialog open onOpenChange={setDocumentBoxOpen} />
           ) : null}
+
+          <ConfirmDialog
+            open={isWithdrawDialogOpen}
+            onOpenChange={(open) => {
+              if (!isWithdrawing) setIsWithdrawDialogOpen(open)
+            }}
+            title="정말 회원탈퇴할까요?"
+            description="탈퇴 후에는 계정을 복구할 수 없습니다. 운영 중인 스터디에 다른 멤버가 있다면 먼저 그룹장을 위임해야 합니다."
+            confirmLabel={isWithdrawing ? '탈퇴 처리 중' : '회원탈퇴'}
+            confirmVariant="destructive"
+            confirmDisabled={isWithdrawing}
+            onConfirm={() => void handleWithdraw()}
+          />
         </>
       ) : null}
     </PageLayout>

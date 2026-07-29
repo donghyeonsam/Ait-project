@@ -38,3 +38,9 @@ export function logout() {
     method: 'POST',
   })
 }
+
+export function withdraw() {
+  return backendRequest<void>('/api/auth/me', {
+    method: 'DELETE',
+  })
+}

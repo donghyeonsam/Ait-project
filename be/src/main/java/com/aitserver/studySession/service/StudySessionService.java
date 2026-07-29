@@ -4,7 +4,9 @@ package com.aitserver.studySession.service;
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.global.livekit.LiveKitRoomClient;
+import com.aitserver.studyGroupRoom.domain.StudyGroupMemberStatus;
 import com.aitserver.studyGroupRoom.entity.StudyGroup;
+import com.aitserver.studyGroupRoom.repository.StudyGroupMemberRepository;
 import com.aitserver.studyGroupRoom.repository.StudyGroupRepository;
 import com.aitserver.studySession.entity.StudySession;
 import com.aitserver.studySession.domain.StudySessionStatus;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.EnumSet;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -28,6 +31,7 @@ public class StudySessionService {
     );
 
     private final StudyGroupRepository studyGroupRepository;
+    private final StudyGroupMemberRepository studyGroupMemberRepository;
     private final StudySessionRepository studySessionRepository;
     private final LiveKitRoomClient liveKitRoomClient;
 
@@ -52,8 +56,24 @@ public class StudySessionService {
                                 )
                         );
 
+        Optional<StudySession> activeSession =
+                studySessionRepository
+                        .findFirstByStudyGroupIdAndStatusInOrderByCreatedAtDesc(
+                                groupId,
+                                ACTIVE_SESSION_STATUSES
+                        );
+
+        /*
+         * 이미 열린 방이 있으면 활성 그룹원에게 같은 세션을 반환합니다.
+         * 새 방이 필요한 경우에만 그룹장 권한을 검사해 중복 생성과
+         * 일반 그룹원의 입장 실패를 함께 방지합니다.
+         */
+        if (activeSession.isPresent()) {
+            validateActiveMember(groupId, userId);
+            return StudySessionCreateResponse.from(activeSession.get());
+        }
+
         validateOwner(studyGroup, userId);
-        validateNoActiveSession(groupId);
 
         String liveKitRoomName =
                 generateLiveKitRoomName();
@@ -117,19 +137,17 @@ public class StudySessionService {
         }
     }
 
-    private void validateNoActiveSession(
-            Long groupId
-    ) {
-        boolean activeSessionExists =
-                studySessionRepository
-                        .existsByStudyGroupIdAndStatusIn(
+    private void validateActiveMember(Long groupId, Long userId) {
+        boolean activeMember =
+                studyGroupMemberRepository
+                        .existsByStudyGroupIdAndUserIdAndStatus(
                                 groupId,
-                                ACTIVE_SESSION_STATUSES
+                                userId,
+                                StudyGroupMemberStatus.ACTIVE
                         );
-
-        if (activeSessionExists) {
+        if (!activeMember) {
             throw new BusinessException(
-                    ErrorCode.STUDY_SESSION_ALREADY_ACTIVE
+                    ErrorCode.STUDY_SESSION_ACCESS_DENIED
             );
         }
     }

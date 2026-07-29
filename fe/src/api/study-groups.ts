@@ -113,6 +113,13 @@ export function leaveStudyGroup(groupId: number) {
   })
 }
 
+export function kickStudyGroupMember(groupId: number, targetUserId: number) {
+  return backendRequest<void>(
+    `/api/study-groups/${groupId}/members/${targetUserId}`,
+    { method: 'DELETE' },
+  )
+}
+
 export function updateStudyGroupStatus(
   groupId: number,
   status: StudyGroupStatus,

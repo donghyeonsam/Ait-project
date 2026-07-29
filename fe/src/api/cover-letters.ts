@@ -70,3 +70,9 @@ export function updateCoverLetter(
     body: JSON.stringify(request),
   })
 }
+
+export function deleteCoverLetter(coverLetterId: number) {
+  return backendRequest<void>(`/api/cover-letters/${coverLetterId}`, {
+    method: 'DELETE',
+  })
+}

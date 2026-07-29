@@ -7,9 +7,16 @@ import {
   getMyStudyGroups,
   getStudyGroupApplications,
   getStudyGroupDetail,
+  kickStudyGroupMember,
   type MyStudyGroup,
   type StudyGroupDetail,
 } from '@/api/study-groups'
+import {
+  createStudyCalendar,
+  deleteStudyCalendar,
+  getStudyCalendars,
+  updateStudyCalendar,
+} from '@/api/study-calendars'
 
 vi.mock('@/api/auth', () => ({
   logout: vi.fn(),
@@ -20,6 +27,14 @@ vi.mock('@/api/study-groups', () => ({
   getMyStudyGroups: vi.fn(),
   getStudyGroupApplications: vi.fn(),
   updateStudyGroupStatus: vi.fn(),
+  kickStudyGroupMember: vi.fn(),
+}))
+
+vi.mock('@/api/study-calendars', () => ({
+  getStudyCalendars: vi.fn(),
+  createStudyCalendar: vi.fn(),
+  updateStudyCalendar: vi.fn(),
+  deleteStudyCalendar: vi.fn(),
 }))
 
 vi.mock('@/api/study-sessions', () => ({
@@ -92,6 +107,17 @@ describe('StudyGroupPage', () => {
     vi.mocked(getStudyGroupDetail).mockResolvedValue(groupDetail)
     vi.mocked(getMyStudyGroups).mockResolvedValue(myStudyGroups)
     vi.mocked(getStudyGroupApplications).mockResolvedValue([])
+    vi.mocked(kickStudyGroupMember).mockResolvedValue(undefined)
+    vi.mocked(getStudyCalendars).mockResolvedValue([
+      {
+        calendarId: 201,
+        content: '개인별 질문 2개 준비\n기출 답변 피드백',
+        startTime: '2026-07-21T20:00:00',
+      },
+    ])
+    vi.mocked(createStudyCalendar).mockResolvedValue(undefined)
+    vi.mocked(updateStudyCalendar).mockResolvedValue(undefined)
+    vi.mocked(deleteStudyCalendar).mockResolvedValue(undefined)
   })
 
   it('그룹 운영 정보와 구성원 관리 흐름을 제공한다', async () => {
@@ -136,7 +162,7 @@ describe('StudyGroupPage', () => {
       within(removalDialog).getByRole('button', { name: '내보내기' }),
     )
     expect(
-      screen.getByRole('heading', { name: '구성원 4 / 8' }),
+      await screen.findByRole('heading', { name: '구성원 4 / 8' }),
     ).toBeInTheDocument()
 
     await user.click(
@@ -212,7 +238,7 @@ describe('StudyGroupPage', () => {
       screen.queryByRole('button', { name: '날짜 상세 닫기' }),
     ).not.toBeInTheDocument()
     await user.click(
-      screen.getByRole('gridcell', {
+      await screen.findByRole('gridcell', {
         name: '2026-07-21, 스터디 일정 있음',
       }),
     )

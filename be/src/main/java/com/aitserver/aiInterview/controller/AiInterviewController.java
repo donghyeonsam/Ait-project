@@ -6,8 +6,10 @@ import com.aitserver.aiInterview.requestDto.NonVerbalDataRequest;
 import com.aitserver.aiInterview.responseDto.AiInterviewPreparationResponse;
 import com.aitserver.aiInterview.responseDto.AiInterviewQuestionResponse;
 import com.aitserver.aiInterview.responseDto.FollowUpQuestionResponse;
+import com.aitserver.aiInterview.responseDto.SpeechTranscriptionResponse;
 import com.aitserver.aiInterview.service.AiInterviewAsyncService;
 import com.aitserver.aiInterview.service.AiInterviewService;
+import com.aitserver.aiInterview.service.SpeechTranscriptionService;
 import com.aitserver.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -26,6 +28,7 @@ public class AiInterviewController {
 
     private final AiInterviewService aiInterviewService;
     private final AiInterviewAsyncService asyncService;
+    private final SpeechTranscriptionService speechTranscriptionService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<AiInterviewPreparationResponse>> getInfo(
@@ -82,6 +85,23 @@ public class AiInterviewController {
                         request
                 )
         );
+    }
+
+    @PostMapping(
+            value = "/speech/stt",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<SpeechTranscriptionResponse>> transcribeSpeech(
+            @RequestPart("media") MultipartFile media,
+            HttpServletRequest request) {
+        SpeechTranscriptionResponse response =
+                speechTranscriptionService.transcribe(media);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                "음성 변환 완료",
+                response,
+                request
+        ));
     }
 
     @PostMapping("/{aiInterviewId}/non-verbal") // 표정과 시선 분석

@@ -98,7 +98,7 @@ describe('submitInterviewAnswer', () => {
           timestamp: '2026-07-23T00:00:00Z',
           path: '/api/ai-interviews/101/answers',
           message: '사용자 답변 분석 완료',
-          data: { a: 'placeholder' },
+          data: { isPass: true, nextQuestion: null },
           error: null,
         }),
         {
@@ -115,11 +115,15 @@ describe('submitInterviewAnswer', () => {
       rubric: ['3-way handshake를 설명한다.'],
       topic: '네트워크',
       source: 'general',
+      depth: 0,
     }
+    const audio = new Blob(['recorded-answer'], { type: 'audio/webm' })
     await submitInterviewAnswer({
       aiInterviewId: 101,
+      input,
       question,
       answer: '3-way handshake로 연결을 수립합니다.',
+      audio,
     })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -129,9 +133,21 @@ describe('submitInterviewAnswer', () => {
 
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit
     expect(request.method).toBe('POST')
-    expect(JSON.parse(String(request.body))).toEqual({
+    expect(request.body).toBeInstanceOf(FormData)
+
+    const form = request.body as FormData
+    const questionRequest = form.get('questionRequest')
+    const audioFile = form.get('audioFile')
+    expect(questionRequest).toBeInstanceOf(Blob)
+    expect(audioFile).toBeInstanceOf(Blob)
+    expect(JSON.parse(await (questionRequest as Blob).text())).toEqual({
+      interviewType: 'cs',
+      resumeId: 3,
+      coverLetterId: null,
+      githubRepoId: 9,
       question,
       answer: '3-way handshake로 연결을 수립합니다.',
     })
+    expect((request.headers as Headers).has('Content-Type')).toBe(false)
   })
 })

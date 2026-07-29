@@ -9,6 +9,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "users")
@@ -67,5 +68,26 @@ public class User {
         this.firstJobInterest = firstJobInterest;
         this.secondJobInterest = secondJobInterest;
         this.profileImage = profileImage;
+    }
+
+    public void withdraw() {
+        if (this.deletedAt != null) {
+            return;
+        }
+
+        String anonymizationKey = UUID.randomUUID().toString();
+        this.email =
+                "withdrawn-" + this.id + "-" + anonymizationKey
+                        + "@deleted.local";
+        this.password = "{withdrawn}" + anonymizationKey;
+        this.name = "탈퇴회원";
+        this.nickname =
+                ("wd-" + anonymizationKey.replace("-", ""))
+                        .substring(0, 20);
+        this.role = "WITHDRAWN";
+        this.firstJobInterest = null;
+        this.secondJobInterest = null;
+        this.profileImage = null;
+        this.deletedAt = LocalDateTime.now();
     }
 }

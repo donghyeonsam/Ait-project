@@ -18,6 +18,11 @@ spring:
   application:
     name: aitServer
 
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 30MB
+
   datasource:
     url: jdbc:mysql://localhost:3307/${MYSQL_DATABASE}?sslMode=DISABLED&allowPublicKeyRetrieval=true&connectionTimeZone=Asia/Seoul&characterEncoding=UTF-8
     driver-class-name: com.mysql.cj.jdbc.Driver

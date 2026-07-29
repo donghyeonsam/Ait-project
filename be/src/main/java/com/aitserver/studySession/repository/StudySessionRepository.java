@@ -3,10 +3,10 @@ package com.aitserver.studySession.repository;
 
 import com.aitserver.studySession.entity.StudySession;
 import com.aitserver.studySession.domain.StudySessionStatus;
-import io.lettuce.core.dynamic.annotation.Param;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.Optional;

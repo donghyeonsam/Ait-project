@@ -16,6 +16,8 @@ interface ConfirmDialogProps {
   confirmLabel?: string
   cancelLabel?: string
   onConfirm: () => void
+  confirmVariant?: 'primary' | 'destructive'
+  confirmDisabled?: boolean
 }
 
 // 되돌리기 어려운 행동 전에 한 번 더 확인하는 공통 모달.
@@ -27,6 +29,8 @@ export function ConfirmDialog({
   confirmLabel = '확인',
   cancelLabel = '취소',
   onConfirm,
+  confirmVariant = 'primary',
+  confirmDisabled = false,
 }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -42,7 +46,12 @@ export function ConfirmDialog({
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
             {cancelLabel}
           </Button>
-          <Button type="button" onClick={onConfirm}>
+          <Button
+            type="button"
+            variant={confirmVariant}
+            onClick={onConfirm}
+            disabled={confirmDisabled}
+          >
             {confirmLabel}
           </Button>
         </DialogFooter>

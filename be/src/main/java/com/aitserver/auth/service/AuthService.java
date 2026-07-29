@@ -13,5 +13,7 @@ public interface AuthService {
 
     void logout(Long userId, String accessToken);
 
+    void withdraw(Long userId, String accessToken);
+
     String reissue(String refreshToken);
 }

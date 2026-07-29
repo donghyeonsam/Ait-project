@@ -4,6 +4,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import {
   generateInterviewQuestions,
   submitInterviewAnswer,
+  submitInterviewNonVerbalData,
   type GeneratedInterviewQuestion,
   type InterviewQuestionGenerationResponse,
 } from '@/api/ai-interviews'
@@ -12,6 +13,7 @@ import { PageLayout } from '@/components/layout/PageLayout'
 import { QuestionGenerationStage } from '@/components/interview/QuestionGenerationStage'
 import { SessionTheater } from '@/components/interview/SessionTheater'
 import { useMediaDevices } from '@/components/interview/useMediaDevices'
+import { useNonVerbalCapture } from '@/components/interview/useNonVerbalCapture'
 import { useQuestionSpeech } from '@/components/interview/useQuestionSpeech'
 import { useVoiceAnswer } from '@/components/interview/useVoiceAnswer'
 import { Button } from '@/components/ui/button'
@@ -155,6 +157,7 @@ function InterviewSessionContent({
         if (!active) return
         const generatedQuestions = response.questions
           .filter((item) => item.question.trim())
+          .map((item) => ({ ...item, depth: item.depth ?? 0 }))
           .sort((a, b) => a.order - b.order)
 
         if (generatedQuestions.length === 0) {
@@ -257,15 +260,22 @@ function ActiveInterviewSession({
   const { input, devices } = config
   const { permission, stream, requestAccess } = useMediaDevices()
   const [questionIndex, setQuestionIndex] = useState(0)
+  const [sessionQuestions, setSessionQuestions] = useState(questions)
   const [endDialogOpen, setEndDialogOpen] = useState(false)
   const [micMuted, setMicMuted] = useState(false)
   const [micGain, setMicGain] = useState(devices.micGain)
   const [speakerMuted, setSpeakerMuted] = useState(false)
   const [speakerVolume, setSpeakerVolume] = useState(devices.speakerVolume)
+  const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false)
+  const [submissionError, setSubmissionError] = useState<string | null>(null)
   const sessionStartRef = useRef(0)
   const submittedAnswersRef = useRef<SubmittedVoiceAnswer[]>([])
-  const question = questions[questionIndex]
+  const question = sessionQuestions[questionIndex]
   const voiceAnswer = useVoiceAnswer(stream)
+  const {
+    error: nonVerbalError,
+    finishCapture: finishNonVerbalCapture,
+  } = useNonVerbalCapture(stream)
   const questionSpeech = useQuestionSpeech({
     text: question.question,
     volume: speakerVolume,
@@ -273,7 +283,7 @@ function ActiveInterviewSession({
     enabled: Boolean(stream),
   })
 
-  const isLastQuestion = questionIndex === questions.length - 1
+  const isLastQuestion = questionIndex === sessionQuestions.length - 1
 
   useEffect(() => {
     sessionStartRef.current = Date.now()
@@ -292,7 +302,16 @@ function ActiveInterviewSession({
     })
   }, [stream, micMuted])
 
-  const handleViewResults = useCallback(() => {
+  const handleViewResults = useCallback(async () => {
+    const nonVerbalData = finishNonVerbalCapture()
+    if (aiInterviewId !== null && nonVerbalData) {
+      try {
+        await submitInterviewNonVerbalData(aiInterviewId, nonVerbalData)
+      } catch {
+        // 비언어 분석 실패가 완료된 음성 면접 결과 이동을 막지는 않는다.
+      }
+    }
+
     const interviewType = input.interviewType
     const difficulty = input.difficulty
     const position = input.position ?? ''
@@ -312,47 +331,77 @@ function ActiveInterviewSession({
     }
 
     navigate('/dashboard/interviews', { state: { newAnalyzingRecord } })
-  }, [aiInterviewId, input, navigate])
+  }, [aiInterviewId, finishNonVerbalCapture, input, navigate])
 
-  const handleSubmitAnswer = useCallback(() => {
+  const handleSubmitAnswer = useCallback(async () => {
     const transcript = voiceAnswer.transcript.trim()
-    if (!transcript) return
-
-    submittedAnswersRef.current.push({
-      question,
-      transcript,
-      audioBlob: voiceAnswer.audioBlob,
-    })
-    // BE snake_case 역직렬화 버그로 aiInterviewId가 null이면 저장을 건너뛴다.
-    // 답변은 로컬에도 누적되므로 저장 실패가 면접 진행을 막지 않게 결과를 기다리지 않는다.
-    if (aiInterviewId !== null) {
-      void submitInterviewAnswer({
-        aiInterviewId,
-        question,
-        answer: transcript,
-      }).catch(() => {})
-    }
-    // TODO: 실제 API 연동 필요 — 녹음 파일 업로드, 응답 스펙 확정 시 꼬리질문 삽입
-    voiceAnswer.reset()
-
-    if (isLastQuestion) {
-      handleViewResults()
+    const audioBlob = voiceAnswer.audioBlob
+    if (!transcript || !audioBlob) return
+    if (aiInterviewId === null) {
+      setSubmissionError(
+        '면접 식별 정보를 확인하지 못했습니다. 면접 설정에서 다시 시작해주세요.',
+      )
       return
     }
-    setQuestionIndex((index) =>
-      Math.min(index + 1, questions.length - 1),
-    )
+
+    setIsSubmittingAnswer(true)
+    setSubmissionError(null)
+    try {
+      const response = await submitInterviewAnswer({
+        aiInterviewId,
+        input,
+        question,
+        answer: transcript,
+        audio: audioBlob,
+      })
+
+      submittedAnswersRef.current.push({
+        question,
+        transcript,
+        audioBlob,
+      })
+      voiceAnswer.reset()
+
+      const nextQuestion = response.nextQuestion
+      if (!response.isPass && nextQuestion) {
+        setSessionQuestions((currentQuestions) => {
+          const nextQuestions = [...currentQuestions]
+          nextQuestions.splice(questionIndex + 1, 0, {
+            ...nextQuestion,
+            depth: nextQuestion.depth ?? question.depth + 1,
+          })
+          return nextQuestions
+        })
+        setQuestionIndex((index) => index + 1)
+        return
+      }
+
+      if (isLastQuestion) {
+        await handleViewResults()
+        return
+      }
+      setQuestionIndex((index) =>
+        Math.min(index + 1, sessionQuestions.length - 1),
+      )
+    } catch (error) {
+      setSubmissionError(toErrorMessage(error))
+    } finally {
+      setIsSubmittingAnswer(false)
+    }
   }, [
     aiInterviewId,
     handleViewResults,
+    input,
     isLastQuestion,
     question,
-    questions.length,
+    questionIndex,
+    sessionQuestions.length,
     voiceAnswer,
   ])
 
   const primaryActionDisabled =
     questionSpeech.isSpeaking ||
+    isSubmittingAnswer ||
     !stream ||
     micMuted ||
     voiceAnswer.status === 'processing' ||
@@ -366,7 +415,7 @@ function ActiveInterviewSession({
       return
     }
     if (voiceAnswer.status === 'review') {
-      handleSubmitAnswer()
+      void handleSubmitAnswer()
       return
     }
     if (
@@ -379,13 +428,15 @@ function ActiveInterviewSession({
 
   const primaryActionLabel = voiceAnswer.status === 'recording'
     ? '녹음 중지'
-    : voiceAnswer.status === 'processing'
-      ? '음성 처리 중'
-      : voiceAnswer.status === 'review'
-        ? isLastQuestion
-          ? '마지막 답변 제출'
-          : '답변 제출'
-        : '답변 녹음 시작'
+    : isSubmittingAnswer
+      ? '답변 제출 중'
+      : voiceAnswer.status === 'processing'
+        ? '음성 처리 중'
+        : voiceAnswer.status === 'review'
+          ? isLastQuestion
+            ? '마지막 답변 제출'
+            : '답변 제출'
+          : '답변 녹음 시작'
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -408,7 +459,7 @@ function ActiveInterviewSession({
   const handleConfirmEnd = () => {
     setEndDialogOpen(false)
     if (submittedAnswersRef.current.length > 0) {
-      handleViewResults()
+      void handleViewResults()
       return
     }
     navigate('/interviews')
@@ -419,12 +470,14 @@ function ActiveInterviewSession({
       <SessionTheater
         stream={stream}
         questionIndex={questionIndex}
-        totalQuestions={questions.length}
+        totalQuestions={sessionQuestions.length}
         question={question.question}
         answerStatus={voiceAnswer.status}
         transcript={voiceAnswer.transcript}
         onChangeTranscript={voiceAnswer.setTranscript}
-        voiceError={voiceAnswer.error}
+        voiceError={
+          submissionError ?? voiceAnswer.error ?? nonVerbalError
+        }
         speechError={questionSpeech.error}
         canRetryTranscription={
           voiceAnswer.status === 'review' &&

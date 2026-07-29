@@ -1,4 +1,9 @@
 import { useState } from 'react'
+import {
+  deleteGithubRepository,
+  updateGithubRepositoryNickname,
+} from '@/api/github'
+import { toErrorMessage } from '@/api/http'
 import { ProfileCard } from '@/components/mypage/ProfileCard'
 import { ProfileInfo } from '@/components/mypage/ProfileInfo'
 import type { ProfileData } from '@/types/profile'
@@ -36,6 +41,11 @@ export function ProfileSection({
   const [rolesText, setRolesText] = useState(() => toCommaText(profile.roles))
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null)
   const [isAvatarRemoved, setIsAvatarRemoved] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [deletingRepositoryId, setDeletingRepositoryId] = useState<
+    number | null
+  >(null)
+  const [mutationError, setMutationError] = useState<string | null>(null)
 
   const selectAvatarFile = (file: File | null) => {
     if (!file) return
@@ -54,6 +64,7 @@ export function ProfileSection({
     setRolesText(toCommaText(savedProfile.roles))
     setAvatarPreviewUrl(null)
     setIsAvatarRemoved(false)
+    setMutationError(null)
     setIsEditing(true)
   }
 
@@ -63,17 +74,74 @@ export function ProfileSection({
     setIsEditing(false)
   }
 
-  // TODO: 실제 API 연동 필요 - 프로필 수정 엔드포인트가 없어 화면에서만 반영한다.
-  const saveEditing = () => {
-    setSavedProfile({
-      ...draft,
-      skills: parseCommaText(skillsText),
-      roles: parseCommaText(rolesText),
-      avatarUrl: isAvatarRemoved ? null : (avatarPreviewUrl ?? draft.avatarUrl ?? null),
+  const saveEditing = async () => {
+    const changedRepositories = draft.repositories.filter((repository) => {
+      const savedRepository = savedProfile.repositories.find(
+        (item) => item.id === repository.id,
+      )
+      return savedRepository && savedRepository.name !== repository.name
     })
-    setAvatarPreviewUrl(null)
-    setIsAvatarRemoved(false)
-    setIsEditing(false)
+    if (changedRepositories.some((repository) => !repository.name.trim())) {
+      setMutationError('레포지토리 표시 이름을 입력해주세요.')
+      return
+    }
+
+    setIsSaving(true)
+    setMutationError(null)
+    try {
+      await Promise.all(
+        changedRepositories.map((repository) =>
+          updateGithubRepositoryNickname(
+            repository.id,
+            repository.name.trim(),
+          ),
+        ),
+      )
+      setSavedProfile({
+        ...draft,
+        repositories: draft.repositories.map((repository) => ({
+          ...repository,
+          name: repository.name.trim(),
+        })),
+        skills: parseCommaText(skillsText),
+        roles: parseCommaText(rolesText),
+        avatarUrl: isAvatarRemoved
+          ? null
+          : (avatarPreviewUrl ?? draft.avatarUrl ?? null),
+      })
+      setAvatarPreviewUrl(null)
+      setIsAvatarRemoved(false)
+      setIsEditing(false)
+    } catch (error) {
+      setMutationError(toErrorMessage(error))
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const deleteRepository = async (repositoryId: number) => {
+    setDeletingRepositoryId(repositoryId)
+    setMutationError(null)
+    try {
+      await deleteGithubRepository(repositoryId)
+      setSavedProfile((current) => ({
+        ...current,
+        repositories: current.repositories.filter(
+          (repository) => repository.id !== repositoryId,
+        ),
+      }))
+      setDraft((current) => ({
+        ...current,
+        repositories: current.repositories.filter(
+          (repository) => repository.id !== repositoryId,
+        ),
+      }))
+    } catch (error) {
+      setMutationError(toErrorMessage(error))
+      throw error
+    } finally {
+      setDeletingRepositoryId(null)
+    }
   }
 
   const updateField = (key: 'nickname' | 'email' | 'github', value: string) => {
@@ -113,10 +181,14 @@ export function ProfileSection({
         repositoryError={repositoryError}
         repositoryLoading={repositoryLoading}
         onRetryRepositories={onRetryRepositories}
+        repositoryMutationError={mutationError}
+        deletingRepositoryId={deletingRepositoryId}
+        onDeleteRepository={deleteRepository}
         onOpenDocuments={onOpenDocuments}
         onStartEditing={startEditing}
         onCancelEditing={cancelEditing}
-        onSaveEditing={saveEditing}
+        onSaveEditing={() => void saveEditing()}
+        isSaving={isSaving}
       />
     </div>
   )

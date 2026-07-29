@@ -27,6 +27,7 @@ import {
   getMyStudyGroups,
   getStudyGroupApplications,
   getStudyGroupDetail,
+  kickStudyGroupMember,
   updateStudyGroupStatus,
   type StudyGroupDetail,
 } from '@/api/study-groups'
@@ -34,10 +35,7 @@ import { toErrorMessage } from '@/api/http'
 import { useAuth } from '@/lib/useAuth'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
-import {
-  mockStudyCalendarEvents,
-  type StudyChatGroup,
-} from '@/mocks/study-lounge'
+import type { StudyChatGroup } from '@/mocks/study-lounge'
 
 function formatCreatedAt(value: string) {
   const parsed = new Date(value)
@@ -72,6 +70,10 @@ export function StudyGroupPage() {
   >(null)
   const [memberToRemove, setMemberToRemove] =
     useState<StudyGroupMember | null>(null)
+  const [isRemovingMember, setIsRemovingMember] = useState(false)
+  const [memberActionError, setMemberActionError] = useState<string | null>(
+    null,
+  )
   const { ref: headerRef, isInView: isHeaderInView } =
     useInView<HTMLDivElement>({ threshold: 0.1 })
   const { ref: panelsRef, isInView: isPanelsInView } =
@@ -185,7 +187,6 @@ export function StudyGroupPage() {
   )
   // TODO: 실제 API 연동 필요 — 그룹톡 공지·메시지 엔드포인트가 없어 빈 상태로 둔다.
   const chatGroup: StudyChatGroup = { id: 'A', notice: '', messages: [] }
-  const calendarEvents = mockStudyCalendarEvents[groupId] ?? []
 
   const changeRecruiting = async (nextIsRecruiting: boolean) => {
     const previous = isRecruiting
@@ -205,7 +206,9 @@ export function StudyGroupPage() {
   }
 
   const startSession = () => {
-    navigate(`/study/groups/${groupId}/session/prejoin`)
+    navigate(`/study/groups/${groupId}/session/prejoin`, {
+      state: { groupTitle: detail?.title },
+    })
   }
 
   const inviteMember = (nickname: string) => {
@@ -222,17 +225,35 @@ export function StudyGroupPage() {
     ])
   }
 
-  const removeMember = (memberId: number) => {
-    // TODO: 실제 API 연동 필요 — 내보내기 엔드포인트가 없어 화면에서만 목록을 갱신한다.
-    setMembers((currentMembers) =>
-      currentMembers.filter((member) => member.id !== memberId),
-    )
-  }
-
-  const confirmMemberRemoval = () => {
+  const confirmMemberRemoval = async () => {
     if (!memberToRemove) return
-    removeMember(memberToRemove.id)
-    setMemberToRemove(null)
+    setIsRemovingMember(true)
+    setMemberActionError(null)
+    try {
+      await kickStudyGroupMember(groupId, memberToRemove.id)
+      setMembers((currentMembers) =>
+        currentMembers.filter((member) => member.id !== memberToRemove.id),
+      )
+      setDetail((currentDetail) =>
+        currentDetail
+          ? {
+              ...currentDetail,
+              currentMemberCount: Math.max(
+                0,
+                currentDetail.currentMemberCount - 1,
+              ),
+              members: currentDetail.members.filter(
+                (member) => member.userId !== memberToRemove.id,
+              ),
+            }
+          : currentDetail,
+      )
+      setMemberToRemove(null)
+    } catch (error) {
+      setMemberActionError(toErrorMessage(error))
+    } finally {
+      setIsRemovingMember(false)
+    }
   }
 
   const transferLeadership = (memberId: number) => {
@@ -355,7 +376,7 @@ export function StudyGroupPage() {
         </div>
 
         <div className="my-6 border-t border-status-achievement" />
-        <StudyCalendar events={calendarEvents} />
+        <StudyCalendar groupId={groupId} />
       </section>
 
       <StudyChatFloatingButton onClick={() => setIsChatOpen(true)} />
@@ -409,7 +430,10 @@ export function StudyGroupPage() {
       <Dialog
         open={memberToRemove !== null}
         onOpenChange={(open) => {
-          if (!open) setMemberToRemove(null)
+          if (!open && !isRemovingMember) {
+            setMemberToRemove(null)
+            setMemberActionError(null)
+          }
         }}
       >
         <DialogContent
@@ -423,21 +447,28 @@ export function StudyGroupPage() {
             <DialogDescription>
               내보내면 이 스터디 그룹과 일정에 더 이상 접근할 수 없습니다.
             </DialogDescription>
+            {memberActionError ? (
+              <p className="mt-2 text-caption text-status-error" role="alert">
+                {memberActionError}
+              </p>
+            ) : null}
           </DialogHeader>
           <DialogFooter className="mt-6">
             <Button
               type="button"
               variant="secondary"
               onClick={() => setMemberToRemove(null)}
+              disabled={isRemovingMember}
             >
               취소
             </Button>
             <Button
               type="button"
               variant="destructive"
-              onClick={confirmMemberRemoval}
+              onClick={() => void confirmMemberRemoval()}
+              disabled={isRemovingMember}
             >
-              내보내기
+              {isRemovingMember ? '내보내는 중' : '내보내기'}
             </Button>
           </DialogFooter>
         </DialogContent>

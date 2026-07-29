@@ -9,7 +9,15 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  createStudyCalendar,
+  deleteStudyCalendar,
+  getStudyCalendars,
+  updateStudyCalendar,
+  type StudyCalendarItem,
+} from '@/api/study-calendars'
+import { toErrorMessage } from '@/api/http'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -23,32 +31,32 @@ import { Dropdown, type DropdownOption } from '@/components/ui/dropdown'
 import { Input } from '@/components/ui/input'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
-import type { StudyCalendarEvent } from '@/mocks/study-lounge'
 
 interface StudyCalendarProps {
-  events: StudyCalendarEvent[]
+  groupId: number
 }
 
-type DurationValue = 'none' | '30' | '60' | '90' | '120'
 type RepeatValue = 'none' | '2' | '4' | '8'
+
+interface StudyCalendarEvent {
+  calendarId: number
+  date: string
+  startTime: string
+  attendance: Array<{
+    name: string
+    attended: boolean
+  }>
+  agenda: string[]
+}
 
 // 일정 추가·편집 폼이 다루는 상태로, agenda는 편집 중인 진행 내용 줄 목록이다.
 interface ScheduleFormState {
   mode: 'create' | 'edit'
   dateKey: string
   startTime: string
-  duration: DurationValue
   repeat: RepeatValue
   agenda: string[]
 }
-
-const durationOptions: DropdownOption<DurationValue>[] = [
-  { value: 'none', label: '미정' },
-  { value: '30', label: '30분' },
-  { value: '60', label: '1시간' },
-  { value: '90', label: '1시간 30분' },
-  { value: '120', label: '2시간' },
-]
 
 const repeatOptions: DropdownOption<RepeatValue>[] = [
   { value: 'none', label: '반복 안 함' },
@@ -75,41 +83,94 @@ function addWeeksToDateKey(dateKey: string, weeks: number) {
   return toDateKey(new Date(year, month - 1, day + weeks * 7))
 }
 
-function formatDuration(minutes: number) {
-  const hours = Math.floor(minutes / 60)
-  const rest = minutes % 60
-  if (hours === 0) return `${rest}분`
-  return rest === 0 ? `${hours}시간` : `${hours}시간 ${rest}분`
+function toCalendarEvent(item: StudyCalendarItem): StudyCalendarEvent {
+  const [date = '', time = ''] = item.startTime.split('T')
+  const agenda = item.content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  return {
+    calendarId: item.calendarId,
+    date,
+    startTime: time.slice(0, 5),
+    attendance: [],
+    agenda: agenda.length > 0 ? agenda : [item.content],
+  }
 }
 
-// 드롭다운 선택지에 없는 값은 미정으로 되돌려 폼 상태를 안전하게 유지한다.
-function toDurationValue(minutes?: number): DurationValue {
-  const value = String(minutes ?? '')
-  return value === '30' || value === '60' || value === '90' || value === '120'
-    ? value
-    : 'none'
+function toCalendarRequest(
+  dateKey: string,
+  startTime: string,
+  agenda: string[],
+) {
+  return {
+    content: agenda.join('\n'),
+    startTime: `${dateKey}T${startTime || '00:00'}:00`,
+  }
 }
 
 // 기본에는 월력을 가득 보여주고 날짜 선택 시 왼쪽 상세 패널에서 일정을 추가·편집·삭제한다.
-export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
-  const [viewDate, setViewDate] = useState(() => new Date(2026, 6, 1))
+export function StudyCalendar({ groupId }: StudyCalendarProps) {
+  const [viewDate, setViewDate] = useState(() => new Date())
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null)
-  // TODO: 실제 API 연동 필요 — 목업 일정을 로컬 상태로 복제해 CRUD UI만 확인한다.
-  const [events, setEvents] = useState<StudyCalendarEvent[]>(() =>
-    initialEvents.map((event) => ({
-      ...event,
-      attendance: event.attendance.map((attendance) => ({ ...attendance })),
-      agenda: [...event.agenda],
-    })),
-  )
+  const [events, setEvents] = useState<StudyCalendarEvent[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isMutating, setIsMutating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [scheduleForm, setScheduleForm] = useState<ScheduleFormState | null>(
     null,
   )
   const [deleteTargetKey, setDeleteTargetKey] = useState<string | null>(null)
+  const loadGenerationRef = useRef(0)
   const todayKey = toDateKey(new Date())
   const { ref: sectionRef, isInView } = useInView<HTMLElement>({
     threshold: 0.05,
   })
+
+  const loadCalendars = useCallback(async () => {
+    const generation = loadGenerationRef.current + 1
+    loadGenerationRef.current = generation
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const response = await getStudyCalendars(
+        groupId,
+        viewDate.getFullYear(),
+        viewDate.getMonth() + 1,
+      )
+      if (loadGenerationRef.current !== generation) return
+      setEvents(response.map(toCalendarEvent))
+    } catch (requestError) {
+      if (loadGenerationRef.current !== generation) return
+      setError(toErrorMessage(requestError))
+    } finally {
+      if (loadGenerationRef.current === generation) setIsLoading(false)
+    }
+  }, [groupId, viewDate])
+
+  useEffect(() => {
+    const generation = loadGenerationRef.current + 1
+    loadGenerationRef.current = generation
+
+    void getStudyCalendars(
+      groupId,
+      viewDate.getFullYear(),
+      viewDate.getMonth() + 1,
+    )
+      .then((response) => {
+        if (loadGenerationRef.current !== generation) return
+        setEvents(response.map(toCalendarEvent))
+      })
+      .catch((requestError: unknown) => {
+        if (loadGenerationRef.current !== generation) return
+        setError(toErrorMessage(requestError))
+      })
+      .finally(() => {
+        if (loadGenerationRef.current === generation) setIsLoading(false)
+      })
+  }, [groupId, viewDate])
 
   const calendarDays = useMemo(() => {
     const firstDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1)
@@ -139,6 +200,8 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
   const canSaveSchedule = scheduleAgenda.some((line) => line.trim().length > 0)
 
   const changeMonth = (offset: number) => {
+    setIsLoading(true)
+    setError(null)
     setViewDate(
       (currentDate) =>
         new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1),
@@ -149,6 +212,8 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
   const selectDate = (date: Date, key: string) => {
     setSelectedDateKey((currentKey) => (currentKey === key ? null : key))
     if (date.getMonth() !== viewDate.getMonth()) {
+      setIsLoading(true)
+      setError(null)
       setViewDate(new Date(date.getFullYear(), date.getMonth(), 1))
     }
   }
@@ -158,7 +223,6 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
       mode: 'create',
       dateKey,
       startTime: '',
-      duration: 'none',
       repeat: 'none',
       agenda: [''],
     })
@@ -168,7 +232,6 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
       mode: 'edit',
       dateKey: event.date,
       startTime: event.startTime ?? '',
-      duration: toDurationValue(event.durationMinutes),
       repeat: 'none',
       agenda: event.agenda.length > 0 ? [...event.agenda] : [''],
     })
@@ -191,10 +254,6 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
         ? {
             ...current,
             startTime: latestPastEvent.startTime ?? current.startTime,
-            duration:
-              latestPastEvent.durationMinutes !== undefined
-                ? toDurationValue(latestPastEvent.durationMinutes)
-                : current.duration,
             agenda: [...latestPastEvent.agenda],
           }
         : current,
@@ -228,64 +287,69 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
         : current,
     )
 
-  const saveSchedule = () => {
+  const saveSchedule = async () => {
     if (!scheduleForm) return
     const cleanedAgenda = scheduleForm.agenda
       .map((line) => line.trim())
       .filter((line) => line.length > 0)
     if (cleanedAgenda.length === 0) return
-
-    const { dateKey, mode, startTime, duration, repeat } = scheduleForm
-    const timeFields = {
-      startTime: startTime || undefined,
-      durationMinutes: duration === 'none' ? undefined : Number(duration),
+    if (cleanedAgenda.join('\n').length > 255) {
+      setError('진행 내용은 합계 255자 이내로 입력해주세요.')
+      return
     }
-    setEvents((current) => {
-      const exists = current.some((event) => event.date === dateKey)
-      let next = exists
-        ? current.map((event) =>
-            event.date === dateKey
-              ? { ...event, ...timeFields, agenda: cleanedAgenda }
-              : event,
+
+    const { dateKey, mode, startTime, repeat } = scheduleForm
+    setIsMutating(true)
+    setError(null)
+    try {
+      if (mode === 'edit') {
+        const target = eventsByDate.get(dateKey)
+        if (!target) return
+        await updateStudyCalendar(
+          groupId,
+          target.calendarId,
+          toCalendarRequest(dateKey, startTime, cleanedAgenda),
+        )
+      } else {
+        const repeatCount = repeat === 'none' ? 1 : Number(repeat)
+        const occupiedDates = new Set(events.map((event) => event.date))
+        for (let week = 0; week < repeatCount; week += 1) {
+          const targetDateKey =
+            week === 0 ? dateKey : addWeeksToDateKey(dateKey, week)
+          if (week > 0 && occupiedDates.has(targetDateKey)) continue
+          await createStudyCalendar(
+            groupId,
+            toCalendarRequest(targetDateKey, startTime, cleanedAgenda),
           )
-        : [
-            ...current,
-            {
-              date: dateKey,
-              ...timeFields,
-              attendance: [],
-              agenda: cleanedAgenda,
-            },
-          ]
-      // TODO: 실제 API 연동 필요 — 반복 생성은 서버 처리 대상이며, 여기서는 주 단위 복제로 흉내 내고 이미 일정이 있는 주는 건너뛴다.
-      if (mode === 'create' && repeat !== 'none') {
-        const occupied = new Set(next.map((event) => event.date))
-        for (let week = 1; week < Number(repeat); week += 1) {
-          const repeatKey = addWeeksToDateKey(dateKey, week)
-          if (occupied.has(repeatKey)) continue
-          next = [
-            ...next,
-            {
-              date: repeatKey,
-              ...timeFields,
-              attendance: [],
-              agenda: [...cleanedAgenda],
-            },
-          ]
         }
       }
-      return next
-    })
-    setSelectedDateKey(dateKey)
-    setScheduleForm(null)
+      await loadCalendars()
+      setSelectedDateKey(dateKey)
+      setScheduleForm(null)
+    } catch (requestError) {
+      setError(toErrorMessage(requestError))
+    } finally {
+      setIsMutating(false)
+    }
   }
 
-  const confirmDeleteSchedule = () => {
+  const confirmDeleteSchedule = async () => {
     if (!deleteTargetKey) return
-    setEvents((current) =>
-      current.filter((event) => event.date !== deleteTargetKey),
-    )
-    setDeleteTargetKey(null)
+    const target = eventsByDate.get(deleteTargetKey)
+    if (!target) return
+
+    setIsMutating(true)
+    setError(null)
+    try {
+      await deleteStudyCalendar(groupId, target.calendarId)
+      await loadCalendars()
+      setDeleteTargetKey(null)
+      setSelectedDateKey(null)
+    } catch (requestError) {
+      setError(toErrorMessage(requestError))
+    } finally {
+      setIsMutating(false)
+    }
   }
 
   return (
@@ -327,6 +391,25 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
         </div>
       </div>
 
+      {isLoading ? (
+        <p className="mt-4 text-caption text-text-secondary" role="status">
+          일정을 불러오는 중입니다.
+        </p>
+      ) : null}
+      {error ? (
+        <div className="mt-4 flex flex-wrap items-center gap-3" role="alert">
+          <p className="text-caption text-status-error">{error}</p>
+          <Button
+            type="button"
+            variant="text"
+            className="h-8 py-0 text-caption"
+            onClick={() => void loadCalendars()}
+          >
+            다시 시도
+          </Button>
+        </div>
+      ) : null}
+
       <div
         className={cn(
           'mt-6 grid gap-6 transition-[grid-template-columns] [transition-duration:var(--duration-base)] [transition-timing-function:var(--easing-emphasized)]',
@@ -354,11 +437,7 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
                 <p className="mt-2 flex items-center gap-1.5 text-caption text-text-secondary">
                   <Clock className="size-3.5 shrink-0" aria-hidden="true" />
                   {selectedEvent.startTime
-                    ? `${selectedEvent.startTime} 시작${
-                        selectedEvent.durationMinutes
-                          ? ` · ${formatDuration(selectedEvent.durationMinutes)}`
-                          : ''
-                      }`
+                    ? `${selectedEvent.startTime} 시작`
                     : '시간 미정'}
                 </p>
                 <div className="mt-6">
@@ -409,6 +488,7 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
                     variant="secondary"
                     className="h-8 w-full gap-1 py-0 text-caption [&_svg]:size-3.5"
                     onClick={() => openEditForm(selectedEvent)}
+                    disabled={isMutating}
                   >
                     <Pencil aria-hidden="true" />
                     일정 편집
@@ -418,6 +498,7 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
                     variant="destructive"
                     className="h-8 w-full gap-1 py-0 text-caption text-white [&_svg]:size-3.5"
                     onClick={() => setDeleteTargetKey(selectedEvent.date)}
+                    disabled={isMutating}
                   >
                     <Trash2 aria-hidden="true" />
                     일정 삭제
@@ -538,7 +619,7 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="mt-4">
             <div>
               <p className="text-body-2 font-semibold text-text-primary">
                 시작 시간
@@ -555,23 +636,6 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
                   )
                 }
                 aria-label="시작 시간"
-              />
-            </div>
-            <div>
-              <p className="text-body-2 font-semibold text-text-primary">
-                소요 시간
-              </p>
-              <Dropdown
-                className="mt-2"
-                buttonClassName="h-10 py-0"
-                options={durationOptions}
-                value={scheduleForm?.duration ?? 'none'}
-                onChange={(duration) =>
-                  setScheduleForm((current) =>
-                    current ? { ...current, duration } : current,
-                  )
-                }
-                ariaLabel="소요 시간"
               />
             </div>
           </div>
@@ -655,16 +719,17 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
               type="button"
               variant="secondary"
               onClick={() => setScheduleForm(null)}
+              disabled={isMutating}
             >
               취소
             </Button>
             <Button
               type="button"
               variant="primary"
-              onClick={saveSchedule}
-              disabled={!canSaveSchedule}
+              onClick={() => void saveSchedule()}
+              disabled={!canSaveSchedule || isMutating}
             >
-              저장
+              {isMutating ? '저장 중' : '저장'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -692,15 +757,17 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
               type="button"
               variant="secondary"
               onClick={() => setDeleteTargetKey(null)}
+              disabled={isMutating}
             >
               취소
             </Button>
             <Button
               type="button"
               variant="destructive"
-              onClick={confirmDeleteSchedule}
+              onClick={() => void confirmDeleteSchedule()}
+              disabled={isMutating}
             >
-              삭제
+              {isMutating ? '삭제 중' : '삭제'}
             </Button>
           </DialogFooter>
         </DialogContent>

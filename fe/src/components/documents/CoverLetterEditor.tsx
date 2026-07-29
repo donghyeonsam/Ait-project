@@ -2,6 +2,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  deleteCoverLetter,
   updateCoverLetter,
   type CoverLetterDetail,
 } from '@/api/cover-letters'
@@ -16,6 +17,7 @@ import {
 } from '@/components/documents/DocumentFormParts'
 import { UnsavedChangesDialog } from '@/components/documents/UnsavedChangesDialog'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
@@ -41,6 +43,8 @@ export function CoverLetterEditor({
   const [saved, setSaved] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
   const [documentBoxOpen, setDocumentBoxOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const guard = useUnsavedChangesGuard(isDirty)
 
   const updateDraft = (update: Partial<CoverLetterDetail>) => {
@@ -93,15 +97,42 @@ export function CoverLetterEditor({
     void save()
   }
 
+  const deleteDocument = async () => {
+    setIsDeleting(true)
+    setError(null)
+    try {
+      await deleteCoverLetter(draft.coverLetterId)
+      navigate('/mypage', { replace: true })
+    } catch (requestError) {
+      setError(toErrorMessage(requestError))
+      setIsDeleteDialogOpen(false)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   return (
     <DocumentEditorShell
       title="자기소개서 작성"
       description="DB에 저장된 자기소개서를 확인하고 수정할 수 있습니다."
       lastModified={formatDateTime(draft.updatedAt)}
       saved={saved}
-      isSaving={isSaving}
+      isSaving={isSaving || isDeleting}
       onSubmit={handleSubmit}
       onNavigateHome={() => guard.guardNavigation(() => navigate('/mypage'))}
+      topBar={
+        <div className="flex justify-end py-3">
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => setIsDeleteDialogOpen(true)}
+            disabled={isSaving || isDeleting}
+          >
+            <Trash2 aria-hidden="true" />
+            자기소개서 삭제
+          </Button>
+        </div>
+      }
     >
       <DocumentSection title="기본 정보">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -223,6 +254,19 @@ export function CoverLetterEditor({
           if (success) guard.runPendingAction()
         }}
         isSaving={isSaving}
+      />
+
+      <ConfirmDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!isDeleting) setIsDeleteDialogOpen(open)
+        }}
+        title="자기소개서를 삭제할까요?"
+        description="삭제한 자기소개서와 분석 내용은 복구할 수 없습니다."
+        confirmLabel={isDeleting ? '삭제 중' : '삭제'}
+        confirmVariant="destructive"
+        confirmDisabled={isDeleting}
+        onConfirm={() => void deleteDocument()}
       />
 
       <DocumentBoxDialog open={documentBoxOpen} onOpenChange={setDocumentBoxOpen} />

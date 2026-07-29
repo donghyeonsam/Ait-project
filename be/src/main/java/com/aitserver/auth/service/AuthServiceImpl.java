@@ -10,6 +10,10 @@ import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.global.jwt.JwtTokenProvider;
 import com.aitserver.resume.entity.Resume;
 import com.aitserver.resume.repository.ResumeRepository;
+import com.aitserver.studyGroupRoom.domain.StudyGroupMemberStatus;
+import com.aitserver.studyGroupRoom.entity.StudyGroupMember;
+import com.aitserver.studyGroupRoom.repository.StudyGroupMemberRepository;
+import com.aitserver.studyGroupRoom.service.group.StudyGroupCommandService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -19,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.concurrent.TimeUnit;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +35,8 @@ public class AuthServiceImpl implements AuthService{
     private final JwtTokenProvider jwtTokenProvider;
     private final StringRedisTemplate redisTemplate;
     private final ResumeRepository resumeRepository;
+    private final StudyGroupMemberRepository studyGroupMemberRepository;
+    private final StudyGroupCommandService studyGroupCommandService;
 
     // 일반 회원가입 로직
     @Override
@@ -102,27 +109,39 @@ public class AuthServiceImpl implements AuthService{
     // 로그아웃 로직 수행
     @Override
     public void logout(Long userId, String accessToken) {
-        // 로그아웃 -> 리프레시 토큰 삭제 -> 엑세스 토큰 블랙 리스트 등록
-        log.info("[AuthService, logout] 로그아웃 시도 사용자: {}, accessToken: {}", userId, accessToken);
+        log.info("[AuthService, logout] 로그아웃 시도 사용자: {}", userId);
+        revokeTokens(userId, accessToken);
+    }
 
-        // 1. Redis에서 RefreshToken 삭제
-        String refreshTokenKey = "RT:" + userId;
-        if(Boolean.TRUE.equals(redisTemplate.hasKey(refreshTokenKey))) { // 사용자의 RefreshToken이 존재하면 삭제 처리
-            redisTemplate.delete(refreshTokenKey);
-            log.info("[AuthService, logout] RefreshToken 삭제 완료");
-        }
-        // 남은 유효시간 계산
-        long expiration = jwtTokenProvider.getExpiration(accessToken);
+    @Override
+    @Transactional
+    public void withdraw(Long userId, String accessToken) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NO_USER));
 
-        if(expiration > 0) { // 아직 시간이 남아있을 경우
-            redisTemplate.opsForValue().set(
-                    "BL:" + accessToken,
-                    "logout",
-                    expiration,
-                    TimeUnit.MILLISECONDS
-            );
-            log.info("[AuthService, logout] accessToken 블랙 리스트 등록 완료: {}", accessToken);
-        }
+        List<StudyGroupMember> activeMemberships =
+                studyGroupMemberRepository.findAllMyStudyGroups(
+                        userId,
+                        StudyGroupMemberStatus.ACTIVE
+                );
+        List<StudyGroupMember> pendingMemberships =
+                studyGroupMemberRepository.findByUserIdAndStatus(
+                        userId,
+                        StudyGroupMemberStatus.PENDING
+                );
+
+        // 다른 멤버가 남은 그룹의 방장은 기존 그룹 정책에 따라 먼저 위임해야 한다.
+        activeMemberships.forEach(member ->
+                studyGroupCommandService.leaveOrDeleteGroup(
+                        member.getStudyGroup().getId(),
+                        userId
+                )
+        );
+        pendingMemberships.forEach(StudyGroupMember::reject);
+
+        user.withdraw();
+        revokeTokens(userId, accessToken);
+        log.info("[AuthService, withdraw] 회원 탈퇴 완료 - userId: {}", userId);
     }
 
     @Override
@@ -161,5 +180,24 @@ public class AuthServiceImpl implements AuthService{
 
         log.info("[AuthService, reissue] 새로운 AccessToken 발급 완료 - userId: {}", userId);
         return newAccessToken;
+    }
+
+    private void revokeTokens(Long userId, String accessToken) {
+        String refreshTokenKey = "RT:" + userId;
+        redisTemplate.delete(refreshTokenKey);
+
+        if (!StringUtils.hasText(accessToken)) {
+            return;
+        }
+
+        long expiration = jwtTokenProvider.getExpiration(accessToken);
+        if (expiration > 0) {
+            redisTemplate.opsForValue().set(
+                    "BL:" + accessToken,
+                    "revoked",
+                    expiration,
+                    TimeUnit.MILLISECONDS
+            );
+        }
     }
 }

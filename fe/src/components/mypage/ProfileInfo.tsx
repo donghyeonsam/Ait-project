@@ -14,11 +14,15 @@ interface ProfileInfoProps {
   onChangeRepositoryName: (id: number, name: string) => void
   repositoryError?: string | null
   repositoryLoading?: boolean
+  repositoryMutationError?: string | null
+  deletingRepositoryId?: number | null
   onRetryRepositories?: () => void
+  onDeleteRepository: (repositoryId: number) => Promise<void>
   onOpenDocuments: () => void
   onStartEditing: () => void
   onCancelEditing: () => void
   onSaveEditing: () => void
+  isSaving: boolean
 }
 
 const profileFields = [
@@ -37,11 +41,15 @@ export function ProfileInfo({
   onChangeRepositoryName,
   repositoryError,
   repositoryLoading,
+  repositoryMutationError,
+  deletingRepositoryId,
   onRetryRepositories,
+  onDeleteRepository,
   onOpenDocuments,
   onStartEditing,
   onCancelEditing,
   onSaveEditing,
+  isSaving,
 }: ProfileInfoProps) {
   return (
     <div className="min-w-0 flex-1">
@@ -52,6 +60,7 @@ export function ProfileInfo({
             {isEditing ? (
               <Input
                 value={profile[field.key]}
+                disabled={isSaving}
                 onChange={(event) => onChangeField(field.key, event.target.value)}
                 aria-label={field.label}
               />
@@ -73,6 +82,7 @@ export function ProfileInfo({
                 <li key={repository.id}>
                   <Input
                     value={repository.name}
+                    disabled={isSaving}
                     onChange={(event) => onChangeRepositoryName(repository.id, event.target.value)}
                     aria-label={`${repository.name} 표시 이름`}
                   />
@@ -88,6 +98,9 @@ export function ProfileInfo({
             error={repositoryError}
             loading={repositoryLoading}
             onRetry={onRetryRepositories}
+            mutationError={repositoryMutationError}
+            deletingRepositoryId={deletingRepositoryId}
+            onDelete={onDeleteRepository}
           />
         )}
 
@@ -97,6 +110,7 @@ export function ProfileInfo({
             <Input
               className="mt-3"
               value={skillsText}
+              disabled={isSaving}
               onChange={(event) => onChangeSkillsText(event.target.value)}
               placeholder="쉼표로 구분해서 입력하세요 (예: Java, Spring Boot, MySQL)"
               aria-label="프로젝트 사용 기술"
@@ -107,6 +121,12 @@ export function ProfileInfo({
         )}
       </div>
 
+      {repositoryMutationError ? (
+        <p className="mt-4 text-caption text-status-error" role="alert">
+          {repositoryMutationError}
+        </p>
+      ) : null}
+
       <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-border-default pt-4">
         <Button type="button" variant="secondary" disabled={isEditing} onClick={onOpenDocuments}>
           <FilePenLine aria-hidden="true" />
@@ -114,11 +134,16 @@ export function ProfileInfo({
         </Button>
         {isEditing ? (
           <div className="ml-auto flex items-center gap-3">
-            <Button type="button" variant="text" onClick={onCancelEditing}>
+            <Button
+              type="button"
+              variant="text"
+              onClick={onCancelEditing}
+              disabled={isSaving}
+            >
               취소
             </Button>
-            <Button type="button" onClick={onSaveEditing}>
-              저장
+            <Button type="button" onClick={onSaveEditing} disabled={isSaving}>
+              {isSaving ? '저장 중' : '저장'}
             </Button>
           </div>
         ) : (
