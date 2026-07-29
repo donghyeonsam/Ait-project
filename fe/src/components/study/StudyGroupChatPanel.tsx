@@ -35,6 +35,7 @@ interface StudyGroupChatPanelProps {
   groupId: number
   currentUserId: number | null
   isOwner: boolean
+  initialNotice: string | null
 }
 
 // 최근 사용 이모지가 아직 없을 때 처음 보여줄 기본 목록이다.
@@ -68,6 +69,7 @@ export function StudyGroupChatPanel({
   groupId,
   currentUserId,
   isOwner,
+  initialNotice,
 }: StudyGroupChatPanelProps) {
   const [messages, setMessages] = useState<StudyGroupChatMessage[]>([])
   const [hasMoreHistory, setHasMoreHistory] = useState(false)
@@ -79,7 +81,8 @@ export function StudyGroupChatPanel({
   // 새 메시지가 도착·전송됐을 때만 맨 아래로 스크롤하기 위한 트리거 (과거 이력 로드 시엔 스크롤 위치를 유지한다).
   const [liveMessageTick, setLiveMessageTick] = useState(0)
 
-  const [notice, setNotice] = useState('')
+  // 진입 시점 공지는 그룹 상세 응답에서 받고, 이후 변경은 STOMP 공지 구독으로 갱신한다.
+  const [notice, setNotice] = useState(initialNotice ?? '')
   const [noticeDraft, setNoticeDraft] = useState('')
   const [noticeEditorMode, setNoticeEditorMode] = useState<
     'create' | 'edit' | null

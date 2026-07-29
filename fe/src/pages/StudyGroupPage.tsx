@@ -415,6 +415,7 @@ export function StudyGroupPage() {
             groupId={groupId}
             currentUserId={currentUserId}
             isOwner={isLeader}
+            initialNotice={detail.notice}
           />
         </div>
 
