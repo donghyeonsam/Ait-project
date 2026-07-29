@@ -22,8 +22,8 @@ import { cn } from '@/lib/utils'
 import { mockTagSuggestions } from '@/mocks/community'
 import type { CommunityCategory } from '@/types/community'
 
-const TITLE_MAX = 60
-const TITLE_WARN = 55
+const TITLE_MAX = 50
+const TITLE_WARN = 45
 const CONTENT_MIN = 10
 const DRAFT_KEY = 'ait-community-write-draft'
 const AUTOSAVE_INTERVAL_MS = 30_000
