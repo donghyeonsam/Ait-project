@@ -1,0 +1,15 @@
+<svg width="320" height="240" viewBox="0 0 320 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="dots" width="16" height="16" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#64748B" fill-opacity="0.18"/>
+    </pattern>
+    <linearGradient id="fade" x1="0" y1="0" x2="320" y2="240" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <mask id="mask">
+      <rect width="320" height="240" fill="url(#fade)"/>
+    </mask>
+  </defs>
+  <rect width="320" height="240" fill="url(#dots)" mask="url(#mask)"/>
+</svg>

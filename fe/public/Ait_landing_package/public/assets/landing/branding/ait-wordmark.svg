@@ -1,0 +1,8 @@
+<svg width="154" height="42" viewBox="0 0 154 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M2 34L15.6 3H23.5L36.7 34H28.4L25.8 27.3H12.8L10 34H2ZM15.4 20.7H23.1L19.3 11.2L15.4 20.7Z" fill="#1A2A4A"/>
+  <circle cx="31.7" cy="5.7" r="3.7" fill="#C9A96E"/>
+  <rect x="42" y="11" width="6" height="23" rx="3" fill="#1A2A4A"/>
+  <circle cx="45" cy="5" r="4" fill="#1A2A4A"/>
+  <path d="M54 12H59V6H65V12H72V18H65V26C65 28.2 66.1 29.3 68.4 29.3C69.6 29.3 70.7 29.1 72 28.5V34C70.4 34.8 68.6 35.2 66.5 35.2C61.4 35.2 59 32.4 59 27.2V18H54V12Z" fill="#1A2A4A"/>
+  <text x="81" y="25" fill="#64748B" font-family="Pretendard, Arial, sans-serif" font-size="10" font-weight="500">AI Interview Training</text>
+</svg>
