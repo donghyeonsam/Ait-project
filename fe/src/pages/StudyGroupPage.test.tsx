@@ -86,6 +86,7 @@ const groupDetail: StudyGroupDetail = {
     { userId: 4, name: '강프로', profileImageUrl: null, owner: false },
     { userId: 5, name: '이면접', profileImageUrl: null, owner: false },
   ],
+  notice: null,
 }
 
 const myStudyGroups: MyStudyGroup[] = [
@@ -193,6 +194,22 @@ describe('StudyGroupPage', () => {
     )
     await user.click(screen.getByRole('button', { name: '초대' }))
     expect(screen.getByText('새멤버')).toBeInTheDocument()
+  })
+
+  it('그룹 상세에 저장된 공지를 진입 시점에 보여준다', async () => {
+    vi.mocked(getStudyGroupDetail).mockResolvedValue({
+      ...groupDetail,
+      notice: '수요일 20:30 시스템 설계 세션 전에 캐시 전략을 정리해 주세요.',
+    })
+
+    await renderStudyGroupPage()
+
+    expect(
+      screen.getByTitle('수요일 20:30 시스템 설계 세션 전에 캐시 전략을 정리해 주세요.'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '공지 작성' }),
+    ).not.toBeInTheDocument()
   })
 
   it('오늘 날짜를 현재 날짜로 알리고 pulse 효과를 적용한다', async () => {

@@ -40,6 +40,8 @@ export interface StudyGroupDetail {
   createdAt: string
   ownerId: number
   members: StudyGroupMemberInfo[]
+  // 공지 변경은 STOMP로 오지만, 화면 진입 시점의 공지는 이 값으로만 알 수 있다.
+  notice: string | null
 }
 
 export interface MyStudyGroup {
