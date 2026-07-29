@@ -1,15 +1,12 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-// TODO: 서버 TTS 도입이 확정되면 import와 mock을 복원한다.
-// import { synthesizeQuestionSpeech, ttsResponseToBlob } from '@/api/speech'
+import { synthesizeQuestionSpeech, ttsResponseToBlob } from '@/api/speech'
 import { useQuestionSpeech } from '@/components/interview/useQuestionSpeech'
 
-/*
 vi.mock('@/api/speech', () => ({
   synthesizeQuestionSpeech: vi.fn(),
   ttsResponseToBlob: vi.fn(),
 }))
-*/
 
 const audioInstances: MockAudio[] = []
 let playBlocked = false
@@ -80,17 +77,14 @@ describe('useQuestionSpeech', () => {
     revokeObjectURL.mockClear()
     speak.mockClear()
     cancel.mockClear()
-    /*
     vi.mocked(synthesizeQuestionSpeech).mockReset()
     vi.mocked(synthesizeQuestionSpeech).mockResolvedValue({
-      audioBase64: 'AAAA',
-      format: 'mp3',
+      audioData: 'AAAA',
     })
     vi.mocked(ttsResponseToBlob).mockReset()
     vi.mocked(ttsResponseToBlob).mockReturnValue(
       new Blob(['mp3'], { type: 'audio/mpeg' }),
     )
-    */
     vi.stubGlobal('Audio', MockAudio)
     vi.stubGlobal('URL', { createObjectURL, revokeObjectURL })
     vi.stubGlobal('SpeechSynthesisUtterance', MockSpeechSynthesisUtterance)
@@ -101,8 +95,6 @@ describe('useQuestionSpeech', () => {
     vi.unstubAllGlobals()
   })
 
-  // TODO: 서버 TTS mp3 재생·캐시·폴백 테스트 — 서버 TTS 도입이 확정되면 복원한다.
-  /*
   it('질문 텍스트를 TTS mp3로 받아 설정된 음량으로 재생한다', async () => {
     const { result, unmount } = renderQuestionSpeech()
 
@@ -161,7 +153,6 @@ describe('useQuestionSpeech', () => {
     expect(result.current.isSpeaking).toBe(true)
     unmount()
   })
-  */
 
   it('음소거하면 재생을 멈춘다', async () => {
     const { result, rerender, unmount } = renderQuestionSpeech()
@@ -175,7 +166,6 @@ describe('useQuestionSpeech', () => {
     unmount()
   })
 
-  /*
   it('unmount 시 캐시된 objectURL을 전부 해제한다', async () => {
     const { unmount } = renderQuestionSpeech()
     await flushSpeech()
@@ -184,5 +174,4 @@ describe('useQuestionSpeech', () => {
 
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:question-audio')
   })
-  */
 })

@@ -4,6 +4,11 @@ export interface SttResponse {
   text: string
 }
 
+// BE가 byte[]를 내려주며 JSON 직렬화 과정에서 base64 문자열이 된다.
+export interface TtsResponse {
+  audioData: string
+}
+
 interface SpeechRequestOptions {
   signal?: AbortSignal
 }
@@ -27,32 +32,24 @@ export function transcribeAnswer(
   })
 }
 
-// TODO: Whisper는 STT 전용이라 서버 TTS는 미정 — 질문 음성은 브라우저 음성 합성을 사용하며, 서버 TTS(예: OpenAI TTS) 도입이 확정되면 복원한다.
-/*
-export interface TtsResponse {
-  audioBase64: string
-  format: string
-}
-
-// 질문 텍스트를 서버 TTS mp3(base64)로 변환한다.
+// 질문 텍스트를 서버 TTS(OpenAI gpt-4o-mini-tts) mp3(base64)로 변환한다.
 export function synthesizeQuestionSpeech(
   text: string,
   { signal }: SpeechRequestOptions = {},
 ) {
-  return backendRequest<TtsResponse>('/api/ai-interviews/speech/tts', {
+  return backendRequest<TtsResponse>('/api/tts', {
     method: 'POST',
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ question: text }),
     signal,
   })
 }
 
 // base64 TTS 응답을 <audio>에서 재생 가능한 Blob으로 변환한다.
 export function ttsResponseToBlob(res: TtsResponse): Blob {
-  const binary = atob(res.audioBase64)
+  const binary = atob(res.audioData)
   const bytes = new Uint8Array(binary.length)
   for (let index = 0; index < binary.length; index += 1) {
     bytes[index] = binary.charCodeAt(index)
   }
   return new Blob([bytes], { type: 'audio/mpeg' })
 }
-*/
