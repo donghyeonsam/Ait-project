@@ -10,6 +10,7 @@ import {
   type MyStudyGroup,
   type StudyGroupDetail,
 } from '@/api/study-groups'
+import { getStudyGroupActiveSession } from '@/api/study-sessions'
 import {
   connectStudyGroupChat,
   deleteStudyGroupChatNotice,
@@ -34,6 +35,7 @@ vi.mock('@/api/study-groups', () => ({
 
 vi.mock('@/api/study-sessions', () => ({
   createStudySession: vi.fn(),
+  getStudyGroupActiveSession: vi.fn(),
 }))
 
 vi.mock('@/api/study-group-chat', () => ({
@@ -123,6 +125,10 @@ describe('StudyGroupPage', () => {
     vi.mocked(getStudyGroupDetail).mockResolvedValue(groupDetail)
     vi.mocked(getMyStudyGroups).mockResolvedValue(myStudyGroups)
     vi.mocked(getStudyGroupApplications).mockResolvedValue([])
+    vi.mocked(getStudyGroupActiveSession).mockResolvedValue({
+      hasActiveSession: false,
+      sessionId: null,
+    })
 
     vi.mocked(getStudyGroupChats).mockResolvedValue({
       chats: [],

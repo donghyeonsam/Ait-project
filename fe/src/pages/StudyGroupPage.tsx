@@ -31,6 +31,7 @@ import {
   type StudyGroupDetail,
 } from '@/api/study-groups'
 import { toErrorMessage } from '@/api/http'
+import { getStudyGroupActiveSession } from '@/api/study-sessions'
 import { useAuth } from '@/lib/useAuth'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
@@ -58,6 +59,7 @@ export function StudyGroupPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [isRecruiting, setIsRecruiting] = useState(true)
   const [statusError, setStatusError] = useState<string | null>(null)
+  const [hasActiveSession, setHasActiveSession] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false)
   const [applicantCount, setApplicantCount] = useState(0)
@@ -115,6 +117,24 @@ export function StudyGroupPage() {
       isActive = false
     }
   }, [groupId, currentUserId, isValidGroupId])
+
+  // 세션 진행 여부는 그룹 상세 응답에 없어 활성 세션 조회로 따로 채운다. 실패하면 비활성으로 둔다.
+  useEffect(() => {
+    if (!isValidGroupId) return
+
+    let isActive = true
+    getStudyGroupActiveSession(groupId)
+      .then((session) => {
+        if (isActive) setHasActiveSession(session.hasActiveSession)
+      })
+      .catch(() => {
+        if (isActive) setHasActiveSession(false)
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [groupId, isValidGroupId])
 
   // 신청 목록 API는 방장만 호출할 수 있어 방장이 아닐 때는 요청하지 않는다.
   const loadApplicantCount = useCallback(() => {
@@ -199,7 +219,8 @@ export function StudyGroupPage() {
     }
   }
 
-  const startSession = () => {
+  // 세션 생성과 참여의 진입점이 같다. 입장 전 화면이 활성 세션 여부를 보고 생성할지 참여할지 가른다.
+  const enterSession = () => {
     navigate(`/study/groups/${groupId}/session/prejoin`)
   }
 
@@ -283,24 +304,34 @@ export function StudyGroupPage() {
               <div>
                 <p className="flex items-center gap-3 text-body-1 font-semibold text-text-primary">
                   <span
-                    className="size-2 rounded-ait-pill bg-status-neutral"
-                    aria-hidden="true"
+                    className={cn(
+                      'size-2 rounded-ait-pill',
+                      hasActiveSession
+                        ? 'bg-status-success'
+                        : 'bg-status-neutral',
+                    )}
+                    role="img"
+                    aria-label={
+                      hasActiveSession ? '세션 진행 중' : '진행 중인 세션 없음'
+                    }
                   />
                   화상 스터디 세션
                 </p>
                 <p className="mt-1 pl-5 text-caption text-text-secondary">
-                  {isLeader
-                    ? '세션을 시작하면 그룹원이 참여할 수 있어요.'
-                    : '그룹장이 세션을 시작하면 참여할 수 있어요.'}
+                  {hasActiveSession
+                    ? '진행 중인 세션이 있어요. 지금 참여할 수 있어요.'
+                    : isLeader
+                      ? '세션을 시작하면 그룹원이 참여할 수 있어요.'
+                      : '그룹장이 세션을 시작하면 참여할 수 있어요.'}
                 </p>
               </div>
-              {isLeader ? (
+              {hasActiveSession || isLeader ? (
                 <Button
                   type="button"
                   className="cta-lift text-white"
-                  onClick={startSession}
+                  onClick={enterSession}
                 >
-                  세션 시작하기
+                  {hasActiveSession ? '세션 참여하기' : '세션 시작하기'}
                 </Button>
               ) : null}
             </div>
