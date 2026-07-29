@@ -10,6 +10,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss()],
+    // sockjs-client가 참조하는 Node의 global을 브라우저 환경에 맞춰 준다.
+    define: {
+      global: 'globalThis',
+    },
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -25,6 +29,7 @@ export default defineConfig(({ mode }) => {
         '/backend': {
           target: env.VITE_BE_PROXY_TARGET || 'http://localhost:8080',
           changeOrigin: true,
+          ws: true,
           rewrite: (path) => path.replace(/^\/backend/, ''),
         },
       },

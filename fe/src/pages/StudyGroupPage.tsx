@@ -34,10 +34,7 @@ import { toErrorMessage } from '@/api/http'
 import { useAuth } from '@/lib/useAuth'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
-import {
-  mockStudyCalendarEvents,
-  type StudyChatGroup,
-} from '@/mocks/study-lounge'
+import { mockStudyCalendarEvents } from '@/mocks/study-lounge'
 
 function formatCreatedAt(value: string) {
   const parsed = new Date(value)
@@ -183,8 +180,6 @@ export function StudyGroupPage() {
   const leaderCandidates = members.filter(
     (member) => !member.isSelf && member.role !== '초대 대기',
   )
-  // TODO: 실제 API 연동 필요 — 그룹톡 공지·메시지 엔드포인트가 없어 빈 상태로 둔다.
-  const chatGroup: StudyChatGroup = { id: 'A', notice: '', messages: [] }
   const calendarEvents = mockStudyCalendarEvents[groupId] ?? []
 
   const changeRecruiting = async (nextIsRecruiting: boolean) => {
@@ -351,7 +346,11 @@ export function StudyGroupPage() {
             }}
             onInviteMember={inviteMember}
           />
-          <StudyGroupChatPanel group={chatGroup} />
+          <StudyGroupChatPanel
+            groupId={groupId}
+            currentUserId={currentUserId}
+            isOwner={isLeader}
+          />
         </div>
 
         <div className="my-6 border-t border-status-achievement" />
