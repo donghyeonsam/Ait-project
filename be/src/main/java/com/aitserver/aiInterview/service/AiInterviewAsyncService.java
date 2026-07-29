@@ -8,5 +8,5 @@ public interface AiInterviewAsyncService {
 
     void sendAudioToFastApiAsync(Long userId, Long aiInterviewId, byte[] audioBytes, String filename, String contentType);
 
-    void nonVerbalDataAnalysisAsync(Long userId, Long aiInterviewId, NonVerbalDataRequest nonVerbalDataRequest);
+    void nonVerbalDataAnalysisAsync(Long userId, Long aiInterviewId, NonVerbalDataRequest request);
 }
