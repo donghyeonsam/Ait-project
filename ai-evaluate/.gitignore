@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.pyc
+
+# 원본 미디어와 중간 산출물은 용량이 크므로 커밋하지 않는다.
+data/raw/
+data/processed/
+models/
+
+# 단, 학습 산출물(모델 가중치)은 서버 배포에 필요하므로 커밋한다.
+# 파일이 수십 MB를 넘어가면 Git LFS 를 검토할 것.
+!core/face/model/*.pt
+!core/face/model/*.json
+!core/voice/model/*.pt
+!core/voice/model/*.json
