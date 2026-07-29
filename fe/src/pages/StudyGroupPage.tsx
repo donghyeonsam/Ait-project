@@ -37,7 +37,7 @@ import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
 import {
   mockStudyCalendarEvents,
-  mockStudyChatGroups,
+  type StudyChatGroup,
 } from '@/mocks/study-lounge'
 
 function formatCreatedAt(value: string) {
@@ -186,7 +186,8 @@ export function StudyGroupPage() {
   const leaderCandidates = members.filter(
     (member) => !member.isSelf && member.role !== '초대 대기',
   )
-  const chatGroup = mockStudyChatGroups[0]
+  // TODO: 실제 API 연동 필요 — 그룹톡 공지·메시지 엔드포인트가 없어 빈 상태로 둔다.
+  const chatGroup: StudyChatGroup = { id: 'A', notice: '', messages: [] }
   const calendarEvents = mockStudyCalendarEvents[groupId] ?? []
 
   const changeRecruiting = async (nextIsRecruiting: boolean) => {
@@ -376,10 +377,7 @@ export function StudyGroupPage() {
         <StudyCalendar events={calendarEvents} />
       </section>
 
-      <StudyChatFloatingButton
-        unreadCount={42}
-        onClick={() => setIsChatOpen(true)}
-      />
+      <StudyChatFloatingButton onClick={() => setIsChatOpen(true)} />
       <StudyChatModal open={isChatOpen} onOpenChange={setIsChatOpen} />
 
       <StudyApplicationModal
