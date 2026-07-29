@@ -1,5 +1,6 @@
-import { Pin, Send } from 'lucide-react'
+import { Pin, RefreshCw, Send } from 'lucide-react'
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -13,37 +14,91 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { cn } from '@/lib/utils'
 import {
-  mockStudyChatGroups,
-  type StudyChatGroup,
-} from '@/mocks/study-lounge'
+  getMyActiveStudyGroups,
+  type MyStudyGroup,
+} from '@/api/study-groups'
+import { toErrorMessage } from '@/api/http'
+import { cn } from '@/lib/utils'
+import type { StudyChatMessage } from '@/mocks/study-lounge'
 
 interface StudyChatModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
+interface StudyChatModalGroup {
+  id: number
+  title: string
+  notice: string
+  messages: StudyChatMessage[]
+}
+
 const dockInfluenceDistance = 112
 const dockMaximumScale = 1.42
 const dockMaximumLift = 10
 
-// 그룹 선택, 공지 확인과 목 메시지 송신 흐름을 제공하는 그룹톡 Dialog다.
+function getGroupInitial(title: string) {
+  return Array.from(title.trim())[0] ?? '스'
+}
+
+// 가입 중인 그룹을 서버에서 불러와 그룹 선택, 공지 확인과 메시지 UI를 제공하는 Dialog다.
 export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
-  const [groups, setGroups] = useState<StudyChatGroup[]>(() =>
-    mockStudyChatGroups.map((group) => ({
-      ...group,
-      messages: group.messages.map((message) => ({ ...message })),
-    })),
-  )
-  const [selectedGroupId, setSelectedGroupId] =
-    useState<StudyChatGroup['id']>('A')
+  const [groups, setGroups] = useState<StudyChatModalGroup[]>([])
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null)
+  const [isLoadingGroups, setIsLoadingGroups] = useState(true)
+  const [groupLoadError, setGroupLoadError] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const messageListRef = useRef<HTMLDivElement>(null)
   const selectedGroup =
-    groups.find((group) => group.id === selectedGroupId) ?? groups[0]
-  const messageCount = selectedGroup.messages.length
+    groups.find((group) => group.id === selectedGroupId) ?? groups[0] ?? null
+  const messageCount = selectedGroup?.messages.length ?? 0
+
+  const applyLoadedGroups = useCallback((studies: MyStudyGroup[]) => {
+    setGroups((currentGroups) =>
+      studies.map((study) => {
+        const currentGroup = currentGroups.find(
+          (group) => group.id === study.id,
+        )
+        return {
+          id: study.id,
+          title: study.title,
+          notice: currentGroup?.notice ?? '',
+          messages: currentGroup?.messages ?? [],
+        }
+      }),
+    )
+    setSelectedGroupId((currentGroupId) =>
+      studies.some((study) => study.id === currentGroupId)
+        ? currentGroupId
+        : (studies[0]?.id ?? null),
+    )
+    setGroupLoadError(null)
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    void getMyActiveStudyGroups()
+      .then(applyLoadedGroups)
+      .catch((error: unknown) => {
+        setGroupLoadError(toErrorMessage(error))
+      })
+      .finally(() => {
+        setIsLoadingGroups(false)
+      })
+  }, [applyLoadedGroups, open])
+
+  const loadMyGroups = async () => {
+    try {
+      applyLoadedGroups(await getMyActiveStudyGroups())
+    } catch (error) {
+      setGroupLoadError(toErrorMessage(error))
+    } finally {
+      setIsLoadingGroups(false)
+    }
+  }
 
   useEffect(() => {
     if (!open) return
@@ -55,7 +110,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
 
   const sendMessage = () => {
     const content = draft.trim()
-    if (!content) return
+    if (!content || selectedGroupId === null) return
 
     setGroups((currentGroups) =>
       currentGroups.map((group) =>
@@ -129,6 +184,12 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
       })
   }
 
+  const retryLoadMyGroups = () => {
+    setIsLoadingGroups(true)
+    setGroupLoadError(null)
+    void loadMyGroups()
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -142,9 +203,60 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="mt-4 flex min-h-0 flex-1 flex-col gap-3">
+        {isLoadingGroups && groups.length === 0 ? (
           <div
-            className="study-chat-dock relative flex min-h-24 shrink-0 items-center gap-7 overflow-visible px-5 py-4"
+            className="flex min-h-64 flex-1 items-center justify-center text-body-2 text-text-secondary"
+            role="status"
+          >
+            가입한 스터디를 불러오는 중입니다.
+          </div>
+        ) : groupLoadError && groups.length === 0 ? (
+          <div
+            className="flex min-h-64 flex-1 flex-col items-center justify-center gap-4 px-6 text-center"
+            role="alert"
+          >
+            <p className="text-body-2 text-status-error">{groupLoadError}</p>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={retryLoadMyGroups}
+            >
+              <RefreshCw aria-hidden="true" />
+              다시 시도
+            </Button>
+          </div>
+        ) : groups.length === 0 || !selectedGroup ? (
+          <div className="flex min-h-64 flex-1 flex-col items-center justify-center px-6 text-center">
+            <p className="text-body-1 font-semibold text-text-primary">
+              참여 중인 스터디가 없습니다.
+            </p>
+            <p className="mt-2 text-caption text-text-secondary">
+              스터디 가입이 승인되면 이곳에 그룹 이름이 표시됩니다.
+            </p>
+          </div>
+        ) : (
+        <div className="mt-4 flex min-h-0 flex-1 flex-col gap-3">
+          {groupLoadError ? (
+            <div
+              className="flex items-center justify-between gap-3 rounded-ait-s bg-status-error-surface px-3 py-2"
+              role="alert"
+            >
+              <p className="text-caption text-status-error">
+                가입 스터디를 새로 불러오지 못했습니다.
+              </p>
+              <Button
+                type="button"
+                variant="text"
+                className="h-8 shrink-0 gap-1 py-0 text-caption"
+                onClick={retryLoadMyGroups}
+              >
+                <RefreshCw aria-hidden="true" />
+                다시 시도
+              </Button>
+            </div>
+          ) : null}
+          <div
+            className="study-chat-dock hide-scrollbar relative flex min-h-28 shrink-0 items-center gap-14 overflow-x-auto overflow-y-hidden px-8 py-5"
             role="tablist"
             aria-label="스터디 그룹 선택"
             onPointerMove={updateDockMagnification}
@@ -165,6 +277,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
                   role="tab"
                   aria-selected={isSelected}
                   aria-controls="study-chat-panel"
+                  aria-label={group.title}
                   onClick={() => setSelectedGroupId(group.id)}
                   className={cn(
                     'study-chat-dock-item relative isolate flex size-12 shrink-0 items-center justify-center rounded-ait-pill border bg-profile-avatar text-body-1 font-semibold text-action-primary',
@@ -174,7 +287,19 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
                   )}
                   data-study-chat-dock-item
                 >
-                  {group.id}
+                  <span aria-hidden="true">{getGroupInitial(group.title)}</span>
+                  <span
+                    className={cn(
+                      'absolute left-1/2 top-[calc(100%+0.65rem)] w-28 -translate-x-1/2 truncate text-center text-caption font-medium',
+                      isSelected
+                        ? 'text-action-primary'
+                        : 'text-text-secondary',
+                    )}
+                    title={group.title}
+                    aria-hidden="true"
+                  >
+                    {group.title}
+                  </span>
                 </button>
               )
             })}
@@ -190,7 +315,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
               <Pin className="size-4 shrink-0" aria-hidden="true" />
               <p className="truncate">
                 <span className="font-semibold">공지 · </span>
-                {selectedGroup.notice}
+                {selectedGroup.notice || '등록된 공지가 없습니다.'}
               </p>
             </div>
 
@@ -198,9 +323,13 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
               ref={messageListRef}
               className="min-h-0 flex-1 space-y-6 overflow-x-hidden overflow-y-auto px-2 py-6"
               aria-live="polite"
-              aria-label={`${selectedGroupId} 그룹 메시지`}
+              aria-label={`${selectedGroup.title} 그룹 메시지`}
             >
-              {selectedGroup.messages.map((message) => (
+              {selectedGroup.messages.length === 0 ? (
+                <p className="py-10 text-center text-caption text-text-secondary">
+                  아직 메시지가 없습니다.
+                </p>
+              ) : selectedGroup.messages.map((message) => (
                 <div
                   key={message.id}
                   className={cn(
@@ -287,6 +416,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
             </div>
           </div>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   )

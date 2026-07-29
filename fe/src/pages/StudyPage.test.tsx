@@ -5,6 +5,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudyPage } from '@/pages/StudyPage'
 import {
   applyToStudyGroup,
+  getMyActiveStudyGroups,
   getMyStudyGroups,
   getStudyGroups,
   type MyStudyGroup,
@@ -19,6 +20,7 @@ vi.mock('@/api/auth', () => ({
 vi.mock('@/api/study-groups', () => ({
   getStudyGroups: vi.fn(),
   getMyStudyGroups: vi.fn(),
+  getMyActiveStudyGroups: vi.fn(),
   createStudyGroup: vi.fn(),
   applyToStudyGroup: vi.fn(),
 }))
@@ -111,6 +113,7 @@ describe('StudyPage', () => {
   beforeEach(() => {
     vi.mocked(getStudyGroups).mockResolvedValue(toPage(studyGroups))
     vi.mocked(getMyStudyGroups).mockResolvedValue(myStudyGroups)
+    vi.mocked(getMyActiveStudyGroups).mockResolvedValue(myStudyGroups)
     vi.mocked(applyToStudyGroup).mockResolvedValue(undefined)
   })
 
@@ -290,17 +293,25 @@ describe('StudyPage', () => {
     const groupDock = within(chatDialog).getByRole('tablist', {
       name: '스터디 그룹 선택',
     })
-    const groupTabs = within(groupDock).getAllByRole('tab')
+    const groupTabs = await within(groupDock).findAllByRole('tab')
+    expect(getMyActiveStudyGroups).toHaveBeenCalledTimes(1)
+    expect(
+      within(groupDock).getByRole('tab', {
+        name: '금융권 면접 PT 대비',
+      }),
+    ).toBeInTheDocument()
+    expect(
+      within(groupDock).getByRole('tab', {
+        name: '백엔드 기술 연습',
+      }),
+    ).toBeInTheDocument()
     expect(groupDock).toHaveClass(
       'study-chat-dock',
       'items-center',
-      'gap-7',
-      'overflow-visible',
+      'gap-14',
+      'overflow-x-auto',
     )
-    expect(groupDock).not.toHaveClass(
-      'bg-surface-default',
-      'overflow-y-hidden',
-    )
+    expect(groupDock).not.toHaveClass('bg-surface-default')
     expect(groupTabs[0]).toHaveClass('study-chat-dock-item')
     expect(groupTabs[0]).toHaveClass('study-chat-dock-item-selected')
 
@@ -344,6 +355,19 @@ describe('StudyPage', () => {
     await user.type(messageInput, '자료 확인했습니다.{enter}')
     expect(
       within(chatDialog).getByText('자료 확인했습니다.'),
+    ).toBeInTheDocument()
+  })
+
+  it('활성 상태로 가입한 그룹이 없으면 빈 상태를 표시한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getMyActiveStudyGroups).mockResolvedValueOnce([])
+    renderStudyPage()
+    await screen.findAllByRole('article', { name: /상세 정보$/ })
+
+    await user.click(screen.getByRole('button', { name: '그룹톡 열기' }))
+
+    expect(
+      await screen.findByText('참여 중인 스터디가 없습니다.'),
     ).toBeInTheDocument()
   })
 })
