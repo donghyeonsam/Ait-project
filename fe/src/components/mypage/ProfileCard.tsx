@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, Camera } from 'lucide-react'
+import { BriefcaseBusiness, Camera, X } from 'lucide-react'
 import { useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import type { ProfileData } from '@/types/profile'
@@ -10,6 +10,7 @@ interface ProfileCardProps {
   onChangeRolesText: (value: string) => void
   avatarSrc: string | null
   onSelectAvatarFile: (file: File | null) => void
+  onRemoveAvatar: () => void
 }
 
 const roleClasses = [
@@ -25,6 +26,7 @@ export function ProfileCard({
   onChangeRolesText,
   avatarSrc,
   onSelectAvatarFile,
+  onRemoveAvatar,
 }: ProfileCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -49,6 +51,16 @@ export function ProfileCard({
 
         {isEditing ? (
           <>
+            {avatarSrc ? (
+              <button
+                type="button"
+                onClick={onRemoveAvatar}
+                aria-label="프로필 사진 삭제"
+                className="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full bg-action-primary/80 text-surface-default transition-colors ease-standard duration-(--duration-fast) hover:bg-action-primary"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -62,7 +74,10 @@ export function ProfileCard({
               type="file"
               accept="image/*"
               className="sr-only"
-              onChange={(event) => onSelectAvatarFile(event.target.files?.[0] ?? null)}
+              onChange={(event) => {
+                onSelectAvatarFile(event.target.files?.[0] ?? null)
+                event.target.value = ''
+              }}
             />
           </>
         ) : null}

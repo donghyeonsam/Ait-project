@@ -1,10 +1,10 @@
 package com.aitserver.studyGroupRoom.controller;
 
 import com.aitserver.global.response.ApiResponse;
-import com.aitserver.studyGroupRoom.dto.ApplicationCreateRequest;
-import com.aitserver.studyGroupRoom.dto.ApplicationProcessRequest;
-import com.aitserver.studyGroupRoom.dto.ApplicationResponse;
-import com.aitserver.studyGroupRoom.service.StudyGroupApplicationService;
+import com.aitserver.studyGroupRoom.dto.application.ApplicationCreateRequest;
+import com.aitserver.studyGroupRoom.dto.application.ApplicationProcessRequest;
+import com.aitserver.studyGroupRoom.dto.application.ApplicationResponse;
+import com.aitserver.studyGroupRoom.service.application.StudyGroupApplicationService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

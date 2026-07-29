@@ -1,10 +1,10 @@
 package com.aitserver.studyGroupRoom.controller;
 
 import com.aitserver.global.response.ApiResponse;
-import com.aitserver.studyGroupRoom.dto.CalendarRequest;
-import com.aitserver.studyGroupRoom.dto.CalendarResponse;
-import com.aitserver.studyGroupRoom.service.StudyGroupCalendarCommandService;
-import com.aitserver.studyGroupRoom.service.StudyGroupCalendarQueryService;
+import com.aitserver.studyGroupRoom.dto.calendar.CalendarRequest;
+import com.aitserver.studyGroupRoom.dto.calendar.CalendarResponse;
+import com.aitserver.studyGroupRoom.service.calendar.StudyGroupCalendarCommandService;
+import com.aitserver.studyGroupRoom.service.calendar.StudyGroupCalendarQueryService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;

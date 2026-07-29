@@ -17,17 +17,16 @@ const focusableSelector =
 
 // TODO: 실제 API 연동 필요 — 레이더 차트 축·점수는 화면 확인용 목업 값이다.
 const radarAxes = [
-  { label: '전문성', score: 8.4 },
-  { label: '논리성', score: 8.8 },
-  { label: '전달력', score: 6.7 },
-  { label: '시선처리', score: 5.4 },
-  { label: '답변 구조', score: 8.1 },
-  { label: '직무 역량', score: 8.5 },
+  { label: '시선', score: 5.4 },
+  { label: '표정', score: 7.2 },
+  { label: '목소리', score: 6.7 },
+  { label: '질의응답', score: 8.8 },
+  { label: '문장구성', score: 8.1 },
 ]
 
-// 6각형 레이더의 index번째 꼭짓점 좌표. 12시 방향(-90°)부터 시계방향으로 60°씩 배치한다.
+// 5각형 레이더의 index번째 꼭짓점 좌표. 12시 방향(-90°)부터 시계방향으로 축 개수만큼 등분해 배치한다.
 function polarPoint(index: number, radius: number) {
-  const angle = -Math.PI / 2 + (Math.PI * 2 * index) / 6
+  const angle = -Math.PI / 2 + (Math.PI * 2 * index) / radarAxes.length
   return `${120 + Math.cos(angle) * radius},${110 + Math.sin(angle) * radius}`
 }
 
@@ -47,8 +46,8 @@ function RadarChart({ active }: { active: boolean }) {
       >
         <title id="radar-title">역량 분석</title>
         <desc id="radar-description">
-          전문성 8.4점, 논리성 8.8점, 전달력 6.7점, 시선처리 5.4점,
-          답변 구조 8.1점, 직무 역량 8.5점입니다.
+          {radarAxes.map((axis) => `${axis.label} ${axis.score}점`).join(', ')}
+          입니다.
         </desc>
         {gridLevels.map((radius) => (
           <polygon

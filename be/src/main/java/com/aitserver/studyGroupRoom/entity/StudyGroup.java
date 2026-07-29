@@ -58,10 +58,10 @@ public class StudyGroup {
     )
     private String title;
 
-    @Lob
     @Column(
             name = "description",
-            nullable = false
+            nullable = false,
+            columnDefinition = "TEXT"
     )
     private String description;
 
@@ -80,6 +80,9 @@ public class StudyGroup {
 
     @Formula("(SELECT COUNT(*) FROM study_group_members m WHERE m.group_id = id AND m.status = 'ACTIVE' AND m.deleted_at IS NULL)")
     private int currentMemberCount;
+
+    @Column(name = "chat_notice", length = 255)
+    private String chatNotice;
 
     @CreationTimestamp
     @Column(
@@ -131,4 +134,23 @@ public class StudyGroup {
         }
     }
 
+    public boolean isMember(Long userId) {
+        return this.members.stream()
+                .anyMatch(member -> member.getUser().getId().equals(userId)
+                        && member.isActive()); // StudyGroupMember에 있는 isActive() 활용
+    }
+
+    public void validateMember(Long userId) {
+        if (!isMember(userId)) {
+            throw new BusinessException(ErrorCode.NOT_GROUP_MEMBER);
+        }
+    }
+
+    public void updateChatNotice(String newNotice) {
+        this.chatNotice = newNotice;
+    }
+
+    public void deleteChatNotice() {
+        this.chatNotice = null;
+    }
 }

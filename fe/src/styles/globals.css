@@ -109,6 +109,33 @@
   --color-loading-progress-track: #e9edf3;
   --color-loading-progress-tint: #5a7ba6;
 
+  /* 커뮤니티 화면 전용 팔레트. fe/prompt/ait-community-claude-code-prompt.md 2절 기준. */
+  --color-navy-900: #1b2a4a;
+  --color-navy-800: #1e2b48;
+  --color-navy-700: #2a3b5e;
+  --color-gold-500: #c8a951;
+  --color-ink-900: #111827;
+  --color-ink-700: #374151;
+  --color-ink-500: #6b7280;
+  --color-ink-400: #9ca3af;
+  --color-line: #e5e7eb;
+  --color-line-soft: #f1f3f5;
+  --color-surface-muted: #f7f8fa;
+  --color-brand-blue: #2f6bff;
+  --color-badge-review: #d94a6a;
+  --color-badge-review-surface: #fde8ec;
+  --color-badge-qna: #6b5ce7;
+  --color-badge-qna-surface: #edeafd;
+  --color-badge-tip: #2e9e5b;
+  --color-badge-tip-surface: #e4f7ea;
+  --color-badge-study: #2e7ba6;
+  --color-badge-study-surface: #e2f2fb;
+  --color-tag-chip: #3b7dd8;
+  --color-tag-chip-surface: #eaf3fe;
+  --color-danger: #e8453c;
+
+  --shadow-card-hover: 0 6px 20px rgb(17 24 39 / 0.08);
+
   --text-display: 2.5rem;
   --text-display--line-height: 1.25;
   --text-display--font-weight: 700;
@@ -1049,6 +1076,116 @@ button:not(:disabled) {
   }
   50% {
     opacity: 0.35;
+  }
+}
+
+/* 커뮤니티 게시글 본문(에디터 HTML) 렌더링 공통 타이포그래피.
+   Tiptap 에디터 편집 화면과 상세 화면이 같은 모양을 공유한다. */
+.community-prose {
+  font-size: var(--text-body-2);
+  line-height: 1.7;
+  color: var(--color-ink-700);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.community-prose p {
+  margin: 0 0 0.75rem;
+}
+
+.community-prose h1,
+.community-prose h2,
+.community-prose h3 {
+  margin: 1.5rem 0 0.5rem;
+  font-weight: 700;
+  color: var(--color-ink-900);
+}
+
+.community-prose h1 {
+  font-size: 1.5rem;
+}
+
+.community-prose h2 {
+  font-size: 1.25rem;
+}
+
+.community-prose h3 {
+  font-size: 1.125rem;
+}
+
+.community-prose ul,
+.community-prose ol {
+  margin: 0 0 0.75rem;
+  padding-left: 1.5rem;
+}
+
+.community-prose ul {
+  list-style: disc;
+}
+
+.community-prose ol {
+  list-style: decimal;
+}
+
+.community-prose li {
+  margin-bottom: 0.75rem;
+}
+
+.community-prose li > p {
+  margin-bottom: 0.25rem;
+}
+
+.community-prose li::marker {
+  font-weight: 600;
+  color: var(--color-ink-900);
+}
+
+/* 사용하는 한글 글꼴에 이탤릭 서체가 없어 전역 font-synthesis: none이면 기울임이 무시되므로 합성을 허용한다. */
+.community-prose em {
+  font-synthesis: style;
+}
+
+.community-prose strong {
+  font-weight: 700;
+  color: var(--color-ink-900);
+}
+
+.community-prose blockquote {
+  margin: 0 0 0.75rem;
+  border-left: 3px solid var(--color-line);
+  padding-left: 1rem;
+  color: var(--color-ink-500);
+}
+
+.community-prose a {
+  color: var(--color-brand-blue);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.community-prose img {
+  max-width: 100%;
+  border-radius: var(--radius-s);
+}
+
+/* 게시글 작성 폼 유효성 실패 시 해당 필드를 짧게 흔든다. */
+.field-shake {
+  animation: field-shake 300ms var(--easing-standard);
+}
+
+@keyframes field-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+  75% {
+    transform: translateX(-3px);
   }
 }
 

@@ -2,12 +2,12 @@ package com.aitserver.studyGroupRoom.controller;
 
 import com.aitserver.global.response.ApiResponse;
 import com.aitserver.studyGroupRoom.domain.StudyGroupStatus;
-import com.aitserver.studyGroupRoom.dto.GroupDetailResponse;
-import com.aitserver.studyGroupRoom.dto.MyStudyGroupResponseDto;
-import com.aitserver.studyGroupRoom.dto.StudyGroupListResponseDto;
-import com.aitserver.studyGroupRoom.dto.StudyGroupRequestDto;
-import com.aitserver.studyGroupRoom.service.StudyGroupCommandService;
-import com.aitserver.studyGroupRoom.service.StudyGroupService;
+import com.aitserver.studyGroupRoom.dto.group.GroupDetailResponse;
+import com.aitserver.studyGroupRoom.dto.group.MyStudyGroupResponseDto;
+import com.aitserver.studyGroupRoom.dto.group.StudyGroupListResponseDto;
+import com.aitserver.studyGroupRoom.dto.group.StudyGroupRequestDto;
+import com.aitserver.studyGroupRoom.service.group.StudyGroupCommandService;
+import com.aitserver.studyGroupRoom.service.group.StudyGroupService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -143,6 +143,24 @@ public class StudyGroupController {
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK,
                 "스터디 그룹 나가기 처리 성공.",
+                null,
+                servletRequest
+        ));
+    }
+
+    // [D] 멤버 추방 (방장 전용)
+    @DeleteMapping("/{groupId}/members/{targetUserId}")
+    public ResponseEntity<ApiResponse<Void>> kickMember(
+            @PathVariable Long groupId,
+            @PathVariable Long targetUserId,
+            @AuthenticationPrincipal Long currentUserId,
+            HttpServletRequest servletRequest) {
+
+        studyGroupCommandService.kickMember(groupId, targetUserId, currentUserId);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                "멤버를 성공적으로 추방했습니다.",
                 null,
                 servletRequest
         ));

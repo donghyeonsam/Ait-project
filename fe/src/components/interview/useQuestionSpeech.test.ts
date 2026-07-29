@@ -79,8 +79,7 @@ describe('useQuestionSpeech', () => {
     cancel.mockClear()
     vi.mocked(synthesizeQuestionSpeech).mockReset()
     vi.mocked(synthesizeQuestionSpeech).mockResolvedValue({
-      audioBase64: 'AAAA',
-      format: 'mp3',
+      audioData: 'AAAA',
     })
     vi.mocked(ttsResponseToBlob).mockReset()
     vi.mocked(ttsResponseToBlob).mockReturnValue(

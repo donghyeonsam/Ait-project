@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -87,12 +88,6 @@ public class StudyGroupMember {
     @Column(length = 300, nullable = false)
     private String message;
 
-    @Column(name = "joined_at")
-    private LocalDateTime joinedAt;
-
-    @Column(name = "left_at")
-    private LocalDateTime leftAt;
-
     @CreationTimestamp
     @Column(
             name = "created_at",
@@ -100,6 +95,13 @@ public class StudyGroupMember {
             updatable = false
     )
     private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(
+            name = "updated_at",
+            nullable = false
+    )
+    private LocalDateTime updatedAt;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
@@ -111,11 +113,6 @@ public class StudyGroupMember {
         this.role = role;
         this.status = status;
         this.message = message;
-
-        // 생성 시점에 ACTIVE 상태라면 가입일 즉시 기록
-        if (status == StudyGroupMemberStatus.ACTIVE) {
-            this.joinedAt = LocalDateTime.now();
-        }
     }
 
     public static StudyGroupMember createOwner(StudyGroup studyGroup, User owner) {
@@ -148,12 +145,10 @@ public class StudyGroupMember {
 
         // 2. 자리 검증을 통과했다면 내 상태를 ACTIVE로 변경
         this.status = StudyGroupMemberStatus.ACTIVE;
-        this.joinedAt = LocalDateTime.now();
     }
 
     public void leave() {
         this.status = StudyGroupMemberStatus.LEFT;
-        this.leftAt = LocalDateTime.now();
         this.deletedAt = LocalDateTime.now();
     }
 
@@ -165,7 +160,7 @@ public class StudyGroupMember {
         }
 
         this.status = StudyGroupMemberStatus.KICKED;
-        this.leftAt = LocalDateTime.now();
+        this.deletedAt = LocalDateTime.now();
     }
 
     public void rejoin() {
@@ -176,8 +171,8 @@ public class StudyGroupMember {
         }
 
         this.status = StudyGroupMemberStatus.PENDING;
-        this.leftAt = null;
     }
+
 
     public boolean isActive() {
         return this.status == StudyGroupMemberStatus.ACTIVE

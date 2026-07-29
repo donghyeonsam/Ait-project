@@ -152,6 +152,7 @@ CREATE TABLE `resumes` (
                            `analysis_content` MEDIUMTEXT DEFAULT NULL,
                            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                            `updated_at` DATETIME DEFAULT NULL,
+                           `deleted_at` DATETIME DEFAULT NULL,
 
                            PRIMARY KEY (`id`),
 
@@ -406,7 +407,8 @@ CREATE TABLE `ai_comprehensive_reports` (
                                             `eye_contact_score` INT NOT NULL,
                                             `face_score` INT NOT NULL,
                                             `voice_score` INT NOT NULL,
-                                            `answer_score` INT NOT NULL,
+                                            `qna_score` INT NOT NULL,
+                                            `sentence_score` INT NOT NULL,
                                             `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
                                             PRIMARY KEY (`id`),
@@ -440,35 +442,20 @@ CREATE TABLE study_groups (
                               title VARCHAR(50) NOT NULL,
                               description TEXT NOT NULL,
 
-                              capacity TINYINT UNSIGNED NOT NULL DEFAULT 8,
                               status VARCHAR(20) NOT NULL DEFAULT 'RECRUITING',
-
+                              chat_notice VARCHAR(255) NULL,
                               created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                              updated_at DATETIME NOT NULL
-                                  DEFAULT CURRENT_TIMESTAMP
-                                  ON UPDATE CURRENT_TIMESTAMP,
+                              updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                               deleted_at DATETIME NULL,
 
                               PRIMARY KEY (id),
 
-                              KEY idx_study_groups_owner_id (
-        owner_id
-    ),
-
-                              KEY idx_study_groups_status_deleted_at (
-        status,
-        deleted_at
-    ),
+                              KEY idx_study_groups_owner_id (owner_id),
+                              KEY idx_study_groups_status_deleted_at (status, deleted_at),
 
                               CONSTRAINT fk_study_groups_owner
                                   FOREIGN KEY (owner_id)
-                                      REFERENCES users(id),
-
-                              CONSTRAINT chk_study_groups_capacity
-                                  CHECK (
-                                      capacity >= 1
-                                          AND capacity <= 8
-                                      )
+                                    REFERENCES users(id)
 );
 
 
@@ -480,7 +467,6 @@ CREATE TABLE `study_group_calendars` (
                                          `group_id` BIGINT NOT NULL,
                                          `content` VARCHAR(255) NOT NULL,
                                          `start_time` DATETIME NOT NULL,
-                                         `end_time` DATETIME NOT NULL,
                                          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                          updated_at DATETIME NOT NULL
                                                 DEFAULT CURRENT_TIMESTAMP
@@ -538,9 +524,6 @@ CREATE TABLE study_group_members (
 
                                      role VARCHAR(20) NOT NULL DEFAULT 'MEMBER',
                                      status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-
-                                     joined_at DATETIME NULL,
-                                     left_at DATETIME NULL,
 
                                      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                      updated_at DATETIME NOT NULL
