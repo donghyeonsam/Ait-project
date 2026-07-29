@@ -201,7 +201,7 @@ export function StudyPage() {
   }
 
   return (
-    <PageLayout contentClassName="relative isolate max-w-dashboard px-4 sm:px-8">
+    <PageLayout contentClassName="page-content-zoom-90 relative isolate max-w-dashboard px-4 sm:px-8">
       <StudyHeroGlow />
       <section
         ref={heroRef}

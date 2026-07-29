@@ -27,61 +27,64 @@ export function DashboardPage() {
 
   return (
     <PageLayout contentClassName="max-w-dashboard">
-      <section
-        className="study-reveal is-visible pb-10 pt-10"
-        style={{ '--reveal-order': 0 } as React.CSSProperties}
-        aria-labelledby="page-title"
-      >
-        <h1 id="page-title" className="text-h1">
-          좋은 아침이에요, {user?.nickname ?? '사용자'}님
-        </h1>
-        <p className="mt-2 text-body-2 text-text-secondary">
-          오늘도 Ait과 함께 면접 역량을 한 단계 성장시켜보세요.
-        </p>
-      </section>
+      {/* 헤더·푸터를 제외한 대시보드 본문 전체를 90% 크기로 축소해 표시한다. */}
+      <div className="zoom-[0.9]">
+        <section
+          className="study-reveal is-visible pb-10 pt-10"
+          style={{ '--reveal-order': 0 } as React.CSSProperties}
+          aria-labelledby="page-title"
+        >
+          <h1 id="page-title" className="text-h1">
+            좋은 아침이에요, {user?.nickname ?? '사용자'}님
+          </h1>
+          <p className="mt-2 text-body-2 text-text-secondary">
+            오늘도 Ait과 함께 면접 역량을 한 단계 성장시켜보세요.
+          </p>
+        </section>
 
-      <section
-        className="study-reveal is-visible dashboard-stats grid grid-cols-4 gap-4"
-        style={{ '--reveal-order': 1 } as React.CSSProperties}
-        aria-label="활동 요약"
-      >
-        {emptyMetrics.map(({ label, unit, icon: Icon }) => (
-          <article key={label} className="rounded-ait-m border border-border-default bg-background-default p-6 shadow-elevation-1">
-            <div className="flex items-center gap-4">
-              <span className="flex size-14 items-center justify-center rounded-ait-pill bg-status-neutral-surface text-action-primary" aria-hidden="true">
-                <Icon className="size-8" />
-              </span>
-              <div>
-                <p className="text-body-2 text-text-secondary">{label}</p>
-                <p className="mt-1 flex items-baseline gap-1">
-                  <strong className="text-h2">—</strong>
-                  <span className="text-caption">{unit}</span>
-                </p>
+        <section
+          className="study-reveal is-visible dashboard-stats grid grid-cols-4 gap-4"
+          style={{ '--reveal-order': 1 } as React.CSSProperties}
+          aria-label="활동 요약"
+        >
+          {emptyMetrics.map(({ label, unit, icon: Icon }) => (
+            <article key={label} className="rounded-ait-m border border-border-default bg-background-default p-6 shadow-elevation-1">
+              <div className="flex items-center gap-4">
+                <span className="flex size-14 items-center justify-center rounded-ait-pill bg-status-neutral-surface text-action-primary" aria-hidden="true">
+                  <Icon className="size-8" />
+                </span>
+                <div>
+                  <p className="text-body-2 text-text-secondary">{label}</p>
+                  <p className="mt-1 flex items-baseline gap-1">
+                    <strong className="text-h2">—</strong>
+                    <span className="text-caption">{unit}</span>
+                  </p>
+                </div>
               </div>
-            </div>
-            <p className="mt-4 text-caption text-text-secondary">연동된 데이터가 없습니다.</p>
-          </article>
-        ))}
-      </section>
+              <p className="mt-4 text-caption text-text-secondary">연동된 데이터가 없습니다.</p>
+            </article>
+          ))}
+        </section>
 
-      <div className="my-8 border-t border-border-default" />
+        <div className="my-8 border-t border-border-default" />
 
-      <div
-        className="study-reveal is-visible dashboard-main-grid grid gap-10"
-        style={{ '--reveal-order': 2 } as React.CSSProperties}
-      >
-        <EmptyPanel title="최근 AI면접 기록" description="저장된 면접 기록이 없습니다." />
-        <EmptyPanel title="종합 점수 추이" description="면접 분석 데이터가 연결되면 점수 추이가 표시됩니다." />
-      </div>
+        <div
+          className="study-reveal is-visible dashboard-main-grid grid gap-10"
+          style={{ '--reveal-order': 2 } as React.CSSProperties}
+        >
+          <EmptyPanel title="최근 AI면접 기록" description="저장된 면접 기록이 없습니다." />
+          <EmptyPanel title="종합 점수 추이" description="면접 분석 데이터가 연결되면 점수 추이가 표시됩니다." />
+        </div>
 
-      <div className="my-10 border-t border-border-default" />
+        <div className="my-10 border-t border-border-default" />
 
-      <div
-        className="study-reveal is-visible dashboard-main-grid grid gap-10 pb-20"
-        style={{ '--reveal-order': 2 } as React.CSSProperties}
-      >
-        <EmptyPanel title="최근 스터디 기록" description="저장된 스터디 기록이 없습니다." />
-        <EmptyPanel title="나의 스터디 일정" description="등록된 스터디 일정이 없습니다." />
+        <div
+          className="study-reveal is-visible dashboard-main-grid grid gap-10 pb-20"
+          style={{ '--reveal-order': 2 } as React.CSSProperties}
+        >
+          <EmptyPanel title="최근 스터디 기록" description="저장된 스터디 기록이 없습니다." />
+          <EmptyPanel title="나의 스터디 일정" description="등록된 스터디 일정이 없습니다." />
+        </div>
       </div>
     </PageLayout>
   )

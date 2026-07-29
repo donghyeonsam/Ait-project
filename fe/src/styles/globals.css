@@ -203,8 +203,8 @@
   --z-index-dialog: 400;
   --z-index-toast: 500;
 
-  --header-height-compact: 3.5rem;
-  --header-height-wide: 5rem;
+  --header-height-compact: 3.15rem;
+  --header-height-wide: 4.5rem;
   --button-padding-block: 0.625rem;
 
   /* shadcn/ui compatibility aliases. Ait semantic tokens remain the source. */
@@ -485,6 +485,12 @@ button:not(:disabled) {
    보이도록 요청받아 이 영역만 축소한다. width+margin-inline을 함께 지정해야
    zoom이 적용된 뒤에도 부모 안에서 가운데 정렬이 유지된다. */
 .survey-zoom-90 {
+  zoom: 0.9;
+  width: 100%;
+  margin-inline: auto;
+}
+
+.page-content-zoom-90 {
   zoom: 0.9;
   width: 100%;
   margin-inline: auto;

@@ -1,5 +1,5 @@
 import Image from '@tiptap/extension-image'
-import { FontFamily, TextStyle } from '@tiptap/extension-text-style'
+import { FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-style'
 import { CharacterCount } from '@tiptap/extensions'
 import type { Editor } from '@tiptap/react'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
@@ -40,6 +40,7 @@ export function RichTextEditor({
       }),
       TextStyle,
       FontFamily,
+      FontSize,
       Image,
       CharacterCount,
     ],

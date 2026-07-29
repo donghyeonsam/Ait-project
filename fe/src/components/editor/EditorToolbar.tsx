@@ -18,6 +18,15 @@ import { cn } from '@/lib/utils'
 
 type HeadingValue = 'paragraph' | 'h1' | 'h2' | 'h3'
 type FontValue = 'Pretendard' | 'NanumGothic' | 'Malgun Gothic'
+type FontSizeValue =
+  | '12px'
+  | '14px'
+  | '16px'
+  | '18px'
+  | '20px'
+  | '24px'
+  | '28px'
+  | '32px'
 
 const HEADING_OPTIONS: { value: HeadingValue; label: string }[] = [
   { value: 'paragraph', label: '본문' },
@@ -30,6 +39,17 @@ const FONT_OPTIONS: { value: FontValue; label: string }[] = [
   { value: 'Pretendard', label: 'Pretendard' },
   { value: 'NanumGothic', label: '나눔고딕' },
   { value: 'Malgun Gothic', label: '맑은 고딕' },
+]
+
+const FONT_SIZE_OPTIONS: { value: FontSizeValue; label: string }[] = [
+  { value: '12px', label: '12px' },
+  { value: '14px', label: '14px' },
+  { value: '16px', label: '16px' },
+  { value: '18px', label: '18px' },
+  { value: '20px', label: '20px' },
+  { value: '24px', label: '24px' },
+  { value: '28px', label: '28px' },
+  { value: '32px', label: '32px' },
 ]
 
 interface EditorToolbarProps {
@@ -52,6 +72,9 @@ export function EditorToolbar({ editor, onPickImage }: EditorToolbarProps) {
       font: (FONT_OPTIONS.find((option) =>
         instance.isActive('textStyle', { fontFamily: option.value }),
       )?.value ?? 'Pretendard') as FontValue,
+      fontSize: (FONT_SIZE_OPTIONS.find((option) =>
+        instance.isActive('textStyle', { fontSize: option.value }),
+      )?.value ?? '14px') as FontSizeValue,
       bold: instance.isActive('bold'),
       italic: instance.isActive('italic'),
       underline: instance.isActive('underline'),
@@ -74,6 +97,10 @@ export function EditorToolbar({ editor, onPickImage }: EditorToolbarProps) {
     editor.chain().focus().setFontFamily(value).run()
   }
 
+  const setFontSize = (value: FontSizeValue) => {
+    editor.chain().focus().setFontSize(value).run()
+  }
+
   return (
     <div
       role="toolbar"
@@ -94,6 +121,14 @@ export function EditorToolbar({ editor, onPickImage }: EditorToolbarProps) {
         onChange={setFont}
         ariaLabel="글꼴"
         className="w-32 shrink-0"
+        buttonClassName="border-0 px-2.5 py-1.5 hover:bg-surface-muted"
+      />
+      <Dropdown
+        options={FONT_SIZE_OPTIONS}
+        value={state?.fontSize ?? '14px'}
+        onChange={setFontSize}
+        ariaLabel="글자 크기"
+        className="w-20 shrink-0"
         buttonClassName="border-0 px-2.5 py-1.5 hover:bg-surface-muted"
       />
 
