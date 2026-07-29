@@ -5,7 +5,11 @@ import {
   type StudySessionPrejoinSelection,
 } from '@/components/study/StudySessionPrejoin'
 import { PageLayout } from '@/components/layout/PageLayout'
-import { createStudySessionConnection } from '@/api/study-sessions'
+import {
+  createStudySession,
+  createStudySessionConnection,
+  joinStudySessionParticipant,
+} from '@/api/study-sessions'
 import { toErrorMessage } from '@/api/http'
 import { mockPrejoinSessionTitle } from '@/mocks/study'
 
@@ -14,19 +18,21 @@ import { mockPrejoinSessionTitle } from '@/mocks/study'
 // location.state로 실제 세션 정보를 전달받아 mockPrejoinSessionTitle을 대체한다.
 export function StudySessionPrejoinPage() {
   const navigate = useNavigate()
-  const { sessionId } = useParams<{ sessionId: string }>()
+  const { groupId } = useParams<{ groupId: string }>()
 
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
+  // 생성까지만 성공하고 참가/접속에서 실패했을 때, 재시도 시 세션을 중복 생성하지 않기 위해 기억해둔다.
+  const [sessionId, setSessionId] = useState<number | null>(null)
 
   const handleBack = () => {
     navigate(-1)
   }
 
   const handleJoin = async (selection: StudySessionPrejoinSelection) => {
-    const parsedSessionId = Number(sessionId)
-    if (!Number.isInteger(parsedSessionId) || parsedSessionId <= 0) {
-      setConnectError('올바르지 않은 세션입니다.')
+    const parsedGroupId = Number(groupId)
+    if (!Number.isInteger(parsedGroupId) || parsedGroupId <= 0) {
+      setConnectError('올바르지 않은 스터디입니다.')
       return
     }
 
@@ -34,9 +40,16 @@ export function StudySessionPrejoinPage() {
     setConnecting(true)
 
     try {
-      const connection = await createStudySessionConnection(parsedSessionId)
+      const currentSessionId =
+        sessionId ?? (await createStudySession(parsedGroupId)).sessionId
+      setSessionId(currentSessionId)
 
-      navigate(`/study/session/${parsedSessionId}/room`, {
+      await joinStudySessionParticipant(currentSessionId, {
+        coverLetterId: selection.coverLetterId,
+      })
+      const connection = await createStudySessionConnection(currentSessionId)
+
+      navigate(`/study/session/${currentSessionId}/room`, {
         state: {
           devices: {
             cameraDeviceId: selection.cameraDeviceId,

@@ -38,3 +38,18 @@ export function createStudySessionConnection(sessionId: number) {
     { method: 'POST' },
   )
 }
+
+export interface StudySessionParticipantJoinRequest {
+  coverLetterId: number | null
+}
+
+// 응답 필드가 아직 백엔드와 확정되지 않아, 참가자 등록 성공 여부만 사용하고 값은 소비하지 않는다.
+export function joinStudySessionParticipant(
+  sessionId: number,
+  request: StudySessionParticipantJoinRequest,
+) {
+  return backendRequest<unknown>(
+    `/api/study-sessions/${sessionId}/participants/me/join`,
+    { method: 'POST', body: JSON.stringify(request) },
+  )
+}

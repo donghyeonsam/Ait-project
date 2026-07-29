@@ -30,7 +30,6 @@ import {
   updateStudyGroupStatus,
   type StudyGroupDetail,
 } from '@/api/study-groups'
-import { createStudySession } from '@/api/study-sessions'
 import { toErrorMessage } from '@/api/http'
 import { useAuth } from '@/lib/useAuth'
 import { useInView } from '@/lib/useInView'
@@ -62,8 +61,6 @@ export function StudyGroupPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [isRecruiting, setIsRecruiting] = useState(true)
   const [statusError, setStatusError] = useState<string | null>(null)
-  const [sessionError, setSessionError] = useState<string | null>(null)
-  const [isStartingSession, setIsStartingSession] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false)
   const [applicantCount, setApplicantCount] = useState(0)
@@ -207,18 +204,8 @@ export function StudyGroupPage() {
     }
   }
 
-  const startSession = async () => {
-    setIsStartingSession(true)
-    setSessionError(null)
-
-    try {
-      const session = await createStudySession(groupId)
-      navigate(`/study/session/${session.sessionId}/prejoin`)
-    } catch (error) {
-      setSessionError(toErrorMessage(error))
-    } finally {
-      setIsStartingSession(false)
-    }
+  const startSession = () => {
+    navigate(`/study/groups/${groupId}/session/prejoin`)
   }
 
   const inviteMember = (nickname: string) => {
@@ -311,20 +298,14 @@ export function StudyGroupPage() {
                     ? '세션을 시작하면 그룹원이 참여할 수 있어요.'
                     : '그룹장이 세션을 시작하면 참여할 수 있어요.'}
                 </p>
-                {sessionError ? (
-                  <p className="mt-2 pl-5 text-caption text-status-error" role="alert">
-                    {sessionError}
-                  </p>
-                ) : null}
               </div>
               {isLeader ? (
                 <Button
                   type="button"
                   className="cta-lift text-white"
-                  disabled={isStartingSession}
                   onClick={startSession}
                 >
-                  {isStartingSession ? '세션 여는 중...' : '세션 시작하기'}
+                  세션 시작하기
                 </Button>
               ) : null}
             </div>
