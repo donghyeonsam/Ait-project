@@ -3,12 +3,16 @@ package com.aitserver.studySession.repository;
 
 import com.aitserver.studySession.entity.StudySession;
 import com.aitserver.studySession.domain.StudySessionStatus;
+import com.aitserver.studySession.entity.StudySessionParticipant;
 import io.lettuce.core.dynamic.annotation.Param;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface StudySessionRepository
@@ -56,4 +60,28 @@ public interface StudySessionRepository
     Optional<StudySession> findForWebhookByRoomName(
             @Param("roomName") String roomName
     );
+
+
+    // 세션 종료
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        select session
+        from StudySession session
+        join fetch session.studyGroup studyGroup
+        join fetch studyGroup.owner
+        where session.id = :sessionId
+          and studyGroup.deletedAt is null
+        """)
+    Optional<StudySession> findForEnd(
+            @Param("sessionId")
+            Long sessionId
+    );
+
+    // 그룹 세션이 활성화 중인지
+    Optional<StudySession>
+    findFirstByStudyGroupIdAndStatusOrderByCreatedAtDesc(
+            Long groupId,
+            StudySessionStatus status
+    );
+
 }

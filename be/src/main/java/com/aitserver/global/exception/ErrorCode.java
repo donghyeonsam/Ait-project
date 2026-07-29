@@ -75,6 +75,9 @@ public enum ErrorCode {
     STUDY_SESSION_ACCESS_DENIED(HttpStatus.FORBIDDEN, "STUDY_SESSION_004", "해당 스터디 그룹의 멤버가 아닙니다."),
     STUDY_SESSION_PARTICIPANT_KICKED(HttpStatus.FORBIDDEN, "STUDY_SESSION_005", "해당 화상 스터디 세션에서 강퇴된 사용자입니다."),
     STUDY_SESSION_FULL(HttpStatus.CONFLICT, "STUDY_SESSION_006", "화상 스터디 세션의 최대 인원에 도달했습니다."),
+    STUDY_SESSION_HOST_REQUIRED(HttpStatus.FORBIDDEN, "STUDY_SESSION_007", "화상 스터디 방장만 사용할 수 있는 기능입니다."),
+    STUDY_SESSION_CANNOT_KICK_SELF(HttpStatus.BAD_REQUEST, "STUDY_SESSION_008", "방장은 자신을 강퇴할 수 없습니다."),
+    STUDY_SESSION_PARTICIPANT_NOT_FOUND(HttpStatus.NOT_FOUND, "STUDY_SESSION_009", "화상 스터디 참가자를 찾을 수 없습니다."),
 
     // Livekit
     LIVEKIT_TOKEN_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "LIVEKIT_002", "화상 스터디 접속 토큰 생성에 실패했습니다."),

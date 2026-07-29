@@ -68,6 +68,12 @@ public class StudySessionParticipant {
     )
     private User user;
 
+    @Column(name = "resume_id")
+    private Long resumeId;
+
+    @Column(name = "cover_letter_id")
+    private Long coverLetterId;
+
     @Enumerated(EnumType.STRING)
     @Column(
             name = "role",
@@ -168,4 +174,101 @@ public class StudySessionParticipant {
     public boolean isKicked() {
         return this.status == StudySessionParticipantStatus.KICKED;
     }
+
+    public static StudySessionParticipant connect(
+            StudySession studySession,
+            User user,
+            StudySessionParticipantRole role,
+            Long resumeId,
+            Long coverLetterId
+    ) {
+        StudySessionParticipant participant =
+                new StudySessionParticipant();
+
+        participant.studySession = studySession;
+        participant.user = user;
+        participant.role = role;
+
+        participant.resumeId = resumeId;
+        participant.coverLetterId = coverLetterId;
+
+        participant.status =
+                StudySessionParticipantStatus.CONNECTING;
+
+        return participant;
+    }
+
+
+    public void reconnect(
+            StudySessionParticipantRole role,
+            Long resumeId,
+            Long coverLetterId
+    ) {
+        if (this.status
+                == StudySessionParticipantStatus.KICKED) {
+            throw new IllegalStateException(
+                    "강퇴된 참가자는 다시 입장할 수 없습니다."
+            );
+        }
+
+        this.role = role;
+        this.resumeId = resumeId;
+        this.coverLetterId = coverLetterId;
+
+        /*
+         * 이미 실제 접속 중인 상태에서 API가 중복 호출된 경우
+         * JOINED를 다시 CONNECTING으로 변경하지 않습니다.
+         */
+        if (this.status
+                != StudySessionParticipantStatus.JOINED) {
+            this.status =
+                    StudySessionParticipantStatus.CONNECTING;
+        }
+    }
+
+    public void join() {
+        if (this.status
+                == StudySessionParticipantStatus.KICKED) {
+            throw new IllegalStateException(
+                    "강퇴된 참가자는 입장할 수 없습니다."
+            );
+        }
+
+        this.status =
+                StudySessionParticipantStatus.JOINED;
+
+        if (this.firstJoinedAt == null) {
+            this.firstJoinedAt =
+                    LocalDateTime.now();
+        }
+
+        this.lastLeftAt = null;
+    }
+
+    public void leaveBySessionEnd() {
+        /*
+         * 강퇴 이력은 유지합니다.
+         */
+        if (this.status
+                == StudySessionParticipantStatus.KICKED) {
+            return;
+        }
+
+        boolean actuallyJoined =
+                this.status
+                        == StudySessionParticipantStatus.JOINED;
+
+        this.status =
+                StudySessionParticipantStatus.LEFT;
+
+        /*
+         * 실제로 LiveKit 방에 들어왔던 참가자에게만
+         * 마지막 퇴장 시간을 기록합니다.
+         */
+        if (actuallyJoined) {
+            this.lastLeftAt =
+                    LocalDateTime.now();
+        }
+    }
+
 }
