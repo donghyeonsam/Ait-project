@@ -8,6 +8,9 @@ interface UseQuestionSpeechOptions {
   enabled: boolean
 }
 
+// BE TTS 모델(gpt-4o-mini-tts)이 speed 파라미터를 지원하지 않아 재생 측에서 배속을 준다.
+const SPEECH_RATE = 1.2
+
 function clampVolume(volume: number) {
   return Math.min(1, Math.max(0, volume / 100))
 }
@@ -59,7 +62,7 @@ export function useQuestionSpeech({
 
     const utterance = new SpeechSynthesisUtterance(textRef.current)
     utterance.lang = 'ko-KR'
-    utterance.rate = 1
+    utterance.rate = SPEECH_RATE
     utterance.volume = clampVolume(volumeRef.current)
     utterance.onstart = () => {
       if (generationRef.current === generation) setIsSpeaking(true)
@@ -81,6 +84,11 @@ export function useQuestionSpeech({
       const audio = new Audio()
       audio.src = url
       audio.volume = clampVolume(volumeRef.current)
+      // src 재설정 시 playbackRate가 defaultPlaybackRate로 되돌아가므로 둘 다 지정한다.
+      audio.defaultPlaybackRate = SPEECH_RATE
+      audio.playbackRate = SPEECH_RATE
+      // 배속에도 음높이를 유지해 남성 음성(onyx)이 부자연스러워지지 않게 한다.
+      audio.preservesPitch = true
       audio.onplay = () => {
         if (generationRef.current === generation) setIsSpeaking(true)
       }

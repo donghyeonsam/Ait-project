@@ -14,6 +14,9 @@ let playBlocked = false
 class MockAudio {
   src = ''
   volume = 1
+  defaultPlaybackRate = 1
+  playbackRate = 1
+  preservesPitch = false
   onplay: (() => void) | null = null
   onended: (() => void) | null = null
   onpause: (() => void) | null = null
@@ -95,7 +98,7 @@ describe('useQuestionSpeech', () => {
     vi.unstubAllGlobals()
   })
 
-  it('질문 텍스트를 TTS mp3로 받아 설정된 음량으로 재생한다', async () => {
+  it('질문 텍스트를 TTS mp3로 받아 설정된 음량과 1.2배속으로 재생한다', async () => {
     const { result, unmount } = renderQuestionSpeech()
 
     await flushSpeech()
@@ -104,6 +107,9 @@ describe('useQuestionSpeech', () => {
     const audio = audioInstances[0]
     expect(audio?.src).toBe('blob:question-audio')
     expect(audio?.volume).toBe(0.7)
+    expect(audio?.playbackRate).toBe(1.2)
+    expect(audio?.defaultPlaybackRate).toBe(1.2)
+    expect(audio?.preservesPitch).toBe(true)
     expect(result.current.isSpeaking).toBe(true)
 
     act(() => audio?.onended?.())
@@ -133,6 +139,7 @@ describe('useQuestionSpeech', () => {
     const utterance = speak.mock.calls[0]?.[0]
     expect(utterance?.text).toBe('첫 번째 질문입니다.')
     expect(utterance?.lang).toBe('ko-KR')
+    expect(utterance?.rate).toBe(1.2)
     expect(result.current.isSpeaking).toBe(true)
     unmount()
   })
