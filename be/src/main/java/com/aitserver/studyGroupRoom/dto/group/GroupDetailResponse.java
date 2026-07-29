@@ -20,7 +20,7 @@ public class GroupDetailResponse {
     private String createdAt;
     private Long ownerId;
     private List<MemberInfo> members;
-
+    private String notice;
     public static GroupDetailResponse from(StudyGroup group) {
         List<MemberInfo> memberInfos = group.getMembers().stream()
                 .map(groupMember -> MemberInfo.from(groupMember, group.getOwner().getId()))
@@ -35,6 +35,7 @@ public class GroupDetailResponse {
                 .createdAt(group.getCreatedAt().toString())
                 .ownerId(group.getOwner().getId())
                 .members(memberInfos)
+                .notice(group.getChatNotice())
                 .build();
     }
 
