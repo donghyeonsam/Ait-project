@@ -67,23 +67,21 @@ describe('synthesizeQuestionSpeech', () => {
     vi.unstubAllGlobals()
   })
 
-  it('질문 텍스트를 JSON으로 담아 TTS 엔드포인트에 전송한다', async () => {
+  it('질문 텍스트를 question 필드 JSON으로 담아 TTS 엔드포인트에 전송한다', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(apiResponse({ audioBase64: 'AAAA', format: 'mp3' }))
+      .mockResolvedValue(apiResponse({ audioData: 'AAAA' }))
     vi.stubGlobal('fetch', fetchMock)
 
     const result = await synthesizeQuestionSpeech('자기소개를 해주세요.')
 
-    expect(result.audioBase64).toBe('AAAA')
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      '/backend/api/ai-interviews/speech/tts',
-    )
+    expect(result.audioData).toBe('AAAA')
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/backend/api/tts')
 
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit
     expect(request.method).toBe('POST')
     expect(JSON.parse(String(request.body))).toEqual({
-      text: '자기소개를 해주세요.',
+      question: '자기소개를 해주세요.',
     })
   })
 })
@@ -93,7 +91,7 @@ describe('ttsResponseToBlob', () => {
     const bytes = Uint8Array.from([73, 68, 51, 4, 0])
     const base64 = btoa(String.fromCharCode(...bytes))
 
-    const blob = ttsResponseToBlob({ audioBase64: base64, format: 'mp3' })
+    const blob = ttsResponseToBlob({ audioData: base64 })
 
     expect(blob.type).toBe('audio/mpeg')
     expect(blob.size).toBe(bytes.length)

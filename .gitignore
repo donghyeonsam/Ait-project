@@ -518,3 +518,5 @@ application-secret.properties
 application-prod.yml
 *.pem
 *.key
+.vercel
+.env*
