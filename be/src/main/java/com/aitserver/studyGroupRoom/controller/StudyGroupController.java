@@ -34,9 +34,10 @@ public class StudyGroupController {
             @RequestParam(required = false) StudyGroupStatus status,
             @RequestParam(required = false) String keyword,
             @PageableDefault(size = 6, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @AuthenticationPrincipal Long userId,
             HttpServletRequest request
     ) {
-        Page<StudyGroupListResponseDto> response = studyGroupService.getStudyGroups(status, keyword, pageable);
+        Page<StudyGroupListResponseDto> response = studyGroupService.getStudyGroups(status, keyword, userId, pageable);
 
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK,

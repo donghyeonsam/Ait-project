@@ -7,9 +7,15 @@ import {
   getMyStudyGroups,
   getStudyGroupApplications,
   getStudyGroupDetail,
+  kickStudyGroupMember,
   type MyStudyGroup,
   type StudyGroupDetail,
 } from '@/api/study-groups'
+import { getStudyGroupActiveSession } from '@/api/study-sessions'
+import {
+  createStudyCalendar,
+  getMonthlyStudyCalendars,
+} from '@/api/study-calendars'
 import {
   connectStudyGroupChat,
   deleteStudyGroupChatNotice,
@@ -30,10 +36,19 @@ vi.mock('@/api/study-groups', () => ({
   getMyStudyGroups: vi.fn(),
   getStudyGroupApplications: vi.fn(),
   updateStudyGroupStatus: vi.fn(),
+  kickStudyGroupMember: vi.fn(),
 }))
 
 vi.mock('@/api/study-sessions', () => ({
   createStudySession: vi.fn(),
+  getStudyGroupActiveSession: vi.fn(),
+}))
+
+vi.mock('@/api/study-calendars', () => ({
+  getMonthlyStudyCalendars: vi.fn(),
+  createStudyCalendar: vi.fn(),
+  updateStudyCalendar: vi.fn(),
+  deleteStudyCalendar: vi.fn(),
 }))
 
 vi.mock('@/api/study-group-chat', () => ({
@@ -86,6 +101,7 @@ const groupDetail: StudyGroupDetail = {
     { userId: 4, name: '강프로', profileImageUrl: null, owner: false },
     { userId: 5, name: '이면접', profileImageUrl: null, owner: false },
   ],
+  notice: null,
 }
 
 const myStudyGroups: MyStudyGroup[] = [
@@ -98,6 +114,32 @@ const myStudyGroups: MyStudyGroup[] = [
     groupStatus: 'RECRUITING',
     joinedAt: '2026-07-01T09:00:00',
     owner: true,
+  },
+]
+
+function toDateKey(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// 캘린더는 이번 달을 조회하므로 고정 날짜 대신 이번 달 기준으로 픅스처를 만든다.
+const monthPrefix = toDateKey(new Date()).slice(0, 7)
+const scheduledDateKey = `${monthPrefix}-21`
+const scheduledCellName = `${scheduledDateKey}${
+  scheduledDateKey === toDateKey(new Date()) ? ', 오늘' : ''
+}, 스터디 일정 있음`
+const studyCalendars = [
+  {
+    calendarId: 11,
+    content: '개인별 질문 2개 준비',
+    startTime: `${scheduledDateKey}T20:00:00`,
+  },
+  {
+    calendarId: 12,
+    content: '모의 면접 회고',
+    startTime: `${scheduledDateKey}T20:00:00`,
   },
 ]
 
@@ -123,6 +165,13 @@ describe('StudyGroupPage', () => {
     vi.mocked(getStudyGroupDetail).mockResolvedValue(groupDetail)
     vi.mocked(getMyStudyGroups).mockResolvedValue(myStudyGroups)
     vi.mocked(getStudyGroupApplications).mockResolvedValue([])
+    vi.mocked(getStudyGroupActiveSession).mockResolvedValue({
+      hasActiveSession: false,
+      sessionId: null,
+    })
+    vi.mocked(kickStudyGroupMember).mockResolvedValue(undefined)
+    vi.mocked(getMonthlyStudyCalendars).mockResolvedValue(studyCalendars)
+    vi.mocked(createStudyCalendar).mockResolvedValue(undefined)
 
     vi.mocked(getStudyGroupChats).mockResolvedValue({
       chats: [],
@@ -180,8 +229,10 @@ describe('StudyGroupPage', () => {
     await user.click(
       within(removalDialog).getByRole('button', { name: '내보내기' }),
     )
+    expect(kickStudyGroupMember).toHaveBeenCalledWith(101, 2)
+    // 내보내기는 서버 요청이므로 응답 후 목록이 줄어드는 것을 기다린다.
     expect(
-      screen.getByRole('heading', { name: '구성원 4 / 8' }),
+      await screen.findByRole('heading', { name: '구성원 4 / 8' }),
     ).toBeInTheDocument()
 
     await user.click(
@@ -193,6 +244,22 @@ describe('StudyGroupPage', () => {
     )
     await user.click(screen.getByRole('button', { name: '초대' }))
     expect(screen.getByText('새멤버')).toBeInTheDocument()
+  })
+
+  it('그룹 상세에 저장된 공지를 진입 시점에 보여준다', async () => {
+    vi.mocked(getStudyGroupDetail).mockResolvedValue({
+      ...groupDetail,
+      notice: '수요일 20:30 시스템 설계 세션 전에 캐시 전략을 정리해 주세요.',
+    })
+
+    await renderStudyGroupPage()
+
+    expect(
+      screen.getByTitle('수요일 20:30 시스템 설계 세션 전에 캐시 전략을 정리해 주세요.'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '공지 작성' }),
+    ).not.toBeInTheDocument()
   })
 
   it('오늘 날짜를 현재 날짜로 알리고 pulse 효과를 적용한다', async () => {
@@ -256,13 +323,15 @@ describe('StudyGroupPage', () => {
     expect(
       screen.queryByRole('button', { name: '날짜 상세 닫기' }),
     ).not.toBeInTheDocument()
+    // 일정은 그룹 정보와 별개로 조회되므로 표시될 때까지 기다린다.
     await user.click(
-      screen.getByRole('gridcell', {
-        name: '2026-07-21, 스터디 일정 있음',
-      }),
+      await screen.findByRole('gridcell', { name: scheduledCellName }),
     )
-    expect(screen.getByText('2026. 07. 21')).toBeInTheDocument()
+    expect(
+      screen.getByText(scheduledDateKey.replaceAll('-', '. ')),
+    ).toBeInTheDocument()
     expect(screen.getByText('개인별 질문 2개 준비')).toBeInTheDocument()
+    expect(screen.getByText('모의 면접 회고')).toBeInTheDocument()
 
     const messageInput = screen.getByRole('textbox', {
       name: '그룹톡 메시지 입력',

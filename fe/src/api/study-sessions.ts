@@ -1,4 +1,4 @@
-// 스터디 세션 생성과 LiveKit 접속 정보(토큰·서버 URL 등) 발급을 담당하는 API 모듈.
+// 스터디 세션 생성·조회와 LiveKit 접속 정보(토큰·서버 URL 등) 발급을 담당하는 API 모듈.
 import { backendRequest } from '@/api/http'
 
 export type StudySessionParticipantRole = 'HOST' | 'MEMBER'
@@ -25,10 +25,22 @@ export interface StudySessionConnection {
   role: StudySessionParticipantRole
 }
 
+export interface StudyGroupActiveSession {
+  hasActiveSession: boolean
+  sessionId: number | null
+}
+
 export function createStudySession(groupId: number) {
   return backendRequest<StudySessionCreateResult>(
     `/api/study-groups/${groupId}/sessions`,
     { method: 'POST' },
+  )
+}
+
+// 세션 생성은 그룹장만 가능하고 활성 세션이 있으면 거절되므로, 진입 전에 이 조회로 기존 세션을 먼저 찾는다.
+export function getStudyGroupActiveSession(groupId: number) {
+  return backendRequest<StudyGroupActiveSession>(
+    `/api/study-groups/${groupId}/sessions/active`,
   )
 }
 

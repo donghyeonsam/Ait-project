@@ -27,14 +27,15 @@ import {
   getMyStudyGroups,
   getStudyGroupApplications,
   getStudyGroupDetail,
+  kickStudyGroupMember,
   updateStudyGroupStatus,
   type StudyGroupDetail,
 } from '@/api/study-groups'
 import { toErrorMessage } from '@/api/http'
+import { getStudyGroupActiveSession } from '@/api/study-sessions'
 import { useAuth } from '@/lib/useAuth'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
-import { mockStudyCalendarEvents } from '@/mocks/study-lounge'
 
 function formatCreatedAt(value: string) {
   const parsed = new Date(value)
@@ -58,6 +59,7 @@ export function StudyGroupPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [isRecruiting, setIsRecruiting] = useState(true)
   const [statusError, setStatusError] = useState<string | null>(null)
+  const [hasActiveSession, setHasActiveSession] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false)
   const [applicantCount, setApplicantCount] = useState(0)
@@ -69,6 +71,10 @@ export function StudyGroupPage() {
   >(null)
   const [memberToRemove, setMemberToRemove] =
     useState<StudyGroupMember | null>(null)
+  const [isRemovingMember, setIsRemovingMember] = useState(false)
+  const [memberRemovalError, setMemberRemovalError] = useState<string | null>(
+    null,
+  )
   const { ref: headerRef, isInView: isHeaderInView } =
     useInView<HTMLDivElement>({ threshold: 0.1 })
   const { ref: panelsRef, isInView: isPanelsInView } =
@@ -115,6 +121,24 @@ export function StudyGroupPage() {
       isActive = false
     }
   }, [groupId, currentUserId, isValidGroupId])
+
+  // 세션 진행 여부는 그룹 상세 응답에 없어 활성 세션 조회로 따로 채운다. 실패하면 비활성으로 둔다.
+  useEffect(() => {
+    if (!isValidGroupId) return
+
+    let isActive = true
+    getStudyGroupActiveSession(groupId)
+      .then((session) => {
+        if (isActive) setHasActiveSession(session.hasActiveSession)
+      })
+      .catch(() => {
+        if (isActive) setHasActiveSession(false)
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [groupId, isValidGroupId])
 
   // 신청 목록 API는 방장만 호출할 수 있어 방장이 아닐 때는 요청하지 않는다.
   const loadApplicantCount = useCallback(() => {
@@ -180,7 +204,6 @@ export function StudyGroupPage() {
   const leaderCandidates = members.filter(
     (member) => !member.isSelf && member.role !== '초대 대기',
   )
-  const calendarEvents = mockStudyCalendarEvents[groupId] ?? []
 
   const changeRecruiting = async (nextIsRecruiting: boolean) => {
     const previous = isRecruiting
@@ -199,7 +222,8 @@ export function StudyGroupPage() {
     }
   }
 
-  const startSession = () => {
+  // 세션 생성과 참여의 진입점이 같다. 입장 전 화면이 활성 세션 여부를 보고 생성할지 참여할지 가른다.
+  const enterSession = () => {
     navigate(`/study/groups/${groupId}/session/prejoin`)
   }
 
@@ -217,17 +241,48 @@ export function StudyGroupPage() {
     ])
   }
 
-  const removeMember = (memberId: number) => {
-    // TODO: 실제 API 연동 필요 — 내보내기 엔드포인트가 없어 화면에서만 목록을 갱신한다.
+  const dropMemberFromView = (memberId: number) => {
     setMembers((currentMembers) =>
       currentMembers.filter((member) => member.id !== memberId),
     )
+    setDetail((currentDetail) =>
+      currentDetail === null
+        ? currentDetail
+        : {
+            ...currentDetail,
+            currentMemberCount: Math.max(currentDetail.currentMemberCount - 1, 0),
+            members: currentDetail.members.filter(
+              (member) => member.userId !== memberId,
+            ),
+          },
+    )
   }
 
-  const confirmMemberRemoval = () => {
+  const confirmMemberRemoval = async () => {
     if (!memberToRemove) return
-    removeMember(memberToRemove.id)
-    setMemberToRemove(null)
+    const target = memberToRemove
+
+    // 초대 대기는 초대 API가 없어 화면에만 존재하는 항목이라 서버에 요청할 대상이 없다.
+    if (target.role === '초대 대기') {
+      setMembers((currentMembers) =>
+        currentMembers.filter((member) => member.id !== target.id),
+      )
+      setMemberToRemove(null)
+      return
+    }
+
+    setIsRemovingMember(true)
+    setMemberRemovalError(null)
+
+    try {
+      await kickStudyGroupMember(groupId, target.id)
+      dropMemberFromView(target.id)
+      setMemberToRemove(null)
+    } catch (error) {
+      setMemberRemovalError(toErrorMessage(error))
+    } finally {
+      setIsRemovingMember(false)
+    }
   }
 
   const transferLeadership = (memberId: number) => {
@@ -283,24 +338,34 @@ export function StudyGroupPage() {
               <div>
                 <p className="flex items-center gap-3 text-body-1 font-semibold text-text-primary">
                   <span
-                    className="size-2 rounded-ait-pill bg-status-neutral"
-                    aria-hidden="true"
+                    className={cn(
+                      'size-2 rounded-ait-pill',
+                      hasActiveSession
+                        ? 'bg-status-success'
+                        : 'bg-status-neutral',
+                    )}
+                    role="img"
+                    aria-label={
+                      hasActiveSession ? '세션 진행 중' : '진행 중인 세션 없음'
+                    }
                   />
                   화상 스터디 세션
                 </p>
                 <p className="mt-1 pl-5 text-caption text-text-secondary">
-                  {isLeader
-                    ? '세션을 시작하면 그룹원이 참여할 수 있어요.'
-                    : '그룹장이 세션을 시작하면 참여할 수 있어요.'}
+                  {hasActiveSession
+                    ? '진행 중인 세션이 있어요. 지금 참여할 수 있어요.'
+                    : isLeader
+                      ? '세션을 시작하면 그룹원이 참여할 수 있어요.'
+                      : '그룹장이 세션을 시작하면 참여할 수 있어요.'}
                 </p>
               </div>
-              {isLeader ? (
+              {hasActiveSession || isLeader ? (
                 <Button
                   type="button"
                   className="cta-lift text-white"
-                  onClick={startSession}
+                  onClick={enterSession}
                 >
-                  세션 시작하기
+                  {hasActiveSession ? '세션 참여하기' : '세션 시작하기'}
                 </Button>
               ) : null}
             </div>
@@ -350,11 +415,12 @@ export function StudyGroupPage() {
             groupId={groupId}
             currentUserId={currentUserId}
             isOwner={isLeader}
+            initialNotice={detail.notice}
           />
         </div>
 
         <div className="my-6 border-t border-status-achievement" />
-        <StudyCalendar events={calendarEvents} />
+        <StudyCalendar groupId={groupId} />
       </section>
 
       <StudyChatFloatingButton onClick={() => setIsChatOpen(true)} />
@@ -408,7 +474,9 @@ export function StudyGroupPage() {
       <Dialog
         open={memberToRemove !== null}
         onOpenChange={(open) => {
-          if (!open) setMemberToRemove(null)
+          if (open || isRemovingMember) return
+          setMemberToRemove(null)
+          setMemberRemovalError(null)
         }}
       >
         <DialogContent
@@ -423,20 +491,31 @@ export function StudyGroupPage() {
               내보내면 이 스터디 그룹과 일정에 더 이상 접근할 수 없습니다.
             </DialogDescription>
           </DialogHeader>
+          {memberRemovalError ? (
+            <p className="mt-4 text-body-2 text-status-error" role="alert">
+              {memberRemovalError}
+            </p>
+          ) : null}
           <DialogFooter className="mt-6">
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setMemberToRemove(null)}
+              disabled={isRemovingMember}
+              onClick={() => {
+                setMemberToRemove(null)
+                setMemberRemovalError(null)
+              }}
             >
               취소
             </Button>
             <Button
               type="button"
               variant="destructive"
-              onClick={confirmMemberRemoval}
+              disabled={isRemovingMember}
+              aria-busy={isRemovingMember}
+              onClick={() => void confirmMemberRemoval()}
             >
-              내보내기
+              {isRemovingMember ? '내보내는 중' : '내보내기'}
             </Button>
           </DialogFooter>
         </DialogContent>
