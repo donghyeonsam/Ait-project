@@ -248,4 +248,51 @@ public class LiveKitRoomClient {
             );
         }
     }
+
+    public boolean deleteRoomIfExists(
+            String roomName
+    ) {
+        try {
+            Response<Void> response =
+                    liveKitAPI.getRoom()
+                            .deleteRoom(roomName)
+                            .execute();
+
+            if (response.isSuccessful()) {
+                return true;
+            }
+
+            ServerError serverError =
+                    ServerError.from(response);
+
+            boolean roomNotFound =
+                    response.code() == 404
+                            || (
+                            serverError != null
+                                    && "not_found".equalsIgnoreCase(
+                                    serverError.getCode()
+                            )
+                    );
+
+            /*
+             * 이미 방이 종료됐거나 자동으로 사라졌다면
+             * DB 종료 처리는 계속 진행합니다.
+             */
+            if (roomNotFound) {
+                return false;
+            }
+
+            throw createApiException(
+                    "LiveKit 방 삭제",
+                    response
+            );
+
+        } catch (IOException exception) {
+            throw new IllegalStateException(
+                    "LiveKit 서버에 연결할 수 없습니다.",
+                    exception
+            );
+        }
+    }
+
 }

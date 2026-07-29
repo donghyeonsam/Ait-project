@@ -55,4 +55,8 @@ public interface StudyGroupRepository
             where sg.id = :groupId
             """)
     Optional<StudyGroup> findForSessionCreation(@Param("groupId") Long groupId);
+
+    Optional<StudyGroup> findByIdAndDeletedAtIsNull(
+            Long groupId
+    );
 }

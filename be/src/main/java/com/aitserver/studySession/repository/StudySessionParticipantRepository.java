@@ -74,4 +74,9 @@ public interface StudySessionParticipantRepository
     );
 
 
+
+    List<StudySessionParticipant>
+    findAllByStudySessionId(
+            Long sessionId
+    );
 }

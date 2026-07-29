@@ -245,4 +245,30 @@ public class StudySessionParticipant {
         this.lastLeftAt = null;
     }
 
+    public void leaveBySessionEnd() {
+        /*
+         * 강퇴 이력은 유지합니다.
+         */
+        if (this.status
+                == StudySessionParticipantStatus.KICKED) {
+            return;
+        }
+
+        boolean actuallyJoined =
+                this.status
+                        == StudySessionParticipantStatus.JOINED;
+
+        this.status =
+                StudySessionParticipantStatus.LEFT;
+
+        /*
+         * 실제로 LiveKit 방에 들어왔던 참가자에게만
+         * 마지막 퇴장 시간을 기록합니다.
+         */
+        if (actuallyJoined) {
+            this.lastLeftAt =
+                    LocalDateTime.now();
+        }
+    }
+
 }
