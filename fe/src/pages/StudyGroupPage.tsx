@@ -27,6 +27,7 @@ import {
   getMyStudyGroups,
   getStudyGroupApplications,
   getStudyGroupDetail,
+  kickStudyGroupMember,
   updateStudyGroupStatus,
   type StudyGroupDetail,
 } from '@/api/study-groups'
@@ -69,6 +70,10 @@ export function StudyGroupPage() {
   >(null)
   const [memberToRemove, setMemberToRemove] =
     useState<StudyGroupMember | null>(null)
+  const [isRemovingMember, setIsRemovingMember] = useState(false)
+  const [memberRemovalError, setMemberRemovalError] = useState<string | null>(
+    null,
+  )
   const { ref: headerRef, isInView: isHeaderInView } =
     useInView<HTMLDivElement>({ threshold: 0.1 })
   const { ref: panelsRef, isInView: isPanelsInView } =
@@ -217,17 +222,48 @@ export function StudyGroupPage() {
     ])
   }
 
-  const removeMember = (memberId: number) => {
-    // TODO: 실제 API 연동 필요 — 내보내기 엔드포인트가 없어 화면에서만 목록을 갱신한다.
+  const dropMemberFromView = (memberId: number) => {
     setMembers((currentMembers) =>
       currentMembers.filter((member) => member.id !== memberId),
     )
+    setDetail((currentDetail) =>
+      currentDetail === null
+        ? currentDetail
+        : {
+            ...currentDetail,
+            currentMemberCount: Math.max(currentDetail.currentMemberCount - 1, 0),
+            members: currentDetail.members.filter(
+              (member) => member.userId !== memberId,
+            ),
+          },
+    )
   }
 
-  const confirmMemberRemoval = () => {
+  const confirmMemberRemoval = async () => {
     if (!memberToRemove) return
-    removeMember(memberToRemove.id)
-    setMemberToRemove(null)
+    const target = memberToRemove
+
+    // 초대 대기는 초대 API가 없어 화면에만 존재하는 항목이라 서버에 요청할 대상이 없다.
+    if (target.role === '초대 대기') {
+      setMembers((currentMembers) =>
+        currentMembers.filter((member) => member.id !== target.id),
+      )
+      setMemberToRemove(null)
+      return
+    }
+
+    setIsRemovingMember(true)
+    setMemberRemovalError(null)
+
+    try {
+      await kickStudyGroupMember(groupId, target.id)
+      dropMemberFromView(target.id)
+      setMemberToRemove(null)
+    } catch (error) {
+      setMemberRemovalError(toErrorMessage(error))
+    } finally {
+      setIsRemovingMember(false)
+    }
   }
 
   const transferLeadership = (memberId: number) => {
@@ -408,7 +444,9 @@ export function StudyGroupPage() {
       <Dialog
         open={memberToRemove !== null}
         onOpenChange={(open) => {
-          if (!open) setMemberToRemove(null)
+          if (open || isRemovingMember) return
+          setMemberToRemove(null)
+          setMemberRemovalError(null)
         }}
       >
         <DialogContent
@@ -423,20 +461,31 @@ export function StudyGroupPage() {
               내보내면 이 스터디 그룹과 일정에 더 이상 접근할 수 없습니다.
             </DialogDescription>
           </DialogHeader>
+          {memberRemovalError ? (
+            <p className="mt-4 text-body-2 text-status-error" role="alert">
+              {memberRemovalError}
+            </p>
+          ) : null}
           <DialogFooter className="mt-6">
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setMemberToRemove(null)}
+              disabled={isRemovingMember}
+              onClick={() => {
+                setMemberToRemove(null)
+                setMemberRemovalError(null)
+              }}
             >
               취소
             </Button>
             <Button
               type="button"
               variant="destructive"
-              onClick={confirmMemberRemoval}
+              disabled={isRemovingMember}
+              aria-busy={isRemovingMember}
+              onClick={() => void confirmMemberRemoval()}
             >
-              내보내기
+              {isRemovingMember ? '내보내는 중' : '내보내기'}
             </Button>
           </DialogFooter>
         </DialogContent>
