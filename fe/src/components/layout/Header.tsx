@@ -46,7 +46,7 @@ export function Header() {
       <div className="mx-auto grid h-full max-w-dashboard grid-cols-[1fr_auto] items-center px-8 lg:grid-cols-[1fr_auto_1fr]">
         <Link
           to={isAuthenticated ? '/dashboard' : '/'}
-          className="-ml-3 w-fit p-3"
+          className="-ml-3 w-fit origin-left scale-90 p-3"
           aria-label={isAuthenticated ? 'Ait 대시보드' : 'Ait 랜딩페이지'}
         >
           <img
@@ -57,7 +57,7 @@ export function Header() {
         </Link>
 
         {isAuthenticated ? (
-          <nav className="hidden items-center gap-8 lg:flex" aria-label="주요 메뉴">
+          <nav className="hidden scale-90 items-center gap-8 lg:flex" aria-label="주요 메뉴">
             {navigationItems.map((item) => (
               <NavLink
                 key={item.to}
@@ -72,7 +72,7 @@ export function Header() {
           <span className="hidden lg:block" aria-hidden="true" />
         )}
 
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex origin-right scale-90 items-center justify-end gap-2">
           {isAuthenticated ? (
             <>
               <Button

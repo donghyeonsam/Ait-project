@@ -203,8 +203,8 @@
   --z-index-dialog: 400;
   --z-index-toast: 500;
 
-  --header-height-compact: 3.5rem;
-  --header-height-wide: 5rem;
+  --header-height-compact: 3.15rem;
+  --header-height-wide: 4.5rem;
   --button-padding-block: 0.625rem;
 
   /* shadcn/ui compatibility aliases. Ait semantic tokens remain the source. */

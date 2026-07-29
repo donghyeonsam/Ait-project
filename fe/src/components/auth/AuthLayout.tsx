@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import authPanelWave from '@/assets/images/auth/auth-panel-wave.svg'
-import { Header } from '@/components/layout/Header'
+import { LandingHeader } from '@/components/layout/LandingHeader'
 
 interface AuthLayoutProps {
   aside?: ReactNode
@@ -19,7 +19,7 @@ export function AuthLayout({
 }: AuthLayoutProps) {
   return (
     <div className="flex min-h-svh flex-col bg-background-default text-text-primary">
-      <Header />
+      <LandingHeader />
 
       <main id="main-content" className="flex flex-1 items-start px-4 py-4 sm:px-8 sm:py-6">
         <div className="mx-auto flex w-full max-w-dashboard flex-col">
