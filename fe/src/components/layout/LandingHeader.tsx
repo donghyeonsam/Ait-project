@@ -1,49 +1,41 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
+import { landingRoutes } from '@/components/landing/landing.data'
+import { cn } from '@/lib/utils'
 
-const landingNavigationItems = [
-  { label: 'AI 모의면접', to: '/interviews' },
-  { label: '면접 스터디', to: '/study' },
-  { label: '커뮤니티', to: '/community' },
-]
-
-// 비로그인 랜딩 화면 상단 헤더. 주요 메뉴와 로그인·회원가입 진입 버튼을 제공한다.
+// 비로그인 랜딩 상단에서 홈 로고와 로그인·회원가입 경로를 제공한다.
 export function LandingHeader() {
+  const [isScrolled, setIsScrolled] = useState(false)
+
+  useEffect(() => {
+    const updateScrolled = () => setIsScrolled(window.scrollY > 12)
+    updateScrolled()
+    window.addEventListener('scroll', updateScrolled, { passive: true })
+    return () => window.removeEventListener('scroll', updateScrolled)
+  }, [])
+
   return (
-    <header className="sticky top-0 z-[var(--z-index-sticky)] h-[var(--header-height-compact)] border-b border-border-default bg-surface-default lg:h-[var(--header-height-wide)]">
-      <div className="mx-auto flex h-full max-w-content items-center px-4 lg:px-6">
-        <Link
-          to="/"
-          className="-ml-3 shrink-0 p-3"
-          aria-label="Ait 홈"
-        >
+    <header
+      className={cn(
+        'landing-header',
+        isScrolled && 'landing-header--scrolled',
+      )}
+    >
+      <div className="landing-shell landing-header__inner">
+        <Link to="/" className="landing-header__logo" aria-label="Ait 홈">
           <img
-            src="/Logo_Assets/primary/ait-logo-horizontal.svg"
+            src="/Logo_Assets/web/ait-logo-horizontal.webp"
             alt="Ait"
-            className="h-6 w-auto"
+            width="1000"
+            height="464"
           />
         </Link>
 
-        <nav className="ml-6 hidden items-center gap-2 lg:flex" aria-label="랜딩 메뉴">
-          {landingNavigationItems.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className="rounded-ait-s px-3 py-2 text-body-2 text-text-secondary transition-colors hover:bg-status-neutral-surface hover:text-action-primary [transition-duration:var(--duration-fast)] [transition-timing-function:var(--easing-standard)]"
-            >
-              {item.label}
-            </Link>
-          ))}
+        <nav className="landing-header__auth" aria-label="회원 메뉴">
+          <Link to={landingRoutes.login}>로그인</Link>
+          <span className="landing-header__divider" aria-hidden="true" />
+          <Link to={landingRoutes.start}>회원가입</Link>
         </nav>
-
-        <div className="ml-auto flex items-center gap-2">
-          <Button asChild variant="text" className="px-2 py-2 font-normal text-text-secondary">
-            <Link to="/login">로그인</Link>
-          </Button>
-          <Button asChild variant="text" className="px-2 py-2 font-normal text-text-secondary">
-            <Link to="/signup">회원가입</Link>
-          </Button>
-        </div>
       </div>
     </header>
   )
