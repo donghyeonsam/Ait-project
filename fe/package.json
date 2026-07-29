@@ -17,6 +17,7 @@
     "@radix-ui/react-avatar": "^1.2.3",
     "@radix-ui/react-dialog": "^1.1.20",
     "@radix-ui/react-slot": "^1.3.0",
+    "@stomp/stompjs": "^7.3.0",
     "@tiptap/extension-image": "^3.29.2",
     "@tiptap/extension-text-style": "^3.29.2",
     "@tiptap/extensions": "^3.29.2",
@@ -34,6 +35,7 @@
     "react-dom": "^19.2.7",
     "react-hook-form": "^7.82.0",
     "react-router-dom": "^7.18.1",
+    "sockjs-client": "^1.6.1",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3"
   },
@@ -46,6 +48,7 @@
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@types/sockjs-client": "^1.5.4",
     "@vitejs/plugin-react": "^6.0.3",
     "eslint": "^10.7.0",
     "eslint-plugin-react-hooks": "^7.1.1",

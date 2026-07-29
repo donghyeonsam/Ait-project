@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -10,6 +10,16 @@ import {
   type MyStudyGroup,
   type StudyGroupDetail,
 } from '@/api/study-groups'
+import {
+  connectStudyGroupChat,
+  deleteStudyGroupChatNotice,
+  getStudyGroupChats,
+  sendStudyGroupChatMessage,
+  sendStudyGroupChatNotice,
+  type StudyGroupChatMessage,
+  type StudyGroupChatNotice,
+} from '@/api/study-group-chat'
+import type { Client } from '@stomp/stompjs'
 
 vi.mock('@/api/auth', () => ({
   logout: vi.fn(),
@@ -25,6 +35,27 @@ vi.mock('@/api/study-groups', () => ({
 vi.mock('@/api/study-sessions', () => ({
   createStudySession: vi.fn(),
 }))
+
+vi.mock('@/api/study-group-chat', () => ({
+  getStudyGroupChats: vi.fn(),
+  connectStudyGroupChat: vi.fn(),
+  sendStudyGroupChatMessage: vi.fn(),
+  sendStudyGroupChatNotice: vi.fn(),
+  deleteStudyGroupChatNotice: vi.fn(),
+}))
+
+// connectStudyGroupChat이 넘겨받는 핸들러를 붙잡아, 실제 STOMP 브로드캐스트를 흉내 낼 때 쓴다.
+let capturedChatHandlers: {
+  onMessage: (message: StudyGroupChatMessage) => void
+  onNotice: (notice: StudyGroupChatNotice) => void
+  onConnect?: () => void
+  onDisconnect?: () => void
+  onError?: (message: string) => void
+} | null = null
+const fakeStompClient = {
+  connected: true,
+  deactivate: vi.fn(),
+} as unknown as Client
 
 vi.mock('@/lib/useAuth', () => ({
   useAuth: () => ({
@@ -92,6 +123,20 @@ describe('StudyGroupPage', () => {
     vi.mocked(getStudyGroupDetail).mockResolvedValue(groupDetail)
     vi.mocked(getMyStudyGroups).mockResolvedValue(myStudyGroups)
     vi.mocked(getStudyGroupApplications).mockResolvedValue([])
+
+    vi.mocked(getStudyGroupChats).mockResolvedValue({
+      chats: [],
+      hasNext: false,
+    })
+    capturedChatHandlers = null
+    vi.mocked(connectStudyGroupChat).mockImplementation((_groupId, handlers) => {
+      capturedChatHandlers = handlers
+      handlers.onConnect?.()
+      return fakeStompClient
+    })
+    vi.mocked(sendStudyGroupChatMessage).mockClear()
+    vi.mocked(sendStudyGroupChatNotice).mockClear()
+    vi.mocked(deleteStudyGroupChatNotice).mockClear()
   })
 
   it('그룹 운영 정보와 구성원 관리 흐름을 제공한다', async () => {
@@ -223,6 +268,24 @@ describe('StudyGroupPage', () => {
       name: '그룹톡 메시지 입력',
     })
     await user.type(messageInput, '일정 확인했습니다.{enter}')
+    expect(sendStudyGroupChatMessage).toHaveBeenCalledWith(
+      fakeStompClient,
+      101,
+      '일정 확인했습니다.',
+    )
+
+    // 서버가 STOMP로 다시 브로드캐스트해준 메시지를 받는 상황을 흉내 낸다.
+    act(() => {
+      capturedChatHandlers?.onMessage({
+        chatId: 1,
+        groupId: 101,
+        senderId: 1,
+        senderNickname: '김아이',
+        profileImageUrl: null,
+        message: '일정 확인했습니다.',
+        createdAt: '2026-07-21T10:00:00',
+      })
+    })
     expect(
       within(screen.getByLabelText('그룹톡 메시지')).getByText(
         '일정 확인했습니다.',
@@ -230,7 +293,7 @@ describe('StudyGroupPage', () => {
     ).toBeInTheDocument()
   })
 
-  it('메시지 작성 UI와 공지를 작성·조회·수정·삭제한다', async () => {
+  it('메시지 작성 UI를 갖추고, 공지를 STOMP로 작성·조회·수정·삭제한다', async () => {
     const user = userEvent.setup()
     await renderStudyGroupPage()
 
@@ -246,48 +309,22 @@ describe('StudyGroupPage', () => {
     )
     expect(messageInputCard).toHaveClass('w-full', 'rounded-ait-m', 'border')
     expect(messageComposer).not.toHaveClass('border')
-    expect(
-      within(messageComposer).getByRole('button', { name: '사진 첨부' }),
-    ).toBeInTheDocument()
     const emojiButton = within(messageComposer).getByRole('button', {
       name: '이모지 추가',
     })
     expect(emojiButton.closest('label')).toBeNull()
-    expect(
-      emojiButton,
-    ).toBeInTheDocument()
+    expect(emojiButton).toBeInTheDocument()
     expect(
       within(messageComposer).getByRole('button', {
         name: '이모티콘 추가',
       }),
     ).toBeInTheDocument()
-    expect(
-      within(messageComposer).getByRole('button', {
-        name: '그룹톡 메시지 전송',
-      }),
-    ).toBeInTheDocument()
-    const imageFile = new File(['image'], 'study-plan.png', {
-      type: 'image/png',
-    })
-    await user.upload(
-      within(messageComposer).getByLabelText('사진 첨부 파일 선택'),
-      imageFile,
-    )
-    expect(
-      await within(messageComposer).findByRole('img', {
-        name: 'study-plan.png 미리보기',
-      }),
-    ).toBeInTheDocument()
     const sendButton = within(messageComposer).getByRole('button', {
       name: '그룹톡 메시지 전송',
     })
+    expect(sendButton).toBeDisabled()
+    await user.type(messageInput, '테스트 메시지')
     expect(sendButton).toBeEnabled()
-    await user.click(sendButton)
-    expect(
-      within(screen.getByLabelText('그룹톡 메시지')).getByRole('img', {
-        name: 'study-plan.png',
-      }),
-    ).toBeInTheDocument()
 
     // 초기 상태는 공지가 없으므로 작성부터 시작한다.
     await user.click(screen.getByRole('button', { name: '공지 작성' }))
@@ -296,6 +333,19 @@ describe('StudyGroupPage', () => {
       '이번 주 세션은 화 20:00, PT 주제는 금리 인하기 자산 전략입니다.',
     )
     await user.click(screen.getByRole('button', { name: '공지 저장' }))
+    expect(sendStudyGroupChatNotice).toHaveBeenCalledWith(
+      fakeStompClient,
+      101,
+      '이번 주 세션은 화 20:00, PT 주제는 금리 인하기 자산 전략입니다.',
+    )
+    // 실제로는 STOMP 브로드캐스트가 도착해야 화면에 반영되므로 이를 흉내 낸다.
+    act(() => {
+      capturedChatHandlers?.onNotice({
+        groupId: 101,
+        notice: '이번 주 세션은 화 20:00, PT 주제는 금리 인하기 자산 전략입니다.',
+        updatedAt: '2026-07-21T10:00:00',
+      })
+    })
 
     const noticeText = screen.getByTitle(/이번 주 세션은/)
     Object.defineProperties(noticeText, {
@@ -318,11 +368,34 @@ describe('StudyGroupPage', () => {
     await user.clear(noticeInput)
     await user.type(noticeInput, '금요일까지 발표 자료를 공유해 주세요.')
     await user.click(screen.getByRole('button', { name: '공지 저장' }))
+    expect(sendStudyGroupChatNotice).toHaveBeenCalledWith(
+      fakeStompClient,
+      101,
+      '금요일까지 발표 자료를 공유해 주세요.',
+    )
+    act(() => {
+      capturedChatHandlers?.onNotice({
+        groupId: 101,
+        notice: '금요일까지 발표 자료를 공유해 주세요.',
+        updatedAt: '2026-07-21T11:00:00',
+      })
+    })
     expect(
       screen.getByText('금요일까지 발표 자료를 공유해 주세요.'),
     ).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '공지 삭제' }))
+    expect(deleteStudyGroupChatNotice).toHaveBeenCalledWith(
+      fakeStompClient,
+      101,
+    )
+    act(() => {
+      capturedChatHandlers?.onNotice({
+        groupId: 101,
+        notice: null,
+        updatedAt: '2026-07-21T12:00:00',
+      })
+    })
     expect(
       screen.queryByText('금요일까지 발표 자료를 공유해 주세요.'),
     ).not.toBeInTheDocument()
@@ -333,10 +406,17 @@ describe('StudyGroupPage', () => {
       '새 스터디 공지입니다.',
     )
     await user.click(screen.getByRole('button', { name: '공지 저장' }))
+    act(() => {
+      capturedChatHandlers?.onNotice({
+        groupId: 101,
+        notice: '새 스터디 공지입니다.',
+        updatedAt: '2026-07-21T13:00:00',
+      })
+    })
     expect(screen.getByText('새 스터디 공지입니다.')).toBeInTheDocument()
   })
 
-  it('그룹톡 높이를 유지하고 이모티콘 입력과 메시지 반응을 지원한다', async () => {
+  it('그룹톡 높이를 유지하고 이모지·이모티콘 입력을 지원한다', async () => {
     const user = userEvent.setup()
     await renderStudyGroupPage()
 
@@ -359,69 +439,14 @@ describe('StudyGroupPage', () => {
     )
     expect(messageInput).toHaveValue('😀 ( •̀ᴗ•́ )و')
 
-    // 초기 메시지 목록이 비어 있으므로 반응을 남길 메시지를 직접 보낸다.
-    await user.clear(messageInput)
-    await user.type(messageInput, '테스트 메시지입니다')
     await user.click(
       screen.getByRole('button', { name: '그룹톡 메시지 전송' }),
     )
-
-    const reactionTrigger = await screen.findByRole('button', {
-      name: '"테스트 메시지입니다" 메시지에 이모지 반응 남기기',
-    })
-    const targetMessage =
-      reactionTrigger.closest<HTMLElement>('.study-chat-message')
-    expect(reactionTrigger).toHaveClass(
-      'pointer-events-none',
-      'opacity-0',
-      'group-hover/message:pointer-events-auto',
-      'group-hover/message:opacity-100',
+    expect(sendStudyGroupChatMessage).toHaveBeenCalledWith(
+      fakeStompClient,
+      101,
+      '😀 ( •̀ᴗ•́ )و',
     )
-    expect(targetMessage).toHaveClass(
-      'group/message',
-      'relative',
-      'hover:z-20',
-    )
-    expect(
-      screen.queryByRole('group', { name: '메시지 반응 선택' }),
-    ).not.toBeInTheDocument()
-
-    await user.click(reactionTrigger)
-    const reactionPicker = screen.getByRole('group', {
-      name: '메시지 반응 선택',
-    })
-    // 내가 보낸 메시지라 self 방향 피커가 뜬다.
-    expect(reactionPicker).toHaveClass(
-      'study-reaction-picker--self',
-      'fixed',
-    )
-
-    const [additionalReaction] = within(reactionPicker).getAllByRole(
-      'button',
-      {
-        name: '😀 반응 남기기',
-      },
-    )
-    await user.click(additionalReaction)
-
-    const reactionButton = within(targetMessage!).getByRole('button', {
-      name: '😀 반응 1개, 내 반응 취소',
-    })
-    expect(reactionButton).toHaveClass(
-      'study-reaction-bubble',
-      'inline-flex',
-    )
-    expect(reactionButton).not.toHaveClass('absolute')
-    // 내가 보낸 메시지의 반응은 오른쪽 정렬된다.
-    expect(reactionButton.closest('.mt-1')).toHaveClass(
-      'flex',
-      'justify-end',
-    )
-    expect(reactionButton.parentElement).toHaveClass('relative')
-    expect(
-      screen.getByRole('button', {
-        name: '"테스트 메시지입니다" 메시지에 이모지 반응 남기기',
-      }),
-    ).toBe(reactionTrigger)
+    expect(messageInput).toHaveValue('')
   })
 })
