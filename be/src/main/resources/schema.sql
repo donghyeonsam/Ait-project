@@ -49,7 +49,8 @@ CREATE TABLE `users` (
                          `deleted_at` DATETIME DEFAULT NULL,
 
                          PRIMARY KEY (`id`),
-                         UNIQUE KEY `uk_users_email` (`email`)
+                         UNIQUE KEY `uk_users_email` (`email`),
+                         UNIQUE KEY `uk_users_nickname` (`nickname`)
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci
