@@ -81,7 +81,8 @@ public class StudySessionParticipantController {
     }
 
 
-    @GetMapping("/{sessionId}/member")
+    // 멤버 정보 불러오기 + 이력서 자소서 번호
+    @GetMapping("/{sessionId}/members")
     public ResponseEntity<ApiResponse<List<MemberResponse>>> getMemberList(
             @PathVariable Long sessionId,
             @AuthenticationPrincipal Long userId,
@@ -99,7 +100,7 @@ public class StudySessionParticipantController {
                 .status(HttpStatus.OK)
                 .body(ApiResponse.success(
                         HttpStatus.OK,
-                        "입장 대기중 입니다.",
+                        "세션 참여자 목록 반환을 성공했습니다.",
                         members,
                         request
                 ));
