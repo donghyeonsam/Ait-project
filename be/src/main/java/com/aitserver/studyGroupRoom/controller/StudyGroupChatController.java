@@ -56,4 +56,16 @@ public class StudyGroupChatController {
         // 프론트엔드는 이 채널을 구독하고 있다가 데이터가 오면 화면 상단의 텍스트를 즉시 교체합니다.
         messagingTemplate.convertAndSend("/topic/study-groups/" + groupId + "/notices", response);
     }
+
+    @MessageMapping("/study-groups/{groupId}/notices/delete")
+    public void deleteNotice(
+            @DestinationVariable Long groupId,
+            Authentication authentication) {
+
+        Long currentUserId = Long.valueOf(authentication.getPrincipal().toString());
+
+        ChatNoticeDto.Response response = chatService.deleteNotice(groupId, currentUserId);
+
+        messagingTemplate.convertAndSend("/topic/study-groups/" + groupId + "/notices", response);
+    }
 }
