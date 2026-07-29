@@ -11,6 +11,7 @@ interface DocumentEditorShellProps {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
   onNavigateHome: () => void
   topBar?: ReactNode
+  footerStart?: ReactNode
   children: ReactNode
 }
 
@@ -24,6 +25,7 @@ export function DocumentEditorShell({
   onSubmit,
   onNavigateHome,
   topBar,
+  footerStart,
   children,
 }: DocumentEditorShellProps) {
   return (
@@ -53,6 +55,7 @@ export function DocumentEditorShell({
       <div className="px-8 py-6">{children}</div>
 
       <footer className="flex flex-wrap items-center justify-end gap-3 border-t border-border-default bg-surface-default px-8 py-4">
+        {footerStart ? <div className="mr-auto">{footerStart}</div> : null}
         <Button type="button" variant="secondary" onClick={onNavigateHome}>
           <ArrowLeft aria-hidden="true" />
           마이페이지로

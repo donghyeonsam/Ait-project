@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -15,6 +16,8 @@ interface ConfirmDialogProps {
   description?: string
   confirmLabel?: string
   cancelLabel?: string
+  confirmVariant?: ComponentProps<typeof Button>['variant']
+  isConfirming?: boolean
   onConfirm: () => void
 }
 
@@ -26,6 +29,8 @@ export function ConfirmDialog({
   description,
   confirmLabel = '확인',
   cancelLabel = '취소',
+  confirmVariant,
+  isConfirming = false,
   onConfirm,
 }: ConfirmDialogProps) {
   return (
@@ -39,10 +44,21 @@ export function ConfirmDialog({
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
         <DialogFooter className="mt-6">
-          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={isConfirming}
+            onClick={() => onOpenChange(false)}
+          >
             {cancelLabel}
           </Button>
-          <Button type="button" onClick={onConfirm}>
+          <Button
+            type="button"
+            variant={confirmVariant}
+            disabled={isConfirming}
+            aria-busy={isConfirming}
+            onClick={onConfirm}
+          >
             {confirmLabel}
           </Button>
         </DialogFooter>
