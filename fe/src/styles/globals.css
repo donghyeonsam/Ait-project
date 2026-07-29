@@ -490,6 +490,12 @@ button:not(:disabled) {
   margin-inline: auto;
 }
 
+.page-content-zoom-90 {
+  zoom: 0.9;
+  width: 100%;
+  margin-inline: auto;
+}
+
 /* 설문 3→4단계 전환 시 상단 안내 문구가 사라지며 아래 콘텐츠 전체가 위로
    천천히 밀려 올라가도록 높이를 애니메이션한다(요청에 따라 의도적으로 느리게). */
 .survey-intro-collapse {
