@@ -1,4 +1,4 @@
-package com.aitserver.studyGroupRoom.dto;
+package com.aitserver.studyGroupRoom.dto.group;
 
 import com.aitserver.studyGroupRoom.domain.StudyGroupStatus;
 import com.aitserver.studyGroupRoom.entity.StudyGroup;
@@ -16,6 +16,7 @@ public class StudyGroupListResponseDto {
     private int capacity;
     private StudyGroupStatus groupStatus;
     private LocalDateTime createdAt;
+    private int currentMemberCount;
 
     public static StudyGroupListResponseDto from(StudyGroup studyGroup) {
         return StudyGroupListResponseDto.builder()
@@ -23,6 +24,7 @@ public class StudyGroupListResponseDto {
                 .title(studyGroup.getTitle())
                 .description(studyGroup.getDescription())
                 .capacity(StudyGroup.MAX_CAPACITY)
+                .currentMemberCount(studyGroup.getCurrentMemberCount())
                 .groupStatus(studyGroup.getStatus())
                 .createdAt(studyGroup.getCreatedAt())
                 .build();

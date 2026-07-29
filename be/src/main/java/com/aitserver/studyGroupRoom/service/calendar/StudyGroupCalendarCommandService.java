@@ -1,8 +1,8 @@
-package com.aitserver.studyGroupRoom.service;
+package com.aitserver.studyGroupRoom.service.calendar;
 
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
-import com.aitserver.studyGroupRoom.dto.CalendarRequest;
+import com.aitserver.studyGroupRoom.dto.calendar.CalendarRequest;
 import com.aitserver.studyGroupRoom.entity.StudyGroup;
 import com.aitserver.studyGroupRoom.entity.StudyGroupCalendar;
 import com.aitserver.studyGroupRoom.repository.StudyGroupCalendarRepository;

@@ -1,4 +1,4 @@
-package com.aitserver.studyGroupRoom.dto;
+package com.aitserver.studyGroupRoom.dto.application;
 
 import com.aitserver.studyGroupRoom.entity.StudyGroupMember;
 import lombok.Builder;

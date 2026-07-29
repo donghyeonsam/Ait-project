@@ -1,4 +1,4 @@
-package com.aitserver.studyGroupRoom.dto;
+package com.aitserver.studyGroupRoom.dto.group;
 
 import com.aitserver.studyGroupRoom.entity.StudyGroup;
 import com.aitserver.studyGroupRoom.entity.StudyGroupMember;

@@ -1,4 +1,4 @@
-package com.aitserver.studyGroupRoom.dto;
+package com.aitserver.studyGroupRoom.dto.application;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;

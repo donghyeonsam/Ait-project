@@ -1,4 +1,4 @@
-package com.aitserver.studyGroupRoom.service;
+package com.aitserver.studyGroupRoom.service.group;
 
 
 

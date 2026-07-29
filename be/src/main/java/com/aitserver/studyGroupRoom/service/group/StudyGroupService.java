@@ -1,12 +1,12 @@
-package com.aitserver.studyGroupRoom.service;
+package com.aitserver.studyGroupRoom.service.group;
 
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.studyGroupRoom.domain.StudyGroupMemberStatus;
 import com.aitserver.studyGroupRoom.domain.StudyGroupStatus;
-import com.aitserver.studyGroupRoom.dto.GroupDetailResponse;
-import com.aitserver.studyGroupRoom.dto.MyStudyGroupResponseDto;
-import com.aitserver.studyGroupRoom.dto.StudyGroupListResponseDto;
+import com.aitserver.studyGroupRoom.dto.group.GroupDetailResponse;
+import com.aitserver.studyGroupRoom.dto.group.MyStudyGroupResponseDto;
+import com.aitserver.studyGroupRoom.dto.group.StudyGroupListResponseDto;
 import com.aitserver.studyGroupRoom.entity.StudyGroup;
 import com.aitserver.studyGroupRoom.entity.StudyGroupMember;
 import com.aitserver.studyGroupRoom.repository.StudyGroupMemberRepository;

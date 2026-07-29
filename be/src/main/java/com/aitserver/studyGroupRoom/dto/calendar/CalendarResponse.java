@@ -1,4 +1,4 @@
-package com.aitserver.studyGroupRoom.dto;
+package com.aitserver.studyGroupRoom.dto.calendar;
 
 import com.aitserver.studyGroupRoom.entity.StudyGroupCalendar;
 import lombok.Builder;

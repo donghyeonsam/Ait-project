@@ -131,4 +131,16 @@ public class StudyGroup {
         }
     }
 
+    public boolean isMember(Long userId) {
+        return this.members.stream()
+                .anyMatch(member -> member.getUser().getId().equals(userId)
+                        && member.isActive()); // StudyGroupMember에 있는 isActive() 활용
+    }
+
+    public void validateMember(Long userId) {
+        if (!isMember(userId)) {
+            throw new BusinessException(ErrorCode.NOT_GROUP_MEMBER);
+        }
+    }
+
 }

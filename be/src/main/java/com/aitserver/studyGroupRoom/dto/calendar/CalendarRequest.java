@@ -1,4 +1,4 @@
-package com.aitserver.studyGroupRoom.dto;
+package com.aitserver.studyGroupRoom.dto.calendar;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
