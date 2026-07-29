@@ -8,10 +8,21 @@ import { PageLayout } from '@/components/layout/PageLayout'
 import {
   createStudySession,
   createStudySessionConnection,
+  getStudyGroupActiveSession,
   joinStudySessionParticipant,
 } from '@/api/study-sessions'
 import { toErrorMessage } from '@/api/http'
 import { mockPrejoinSessionTitle } from '@/mocks/study'
+
+// 진행 중인 세션이 있으면 그 세션에 합류하고, 없을 때만 새로 만든다.
+// 생성은 그룹장만 가능하고 활성 세션이 있으면 서버가 거절하므로, 조회를 먼저 둬야 그룹원 참여와 그룹장 재입장이 모두 가능하다.
+async function resolveSessionId(groupId: number) {
+  const activeSession = await getStudyGroupActiveSession(groupId)
+  if (activeSession.hasActiveSession && activeSession.sessionId !== null) {
+    return activeSession.sessionId
+  }
+  return (await createStudySession(groupId)).sessionId
+}
 
 // 스터디 라운지 → 내 스터디 그룹 → 세션 생성/참가에서 진입하는 입장 전 대기 화면.
 // TODO: 실제 API 연동 필요 — 상위 페이지(스터디 라운지/내 스터디 그룹)가 구현되면
@@ -40,8 +51,7 @@ export function StudySessionPrejoinPage() {
     setConnecting(true)
 
     try {
-      const currentSessionId =
-        sessionId ?? (await createStudySession(parsedGroupId)).sessionId
+      const currentSessionId = sessionId ?? (await resolveSessionId(parsedGroupId))
       setSessionId(currentSessionId)
 
       await joinStudySessionParticipant(currentSessionId, {
