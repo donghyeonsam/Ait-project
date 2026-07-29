@@ -95,59 +95,21 @@ export const mockStudyCalendarEvents: Record<number, StudyCalendarEvent[]> = {
 }
 
 // TODO: 실제 API 연동 필요 — 그룹별 공지와 실시간 채팅 메시지로 교체.
+// 메시지 목록은 실제 채팅 연동 전까지 빈 배열로 둔다.
 export const mockStudyChatGroups: StudyChatGroup[] = [
   {
     id: 'A',
     notice: '이번 주 세션은 화 20:00, PT 주제는 금리 인하기 자산 전략입니다.',
-    messages: [
-      {
-        id: 1,
-        sender: '최싸피',
-        content: '발표 자료 오늘 밤까지 공유드릴게요!',
-        isSelf: false,
-        reactions: [
-          { emoji: '👍', users: ['나', '김구미'] },
-          { emoji: '🙏', users: ['정싸피'] },
-        ],
-      },
-      {
-        id: 2,
-        sender: '나',
-        content: '네 확인했습니다. 세션 전에 미리 읽어볼게요 👍',
-        isSelf: true,
-        reactions: [{ emoji: '👍', users: ['최싸피'] }],
-      },
-      {
-        id: 3,
-        sender: '김구미',
-        content: '저 오늘 10분 정도 늦을 것 같아요 ㅠ',
-        isSelf: false,
-        reactions: [{ emoji: '❤️', users: ['나', '최싸피', '정싸피'] }],
-      },
-    ],
+    messages: [],
   },
   {
     id: 'B',
     notice: '수요일 20:30 시스템 설계 세션 전에 캐시 전략을 정리해 주세요.',
-    messages: [
-      {
-        id: 4,
-        sender: '이싸피',
-        content: 'CDN과 Redis 비교 자료를 노션에 올렸습니다.',
-        isSelf: false,
-      },
-    ],
+    messages: [],
   },
   {
     id: 'C',
     notice: '토요일 발표자는 논문 링크와 질문 두 개를 금요일까지 올려 주세요.',
-    messages: [
-      {
-        id: 5,
-        sender: '박싸피',
-        content: '이번 주에는 추천 시스템 논문을 준비할게요.',
-        isSelf: false,
-      },
-    ],
+    messages: [],
   },
 ]

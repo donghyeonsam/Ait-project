@@ -152,6 +152,7 @@ CREATE TABLE `resumes` (
                            `analysis_content` MEDIUMTEXT DEFAULT NULL,
                            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                            `updated_at` DATETIME DEFAULT NULL,
+                           `deleted_at` DATETIME DEFAULT NULL,
 
                            PRIMARY KEY (`id`),
 
@@ -406,7 +407,8 @@ CREATE TABLE `ai_comprehensive_reports` (
                                             `eye_contact_score` INT NOT NULL,
                                             `face_score` INT NOT NULL,
                                             `voice_score` INT NOT NULL,
-                                            `answer_score` INT NOT NULL,
+                                            `qna_score` INT NOT NULL,
+                                            `sentence_score` INT NOT NULL,
                                             `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
                                             PRIMARY KEY (`id`),

@@ -55,6 +55,7 @@ function toStudyCard(group: StudyGroupListItem): StudyCardData {
     capacity: group.capacity,
     createdAt: group.createdAt,
     recruitmentStatus: recruitmentStatusByGroupStatus[group.groupStatus],
+    currentMembers: group.currentMemberCount,
   }
 }
 
@@ -311,10 +312,7 @@ export function StudyPage() {
         )}
       </section>
 
-      <StudyChatFloatingButton
-        unreadCount={42}
-        onClick={() => setIsChatOpen(true)}
-      />
+      <StudyChatFloatingButton onClick={() => setIsChatOpen(true)} />
       <StudyChatModal open={isChatOpen} onOpenChange={setIsChatOpen} />
       <StudyCreateDialog
         open={isCreateDialogOpen}

@@ -1,4 +1,7 @@
-package com.aitserver.aiInterview.dto;
+package com.aitserver.aiInterview.responseDto;
+
+import com.aitserver.aiInterview.dto.CoverLetterInfoForAiInterview;
+import com.aitserver.aiInterview.dto.GithubRepoInfoForAiInterview;
 
 import java.util.List;
 

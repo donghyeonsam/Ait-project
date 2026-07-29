@@ -1,6 +1,6 @@
 package com.aitserver.aiInterview.service;
 
-import com.aitserver.aiInterview.dto.FollowUpQuestionRequest;
+import com.aitserver.aiInterview.requestDto.FollowUpQuestionRequest;
 
 public interface AiInterviewAsyncService {
     void insertAndAnalysisAsync(Long userId, Long aiInterviewId, FollowUpQuestionRequest questionRequest);

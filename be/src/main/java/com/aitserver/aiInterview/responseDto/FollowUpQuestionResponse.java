@@ -1,4 +1,4 @@
-package com.aitserver.aiInterview.dto;
+package com.aitserver.aiInterview.responseDto;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import java.util.List;

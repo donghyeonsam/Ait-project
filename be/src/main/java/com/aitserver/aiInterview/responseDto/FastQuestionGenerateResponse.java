@@ -1,4 +1,4 @@
-package com.aitserver.aiInterview.dto;
+package com.aitserver.aiInterview.responseDto;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;

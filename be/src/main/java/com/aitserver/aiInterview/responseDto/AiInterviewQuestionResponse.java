@@ -1,4 +1,4 @@
-package com.aitserver.aiInterview.dto;
+package com.aitserver.aiInterview.responseDto;
 
 import lombok.Builder;
 import java.util.List;

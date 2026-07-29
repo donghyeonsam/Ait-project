@@ -1,4 +1,4 @@
-package com.aitserver.aiInterview.dto;
+package com.aitserver.aiInterview.requestDto;
 
 import java.util.List;
 

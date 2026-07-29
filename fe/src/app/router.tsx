@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { GuestOnlyRoute, HomeRoute, ProtectedRoute } from '@/app/route-guards'
 import { CommunityPage } from '@/pages/CommunityPage'
+import { CommunityPostPage } from '@/pages/CommunityPostPage'
+import { CommunityWritePage } from '@/pages/CommunityWritePage'
 import { CoverLetterCreatePage } from '@/pages/CoverLetterCreatePage'
 import { CoverLetterPage } from '@/pages/CoverLetterPage'
 import { DashboardInterviewsPage } from '@/pages/DashboardInterviewsPage'
@@ -40,7 +42,8 @@ export function AppRouter() {
       <Route path="/study/session/:sessionId/prejoin" element={<ProtectedRoute><StudySessionPrejoinPage /></ProtectedRoute>} />
       <Route path="/study/session/:sessionId/room" element={<ProtectedRoute><StudySessionRoomPage /></ProtectedRoute>} />
       <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
-      <Route path="/community/posts/:postId" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
+      <Route path="/community/write" element={<ProtectedRoute><CommunityWritePage /></ProtectedRoute>} />
+      <Route path="/community/posts/:postId" element={<ProtectedRoute><CommunityPostPage /></ProtectedRoute>} />
       <Route path="/github/callback" element={<ProtectedRoute><GithubCallbackPage /></ProtectedRoute>} />
       <Route path="/mypage" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
       <Route path="/mypage/documents" element={<Navigate to="/mypage" replace />} />
