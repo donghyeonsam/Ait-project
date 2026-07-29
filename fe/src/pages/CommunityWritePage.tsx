@@ -228,7 +228,7 @@ export function CommunityWritePage() {
   const placeholderKey = category ?? 'default'
 
   return (
-    <PageLayout contentClassName="max-w-dashboard">
+    <PageLayout contentClassName="page-content-zoom-90 max-w-dashboard px-4 sm:px-8">
       <PageTransition>
         <nav aria-label="현재 위치" className="pt-6 text-caption text-ink-500">
           <Link
