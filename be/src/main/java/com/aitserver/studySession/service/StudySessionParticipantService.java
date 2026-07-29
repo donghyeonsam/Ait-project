@@ -5,6 +5,7 @@ import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.global.livekit.LiveKitRoomClient;
 import com.aitserver.global.livekit.service.LiveKitTokenService;
+import com.aitserver.studySession.dto.MemberResponse;
 import com.aitserver.studySession.entity.StudySession;
 import com.aitserver.studySession.entity.StudySessionParticipant;
 import com.aitserver.studySession.repository.StudySessionParticipantRepository;
@@ -14,22 +15,23 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
+import static com.aitserver.studySession.domain.StudySessionParticipantStatus.JOINED;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class StudySessionParticipantAdminService {
+public class StudySessionParticipantService {
 
-    private final StudySessionRepository
-            studySessionRepository;
+    private final StudySessionRepository studySessionRepository;
 
-    private final StudySessionParticipantRepository
-            participantRepository;
+    private final StudySessionParticipantRepository participantRepository;
 
-    private final LiveKitRoomClient
-            liveKitRoomClient;
+    private final LiveKitRoomClient liveKitRoomClient;
 
-    private final LiveKitTokenService
-            liveKitTokenService;
+    private final LiveKitTokenService liveKitTokenService;
+
 
     @Transactional
     public void kickParticipant(
@@ -141,6 +143,52 @@ public class StudySessionParticipantAdminService {
         if (requesterUserId.equals(targetUserId)) {
             throw new BusinessException(
                     ErrorCode.STUDY_SESSION_CANNOT_KICK_SELF
+            );
+        }
+    }
+
+
+
+    public List<MemberResponse> getMemberList(
+            Long sessionId,
+            Long userId
+    ) {
+        validateSession(sessionId);
+        validateParticipant(sessionId, userId);
+
+        return participantRepository
+                .findAllByStudySessionIdAndStatusOrderByFirstJoinedAtAsc(
+                        sessionId,
+                        JOINED
+                )
+                .stream()
+                .map(MemberResponse::from)
+                .toList();
+    }
+
+    private void validateSession(Long sessionId) {
+        if (!studySessionRepository.existsById(sessionId)) {
+            throw new BusinessException(
+                    ErrorCode.STUDY_SESSION_NOT_FOUND
+            );
+        }
+    }
+
+    private void validateParticipant(
+            Long sessionId,
+            Long userId
+    ) {
+        boolean isParticipant =
+                participantRepository
+                        .existsByStudySessionIdAndUserIdAndStatus(
+                                sessionId,
+                                userId,
+                                JOINED
+                        );
+
+        if (!isParticipant) {
+            throw new BusinessException(
+                    ErrorCode.STUDY_SESSION_ACCESS_DENIED
             );
         }
     }

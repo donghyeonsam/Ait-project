@@ -440,20 +440,38 @@ public class LiveKitWebhookService {
             return;
         }
 
-        StudySessionParticipant participant;
+//        StudySessionParticipant participant;
+//        if (existingParticipant == null) {
+//            participant =
+//                    StudySessionParticipant.join(
+//                            studySession,
+//                            user,
+//                            role
+//                    );
+//        } else {
+//            existingParticipant.rejoin(role);
+//            participant = existingParticipant;
+//        }
+//
+//        participantRepository.save(participant);
+
+
+        // 구조 변경
+        // 기존 webhook으로 study_session_participants에 사용자 정보를 insert 하던 구조에서
+        // 입장 api를 사용해서 insert하고 webhook은 실제 접속이 감지되었을 때 status만 바꾸는 걸로
         if (existingParticipant == null) {
-            participant =
-                    StudySessionParticipant.join(
-                            studySession,
-                            user,
-                            role
-                    );
-        } else {
-            existingParticipant.rejoin(role);
-            participant = existingParticipant;
+            log.warn(
+                    "입장 API 호출 없이 LiveKit에 접속한 사용자입니다. "
+                            + "sessionId={}, userId={}, identity={}",
+                    studySession.getId(),
+                    userId,
+                    identity
+            );
+
+            return;
         }
 
-        participantRepository.save(participant);
+        existingParticipant.rejoin(role);
 
         /*
          * 첫 번째 실제 참가자가 들어오면

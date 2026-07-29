@@ -63,4 +63,15 @@ public interface StudySessionParticipantRepository
             @Param("targetUserId")
             Long targetUserId
     );
+
+
+    // 세션 참여자 리스트 반환용
+    @EntityGraph(attributePaths = "user")
+    List<StudySessionParticipant>
+    findAllByStudySessionIdAndStatusOrderByFirstJoinedAtAsc(
+            Long sessionId,
+            StudySessionParticipantStatus status
+    );
+
+
 }
