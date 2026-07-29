@@ -1,6 +1,7 @@
 package com.aitserver.aiInterview.service;
 
 import com.aitserver.aiInterview.requestDto.FollowUpQuestionRequest;
+import com.aitserver.aiInterview.requestDto.NonVerbalDataRequest;
 import com.aitserver.aiInterview.responseDto.GmsAnalysisResponse;
 import com.aitserver.aiInterview.entity.AiInterviewQuestion;
 import com.aitserver.aiInterview.repository.AiInterviewQuestionRepository;
@@ -111,5 +112,11 @@ public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
             log.error("[===Async=== AiInterviewAsyncServiceImpl] FastAPI 음성 분석 로직 중 에러 발생, userId: {}, aiInterviewId,{}",
                     userId, aiInterviewId, e);
         }
+    }
+
+    // 비동기로 사용자의
+    @Override
+    public void nonVerbalDataAnalysisAsync(Long userId, Long aiInterviewId, NonVerbalDataRequest nonVerbalDataRequest) {
+
     }
 }

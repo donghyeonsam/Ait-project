@@ -2,9 +2,11 @@ package com.aitserver.aiInterview.controller;
 
 import com.aitserver.aiInterview.requestDto.AiInterviewQuestionRequest;
 import com.aitserver.aiInterview.requestDto.FollowUpQuestionRequest;
+import com.aitserver.aiInterview.requestDto.NonVerbalDataRequest;
 import com.aitserver.aiInterview.responseDto.AiInterviewPreparationResponse;
 import com.aitserver.aiInterview.responseDto.AiInterviewQuestionResponse;
 import com.aitserver.aiInterview.responseDto.FollowUpQuestionResponse;
+import com.aitserver.aiInterview.service.AiInterviewAsyncService;
 import com.aitserver.aiInterview.service.AiInterviewService;
 import com.aitserver.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class AiInterviewController {
 
     private final AiInterviewService aiInterviewService;
+    private final AiInterviewAsyncService asyncService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<AiInterviewPreparationResponse>> getInfo(
@@ -80,4 +83,22 @@ public class AiInterviewController {
                 )
         );
     }
+
+    @PostMapping("/{aiInterviewId}/non-verbal") // 표정과 시선 분석
+    public ResponseEntity<ApiResponse<Void>> nonVerbalCheck(
+            HttpServletRequest request,
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long aiInterviewId,
+            @RequestBody NonVerbalDataRequest nonVerbalDataRequest) {
+
+        asyncService.nonVerbalDataAnalysisAsync(userId, aiInterviewId, nonVerbalDataRequest);
+
+        return ResponseEntity.ok( // 비동기로만 처리하기 때문에 data는 없다.
+                ApiResponse.success(
+                        HttpStatus.OK, "시선 및 표정 데이터 분석 요청 완료", null, request));
+    }
+
+
+//    이 요청은 나중에 MediaPipe랑 WebGazer 되면 만들자
+//    @PostMapping("{aiInterviewId}/complete")
 }
