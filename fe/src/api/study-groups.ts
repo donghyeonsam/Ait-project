@@ -10,8 +10,7 @@ export interface StudyGroupListItem {
   capacity: number
   groupStatus: StudyGroupStatus
   createdAt: string
-  // TODO: 실제 API 연동 필요 — 목록 응답에 아직 현재 인원이 없어 카드에 "정원 N명"만 표시됨
-  currentMemberCount?: number
+  currentMemberCount: number
 }
 
 export interface StudyGroupPage {
