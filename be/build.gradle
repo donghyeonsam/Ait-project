@@ -31,6 +31,7 @@ dependencies {
     implementation 'org.apache.commons:commons-text:1.15.0'
 
     implementation 'io.livekit:livekit-server:0.14.0'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
 
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
