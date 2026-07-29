@@ -443,7 +443,7 @@ CREATE TABLE study_groups (
                               description TEXT NOT NULL,
 
                               status VARCHAR(20) NOT NULL DEFAULT 'RECRUITING',
-                              chat_notice VARCHAR(255) NULL;
+                              chat_notice VARCHAR(255) NULL,
                               created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                               updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                               deleted_at DATETIME NULL,

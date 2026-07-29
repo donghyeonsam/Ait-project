@@ -35,9 +35,17 @@ export function ProfileSection({
   const [skillsText, setSkillsText] = useState(() => toCommaText(profile.skills))
   const [rolesText, setRolesText] = useState(() => toCommaText(profile.roles))
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null)
+  const [isAvatarRemoved, setIsAvatarRemoved] = useState(false)
 
   const selectAvatarFile = (file: File | null) => {
-    setAvatarPreviewUrl(file ? URL.createObjectURL(file) : null)
+    if (!file) return
+    setAvatarPreviewUrl(URL.createObjectURL(file))
+    setIsAvatarRemoved(false)
+  }
+
+  const removeAvatar = () => {
+    setAvatarPreviewUrl(null)
+    setIsAvatarRemoved(true)
   }
 
   const startEditing = () => {
@@ -45,11 +53,13 @@ export function ProfileSection({
     setSkillsText(toCommaText(savedProfile.skills))
     setRolesText(toCommaText(savedProfile.roles))
     setAvatarPreviewUrl(null)
+    setIsAvatarRemoved(false)
     setIsEditing(true)
   }
 
   const cancelEditing = () => {
     setAvatarPreviewUrl(null)
+    setIsAvatarRemoved(false)
     setIsEditing(false)
   }
 
@@ -59,9 +69,10 @@ export function ProfileSection({
       ...draft,
       skills: parseCommaText(skillsText),
       roles: parseCommaText(rolesText),
-      avatarUrl: avatarPreviewUrl ?? draft.avatarUrl,
+      avatarUrl: isAvatarRemoved ? null : (avatarPreviewUrl ?? draft.avatarUrl ?? null),
     })
     setAvatarPreviewUrl(null)
+    setIsAvatarRemoved(false)
     setIsEditing(false)
   }
 
@@ -79,6 +90,7 @@ export function ProfileSection({
   }
 
   const displayed = isEditing ? draft : savedProfile
+  const editingAvatarSrc = isAvatarRemoved ? null : (avatarPreviewUrl ?? draft.avatarUrl ?? null)
 
   return (
     <div className="profile-layout grid gap-8">
@@ -87,8 +99,9 @@ export function ProfileSection({
         isEditing={isEditing}
         rolesText={rolesText}
         onChangeRolesText={setRolesText}
-        avatarSrc={isEditing ? avatarPreviewUrl : (savedProfile.avatarUrl ?? null)}
+        avatarSrc={isEditing ? editingAvatarSrc : (savedProfile.avatarUrl ?? null)}
         onSelectAvatarFile={selectAvatarFile}
+        onRemoveAvatar={removeAvatar}
       />
       <ProfileInfo
         profile={displayed}

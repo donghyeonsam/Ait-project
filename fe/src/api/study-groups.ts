@@ -50,6 +50,7 @@ export interface MyStudyGroup {
   currentMemberCount: number
   groupStatus: StudyGroupStatus
   joinedAt: string
+  owner: boolean
 }
 
 // 백엔드 생성 스펙은 제목과 소개만 받는다. 정원·직군은 아직 서버에 저장할 곳이 없다.

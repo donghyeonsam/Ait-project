@@ -84,6 +84,16 @@ export function MyStudySection({
                       {study.description}
                     </p>
                   </div>
+
+                  {study.owner ? (
+                    <span className="shrink-0 rounded-ait-s border border-status-achievement-border bg-status-achievement-surface px-3 py-1 text-caption font-medium text-action-primary">
+                      그룹장
+                    </span>
+                  ) : (
+                    <span className="shrink-0 rounded-ait-s border border-border-default bg-background-default px-3 py-1 text-caption text-text-secondary">
+                      그룹원
+                    </span>
+                  )}
                 </div>
 
                 <div className="pointer-events-none relative z-10 mt-6 flex flex-wrap items-end justify-between gap-4">
@@ -119,9 +129,7 @@ export function MyStudySection({
                     className="cta-lift pointer-events-auto"
                     onClick={() => onOpenStudy(study)}
                   >
-                    {/* TODO: 실제 API 연동 필요 — 목록 응답(/me/all)에 그룹장 여부가 없어
-                        문구를 구분하지 못한다. 그룹장 전용 "세션 생성하기" 진입은
-                        그룹 상세 페이지에서 안내한다. */}
+                    {/* 그룹장 전용 "세션 생성하기" 진입은 그룹 상세 페이지에서 안내한다. */}
                     그룹 페이지
                   </Button>
                 </div>
