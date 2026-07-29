@@ -81,6 +81,9 @@ public class StudyGroup {
     @Formula("(SELECT COUNT(*) FROM study_group_members m WHERE m.group_id = id AND m.status = 'ACTIVE' AND m.deleted_at IS NULL)")
     private int currentMemberCount;
 
+    @Column(name = "chat_notice", length = 255)
+    private String chatNotice;
+
     @CreationTimestamp
     @Column(
             name = "created_at",
@@ -143,4 +146,11 @@ public class StudyGroup {
         }
     }
 
+    public void updateChatNotice(String newNotice) {
+        this.chatNotice = newNotice;
+    }
+
+    public void deleteChatNotice() {
+        this.chatNotice = null;
+    }
 }

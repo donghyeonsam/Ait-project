@@ -1,13 +1,14 @@
 package com.aitserver.studyGroupRoom.controller;
 
 import com.aitserver.studyGroupRoom.dto.chat.ChatDto;
+import com.aitserver.studyGroupRoom.dto.chat.ChatNoticeDto;
 import com.aitserver.studyGroupRoom.service.chat.StudyGroupChatService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 
 @Controller
@@ -27,7 +28,9 @@ public class StudyGroupChatController {
     public void sendMessage(
             @DestinationVariable Long groupId,
             @Payload ChatDto.Request request,
-            @AuthenticationPrincipal Long currentUserId) {
+            Authentication authentication) {
+
+        Long currentUserId = Long.valueOf(authentication.getPrincipal().toString());
 
         // 1. 서비스 로직 호출: 채팅을 DB에 저장하고, 유저 닉네임/프사가 포함된 Response DTO로 반환받습니다.
         ChatDto.Response response = chatService.saveChat(groupId, currentUserId, request.getMessage());
@@ -35,5 +38,22 @@ public class StudyGroupChatController {
         // 2. 우체국을 통해 구독자들에게 배달
         // "/topic/study-groups/1" 을 구독하고 있는 모든 클라이언트에게 방금 저장된 채팅 내역을 쏴줍니다.
         messagingTemplate.convertAndSend("/topic/study-groups/" + groupId, response);
+    }
+
+    @MessageMapping("/study-groups/{groupId}/notices")
+    public void updateNotice(
+            @DestinationVariable Long groupId,
+            @Payload ChatNoticeDto.Request request,
+            Authentication authentication) {
+
+        // 1. 유저 ID
+        Long currentUserId = Long.valueOf(authentication.getPrincipal().toString());
+
+        // 2. 서비스 로직 호출
+        ChatNoticeDto.Response response = chatService.updateNotice(groupId, currentUserId, request.getNotice());
+
+        // 3. 해당 그룹 채팅방을 보고 있는 모든 유저의 '공지사항 전용 채널'로 데이터 전송
+        // 프론트엔드는 이 채널을 구독하고 있다가 데이터가 오면 화면 상단의 텍스트를 즉시 교체합니다.
+        messagingTemplate.convertAndSend("/topic/study-groups/" + groupId + "/notices", response);
     }
 }
