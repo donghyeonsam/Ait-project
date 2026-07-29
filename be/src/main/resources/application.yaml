@@ -32,7 +32,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update # 혹은 create, validate 등 팀 컨벤션에 맞게 설정
+      ddl-auto: validate # 혹은 create, validate 등 팀 컨벤션에 맞게 설정
     show-sql: false
     properties:
       hibernate:
@@ -41,7 +41,7 @@ spring:
 
   sql:
     init:
-      mode: always
+      mode: never
 
   docker:
     compose:

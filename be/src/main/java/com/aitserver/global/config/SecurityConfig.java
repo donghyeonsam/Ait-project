@@ -45,8 +45,16 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
 
                 // 현재 개발 단계에서는 모든 요청 허용
-                .authorizeHttpRequests(auth ->
-                        auth.anyRequest().permitAll()
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/api/auth/login",  // 로그인
+                                "/api/auth/signup", // 회원가입
+                                "/api/auth/reissue",// 토큰 재발급
+                                "/swagger-ui/**",   // 스웨거
+                                "/v3/api-docs/**",  // 스웨거
+                                "/api/webhooks/**"  // 스터디 세션을 위한 라이브킷 웹훅 연결
+                        ).permitAll()
+                        .anyRequest().authenticated()
                 );
 
         return http.build();
@@ -90,7 +98,7 @@ public class SecurityConfig {
          * JWT를 Authorization 헤더로 전달하는 방식에서도
          * 일반적으로 false로 둘 수 있다.
          */
-        configuration.setAllowCredentials(false);
+        configuration.setAllowCredentials(true);
 
         // 브라우저가 preflight 결과를 캐싱하는 시간
         configuration.setMaxAge(3600L);
