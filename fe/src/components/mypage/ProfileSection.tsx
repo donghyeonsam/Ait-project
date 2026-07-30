@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { updateGithubRepoNickname } from '@/api/github'
+import { deleteGithubRepo, updateGithubRepoNickname } from '@/api/github'
 import { toErrorMessage } from '@/api/http'
 import { ProfileCard } from '@/components/mypage/ProfileCard'
 import { ProfileInfo } from '@/components/mypage/ProfileInfo'
@@ -121,6 +121,17 @@ export function ProfileSection({
     }))
   }
 
+  // 서버에서 연동을 삭제한 뒤 저장본과 편집본 양쪽에서 해당 레포지토리를 제거한다.
+  const deleteRepository = async (id: number) => {
+    await deleteGithubRepo(id)
+    const removeRepository = (current: ProfileData): ProfileData => ({
+      ...current,
+      repositories: current.repositories.filter((repository) => repository.id !== id),
+    })
+    setSavedProfile(removeRepository)
+    setDraft(removeRepository)
+  }
+
   const displayed = isEditing ? draft : savedProfile
   const editingAvatarSrc = isAvatarRemoved ? null : (avatarPreviewUrl ?? draft.avatarUrl ?? null)
 
@@ -147,6 +158,7 @@ export function ProfileSection({
         repositoryError={repositoryError}
         repositoryLoading={repositoryLoading}
         onRetryRepositories={onRetryRepositories}
+        onDeleteRepository={deleteRepository}
         onOpenDocuments={onOpenDocuments}
         onStartEditing={startEditing}
         onCancelEditing={cancelEditing}
