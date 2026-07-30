@@ -12,6 +12,8 @@ interface ProfileInfoProps {
   onChangeSkillsText: (value: string) => void
   onChangeField: (key: 'nickname' | 'email' | 'github', value: string) => void
   onChangeRepositoryName: (id: number, name: string) => void
+  isSaving?: boolean
+  saveError?: string | null
   repositoryError?: string | null
   repositoryLoading?: boolean
   onRetryRepositories?: () => void
@@ -35,6 +37,8 @@ export function ProfileInfo({
   onChangeSkillsText,
   onChangeField,
   onChangeRepositoryName,
+  isSaving = false,
+  saveError,
   repositoryError,
   repositoryLoading,
   onRetryRepositories,
@@ -120,11 +124,16 @@ export function ProfileInfo({
         </Button>
         {isEditing ? (
           <div className="ml-auto flex items-center gap-3">
-            <Button type="button" variant="text" onClick={onCancelEditing}>
+            {saveError ? (
+              <p className="text-caption text-status-error" role="alert">
+                {saveError}
+              </p>
+            ) : null}
+            <Button type="button" variant="text" disabled={isSaving} onClick={onCancelEditing}>
               취소
             </Button>
-            <Button type="button" onClick={onSaveEditing}>
-              저장
+            <Button type="button" disabled={isSaving} onClick={onSaveEditing}>
+              {isSaving ? '저장 중...' : '저장'}
             </Button>
           </div>
         ) : (
