@@ -1,7 +1,5 @@
 package com.aitserver.global.config;
 
-import java.util.List;
-
 import com.aitserver.global.filter.JwtAuthenticationFilter;
 import com.aitserver.global.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +17,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 
 @Configuration
@@ -65,7 +65,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**",   // 스웨거
                                 "/v3/api-docs",
                                 "/v3/api-docs/**",  // 스웨거
-                                "/api/webhooks/**"  // 스터디 세션을 위한 라이브킷 웹훅 연결
+                                "/api/webhooks/**",  // 스터디 세션을 위한 라이브킷 웹훅 연결
+                                "/ws/chat/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
