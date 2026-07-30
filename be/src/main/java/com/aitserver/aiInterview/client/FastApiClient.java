@@ -18,6 +18,7 @@ import org.springframework.web.client.RestClient;
 public class FastApiClient {
 
     private final RestClient fastApiRestClient;
+    private final RestClient audioApiRestClient;
 
     public <T, R> R sendToFastApi(String uri, T requestBody, Class<R> responseType) {
         try {
@@ -62,7 +63,7 @@ public class FastApiClient {
             body.add("file", audioResource);
             body.add("request_id", requestId);
 
-            R response = fastApiRestClient.post()
+            R response = audioApiRestClient.post()
                     .uri(uri)
                     .contentType(MediaType.MULTIPART_FORM_DATA)
                     .body(body)
