@@ -27,6 +27,13 @@ DROP TABLE IF EXISTS `resumes`;
 DROP TABLE IF EXISTS `user_skills`;
 DROP TABLE IF EXISTS `users`;
 DROP TABLE IF EXISTS `study_session_participants`;
+DROP TABLE IF EXISTS `comment_likes`;
+DROP TABLE IF EXISTS `posts_comments`;
+DROP TABLE IF EXISTS `post_like_and_scrap`;
+DROP TABLE IF EXISTS `post_files`;
+DROP TABLE IF EXISTS `post_tags`;
+DROP TABLE IF EXISTS `tags`;
+DROP TABLE IF EXISTS `posts`;
 
 SET FOREIGN_KEY_CHECKS = 1;
 

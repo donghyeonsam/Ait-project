@@ -39,7 +39,6 @@ public class PostService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NO_USER));
 
-        // 옵션 필드(댓글허용, 알림) 추가됨
         Post post = Post.builder()
                 .user(user)
                 .category(request.getCategory())
@@ -51,7 +50,6 @@ public class PostService {
 
         Post savedPost = postRepository.save(post);
 
-        // 태그 저장 로직 추가 (생성 시)
         if (request.getTags() != null && !request.getTags().isEmpty()) {
             saveTags(savedPost, request.getTags());
         }
@@ -62,8 +60,8 @@ public class PostService {
                         .post(savedPost)
                         .originalFilename(fileReq.getOriginalFilename())
                         .storedFilename(fileReq.getStoredFilename())
-                        .fileType(fileReq.getFileType()) // IMAGE or PDF
-                        .usageType(fileReq.getUsageType()) // INLINE or ATTACHMENT
+                        .fileType(fileReq.getFileType())
+                        .usageType(fileReq.getUsageType())
                         .build();
                 postFileRepository.save(postFile);
             }
@@ -73,29 +71,7 @@ public class PostService {
     }
 
     /**
-     * 2. 게시글 상세 조회
-     */
-    public PostDto.Response getPostDetail(Long postId) {
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-
-        // 조회수 증가
-        post.increaseViewCount();
-
-        // 파일 리스트 조회 (postImageRepository -> postFileRepository 수정)
-        List<PostFile> files = postFileRepository.findByPostId(postId);
-
-        // 태그 리스트 조회
-        List<String> tags = postTagRepository.findByPostId(postId).stream()
-                .map(pt -> pt.getTag().getName())
-                .toList();
-
-        // DTO 반환 시 파일과 태그 정보 모두 넘겨줌
-        return new PostDto.Response(post, files, tags);
-    }
-
-    /**
-     * 3. 게시글 전체 수정 (내용 + 옵션 + 태그 델타 업데이트)
+     * 2. 게시글 수정
      */
     @Transactional
     public void updatePost(Long userId, Long postId, PostDto.UpdateRequest request) {
@@ -106,7 +82,6 @@ public class PostService {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_POST_ACTION);
         }
 
-        // 1. 게시글 기본 정보 업데이트
         post.update(
                 request.getTitle(),
                 request.getContent(),
@@ -115,19 +90,17 @@ public class PostService {
                 request.getReceiveNotifications()
         );
 
-        // 2. 태그 업데이트
         if (request.getTags() != null) {
             updatePostTags(post, request.getTags());
         }
 
-        // 3. 파일 업데이트
         if (request.getFiles() != null) {
             updatePostFiles(post, request.getFiles());
         }
     }
 
     /**
-     * 4. 게시글 삭제 (소프트 딜리트)
+     * 3. 게시글 삭제 (소프트 딜리트)
      */
     @Transactional
     public void deletePost(Long userId, Long postId) {

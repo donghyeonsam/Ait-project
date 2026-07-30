@@ -21,6 +21,11 @@ public class LocalFileStorageService implements FileStorageService {
             return null;
         }
 
+        File directory = new File(fileDir);
+        if (!directory.exists()) {
+            directory.mkdirs();
+        }
+
         // 1. 원본 파일명에서 확장자 추출 (예: image.png -> .png)
         String originalFilename = file.getOriginalFilename();
         String extension = originalFilename.substring(originalFilename.lastIndexOf("."));
