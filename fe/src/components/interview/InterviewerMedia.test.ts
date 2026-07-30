@@ -5,13 +5,11 @@ import {
 } from '@/components/interview/interviewer-media'
 
 describe('InterviewerMedia', () => {
-  it('답변 녹음 중에는 선택한 면접 유형의 리액션 영상을 사용한다', () => {
-    const peaceful = getInterviewerPlaylist('listening', '평화형')
-    const pressure = getInterviewerPlaylist('listening', '압박형')
+  it('답변 녹음 중에는 중립 영상만 사용한다', () => {
+    const playlist = getInterviewerPlaylist('neutral')
 
-    expect(peaceful.some((source) => source.includes('big_smile'))).toBe(true)
-    expect(peaceful.some((source) => source.includes('negative'))).toBe(false)
-    expect(pressure.some((source) => source.includes('negative'))).toBe(true)
+    expect(playlist.length).toBeGreaterThan(0)
+    expect(playlist.every((source) => source.includes('neutrality'))).toBe(true)
   })
 
   it('질문·답변 상태에 맞는 영상 단계를 결정한다', () => {
@@ -32,7 +30,7 @@ describe('InterviewerMedia', () => {
         isSubmittingAnswer: false,
         isLastQuestion: false,
       }),
-    ).toBe('listening')
+    ).toBe('neutral')
     expect(
       getInterviewerPhase({
         questionIndex: 2,
