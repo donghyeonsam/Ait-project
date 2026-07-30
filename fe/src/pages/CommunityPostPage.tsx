@@ -1,25 +1,37 @@
 import DOMPurify from 'dompurify'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Bookmark, Heart, Share2 } from 'lucide-react'
+import { ArrowLeft, Bookmark, Heart, Pencil, Share2, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { fetchPost, toggleBookmark, toggleLike } from '@/api/community'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import {
+  deletePost,
+  fetchPost,
+  toggleBookmark,
+  toggleLike,
+} from '@/api/community'
 import { PageTransition } from '@/components/common/PageTransition'
 import { CommentSection } from '@/components/community/CommentSection'
 import { RollingCounter } from '@/components/community/RollingCounter'
 import { CategoryBadge, TagChip } from '@/components/community/badges'
 import { PageLayout } from '@/components/layout/PageLayout'
+import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToastStack } from '@/components/ui/toast'
 import { formatNumber, formatPostDate } from '@/lib/format'
+import { useAuth } from '@/lib/useAuth'
 import { useToasts } from '@/lib/useToasts'
 import { cn } from '@/lib/utils'
 import type { CommunityPost } from '@/types/community'
 
-// 게시글 상세 화면. 본문(에디터 HTML)과 좋아요·저장·공유, 댓글 영역을 담당한다.
+// 게시글 상세 화면. 본문과 반응·댓글을 보여주고 작성자에게 수정·삭제 행동을 제공한다.
 export function CommunityPostPage() {
   const { postId } = useParams<{ postId: string }>()
+  const navigate = useNavigate()
+  const { user } = useAuth()
   const [post, setPost] = useState<CommunityPost | null>(null)
+  const [isDeleteOpen, setDeleteOpen] = useState(false)
+  const [isDeleting, setDeleting] = useState(false)
   const { toasts, showToast } = useToasts()
 
   // 마지막으로 로딩을 마친 글과 현재 주소의 글이 다르면 로딩 중으로 본다.
@@ -44,6 +56,7 @@ export function CommunityPostPage() {
     () => (post ? DOMPurify.sanitize(post.contentHtml) : ''),
     [post],
   )
+  const isAuthor = Boolean(post && user?.nickname === post.author)
 
   const handleToggleLike = () => {
     if (!post) return
@@ -68,6 +81,20 @@ export function CommunityPostPage() {
       showToast('링크를 복사했어요.')
     } catch {
       showToast('링크 복사에 실패했어요. 주소창에서 직접 복사해주세요.')
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!post || !user || isDeleting) return
+    setDeleting(true)
+    try {
+      await deletePost(post.id, user.nickname)
+      setDeleteOpen(false)
+      showToast('게시글을 삭제했어요.')
+      setTimeout(() => navigate('/community', { replace: true }), 700)
+    } catch {
+      setDeleting(false)
+      showToast('삭제에 실패했어요. 잠시 후 다시 시도해주세요.')
     }
   }
 
@@ -104,7 +131,32 @@ export function CommunityPostPage() {
         ) : (
           <div className="flex flex-col gap-6 py-6">
             <article className="rounded-ait-m border border-line bg-surface-default p-8">
-              <CategoryBadge category={post.category} />
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <CategoryBadge category={post.category} />
+                {isAuthor ? (
+                  <div className="flex items-center gap-1" aria-label="게시글 관리">
+                    <Button
+                      asChild
+                      variant="text"
+                      className="px-3 text-text-secondary [&_svg]:size-4"
+                    >
+                      <Link to={`/community/posts/${post.id}/edit`}>
+                        <Pencil aria-hidden="true" />
+                        수정
+                      </Link>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="text"
+                      className="px-3 text-status-error hover:bg-status-error-surface [&_svg]:size-4"
+                      onClick={() => setDeleteOpen(true)}
+                    >
+                      <Trash2 aria-hidden="true" />
+                      삭제
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
               <h1 className="mt-4 text-[26px] font-bold leading-snug text-ink-900">
                 {post.title}
               </h1>
@@ -195,6 +247,19 @@ export function CommunityPostPage() {
           </div>
         )}
       </PageTransition>
+      <ConfirmDialog
+        open={isDeleteOpen}
+        onOpenChange={(open) => {
+          if (!isDeleting) setDeleteOpen(open)
+        }}
+        title="게시글을 삭제할까요?"
+        description="삭제한 게시글은 다시 복구할 수 없습니다."
+        confirmLabel={isDeleting ? '삭제 중...' : '게시글 삭제'}
+        cancelLabel="취소"
+        confirmVariant="destructive"
+        isConfirming={isDeleting}
+        onConfirm={() => void handleDelete()}
+      />
       <ToastStack toasts={toasts} />
     </PageLayout>
   )

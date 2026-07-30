@@ -13,6 +13,7 @@ interface RichTextEditorProps {
   placeholderLines: string[]
   // 게시판 선택에 따라 placeholder가 크로스페이드로 교체될 때 쓰는 키.
   placeholderKey: string
+  initialContent?: string
   invalid?: boolean
   onReady?: (editor: Editor) => void
   onUpdate?: (payload: { html: string; text: string }) => void
@@ -22,6 +23,7 @@ interface RichTextEditorProps {
 export function RichTextEditor({
   placeholderLines,
   placeholderKey,
+  initialContent = '',
   invalid = false,
   onReady,
   onUpdate,
@@ -33,6 +35,7 @@ export function RichTextEditor({
   const uploadImageRef = useRef<(file: File) => void>(() => {})
 
   const editor = useEditor({
+    content: initialContent,
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },

@@ -20,6 +20,9 @@ export interface CommunityPost {
   likeCount: number
   liked: boolean
   bookmarked: boolean
+  visibility?: 'public' | 'members'
+  allowComments?: boolean
+  notify?: boolean
 }
 
 export interface CommunityReply {

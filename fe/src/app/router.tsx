@@ -42,6 +42,7 @@ export function AppRouter() {
       <Route path="/study/session/:sessionId/room" element={<ProtectedRoute><StudySessionRoomPage /></ProtectedRoute>} />
       <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
       <Route path="/community/write" element={<ProtectedRoute><CommunityWritePage /></ProtectedRoute>} />
+      <Route path="/community/posts/:postId/edit" element={<ProtectedRoute><CommunityWritePage /></ProtectedRoute>} />
       <Route path="/community/posts/:postId" element={<ProtectedRoute><CommunityPostPage /></ProtectedRoute>} />
       <Route path="/github/callback" element={<ProtectedRoute><GithubCallbackPage /></ProtectedRoute>} />
       <Route path="/mypage" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
