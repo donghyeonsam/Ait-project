@@ -4,10 +4,11 @@ import SockJS from 'sockjs-client'
 import { backendRequest } from '@/api/http'
 import { getStoredAccessToken } from '@/api/auth-storage'
 
-const backendBaseUrl = (import.meta.env.VITE_BE_API_URL ?? '/backend').replace(
-  /\/$/,
-  '',
-)
+// WebSocket은 Vercel의 /backend rewrite를 거치지 않고 Spring Boot 서버에 직접 연결한다.
+// 로컬·별도 배포 환경에서는 VITE_WS_URL로 연결 대상을 재정의할 수 있다.
+const websocketBaseUrl = (
+  import.meta.env.VITE_WS_URL ?? 'https://i15d202.p.ssafy.io'
+).replace(/\/$/, '')
 
 export interface StudyGroupChatMessage {
   chatId: number
@@ -51,7 +52,7 @@ export function connectStudyGroupChat(
   handlers: StudyGroupChatSocketHandlers,
 ) {
   const client = new Client({
-    webSocketFactory: () => new SockJS(`${backendBaseUrl}/ws/chat`),
+    webSocketFactory: () => new SockJS(`${websocketBaseUrl}/ws/chat`),
     connectHeaders: {
       Authorization: `Bearer ${getStoredAccessToken() ?? ''}`,
     },
