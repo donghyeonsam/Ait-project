@@ -53,17 +53,19 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
             {isVisible ? <EyeOff className="size-5" aria-hidden="true" /> : <Eye className="size-5" aria-hidden="true" />}
           </button>
         </div>
-        {error || helperText ? (
-          <p
-            id={descriptionId}
-            className={cn(
-              'mt-2 text-caption',
-              error ? 'text-status-error' : 'text-text-secondary',
-            )}
-          >
-            {error ?? helperText}
-          </p>
-        ) : null}
+        <div className="mt-0.5 min-h-3 leading-tight">
+          {error || helperText ? (
+            <p
+              id={descriptionId}
+              className={cn(
+                'text-caption leading-tight',
+                error ? 'text-status-error' : 'text-text-secondary',
+              )}
+            >
+              {error ?? helperText}
+            </p>
+          ) : null}
+        </div>
       </div>
     )
   },
