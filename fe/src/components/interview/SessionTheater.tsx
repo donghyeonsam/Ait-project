@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
+import { useRef } from 'react'
 import {
   Info,
   LoaderCircle,
@@ -31,6 +32,8 @@ interface SessionTheaterProps {
   interviewStyle: InterviewStyle
   isSubmittingAnswer: boolean
   isLastQuestion: boolean
+  answerDurationSeconds: number
+  answerSecondsRemaining: number
   transcript: string
   onChangeTranscript: (value: string) => void
   voiceError: string | null
@@ -56,30 +59,86 @@ interface SessionTheaterProps {
   onChangeSpeakerVolume: (value: number) => void
 }
 
-function formatElapsed(elapsedMs: number) {
-  const totalSeconds = Math.floor(elapsedMs / 1000)
+function formatCountdown(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
   return `${minutes}:${String(seconds).padStart(2, '0')}`
 }
 
-function useRecordingElapsed(isRecording: boolean) {
-  const [elapsedMs, setElapsedMs] = useState(0)
+interface AnswerCountdownProps {
+  durationSeconds: number
+  remainingSeconds: number
+}
 
-  useEffect(() => {
-    if (!isRecording) return
-    const startedAt = Date.now()
-    const update = () => setElapsedMs(Date.now() - startedAt)
-    // setState-in-effect 린트 규칙 때문에 초기화도 타이머 콜백에서 실행한다.
-    const firstTick = window.setTimeout(update, 0)
-    const timer = window.setInterval(update, 500)
-    return () => {
-      window.clearTimeout(firstTick)
-      window.clearInterval(timer)
-    }
-  }, [isRecording])
+function AnswerCountdown({
+  durationSeconds,
+  remainingSeconds,
+}: AnswerCountdownProps) {
+  const reduceMotion = useReducedMotion()
+  const radius = 42
+  const circumference = 2 * Math.PI * radius
+  const progress =
+    durationSeconds > 0
+      ? Math.min(1, Math.max(0, remainingSeconds / durationSeconds))
+      : 0
+  const isWarning = remainingSeconds <= 15
+  const isUrgent = remainingSeconds <= 5
 
-  return isRecording ? elapsedMs : 0
+  return (
+    <motion.div
+      className={cn(
+        'session-answer-countdown',
+        isWarning && 'is-warning',
+        isUrgent && 'is-urgent',
+      )}
+      role="timer"
+      aria-label={`답변 시간 ${remainingSeconds}초 남음`}
+      animate={
+        reduceMotion || !isUrgent
+          ? undefined
+          : { scale: [1, 1.045, 1], opacity: [1, 0.88, 1] }
+      }
+      transition={
+        reduceMotion || !isUrgent
+          ? undefined
+          : { duration: 0.8, repeat: Infinity, ease: 'easeInOut' }
+      }
+    >
+      <svg
+        className="session-answer-countdown-ring"
+        viewBox="0 0 100 100"
+        aria-hidden="true"
+      >
+        <circle className="session-answer-countdown-track" cx="50" cy="50" r={radius} />
+        <motion.circle
+          className="session-answer-countdown-progress"
+          cx="50"
+          cy="50"
+          r={radius}
+          strokeDasharray={circumference}
+          initial={false}
+          animate={{ strokeDashoffset: circumference * (1 - progress) }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { duration: 0.3, ease: 'linear' }
+          }
+        />
+      </svg>
+      <div className="session-answer-countdown-value">
+        <motion.strong
+          key={remainingSeconds}
+          className="tabular-nums"
+          initial={reduceMotion ? false : { opacity: 0.45, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: reduceMotion ? 0 : 0.2 }}
+        >
+          {remainingSeconds}
+        </motion.strong>
+        <span>초</span>
+      </div>
+    </motion.div>
+  )
 }
 
 function LiveWaveform() {
@@ -106,6 +165,8 @@ export function SessionTheater({
   interviewStyle,
   isSubmittingAnswer,
   isLastQuestion,
+  answerDurationSeconds,
+  answerSecondsRemaining,
   transcript,
   onChangeTranscript,
   voiceError,
@@ -131,7 +192,6 @@ export function SessionTheater({
   onChangeSpeakerVolume,
 }: SessionTheaterProps) {
   const stageRef = useRef<HTMLDivElement>(null)
-  const recordingElapsedMs = useRecordingElapsed(answerStatus === 'recording')
 
   const isRecording = answerStatus === 'recording'
   const isProcessing = answerStatus === 'processing'
@@ -229,74 +289,83 @@ export function SessionTheater({
 
         <div className="session-theater-primary-row">
           <div className="session-theater-glass-card">
-            <div className="session-theater-card-label">
-              <span>질문 {questionIndex + 1}</span>
-              {isAiSpeaking ? (
-                <span className="flex items-center gap-2" role="status">
-                  AI 면접관이 질문을 읽고 있어요
-                  <LiveWaveform />
-                </span>
-              ) : null}
-              {isRecording ? (
-                <span className="flex items-center gap-2 text-white" role="status">
-                  <LiveWaveform />
-                  <span className="tabular-nums">
-                    녹음 중 {formatElapsed(recordingElapsedMs)}
+            <div className="session-theater-card-main">
+              <div className="session-theater-card-label">
+                <span>질문 {questionIndex + 1}</span>
+                {isAiSpeaking ? (
+                  <span className="flex items-center gap-2" role="status">
+                    AI 면접관이 질문을 읽고 있어요
+                    <LiveWaveform />
                   </span>
-                </span>
-              ) : null}
-            </div>
-            <p className="session-theater-question">{question}</p>
-
-            {isRecording ? (
-              <p className="session-theater-note">
-                답변을 마치면 텍스트로 변환되며 제출 전에 수정할 수 있어요.
-              </p>
-            ) : null}
-
-            {isProcessing ? (
-              <p className="session-theater-note" role="status">
-                답변을 텍스트로 변환하고 있어요…
-              </p>
-            ) : null}
-
-            {isReview ? (
-              <div className="mt-4">
-                <label
-                  htmlFor="voice-answer-transcript"
-                  className="text-caption font-semibold text-white/75"
-                >
-                  답변 텍스트
-                </label>
-                <Textarea
-                  id="voice-answer-transcript"
-                  value={transcript}
-                  onChange={(event) => onChangeTranscript(event.target.value)}
-                  className="session-theater-textarea max-h-40 min-h-24"
-                  placeholder="인식된 답변을 확인하고 필요한 부분을 수정해주세요."
-                />
-              </div>
-            ) : null}
-
-            {voiceError || speechError ? (
-              <div role="alert">
-                {[voiceError, speechError].filter(Boolean).map((message, index) => (
-                  <p key={`${index}-${message}`} className="session-theater-error">
-                    <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                    {message}
-                  </p>
-                ))}
-                {canRetryTranscription ? (
-                  <button
-                    type="button"
-                    className="session-theater-ghost-button mt-3"
-                    onClick={onRetryTranscription}
-                  >
-                    <RotateCcw className="size-3.5" aria-hidden="true" />
-                    변환 다시 시도
-                  </button>
+                ) : null}
+                {isRecording ? (
+                  <span className="flex items-center gap-2 text-white" role="status">
+                    <LiveWaveform />
+                    <span className="tabular-nums">
+                      녹음 중 · {formatCountdown(answerSecondsRemaining)} 남음
+                    </span>
+                  </span>
                 ) : null}
               </div>
+              <p className="session-theater-question">{question}</p>
+
+              {isRecording ? (
+                <p className="session-theater-note">
+                  남은 시간이 끝나면 녹음이 자동으로 종료되고 답변이 변환됩니다.
+                </p>
+              ) : null}
+
+              {isProcessing ? (
+                <p className="session-theater-note" role="status">
+                  답변을 텍스트로 변환하고 있어요…
+                </p>
+              ) : null}
+
+              {isReview ? (
+                <div className="mt-4">
+                  <label
+                    htmlFor="voice-answer-transcript"
+                    className="text-caption font-semibold text-white/75"
+                  >
+                    답변 텍스트
+                  </label>
+                  <Textarea
+                    id="voice-answer-transcript"
+                    value={transcript}
+                    onChange={(event) => onChangeTranscript(event.target.value)}
+                    className="session-theater-textarea max-h-40 min-h-24"
+                    placeholder="인식된 답변을 확인하고 필요한 부분을 수정해주세요."
+                  />
+                </div>
+              ) : null}
+
+              {voiceError || speechError ? (
+                <div role="alert">
+                  {[voiceError, speechError].filter(Boolean).map((message, index) => (
+                    <p key={`${index}-${message}`} className="session-theater-error">
+                      <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                      {message}
+                    </p>
+                  ))}
+                  {canRetryTranscription ? (
+                    <button
+                      type="button"
+                      className="session-theater-ghost-button mt-3"
+                      onClick={onRetryTranscription}
+                    >
+                      <RotateCcw className="size-3.5" aria-hidden="true" />
+                      변환 다시 시도
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+
+            {isRecording ? (
+              <AnswerCountdown
+                durationSeconds={answerDurationSeconds}
+                remainingSeconds={answerSecondsRemaining}
+              />
             ) : null}
           </div>
 
