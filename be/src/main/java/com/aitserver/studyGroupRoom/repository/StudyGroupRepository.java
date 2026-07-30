@@ -1,8 +1,6 @@
 package com.aitserver.studyGroupRoom.repository;
 
 
-import com.aitserver.studyGroupRoom.domain.StudyGroupMemberStatus;
-import com.aitserver.studyGroupRoom.domain.StudyGroupStatus;
 import com.aitserver.studyGroupRoom.entity.StudyGroup;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
@@ -23,21 +21,34 @@ public interface StudyGroupRepository
     // 1. 커스텀 JPQL 메서드 (본인 코드 기반)
     // =================================================================
 
-    // 검색 및 페이징 (String -> Enum 타입으로 변경)
-    @Query("SELECT s FROM StudyGroup s " +
-            "WHERE (:status IS NULL OR s.status = :status) " +
-            "AND (:keyword IS NULL OR s.title LIKE %:keyword% OR s.description LIKE %:keyword%) " +
+    @Query(value = "SELECT s.*, " +
+            "(SELECT COUNT(*) FROM study_group_members cm WHERE cm.group_id = s.id AND cm.status = 'ACTIVE' AND cm.deleted_at IS NULL) AS currentMemberCount " +
+            "FROM study_groups s " +
+            "WHERE s.deleted_at IS NULL " +
+            "AND (:status IS NULL OR s.status = :status) " +
+            "AND (:keyword IS NULL OR s.title LIKE CONCAT('%', :keyword, '%') OR s.description LIKE CONCAT('%', :keyword, '%')) " +
             "AND NOT EXISTS (" +
-            "    SELECT 1 FROM StudyGroupMember m " +
-            "    WHERE m.studyGroup = s " +
-            "    AND m.user.id = :userId " +
+            "    SELECT 1 FROM study_group_members m " +
+            "    WHERE m.group_id = s.id " +
+            "    AND m.user_id = :userId " +
             "    AND m.status IN :excludedStatuses" +
-            ")")
+            ")",
+            countQuery = "SELECT count(*) FROM study_groups s " +
+                    "WHERE s.deleted_at IS NULL " +
+                    "AND (:status IS NULL OR s.status = :status) " +
+                    "AND (:keyword IS NULL OR s.title LIKE CONCAT('%', :keyword, '%') OR s.description LIKE CONCAT('%', :keyword, '%')) " +
+                    "AND NOT EXISTS (" +
+                    "    SELECT 1 FROM study_group_members m " +
+                    "    WHERE m.group_id = s.id " +
+                    "    AND m.user_id = :userId " +
+                    "    AND m.status IN :excludedStatuses" +
+                    ")",
+            nativeQuery = true)
     Page<StudyGroup> findByConditionAndUserStatus(
-            @Param("status") StudyGroupStatus status,
+            @Param("status") String status,
             @Param("keyword") String keyword,
-            @Param("userId") Long userId,             // 현재 로그인한 유저 ID
-            @Param("excludedStatuses") List<StudyGroupMemberStatus> excludedStatuses, // 숨길 상태들
+            @Param("userId") Long userId,
+            @Param("excludedStatuses") List<String> excludedStatuses,
             Pageable pageable
     );
 

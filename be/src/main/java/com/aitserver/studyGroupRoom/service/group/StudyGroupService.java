@@ -13,7 +13,9 @@ import com.aitserver.studyGroupRoom.repository.StudyGroupMemberRepository;
 import com.aitserver.studyGroupRoom.repository.StudyGroupRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,16 +30,28 @@ public class StudyGroupService {
     private final StudyGroupRepository studyGroupRepository;
     private final StudyGroupMemberRepository studyGroupMemberRepository;
 
-    public Page<StudyGroupListResponseDto> getStudyGroups(StudyGroupStatus status, String keyword, Long userId, Pageable pageable) {
+    @Transactional(readOnly = true)
+    public Page<StudyGroupListResponseDto> getStudyGroups(
+            StudyGroupStatus status, String keyword, String sortBy, Long userId, Pageable pageable) {
 
-        List<StudyGroupMemberStatus> excludedStatuses = List.of(
-                StudyGroupMemberStatus.ACTIVE,
-                StudyGroupMemberStatus.KICKED,
-                StudyGroupMemberStatus.PENDING,
-                StudyGroupMemberStatus.REJECTED
+        String statusString = (status != null) ? status.name() : null;
+
+        List<String> excludedStatuses = List.of(
+                StudyGroupMemberStatus.ACTIVE.name(),
+                StudyGroupMemberStatus.KICKED.name(),
+                StudyGroupMemberStatus.PENDING.name()
         );
 
-        Page<StudyGroup> studyGroups = studyGroupRepository.findByConditionAndUserStatus(status, keyword, userId, excludedStatuses, pageable);
+        Sort sort = "oldest".equalsIgnoreCase(sortBy)
+                ? Sort.by(Sort.Direction.ASC, "created_at")
+                : Sort.by(Sort.Direction.DESC, "created_at");
+
+        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
+
+        Page<StudyGroup> studyGroups = studyGroupRepository.findByConditionAndUserStatus(
+                statusString, keyword, userId, excludedStatuses, sortedPageable
+        );
+
         return studyGroups.map(StudyGroupListResponseDto::from);
     }
 
