@@ -27,10 +27,10 @@ export function InterviewerMedia(props: InterviewerMediaProps) {
   const phase = getInterviewerPhase(props)
   const playlist = useMemo(
     () =>
-      getInterviewerPlaylist(phase, props.interviewStyle).filter(
+      getInterviewerPlaylist(phase).filter(
         (source) => !failedSources.has(source),
       ),
-    [failedSources, phase, props.interviewStyle],
+    [failedSources, phase],
   )
   const source =
     playlist.length > 0

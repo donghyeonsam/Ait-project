@@ -1,5 +1,4 @@
 import type { VoiceAnswerStatus } from '@/components/interview/useVoiceAnswer'
-import type { InterviewStyle } from '@/mocks/interview'
 
 const VIDEO_ROOT = '/interviewer_video'
 
@@ -25,7 +24,6 @@ const VIDEO = {
 export type InterviewerPhase =
   | 'intro'
   | 'asking'
-  | 'listening'
   | 'neutral'
   | 'transition'
   | 'outro'
@@ -45,46 +43,12 @@ const neutralClips = [
   VIDEO.neutral4,
 ]
 
-const listeningClips: Record<InterviewStyle, string[]> = {
-  평화형: [
-    VIDEO.interest,
-    VIDEO.positive1,
-    VIDEO.neutral1,
-    VIDEO.bigSmile1,
-    VIDEO.positive2,
-    VIDEO.neutral2,
-    VIDEO.bigSmile2,
-    VIDEO.positive3,
-    VIDEO.neutral3,
-  ],
-  밸런스형: [
-    VIDEO.neutral1,
-    VIDEO.interest,
-    VIDEO.neutral2,
-    VIDEO.positive1,
-    VIDEO.neutral3,
-    VIDEO.neutral4,
-  ],
-  압박형: [
-    VIDEO.neutral3,
-    VIDEO.negative1,
-    VIDEO.neutral4,
-    VIDEO.bigNegative2,
-    VIDEO.interest,
-    VIDEO.neutral2,
-  ],
-}
-
-export function getInterviewerPlaylist(
-  phase: InterviewerPhase,
-  interviewStyle: InterviewStyle,
-) {
+export function getInterviewerPlaylist(phase: InterviewerPhase) {
   if (phase === 'intro') return [VIDEO.intro]
   if (phase === 'outro') return [VIDEO.outro]
   if (phase === 'asking' || phase === 'transition') {
     return [VIDEO.transition1, VIDEO.transition2]
   }
-  if (phase === 'listening') return listeningClips[interviewStyle]
   return neutralClips
 }
 
@@ -97,7 +61,8 @@ export function getInterviewerPhase({
 }: InterviewerPhaseState): InterviewerPhase {
   if (isSubmittingAnswer && isLastQuestion) return 'outro'
   if (isSubmittingAnswer) return 'transition'
-  if (answerStatus === 'recording') return 'listening'
+  // 답변 녹음 중에는 면접 유형별 감정 리액션 없이 중립 영상만 보여준다.
+  if (answerStatus === 'recording') return 'neutral'
   if (isAiSpeaking) return 'asking'
   if (answerStatus === 'processing' || answerStatus === 'review') return 'neutral'
   return questionIndex === 0 ? 'intro' : 'transition'

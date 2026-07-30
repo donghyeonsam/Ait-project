@@ -19,6 +19,12 @@ import {
 } from 'react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from '@/components/ui/avatar'
+import { studyChatEmojis } from '@/components/study/studyChatEmojis'
 import { cn } from '@/lib/utils'
 import { toErrorMessage } from '@/api/http'
 import {
@@ -27,27 +33,24 @@ import {
   getStudyGroupChats,
   sendStudyGroupChatMessage,
   sendStudyGroupChatNotice,
+  toggleStudyGroupChatReaction,
   type StudyGroupChatMessage,
 } from '@/api/study-group-chat'
 import type { Client } from '@stomp/stompjs'
+import { StudyChatMessageReactions } from '@/components/study/StudyChatMessageReactions'
 
 interface StudyGroupChatPanelProps {
   groupId: number
   currentUserId: number | null
   isOwner: boolean
   initialNotice: string | null
+  onIncomingMessage?: () => void
 }
 
 // 최근 사용 이모지가 아직 없을 때 처음 보여줄 기본 목록이다.
 const defaultRecentEmojis = ['👍', '❤️', '😂', '🎉', '👏']
 const recentEmojiStorageKey = 'ait-study-chat-recent-emojis'
 const maxRecentEmojis = 12
-const composerEmojis = [
-  '😀', '😃', '😄', '😁', '😊', '🙂', '😉', '😍', '🥰', '😘', '😎', '🤩',
-  '🥳', '😂', '🤣', '🥹', '😅', '😢', '😭', '😡', '🤔', '🫡', '😴', '🤯',
-  '👍', '👎', '👌', '✌️', '🤞', '👏', '🙌', '🙏', '💪', '👀', '💯', '🔥',
-  '🎉', '🎊', '✨', '⭐', '❤️', '🩷', '🧡', '💛', '💚', '💙', '💜', '🤍',
-]
 const composerEmoticons = ['( •̀ᴗ•́ )و', '(｡•̀ᴗ-)✧', 'ㅎㅎ', 'ㅠㅠ']
 
 // localStorage에서 최근 사용 이모지를 읽되, 값이 깨졌거나 접근 불가하면 빈 목록으로 처리한다.
@@ -70,6 +73,7 @@ export function StudyGroupChatPanel({
   currentUserId,
   isOwner,
   initialNotice,
+  onIncomingMessage,
 }: StudyGroupChatPanelProps) {
   const [messages, setMessages] = useState<StudyGroupChatMessage[]>([])
   const [hasMoreHistory, setHasMoreHistory] = useState(false)
@@ -101,10 +105,12 @@ export function StudyGroupChatPanel({
   const clientRef = useRef<Client | null>(null)
   const messageListRef = useRef<HTMLDivElement>(null)
   const noticeTextRef = useRef<HTMLParagraphElement>(null)
+  const knownChatIdsRef = useRef<Set<number>>(new Set())
 
   // 그룹의 최근 채팅 이력을 불러온다 (최신순 응답을 오래된 순으로 뒤집어 저장한다).
   useEffect(() => {
     let cancelled = false
+    knownChatIdsRef.current = new Set()
 
     const loadHistory = async () => {
       setIsLoadingHistory(true)
@@ -112,7 +118,11 @@ export function StudyGroupChatPanel({
       try {
         const result = await getStudyGroupChats(groupId)
         if (cancelled) return
-        setMessages([...result.chats].reverse())
+        const history = [...result.chats].reverse()
+        history.forEach((message) =>
+          knownChatIdsRef.current.add(message.chatId),
+        )
+        setMessages(history)
         setHasMoreHistory(result.hasNext)
       } catch (error) {
         if (!cancelled) setHistoryError(toErrorMessage(error))
@@ -132,14 +142,24 @@ export function StudyGroupChatPanel({
   useEffect(() => {
     const client = connectStudyGroupChat(groupId, {
       onMessage: (incoming) => {
-        setMessages((current) =>
-          current.some((message) => message.chatId === incoming.chatId)
-            ? current
-            : [...current, incoming],
-        )
+        if (knownChatIdsRef.current.has(incoming.chatId)) return
+        knownChatIdsRef.current.add(incoming.chatId)
+        setMessages((current) => [...current, incoming])
+        if (currentUserId !== null && incoming.senderId !== currentUserId) {
+          onIncomingMessage?.()
+        }
         setLiveMessageTick((tick) => tick + 1)
       },
       onNotice: (payload) => setNotice(payload.notice ?? ''),
+      onReaction: (payload) => {
+        setMessages((current) =>
+          current.map((message) =>
+            message.chatId === payload.chatId
+              ? { ...message, reactions: payload.reactions }
+              : message,
+          ),
+        )
+      },
       onConnect: () => {
         setIsConnected(true)
         setConnectError(null)
@@ -153,7 +173,7 @@ export function StudyGroupChatPanel({
       clientRef.current = null
       void client.deactivate()
     }
-  }, [groupId])
+  }, [currentUserId, groupId, onIncomingMessage])
 
   useEffect(() => {
     messageListRef.current?.scrollTo({
@@ -193,6 +213,9 @@ export function StudyGroupChatPanel({
     setIsLoadingMoreHistory(true)
     getStudyGroupChats(groupId, oldestChatId)
       .then((result) => {
+        result.chats.forEach((message) =>
+          knownChatIdsRef.current.add(message.chatId),
+        )
         setMessages((current) => [...[...result.chats].reverse(), ...current])
         setHasMoreHistory(result.hasNext)
       })
@@ -207,6 +230,11 @@ export function StudyGroupChatPanel({
     sendStudyGroupChatMessage(clientRef.current, groupId, content)
     setDraft('')
     setComposerPicker(null)
+  }
+
+  const toggleReaction = (chatId: number, emoji: string) => {
+    if (!clientRef.current?.connected) return
+    toggleStudyGroupChatReaction(clientRef.current, groupId, chatId, emoji)
   }
 
   const appendToDraft = (value: string, addLeadingSpace = false) => {
@@ -456,15 +484,26 @@ export function StudyGroupChatPanel({
             <div
               key={message.chatId}
               className={cn(
-                'study-chat-message flex items-end gap-3',
+                'study-chat-message flex items-start gap-3',
                 isSelf && 'justify-end',
               )}
             >
               {!isSelf ? (
-                <span
-                  className="size-8 shrink-0 rounded-ait-pill bg-profile-avatar"
+                <Avatar
+                  className="mt-5 size-8 border border-border-default bg-profile-avatar"
                   aria-hidden="true"
-                />
+                >
+                  {message.profileImageUrl ? (
+                    <AvatarImage
+                      src={message.profileImageUrl}
+                      alt=""
+                      className="object-cover"
+                    />
+                  ) : null}
+                  <AvatarFallback className="border-0 bg-profile-avatar text-caption font-semibold text-action-primary">
+                    {message.senderNickname.trim().charAt(0) || '?'}
+                  </AvatarFallback>
+                </Avatar>
               ) : null}
               <div
                 className={cn('max-w-[82%]', isSelf && 'text-right')}
@@ -486,6 +525,14 @@ export function StudyGroupChatPanel({
                     {message.message}
                   </p>
                 </div>
+                {!isSelf ? (
+                  <StudyChatMessageReactions
+                    messageId={message.chatId}
+                    reactions={message.reactions ?? []}
+                    currentUserId={currentUserId}
+                    onToggle={toggleReaction}
+                  />
+                ) : null}
               </div>
             </div>
           )
@@ -499,7 +546,7 @@ export function StudyGroupChatPanel({
       >
         <div
           data-message-input-card
-          className="w-full rounded-ait-m border border-input bg-surface-default shadow-elevation-1 transition-[border-color,box-shadow] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--easing-standard)] focus-within:border-action-primary"
+            className="min-w-0 w-full rounded-ait-m border border-input bg-surface-default shadow-elevation-1 transition-[border-color,box-shadow] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--easing-standard)] focus-within:border-action-primary"
         >
           <label className="block w-full">
             <span className="sr-only">그룹톡 메시지 입력</span>
@@ -539,7 +586,7 @@ export function StudyGroupChatPanel({
               >
                 {[
                   { key: 'recent', label: '최근 사용', emojis: recentEmojis },
-                  { key: 'all', label: '전체 이모지', emojis: composerEmojis },
+                  { key: 'all', label: '전체 이모지', emojis: studyChatEmojis },
                 ]
                   .filter((section) => section.emojis.length > 0)
                   .map((section) => (

@@ -7,7 +7,8 @@ import {
   type RefObject,
 } from 'react'
 import { useChat } from '@livekit/components-react'
-import { MessageSquare, Send, X } from 'lucide-react'
+import { MessageSquare, Send, SmilePlus, X } from 'lucide-react'
+import { studyChatEmojis } from '@/components/study/studyChatEmojis'
 import { cn } from '@/lib/utils'
 
 interface FloatingChatButtonProps {
@@ -16,10 +17,10 @@ interface FloatingChatButtonProps {
 
 const BUTTON_SIZE = 48
 const MARGIN = 16
-const DEFAULT_PANEL_WIDTH = 288
-const DEFAULT_PANEL_HEIGHT = 320
-const MIN_PANEL_WIDTH = 240
-const MIN_PANEL_HEIGHT = 240
+const DEFAULT_PANEL_WIDTH = 336
+const DEFAULT_PANEL_HEIGHT = 360
+const MIN_PANEL_WIDTH = 320
+const MIN_PANEL_HEIGHT = 280
 const MAX_PANEL_WIDTH = 560
 const MAX_PANEL_HEIGHT = 640
 const PANEL_GAP = 12
@@ -65,15 +66,19 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
   const resizeHandleRef = useRef<HTMLDivElement>(null)
   const dragState = useRef<DragState | null>(null)
   const resizeState = useRef<ResizeState | null>(null)
+  const closeAnimationTimerRef = useRef<number | null>(null)
   // 사용자가 아직 드래그하지 않았다면 위치를 상태로 커밋하지 않고, 컨테이너 크기로부터 매번 기본값을 계산한다.
   const [position, setPosition] = useState<Position | null>(null)
   const [open, setOpen] = useState(false)
+  const [panelMounted, setPanelMounted] = useState(false)
   const [panelSize, setPanelSize] = useState<Size>({ width: DEFAULT_PANEL_WIDTH, height: DEFAULT_PANEL_HEIGHT })
   const [containerSize, setContainerSize] = useState<Size | null>(null)
   const { chatMessages, send, isSending } = useChat()
   const [draft, setDraft] = useState('')
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const messageListRef = useRef<HTMLDivElement>(null)
+  const messageInputRef = useRef<HTMLInputElement>(null)
 
   // 패널이 닫혀 있을 때 도착한 메시지 수만큼 배지를 채우고, 열려 있으면 즉시 읽음 처리한다.
   // (렌더 중 상태 조정 패턴 — StudySessionRoom의 identityIdMap 갱신과 동일한 이유로 useEffect 대신 사용한다.)
@@ -92,11 +97,41 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
     messageListRef.current?.scrollTo({ top: messageListRef.current.scrollHeight })
   }, [open, chatMessages.length])
 
+  useEffect(
+    () => () => {
+      if (closeAnimationTimerRef.current !== null) {
+        window.clearTimeout(closeAnimationTimerRef.current)
+      }
+    },
+    [],
+  )
+
+  const changeChatOpen = (nextOpen: boolean) => {
+    if (closeAnimationTimerRef.current !== null) {
+      window.clearTimeout(closeAnimationTimerRef.current)
+      closeAnimationTimerRef.current = null
+    }
+
+    if (nextOpen) {
+      setPanelMounted(true)
+      setOpen(true)
+      return
+    }
+
+    setOpen(false)
+    setEmojiPickerOpen(false)
+    closeAnimationTimerRef.current = window.setTimeout(() => {
+      setPanelMounted(false)
+      closeAnimationTimerRef.current = null
+    }, 250)
+  }
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const trimmed = draft.trim()
     if (!trimmed || isSending) return
     setDraft('')
+    setEmojiPickerOpen(false)
     void send(trimmed)
   }
 
@@ -162,20 +197,28 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
     buttonRef.current?.releasePointerCapture(event.pointerId)
     dragState.current = null
     if (!drag.moved) {
-      setOpen((value) => !value)
+      changeChatOpen(!open)
     }
   }
 
   if (!effectivePosition) return null
 
   const panelWidth = containerSize ? Math.min(panelSize.width, containerSize.width) : panelSize.width
-  const panelHeight = containerSize ? Math.min(panelSize.height, containerSize.height) : panelSize.height
+  const requestedPanelHeight = containerSize
+    ? Math.min(panelSize.height, containerSize.height)
+    : panelSize.height
 
   // 버튼 위 공간이 패널 높이보다 부족하면 아래 방향으로 열고, 그래도 넘치면 top을 컨테이너 안으로
   // 잘라내 어떤 버튼 위치에서도 패널 전체가 영역 안에 남게 한다.
-  const spaceAbove = effectivePosition.y - PANEL_GAP
+  const spaceAbove = Math.max(effectivePosition.y - PANEL_GAP, 0)
   const spaceBelow = containerSize ? containerSize.height - (effectivePosition.y + BUTTON_SIZE) - PANEL_GAP : 0
-  const openUp = spaceAbove >= panelHeight || spaceAbove >= spaceBelow
+  const openUp =
+    spaceAbove >= requestedPanelHeight || spaceAbove >= spaceBelow
+  // 선택한 방향의 실제 여유 높이까지만 패널을 키워 버튼과 패널의 영역이 겹치지 않게 한다.
+  const availablePanelHeight = openUp ? spaceAbove : Math.max(spaceBelow, 0)
+  const panelHeight = containerSize
+    ? Math.min(requestedPanelHeight, availablePanelHeight)
+    : requestedPanelHeight
   const panelLeft = containerSize
     ? clampValue(effectivePosition.x - panelWidth + BUTTON_SIZE, 0, Math.max(containerSize.width - panelWidth, 0))
     : effectivePosition.x
@@ -233,9 +276,26 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         style={{ left: effectivePosition.x, top: effectivePosition.y, width: BUTTON_SIZE, height: BUTTON_SIZE }}
-        className="absolute z-20 flex touch-none cursor-grab items-center justify-center rounded-ait-pill bg-action-primary text-white shadow-elevation-2 transition-colors hover:bg-action-primary/90 active:cursor-grabbing"
+        className="absolute z-(--z-index-sticky) flex touch-none cursor-grab items-center justify-center overflow-hidden rounded-ait-pill bg-action-primary text-white shadow-elevation-2 transition-[background-color,transform] duration-250 ease-emphasized hover:bg-action-primary/90 active:cursor-grabbing motion-reduce:transition-none"
       >
-        <MessageSquare className="size-5" aria-hidden="true" />
+        <MessageSquare
+          className={cn(
+            'absolute size-5 transition-[opacity,transform] duration-250 ease-emphasized motion-reduce:transition-none',
+            open
+              ? 'rotate-90 scale-50 opacity-0'
+              : 'rotate-0 scale-100 opacity-100',
+          )}
+          aria-hidden="true"
+        />
+        <X
+          className={cn(
+            'absolute size-5 transition-[opacity,transform] duration-250 ease-emphasized motion-reduce:transition-none',
+            open
+              ? 'rotate-0 scale-100 opacity-100'
+              : '-rotate-90 scale-50 opacity-0',
+          )}
+          aria-hidden="true"
+        />
         {unreadCount > 0 ? (
           <span
             aria-hidden="true"
@@ -246,10 +306,14 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
         ) : null}
       </button>
 
-      {open ? (
+      {panelMounted && panelHeight > 0 ? (
         <div
+          data-state={open ? 'open' : 'closed'}
           style={{ left: panelLeft, top: panelTop, width: panelWidth, height: panelHeight }}
-          className="absolute z-20 flex flex-col rounded-ait-l border border-border-default bg-surface-default shadow-elevation-3"
+          className={cn(
+            'study-session-chat-panel absolute z-(--z-index-dropdown) flex min-w-0 flex-col overflow-hidden rounded-ait-l border border-border-default bg-surface-default shadow-elevation-3',
+            !open && 'pointer-events-none',
+          )}
         >
           <div
             ref={resizeHandleRef}
@@ -269,7 +333,9 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
             <button
               type="button"
               aria-label="채팅 닫기"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                changeChatOpen(false)
+              }}
               className="rounded-ait-s p-1 text-text-secondary hover:bg-status-neutral-surface"
             >
               <X className="size-4" aria-hidden="true" />
@@ -304,14 +370,50 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="flex shrink-0 items-center gap-2 border-t border-border-default p-2">
+          <form
+            onSubmit={handleSubmit}
+            className="relative flex min-w-0 shrink-0 items-center gap-2 border-t border-border-default p-2"
+          >
+            {emojiPickerOpen ? (
+              <div
+                role="dialog"
+                aria-label="이모지 선택"
+                className="absolute inset-x-2 bottom-full z-10 mb-2 grid max-h-40 grid-cols-8 gap-1 overflow-y-auto rounded-ait-m border border-border-default bg-surface-default p-2 shadow-elevation-2"
+              >
+                {studyChatEmojis.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => {
+                      setDraft((current) => `${current}${emoji}`)
+                      setEmojiPickerOpen(false)
+                      messageInputRef.current?.focus()
+                    }}
+                    aria-label={`${emoji} 입력`}
+                    className="flex aspect-square items-center justify-center rounded-ait-s text-body-1 hover:bg-status-neutral-surface focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <button
+              type="button"
+              aria-label="이모지 선택"
+              aria-expanded={emojiPickerOpen}
+              onClick={() => setEmojiPickerOpen((value) => !value)}
+              className="flex size-8 shrink-0 items-center justify-center rounded-ait-s text-text-secondary transition-colors hover:bg-status-neutral-surface hover:text-text-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25"
+            >
+              <SmilePlus className="size-4" aria-hidden="true" />
+            </button>
             <input
+              ref={messageInputRef}
               type="text"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               placeholder="메시지를 입력하세요"
               aria-label="채팅 메시지 입력"
-              className="flex-1 rounded-ait-s border border-border-default bg-surface-default px-3 py-1.5 text-body-2 text-text-primary focus:border-action-primary focus:outline-none focus:ring-3 focus:ring-action-primary/25"
+              className="min-w-0 flex-1 rounded-ait-s border border-border-default bg-surface-default px-3 py-1.5 text-body-2 text-text-primary focus:border-action-primary focus:outline-none focus:ring-3 focus:ring-action-primary/25"
             />
             <button
               type="submit"
