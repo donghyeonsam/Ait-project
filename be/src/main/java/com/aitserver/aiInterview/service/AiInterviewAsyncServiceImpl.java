@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @RequiredArgsConstructor
 public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
-
+    // 이 서비스 로직에서 5개의 점수가 다 저장된다.
     private final AiInterviewQuestionRepository aiInterviewQuestionRepository;
     private final GmsClient gmsClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -108,7 +108,6 @@ public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
         log.info("[===Async===] FastAPI 음성 분석 요청 시작...");
 
         try {
-            // 💡 폴링 없이 바로 기다립니다. (FastAPI가 분석 후 VoiceResult를 바로 리턴해 줍니다)
             VoiceResult finalResult = fastApiClient.sendAudioToFastApi(
                     "/analyses/voice",
                     audioBytes,
