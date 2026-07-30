@@ -6,8 +6,24 @@ pipeline {
         disableConcurrentBuilds()
     }
 
+    triggers {
+        gitlab(
+            triggerOnPush: true,
+            triggerOnMergeRequest: false,
+            branchFilterType: 'NameBasedFilter',
+            includeBranchesSpec: 'master'
+        )
+    }
+
     stages {
         stage('Build') {
+            when {
+                anyOf {
+                    changeset "be/**"
+                    expression { currentBuild.number == 1 }
+                    triggeredBy 'UserIdCause'
+                }
+            }
             steps {
                 dir('be') {
                     sh 'chmod +x gradlew'
@@ -17,6 +33,13 @@ pipeline {
         }
 
         stage('Deploy') {
+            when {
+                anyOf {
+                    changeset "be/**"
+                    expression { currentBuild.number == 1 }
+                    triggeredBy 'UserIdCause'
+                }
+            }
             steps {
                 withCredentials([sshUserPrivateKey(
                     credentialsId: 'ec2-deploy',
