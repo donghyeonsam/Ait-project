@@ -946,6 +946,9 @@ button:not(:disabled) {
 }
 
 .session-theater-glass-card {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
   flex: 1;
   min-width: 0;
   padding: 1.375rem 1.75rem;
@@ -953,6 +956,75 @@ button:not(:disabled) {
   border-radius: 1.125rem;
   background: rgba(15, 23, 42, 0.5);
   backdrop-filter: blur(14px);
+}
+
+.session-theater-card-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.session-answer-countdown {
+  position: relative;
+  width: 6.75rem;
+  height: 6.75rem;
+  flex: none;
+  color: #ffffff;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.22));
+}
+
+.session-answer-countdown-ring {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.session-answer-countdown-track,
+.session-answer-countdown-progress {
+  fill: none;
+  stroke-width: 6;
+}
+
+.session-answer-countdown-track {
+  stroke: rgba(255, 255, 255, 0.16);
+}
+
+.session-answer-countdown-progress {
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-linecap: round;
+}
+
+.session-answer-countdown-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+}
+
+.session-answer-countdown-value strong {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.session-answer-countdown-value span {
+  margin-top: 0.55rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.session-answer-countdown.is-warning {
+  color: #ffd166;
+}
+
+.session-answer-countdown.is-warning .session-answer-countdown-progress {
+  stroke: currentColor;
+}
+
+.session-answer-countdown.is-urgent {
+  color: #ff7a7a;
 }
 
 .session-theater-card-label {
@@ -1094,6 +1166,23 @@ button:not(:disabled) {
 
   .session-theater-record-button {
     width: 14.375rem;
+  }
+}
+
+@media (max-width: 40rem) {
+  .session-theater-glass-card {
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1.125rem;
+  }
+
+  .session-answer-countdown {
+    width: 5rem;
+    height: 5rem;
+  }
+
+  .session-answer-countdown-value strong {
+    font-size: 1.25rem;
   }
 }
 

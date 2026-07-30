@@ -11,6 +11,7 @@ import { toErrorMessage } from '@/api/http'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { QuestionGenerationStage } from '@/components/interview/QuestionGenerationStage'
 import { SessionTheater } from '@/components/interview/SessionTheater'
+import { useAnswerCountdown } from '@/components/interview/useAnswerCountdown'
 import { useMediaDevices } from '@/components/interview/useMediaDevices'
 import { useQuestionSpeech } from '@/components/interview/useQuestionSpeech'
 import { useVoiceAnswer } from '@/components/interview/useVoiceAnswer'
@@ -56,6 +57,7 @@ const difficultyMap: Record<Difficulty, InterviewRecord['difficulty']> = {
 
 // 대기 화면 페이드아웃(--duration-slow)과 같은 값. 전환 시 두 시간이 함께 움직여야 한다.
 const STAGE_EXIT_FADE_MS = 400
+const ANSWER_DURATION_SECONDS = 60
 
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
@@ -269,6 +271,13 @@ function ActiveInterviewSession({
   const submittedAnswersRef = useRef<SubmittedVoiceAnswer[]>([])
   const question = sessionQuestions[questionIndex]
   const voiceAnswer = useVoiceAnswer(stream)
+  const questionKey = `${questionIndex}:${question.order}:${question.question}`
+  const answerSecondsRemaining = useAnswerCountdown({
+    activeKey:
+      voiceAnswer.status === 'recording' ? questionKey : null,
+    durationSeconds: ANSWER_DURATION_SECONDS,
+    onExpire: voiceAnswer.stopRecording,
+  })
   const questionSpeech = useQuestionSpeech({
     text: question.question,
     volume: speakerVolume,
@@ -460,6 +469,8 @@ function ActiveInterviewSession({
         interviewStyle={input.style}
         isSubmittingAnswer={isSubmittingAnswer}
         isLastQuestion={isLastQuestion}
+        answerDurationSeconds={ANSWER_DURATION_SECONDS}
+        answerSecondsRemaining={answerSecondsRemaining}
         transcript={voiceAnswer.transcript}
         onChangeTranscript={voiceAnswer.setTranscript}
         voiceError={voiceAnswer.error}
