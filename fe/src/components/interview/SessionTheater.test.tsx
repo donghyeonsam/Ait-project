@@ -7,10 +7,17 @@ vi.mock('@/components/interview/DeviceControlBar', () => ({
   DeviceControlBar: () => null,
 }))
 vi.mock('@/components/interview/FloatingSelfView', () => ({
-  FloatingSelfView: () => null,
+  FloatingSelfView: () => (
+    <div
+      className="session-theater-self-view"
+      data-testid="session-self-view"
+    />
+  ),
 }))
 vi.mock('@/components/interview/InterviewerMedia', () => ({
-  InterviewerMedia: () => null,
+  InterviewerMedia: () => (
+    <div className="interviewer-media" data-testid="interviewer-media" />
+  ),
 }))
 
 const defaultProps: ComponentProps<typeof SessionTheater> = {
@@ -50,6 +57,31 @@ const defaultProps: ComponentProps<typeof SessionTheater> = {
 }
 
 describe('SessionTheater recording controls', () => {
+  it('영상 상태가 전환되어도 헤더·질문 카드·내 화면을 유지한다', () => {
+    const { container, rerender } = render(
+      <SessionTheater {...defaultProps} />,
+    )
+    const media = screen.getByTestId('interviewer-media')
+    const selfView = screen.getByTestId('session-self-view')
+    const header = container.querySelector('.session-theater-header')
+    const bottom = container.querySelector('.session-theater-bottom')
+
+    expect(media).toHaveClass('interviewer-media')
+    expect(selfView).toHaveClass('session-theater-self-view')
+    expect(header).toHaveClass('session-theater-header')
+    expect(bottom).toHaveClass('session-theater-bottom')
+
+    rerender(
+      <SessionTheater
+        {...defaultProps}
+        answerStatus="recording"
+        answerSecondsRemaining={42}
+      />,
+    )
+    expect(screen.getByRole('timer')).toBeVisible()
+    expect(screen.getByRole('button', { name: '질문 다시 듣기' })).toBeVisible()
+  })
+
   it('대기·녹음 중에는 수동 녹음 시작/종료 버튼을 표시하지 않는다', () => {
     const { rerender } = render(<SessionTheater {...defaultProps} />)
 
