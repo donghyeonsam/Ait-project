@@ -1,7 +1,3 @@
-// TODO: 실제 API 연동 필요 — 세션 단건 조회 API(GET /api/study-sessions/{sessionId})가 없어
-// 입장 전 화면의 세션 제목을 아직 실제 값으로 채울 수 없다.
-export const mockPrejoinSessionTitle = '금융권 면접 PT 대비'
-
 export interface StudyParticipant {
   participantId: number
   name: string
