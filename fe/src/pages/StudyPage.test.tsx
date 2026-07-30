@@ -5,12 +5,20 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudyPage } from '@/pages/StudyPage'
 import {
   applyToStudyGroup,
+  getMyActiveStudyGroups,
   getMyStudyGroups,
+  getStudyGroupDetail,
   getStudyGroups,
   type MyStudyGroup,
+  type StudyGroupDetail,
   type StudyGroupListItem,
   type StudyGroupPage,
 } from '@/api/study-groups'
+import {
+  connectStudyGroupChat,
+  getStudyGroupChats,
+  sendStudyGroupChatMessage,
+} from '@/api/study-group-chat'
 
 vi.mock('@/api/auth', () => ({
   logout: vi.fn(),
@@ -19,8 +27,16 @@ vi.mock('@/api/auth', () => ({
 vi.mock('@/api/study-groups', () => ({
   getStudyGroups: vi.fn(),
   getMyStudyGroups: vi.fn(),
+  getMyActiveStudyGroups: vi.fn(),
+  getStudyGroupDetail: vi.fn(),
   createStudyGroup: vi.fn(),
   applyToStudyGroup: vi.fn(),
+}))
+
+vi.mock('@/api/study-group-chat', () => ({
+  getStudyGroupChats: vi.fn(),
+  connectStudyGroupChat: vi.fn(),
+  sendStudyGroupChatMessage: vi.fn(),
 }))
 
 vi.mock('@/lib/useAuth', () => ({
@@ -112,6 +128,37 @@ describe('StudyPage', () => {
     vi.mocked(getStudyGroups).mockResolvedValue(toPage(studyGroups))
     vi.mocked(getMyStudyGroups).mockResolvedValue(myStudyGroups)
     vi.mocked(applyToStudyGroup).mockResolvedValue(undefined)
+    vi.mocked(getMyActiveStudyGroups).mockResolvedValue(myStudyGroups)
+    vi.mocked(getStudyGroupDetail).mockResolvedValue({
+      notice: null,
+    } as unknown as StudyGroupDetail)
+    vi.mocked(getStudyGroupChats).mockResolvedValue({
+      chats: [],
+      hasNext: false,
+    })
+    // 연결 즉시 onConnect를 호출하고, 전송 시 그대로 수신되는 것처럼 동작하는 STOMP 클라이언트 목이다.
+    vi.mocked(connectStudyGroupChat).mockImplementation(
+      (_groupId, handlers) => {
+        handlers.onConnect?.()
+        vi.mocked(sendStudyGroupChatMessage).mockImplementation(
+          (_client, sendGroupId, content) => {
+            handlers.onMessage({
+              chatId: Date.now(),
+              groupId: sendGroupId,
+              senderId: 1,
+              senderNickname: '김아이',
+              profileImageUrl: null,
+              message: content,
+              createdAt: '2026-07-30T09:00:00',
+            })
+          },
+        )
+        return {
+          connected: true,
+          deactivate: vi.fn().mockResolvedValue(undefined),
+        } as unknown as ReturnType<typeof connectStudyGroupChat>
+      },
+    )
   })
 
   it('서버에서 받은 스터디 목록에 검색과 더보기를 반영한다', async () => {
@@ -287,10 +334,12 @@ describe('StudyPage', () => {
     const chatDialog = screen.getByRole('dialog')
     expect(chatDialog).toHaveClass('study-chat-dialog')
     expect(chatDialog).not.toHaveClass('left-1/2', 'top-1/2')
-    const groupDock = within(chatDialog).getByRole('tablist', {
+    const groupDock = await within(chatDialog).findByRole('tablist', {
       name: '스터디 그룹 선택',
     })
     const groupTabs = within(groupDock).getAllByRole('tab')
+    expect(groupTabs).toHaveLength(myStudyGroups.length)
+    expect(groupTabs[0]).toHaveAccessibleName('금융권 면접 PT 대비')
     expect(groupDock).toHaveClass(
       'study-chat-dock',
       'items-center',
@@ -342,6 +391,11 @@ describe('StudyPage', () => {
       name: '메시지 입력',
     })
     await user.type(messageInput, '자료 확인했습니다.{enter}')
+    expect(sendStudyGroupChatMessage).toHaveBeenCalledWith(
+      expect.anything(),
+      myStudyGroups[1].id,
+      '자료 확인했습니다.',
+    )
     expect(
       within(chatDialog).getByText('자료 확인했습니다.'),
     ).toBeInTheDocument()

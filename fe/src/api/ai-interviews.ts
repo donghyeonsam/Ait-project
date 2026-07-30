@@ -33,6 +33,8 @@ export interface GeneratedInterviewQuestion {
   rubric: string[]
   topic: string | null
   source: string | null
+  // 꼬리질문 깊이. 최초 생성 질문에는 없을 수 있어 0으로 취급한다.
+  depth?: number | null
 }
 
 export interface InterviewQuestionGenerationResponse {
@@ -112,29 +114,63 @@ export function generateInterviewQuestions({
   )
 }
 
-// TODO: BE 응답 스펙 확정 시 실제 타입으로 교체 (꼬리질문 정보가 담길 예정, 현재는 placeholder)
-export type InterviewAnswerSubmissionResponse = unknown
+export interface InterviewAnswerSubmissionResponse {
+  isPass: boolean | null
+  nextQuestion: GeneratedInterviewQuestion | null
+}
 
 interface SubmitInterviewAnswerOptions {
   aiInterviewId: number
+  input: InterviewInputContract
   question: GeneratedInterviewQuestion
   answer: string
+  audioBlob: Blob
   signal?: AbortSignal
 }
 
-// 사용자 답변을 BE에 제출한다. 응답은 스펙 확정 전이라 아직 사용하지 않는다.
+// 답변 텍스트와 녹음 파일을 멀티파트로 제출하고, 통과 여부와 꼬리질문을 돌려받는다.
 export function submitInterviewAnswer({
   aiInterviewId,
+  input,
   question,
   answer,
+  audioBlob,
   signal,
 }: SubmitInterviewAnswerOptions) {
+  const questionRequest = {
+    interviewType: interviewTypeMap[input.interviewType],
+    resumeId: input.references.resumeId,
+    coverLetterId: input.references.coverLetterId,
+    githubRepoId: input.references.repositoryId,
+    question: {
+      order: question.order,
+      question: question.question,
+      rubric: question.rubric,
+      topic: question.topic,
+      source: question.source,
+      depth: question.depth ?? 0,
+    },
+    answer,
+  }
+
+  const formData = new FormData()
+  // @RequestPart로 JSON을 역직렬화할 수 있게 content type을 명시한 Blob으로 담는다.
+  formData.append(
+    'questionRequest',
+    new Blob([JSON.stringify(questionRequest)], { type: 'application/json' }),
+  )
+  formData.append(
+    'audioFile',
+    audioBlob,
+    audioBlob.type.includes('mp4') ? 'answer.mp4' : 'answer.webm',
+  )
+
   return backendRequest<InterviewAnswerSubmissionResponse>(
     `/api/ai-interviews/${aiInterviewId}/answers`,
     {
       method: 'POST',
       signal,
-      body: JSON.stringify({ question, answer }),
+      body: formData,
     },
   )
 }

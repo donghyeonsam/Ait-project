@@ -256,7 +256,10 @@ function ActiveInterviewSession({
   const navigate = useNavigate()
   const { input, devices } = config
   const { permission, stream, requestAccess } = useMediaDevices()
+  // 답변 분석 응답으로 꼬리질문이 오면 목록 중간에 끼워 넣어야 해서 질문을 상태로 관리한다.
+  const [sessionQuestions, setSessionQuestions] = useState(questions)
   const [questionIndex, setQuestionIndex] = useState(0)
+  const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false)
   const [endDialogOpen, setEndDialogOpen] = useState(false)
   const [micMuted, setMicMuted] = useState(false)
   const [micGain, setMicGain] = useState(devices.micGain)
@@ -264,7 +267,7 @@ function ActiveInterviewSession({
   const [speakerVolume, setSpeakerVolume] = useState(devices.speakerVolume)
   const sessionStartRef = useRef(0)
   const submittedAnswersRef = useRef<SubmittedVoiceAnswer[]>([])
-  const question = questions[questionIndex]
+  const question = sessionQuestions[questionIndex]
   const voiceAnswer = useVoiceAnswer(stream)
   const questionSpeech = useQuestionSpeech({
     text: question.question,
@@ -273,7 +276,7 @@ function ActiveInterviewSession({
     enabled: Boolean(stream),
   })
 
-  const isLastQuestion = questionIndex === questions.length - 1
+  const isLastQuestion = questionIndex === sessionQuestions.length - 1
 
   useEffect(() => {
     sessionStartRef.current = Date.now()
@@ -314,40 +317,69 @@ function ActiveInterviewSession({
     navigate('/dashboard/interviews', { state: { newAnalyzingRecord } })
   }, [aiInterviewId, input, navigate])
 
-  const handleSubmitAnswer = useCallback(() => {
+  const handleSubmitAnswer = useCallback(async () => {
     const transcript = voiceAnswer.transcript.trim()
-    if (!transcript) return
+    if (!transcript || isSubmittingAnswer) return
 
+    const audioBlob = voiceAnswer.audioBlob
     submittedAnswersRef.current.push({
       question,
       transcript,
-      audioBlob: voiceAnswer.audioBlob,
+      audioBlob,
     })
-    // BE snake_case 역직렬화 버그로 aiInterviewId가 null이면 저장을 건너뛴다.
-    // 답변은 로컬에도 누적되므로 저장 실패가 면접 진행을 막지 않게 결과를 기다리지 않는다.
-    if (aiInterviewId !== null) {
-      void submitInterviewAnswer({
-        aiInterviewId,
-        question,
-        answer: transcript,
-      }).catch(() => {})
+
+    // BE snake_case 역직렬화 버그로 aiInterviewId가 null이거나, 녹음 없이 답변만 있으면
+    // 저장을 건너뛴다. 저장 실패도 면접 진행을 막지 않도록 꼬리질문 없이 다음으로 넘어간다.
+    let followUpQuestion: GeneratedInterviewQuestion | null = null
+    if (aiInterviewId !== null && audioBlob) {
+      setIsSubmittingAnswer(true)
+      try {
+        const response = await submitInterviewAnswer({
+          aiInterviewId,
+          input,
+          question,
+          answer: transcript,
+          audioBlob,
+        })
+        followUpQuestion = response?.nextQuestion ?? null
+      } catch {
+        followUpQuestion = null
+      } finally {
+        setIsSubmittingAnswer(false)
+      }
     }
-    // TODO: 실제 API 연동 필요 — 녹음 파일 업로드, 응답 스펙 확정 시 꼬리질문 삽입
+
     voiceAnswer.reset()
+
+    // 꼬리질문이 오면 현재 질문 바로 뒤에 끼워 넣고 곧바로 그 질문으로 이동한다.
+    if (followUpQuestion) {
+      const inserted = followUpQuestion
+      const insertAt = questionIndex + 1
+      setSessionQuestions((current) => [
+        ...current.slice(0, insertAt),
+        inserted,
+        ...current.slice(insertAt),
+      ])
+      setQuestionIndex(insertAt)
+      return
+    }
 
     if (isLastQuestion) {
       handleViewResults()
       return
     }
     setQuestionIndex((index) =>
-      Math.min(index + 1, questions.length - 1),
+      Math.min(index + 1, sessionQuestions.length - 1),
     )
   }, [
     aiInterviewId,
     handleViewResults,
+    input,
     isLastQuestion,
+    isSubmittingAnswer,
     question,
-    questions.length,
+    questionIndex,
+    sessionQuestions.length,
     voiceAnswer,
   ])
 
@@ -355,6 +387,7 @@ function ActiveInterviewSession({
     questionSpeech.isSpeaking ||
     !stream ||
     micMuted ||
+    isSubmittingAnswer ||
     voiceAnswer.status === 'processing' ||
     (voiceAnswer.status === 'review' && !voiceAnswer.transcript.trim())
 
@@ -366,7 +399,7 @@ function ActiveInterviewSession({
       return
     }
     if (voiceAnswer.status === 'review') {
-      handleSubmitAnswer()
+      void handleSubmitAnswer()
       return
     }
     if (
@@ -377,15 +410,17 @@ function ActiveInterviewSession({
     }
   }, [handleSubmitAnswer, primaryActionDisabled, voiceAnswer])
 
-  const primaryActionLabel = voiceAnswer.status === 'recording'
-    ? '녹음 중지'
-    : voiceAnswer.status === 'processing'
-      ? '음성 처리 중'
-      : voiceAnswer.status === 'review'
-        ? isLastQuestion
-          ? '마지막 답변 제출'
-          : '답변 제출'
-        : '답변 녹음 시작'
+  const primaryActionLabel = isSubmittingAnswer
+    ? '답변 분석 중'
+    : voiceAnswer.status === 'recording'
+      ? '녹음 중지'
+      : voiceAnswer.status === 'processing'
+        ? '음성 처리 중'
+        : voiceAnswer.status === 'review'
+          ? isLastQuestion
+            ? '마지막 답변 제출'
+            : '답변 제출'
+          : '답변 녹음 시작'
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -419,7 +454,7 @@ function ActiveInterviewSession({
       <SessionTheater
         stream={stream}
         questionIndex={questionIndex}
-        totalQuestions={questions.length}
+        totalQuestions={sessionQuestions.length}
         question={question.question}
         answerStatus={voiceAnswer.status}
         transcript={voiceAnswer.transcript}

@@ -85,6 +85,7 @@ export function SignupPage() {
 
   const [verificationCode, setVerificationCode] = useState('')
   const [verificationError, setVerificationError] = useState<string | null>(null)
+  const [isCodeSent, setIsCodeSent] = useState(false)
   const [isCheckingNickname, setIsCheckingNickname] = useState(false)
   const [isCheckingEmail, setIsCheckingEmail] = useState(false)
 
@@ -114,7 +115,12 @@ export function SignupPage() {
 
   // TODO: 실제 API 연동 필요 - BE에 인증번호 발송 엔드포인트가 없어 이메일 형식 검사만 수행한다.
   const requestVerificationCode = async () => {
-    await trigger('email')
+    const isValid = await trigger('email')
+    if (!isValid) return
+    setIsCodeSent(true)
+    setVerificationCode('')
+    setVerificationError(null)
+    setValue('emailVerified', false)
   }
 
   // TODO: 실제 API 연동 필요 - BE에 인증번호 확인 엔드포인트가 없어 코드가 입력되면 인증된 것으로 처리한다.
@@ -329,6 +335,7 @@ export function SignupPage() {
                             setValue('emailVerified', false)
                             setVerificationCode('')
                             setVerificationError(null)
+                            setIsCodeSent(false)
                             setIsCheckingEmail(Boolean(event.target.value.trim()))
                           },
                         })}
@@ -337,9 +344,10 @@ export function SignupPage() {
                         type="button"
                         variant="secondary"
                         className="shrink-0"
+                        disabled={emailVerified}
                         onClick={requestVerificationCode}
                       >
-                        인증하기
+                        {emailVerified ? '인증 완료' : isCodeSent ? '재발송' : '인증하기'}
                       </Button>
                     </div>
                     <div className="mt-0.5 min-h-3 leading-tight">
@@ -366,20 +374,23 @@ export function SignupPage() {
                         id="signup-verification-code"
                         className="min-w-0 flex-1"
                         autoComplete="off"
-                        placeholder="인증번호를 입력하세요"
+                        placeholder={
+                          isCodeSent ? '인증번호를 입력하세요' : '인증하기를 먼저 눌러주세요'
+                        }
+                        disabled={!isCodeSent || emailVerified}
                         aria-invalid={Boolean(verificationError)}
                         aria-describedby={verificationError ? 'signup-verification-code-error' : undefined}
                         value={verificationCode}
                         onChange={(event) => {
                           setVerificationCode(event.target.value)
                           setVerificationError(null)
-                          setValue('emailVerified', false)
                         }}
                       />
                       <Button
                         type="button"
                         variant="secondary"
                         className="shrink-0"
+                        disabled={!isCodeSent || emailVerified}
                         onClick={confirmVerificationCode}
                       >
                         확인
@@ -392,6 +403,10 @@ export function SignupPage() {
                         </p>
                       ) : emailVerified ? (
                         <p className="text-caption leading-tight text-status-success">이메일 인증이 완료됐어요.</p>
+                      ) : isCodeSent ? (
+                        <p className="text-caption leading-tight text-text-secondary" role="status">
+                          인증번호를 발송했어요. 메일함을 확인해주세요.
+                        </p>
                       ) : null}
                     </div>
                   </div>

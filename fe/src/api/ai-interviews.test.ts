@@ -90,7 +90,7 @@ describe('submitInterviewAnswer', () => {
     vi.unstubAllGlobals()
   })
 
-  it('질문과 답변을 답변 저장 엔드포인트에 전송한다', async () => {
+  it('질문 정보와 녹음 파일을 멀티파트로 전송하고 꼬리질문을 돌려받는다', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -98,7 +98,17 @@ describe('submitInterviewAnswer', () => {
           timestamp: '2026-07-23T00:00:00Z',
           path: '/api/ai-interviews/101/answers',
           message: '사용자 답변 분석 완료',
-          data: { a: 'placeholder' },
+          data: {
+            isPass: false,
+            nextQuestion: {
+              order: 1,
+              question: '혼잡 제어와 흐름 제어의 차이는 무엇인가요?',
+              rubric: ['혼잡 제어를 설명한다.'],
+              topic: '네트워크',
+              source: 'general',
+              depth: 1,
+            },
+          },
           error: null,
         }),
         {
@@ -116,12 +126,16 @@ describe('submitInterviewAnswer', () => {
       topic: '네트워크',
       source: 'general',
     }
-    await submitInterviewAnswer({
+    const result = await submitInterviewAnswer({
       aiInterviewId: 101,
+      input,
       question,
       answer: '3-way handshake로 연결을 수립합니다.',
+      audioBlob: new Blob(['audio'], { type: 'audio/webm' }),
     })
 
+    expect(result.isPass).toBe(false)
+    expect(result.nextQuestion?.depth).toBe(1)
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       '/backend/api/ai-interviews/101/answers',
@@ -129,8 +143,20 @@ describe('submitInterviewAnswer', () => {
 
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit
     expect(request.method).toBe('POST')
-    expect(JSON.parse(String(request.body))).toEqual({
-      question,
+    expect(request.body).toBeInstanceOf(FormData)
+
+    const formData = request.body as FormData
+    const audioFile = formData.get('audioFile') as File
+    expect(audioFile.name).toBe('answer.webm')
+
+    const questionRequestBlob = formData.get('questionRequest') as Blob
+    expect(questionRequestBlob.type).toBe('application/json')
+    expect(JSON.parse(await questionRequestBlob.text())).toEqual({
+      interviewType: 'cs',
+      resumeId: 3,
+      coverLetterId: null,
+      githubRepoId: 9,
+      question: { ...question, depth: 0 },
       answer: '3-way handshake로 연결을 수립합니다.',
     })
   })
