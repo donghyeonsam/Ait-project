@@ -451,7 +451,8 @@ export function StudyGroupPage() {
 
       <StudyChatFloatingButton
         unreadCount={unreadChatCount}
-        onClick={() => handleChatOpenChange(true)}
+        open={isChatOpen}
+        onClick={() => handleChatOpenChange(!isChatOpen)}
       />
       <StudyChatModal open={isChatOpen} onOpenChange={handleChatOpenChange} />
 
