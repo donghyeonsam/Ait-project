@@ -13,6 +13,7 @@ import {
   isTrackReference,
   useLocalParticipant,
   useRemoteParticipants,
+  useSpeakingParticipants,
   useTracks,
 } from '@livekit/components-react'
 import { DisconnectReason, Room, RoomEvent, Track } from 'livekit-client'
@@ -382,6 +383,28 @@ function StudySessionRoomStage({
     return map
   }, [micTracks, resolveParticipantId])
 
+  // LiveKit이 오디오 레벨 임계값 기반으로 판별한 현재 발화자 목록. 타일 테두리 강조에 쓴다.
+  const speakingParticipants = useSpeakingParticipants()
+  const speakingIds = useMemo(
+    () =>
+      new Set(
+        speakingParticipants.map((participant) =>
+          resolveParticipantId(participant.identity, participant.isLocal),
+        ),
+      ),
+    [speakingParticipants, resolveParticipantId],
+  )
+
+  // 마이크 트랙이 아예 없거나(꺼짐) 트랙이 음소거 상태면 그 참가자는 음소거로 본다.
+  const isMicMuted = useCallback(
+    (participant: StudyParticipant) => {
+      if (participant.isSelf) return !isMicrophoneEnabled
+      const trackRef = micTrackByParticipantId.get(participant.participantId)
+      return !trackRef || trackRef.publication.isMuted
+    },
+    [isMicrophoneEnabled, micTrackByParticipantId],
+  )
+
   // 참가자별 LiveKit identity. 강퇴 API는 identity가 아니라 userId를 받으므로 보관해 둔다.
   const identityByParticipantId = useMemo(() => {
     const map = new Map<number, string>()
@@ -673,6 +696,8 @@ function StudySessionRoomStage({
                   >
                     <ParticipantTile
                       participant={participant}
+                      speaking={speakingIds.has(participant.participantId)}
+                      micMuted={isMicMuted(participant)}
                       trackRef={cameraTrackByParticipantId.get(participant.participantId) ?? null}
                       audioTrackRef={
                         participant.isSelf ? null : (micTrackByParticipantId.get(participant.participantId) ?? null)
@@ -704,6 +729,8 @@ function StudySessionRoomStage({
                       <ParticipantTile
                         key={participant.participantId}
                         participant={participant}
+                        speaking={speakingIds.has(participant.participantId)}
+                        micMuted={isMicMuted(participant)}
                         trackRef={cameraTrackByParticipantId.get(participant.participantId) ?? null}
                         audioTrackRef={
                           participant.isSelf ? null : (micTrackByParticipantId.get(participant.participantId) ?? null)
@@ -755,6 +782,8 @@ function StudySessionRoomStage({
                       >
                         <ParticipantTile
                           participant={participant}
+                          speaking={speakingIds.has(participant.participantId)}
+                          micMuted={isMicMuted(participant)}
                           trackRef={cameraTrackByParticipantId.get(participant.participantId) ?? null}
                           audioTrackRef={
                             participant.isSelf ? null : (micTrackByParticipantId.get(participant.participantId) ?? null)
