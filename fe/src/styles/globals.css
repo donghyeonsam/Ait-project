@@ -201,6 +201,7 @@
   --z-index-dropdown: 200;
   --z-index-overlay: 300;
   --z-index-dialog: 400;
+  --z-index-dialog-control: 410;
   --z-index-toast: 500;
 
   --header-height-compact: 3.15rem;
@@ -521,6 +522,54 @@ button:not(:disabled) {
 
 .screen-fade-in {
   animation: screen-fade-in var(--duration-slow) var(--easing-standard) both;
+}
+
+/* React Bits의 경계광 패턴을 발화 상태에 맞게 단순화했다.
+   두꺼운 외곽 그림자 대신 얇은 기본 링 위로 작은 하이라이트가 천천히 이동한다. */
+.study-participant-speaking {
+  position: relative;
+  box-shadow:
+    inset 0 0 0 2px
+      color-mix(in srgb, var(--color-status-success) 82%, white),
+    inset 0 0 18px -12px
+      color-mix(in srgb, var(--color-status-success) 45%, transparent),
+    0 6px 18px -12px
+      color-mix(in srgb, var(--color-status-success) 42%, transparent);
+}
+
+@property --study-speaking-glow-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.study-participant-speaking::after {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  padding: 2px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--study-speaking-glow-angle),
+    transparent 0 72%,
+    color-mix(in srgb, var(--color-status-success) 75%, transparent) 81%,
+    color-mix(in srgb, white 82%, var(--color-status-success)) 86%,
+    color-mix(in srgb, var(--color-status-success) 75%, transparent) 91%,
+    transparent 100%
+  );
+  content: '';
+  pointer-events: none;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: study-speaking-edge-sweep 3.2s linear infinite;
+}
+
+@keyframes study-speaking-edge-sweep {
+  to {
+    --study-speaking-glow-angle: 360deg;
+  }
 }
 
 .question-generation-message {
@@ -1396,13 +1445,25 @@ button:not(:disabled) {
 
 .ait-dialog-content.study-chat-dialog {
   top: auto;
-  right: 1.5rem;
-  bottom: 6.25rem;
+  right: 1rem;
+  bottom: 5.25rem;
   left: auto;
   width: min(28rem, calc(100vw - 2rem));
-  height: min(42rem, calc(100svh - 7.25rem));
+  min-width: min(22rem, calc(100vw - 2rem));
+  min-height: min(26rem, calc(100svh - 6.25rem));
+  height: min(42rem, calc(100svh - 6.25rem));
   transform: none;
-  transform-origin: calc(100% - 2rem) calc(100% + 2.75rem);
+  transform-origin: calc(100% - 1.75rem) calc(100% + 2.5rem);
+}
+
+@media (min-width: 48rem) {
+  .ait-dialog-content.study-chat-dialog {
+    right: 2rem;
+    bottom: 6.75rem;
+    min-height: min(26rem, calc(100svh - 7.75rem));
+    height: min(42rem, calc(100svh - 7.75rem));
+    transform-origin: calc(100% - 2rem) calc(100% + 3rem);
+  }
 }
 
 .ait-dialog-content.study-chat-dialog[data-state="open"] {
@@ -1413,6 +1474,38 @@ button:not(:disabled) {
 .ait-dialog-content.study-chat-dialog[data-state="closed"] {
   animation: study-chat-dialog-out var(--duration-base)
     var(--easing-standard) both;
+}
+
+.study-session-chat-panel[data-state='open'] {
+  animation: study-session-chat-panel-in var(--duration-base)
+    var(--easing-emphasized) both;
+}
+
+.study-session-chat-panel[data-state='closed'] {
+  animation: study-session-chat-panel-out var(--duration-base)
+    var(--easing-standard) both;
+}
+
+@keyframes study-session-chat-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes study-session-chat-panel-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.96);
+  }
 }
 
 .study-chat-dock-item {

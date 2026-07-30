@@ -58,7 +58,7 @@ const difficultyMap: Record<Difficulty, InterviewRecord['difficulty']> = {
 
 // 대기 화면 페이드아웃(--duration-slow)과 같은 값. 전환 시 두 시간이 함께 움직여야 한다.
 const STAGE_EXIT_FADE_MS = 400
-const ANSWER_DURATION_SECONDS = 60
+const ANSWER_DURATION_SECONDS = 90
 
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {

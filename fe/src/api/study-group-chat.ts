@@ -18,6 +18,19 @@ export interface StudyGroupChatMessage {
   profileImageUrl: string | null
   message: string
   createdAt: string
+  reactions?: StudyGroupChatReactionSummary[]
+}
+
+export interface StudyGroupChatReactionSummary {
+  emoji: string
+  count: number
+  userIds: number[]
+}
+
+export interface StudyGroupChatReactionUpdate {
+  groupId: number
+  chatId: number
+  reactions: StudyGroupChatReactionSummary[]
 }
 
 export interface StudyGroupChatCursorResult {
@@ -41,6 +54,7 @@ export function getStudyGroupChats(groupId: number, lastChatId?: number) {
 interface StudyGroupChatSocketHandlers {
   onMessage: (message: StudyGroupChatMessage) => void
   onNotice: (notice: StudyGroupChatNotice) => void
+  onReaction: (reaction: StudyGroupChatReactionUpdate) => void
   onError?: (message: string) => void
   onConnect?: () => void
   onDisconnect?: () => void
@@ -68,6 +82,14 @@ export function connectStudyGroupChat(
         `/topic/study-groups/${groupId}/notices`,
         (frame: IMessage) => {
           handlers.onNotice(JSON.parse(frame.body) as StudyGroupChatNotice)
+        },
+      )
+      client.subscribe(
+        `/topic/study-groups/${groupId}/reactions`,
+        (frame: IMessage) => {
+          handlers.onReaction(
+            JSON.parse(frame.body) as StudyGroupChatReactionUpdate,
+          )
         },
       )
       handlers.onConnect?.()
@@ -113,5 +135,17 @@ export function sendStudyGroupChatNotice(
 export function deleteStudyGroupChatNotice(client: Client, groupId: number) {
   client.publish({
     destination: `/app/study-groups/${groupId}/notices/delete`,
+  })
+}
+
+export function toggleStudyGroupChatReaction(
+  client: Client,
+  groupId: number,
+  chatId: number,
+  emoji: string,
+) {
+  client.publish({
+    destination: `/app/study-groups/${groupId}/messages/${chatId}/reactions`,
+    body: JSON.stringify({ emoji }),
   })
 }

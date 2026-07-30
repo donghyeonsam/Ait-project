@@ -61,6 +61,7 @@ export function StudyGroupPage() {
   const [statusError, setStatusError] = useState<string | null>(null)
   const [hasActiveSession, setHasActiveSession] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
+  const [unreadChatCount, setUnreadChatCount] = useState(0)
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false)
   const [applicantCount, setApplicantCount] = useState(0)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -154,6 +155,15 @@ export function StudyGroupPage() {
   useEffect(() => {
     loadApplicantCount()
   }, [loadApplicantCount])
+
+  const handleIncomingChatMessage = useCallback(() => {
+    setUnreadChatCount((count) => count + 1)
+  }, [])
+
+  const handleChatOpenChange = (open: boolean) => {
+    setIsChatOpen(open)
+    setUnreadChatCount(0)
+  }
 
   if (!isValidGroupId) {
     return (
@@ -431,6 +441,7 @@ export function StudyGroupPage() {
             currentUserId={currentUserId}
             isOwner={isLeader}
             initialNotice={detail.notice}
+            onIncomingMessage={handleIncomingChatMessage}
           />
         </div>
 
@@ -438,8 +449,12 @@ export function StudyGroupPage() {
         <StudyCalendar groupId={groupId} />
       </section>
 
-      <StudyChatFloatingButton onClick={() => setIsChatOpen(true)} />
-      <StudyChatModal open={isChatOpen} onOpenChange={setIsChatOpen} />
+      <StudyChatFloatingButton
+        unreadCount={unreadChatCount}
+        open={isChatOpen}
+        onClick={() => handleChatOpenChange(!isChatOpen)}
+      />
+      <StudyChatModal open={isChatOpen} onOpenChange={handleChatOpenChange} />
 
       <StudyApplicationModal
         groupId={groupId}
