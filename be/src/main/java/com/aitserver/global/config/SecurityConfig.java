@@ -61,7 +61,9 @@ public class SecurityConfig {
                                 "/api/auth/login",  // 로그인
                                 "/api/auth/signup", // 회원가입
                                 "/api/auth/reissue",// 토큰 재발급
+                                "/swagger-ui.html",
                                 "/swagger-ui/**",   // 스웨거
+                                "/v3/api-docs",
                                 "/v3/api-docs/**",  // 스웨거
                                 "/api/webhooks/**"  // 스터디 세션을 위한 라이브킷 웹훅 연결
                         ).permitAll()
