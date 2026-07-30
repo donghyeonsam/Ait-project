@@ -19,6 +19,11 @@ import {
 } from 'react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from '@/components/ui/avatar'
 import { studyChatEmojis } from '@/components/study/studyChatEmojis'
 import { cn } from '@/lib/utils'
 import { toErrorMessage } from '@/api/http'
@@ -479,15 +484,26 @@ export function StudyGroupChatPanel({
             <div
               key={message.chatId}
               className={cn(
-                'study-chat-message flex items-end gap-3',
+                'study-chat-message flex items-start gap-3',
                 isSelf && 'justify-end',
               )}
             >
               {!isSelf ? (
-                <span
-                  className="size-8 shrink-0 rounded-ait-pill bg-profile-avatar"
+                <Avatar
+                  className="mt-5 size-8 border border-border-default bg-profile-avatar"
                   aria-hidden="true"
-                />
+                >
+                  {message.profileImageUrl ? (
+                    <AvatarImage
+                      src={message.profileImageUrl}
+                      alt=""
+                      className="object-cover"
+                    />
+                  ) : null}
+                  <AvatarFallback className="border-0 bg-profile-avatar text-caption font-semibold text-action-primary">
+                    {message.senderNickname.trim().charAt(0) || '?'}
+                  </AvatarFallback>
+                </Avatar>
               ) : null}
               <div
                 className={cn('max-w-[82%]', isSelf && 'text-right')}

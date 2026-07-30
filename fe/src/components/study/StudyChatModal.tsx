@@ -27,6 +27,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from '@/components/ui/avatar'
 import { useAuth } from '@/lib/useAuth'
 import { cn } from '@/lib/utils'
 import type { Client } from '@stomp/stompjs'
@@ -379,15 +384,26 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
                     <div
                       key={message.chatId}
                       className={cn(
-                        'study-chat-message flex items-end gap-3',
+                        'study-chat-message flex items-start gap-3',
                         isSelf && 'justify-end',
                       )}
                     >
                       {!isSelf ? (
-                        <span
-                          className="size-10 shrink-0 rounded-ait-pill bg-profile-avatar"
+                        <Avatar
+                          className="mt-7 size-10 border border-border-default bg-profile-avatar"
                           aria-hidden="true"
-                        />
+                        >
+                          {message.profileImageUrl ? (
+                            <AvatarImage
+                              src={message.profileImageUrl}
+                              alt=""
+                              className="object-cover"
+                            />
+                          ) : null}
+                          <AvatarFallback className="border-0 bg-profile-avatar text-body-2 font-semibold text-action-primary">
+                            {message.senderNickname.trim().charAt(0) || '?'}
+                          </AvatarFallback>
+                        </Avatar>
                       ) : null}
                       <div
                         className={cn('max-w-[82%]', isSelf && 'text-right')}
