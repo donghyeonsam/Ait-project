@@ -1,6 +1,6 @@
 import { useEffect, useState, type DragEvent, type MouseEvent } from 'react'
 import { VideoTrack, type TrackReference } from '@livekit/components-react'
-import { Lock, UserRound, Volume2, VolumeX } from 'lucide-react'
+import { Lock, ScreenShare, UserRound, Volume2, VolumeX } from 'lucide-react'
 import type { RemoteAudioTrack } from 'livekit-client'
 import { MasterVolumeSlider } from '@/components/interview/MasterVolumeSlider'
 import type { StudyParticipant } from '@/mocks/study'
@@ -15,6 +15,8 @@ interface ParticipantTileProps {
   /** 그리드 순서 변경(다른 참가자 타일 사이 드래그 앤 드롭)에만 쓴다. 본인 타일은 대상이 아니다. */
   draggableEnabled?: boolean
   locked?: boolean
+  /** 이 참가자가 화면을 공유하는 중이면 타일에 공유 아이콘을 표시한다. */
+  sharingScreen?: boolean
   onDragStart?: () => void
   onDropOn?: () => void
   onContextMenu?: (event: MouseEvent<HTMLDivElement>) => void
@@ -28,6 +30,7 @@ export function ParticipantTile({
   audioTrackRef = null,
   draggableEnabled = false,
   locked = false,
+  sharingScreen = false,
   onDragStart,
   onDropOn,
   onContextMenu,
@@ -88,11 +91,22 @@ export function ParticipantTile({
         </div>
       )}
 
-      {participant.isSelf ? (
-        <span className="absolute left-2 top-2 rounded-ait-s bg-black/40 px-2 py-1 text-caption text-white">
-          나
-        </span>
-      ) : (
+      <div className="absolute left-2 top-2 flex items-center gap-1">
+        {participant.isSelf ? (
+          <span className="rounded-ait-s bg-black/40 px-2 py-1 text-caption text-white">나</span>
+        ) : null}
+        {sharingScreen ? (
+          <span
+            className="flex size-6 items-center justify-center rounded-ait-s bg-black/40 text-white"
+            title="화면 공유 중"
+            aria-label={`${participant.name} 화면 공유 중`}
+          >
+            <ScreenShare className="size-3.5" aria-hidden="true" />
+          </span>
+        ) : null}
+      </div>
+
+      {participant.isSelf ? null : (
         <>
           {locked ? (
             <span
