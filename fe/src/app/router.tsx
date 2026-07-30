@@ -12,6 +12,7 @@ import { GithubCallbackPage } from '@/pages/GithubCallbackPage'
 import { InterviewSessionPage } from '@/pages/InterviewSessionPage'
 import { InterviewsPage } from '@/pages/InterviewsPage'
 import { LoginPage } from '@/pages/auth/LoginPage'
+import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
 import { MyPage } from '@/pages/MyPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { PrivacyPage } from '@/pages/PrivacyPage'
@@ -42,6 +43,7 @@ export function AppRouter() {
       <Route path="/study/session/:sessionId/room" element={<ProtectedRoute><StudySessionRoomPage /></ProtectedRoute>} />
       <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
       <Route path="/community/write" element={<ProtectedRoute><CommunityWritePage /></ProtectedRoute>} />
+      <Route path="/community/posts/:postId/edit" element={<ProtectedRoute><CommunityWritePage /></ProtectedRoute>} />
       <Route path="/community/posts/:postId" element={<ProtectedRoute><CommunityPostPage /></ProtectedRoute>} />
       <Route path="/github/callback" element={<ProtectedRoute><GithubCallbackPage /></ProtectedRoute>} />
       <Route path="/mypage" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
@@ -51,6 +53,7 @@ export function AppRouter() {
       <Route path="/mypage/documents/cover-letters/:coverLetterId" element={<ProtectedRoute><CoverLetterPage /></ProtectedRoute>} />
       <Route path="/login" element={<GuestOnlyRoute><LoginPage /></GuestOnlyRoute>} />
       <Route path="/signup" element={<GuestOnlyRoute><SignupPage /></GuestOnlyRoute>} />
+      <Route path="/reset-password" element={<GuestOnlyRoute><ResetPasswordPage /></GuestOnlyRoute>} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/recording-notice" element={<RecordingNoticePage />} />
