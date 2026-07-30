@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -31,17 +32,38 @@ public class StudyGroupApplicationService {
         StudyGroup group = studyGroupRepository.findById(groupId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.GROUP_NOT_FOUND));
 
-        // 이미 가입되어 있거나 신청(PENDING) 중인지 체크
-        if (studyGroupMemberRepository.existsByStudyGroupIdAndUserId(groupId, currentUserId)) {
-            throw new BusinessException(ErrorCode.ALREADY_MEMBER_OR_APPLIED); // 에러코드 추가 필요
-        }
-
         User user = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NO_USER));
 
-        // PENDING 상태로 멤버 엔티티 생성
-        StudyGroupMember application = StudyGroupMember.createMember(group, user, request.getMessage());
-        studyGroupMemberRepository.save(application);
+        Optional<StudyGroupMember> existingMember =
+                studyGroupMemberRepository.findByGroupAndUserIncludeDeleted(groupId, currentUserId);
+
+        if (existingMember.isPresent()) {
+            StudyGroupMember member = existingMember.get();
+
+            // 2. 과거 상태에 따른 분기 처리
+            switch (member.getStatus()) {
+                case ACTIVE:
+                case PENDING:
+                    // 이미 활동 중이거나 신청 대기 중인 경우
+                    throw new BusinessException(ErrorCode.ALREADY_MEMBER_OR_APPLIED);
+
+                case KICKED:
+                    // 강퇴당한 유저는 재가입 불가
+                    throw new BusinessException(ErrorCode.KICKED_USER_CANNOT_REJOIN);
+
+                case LEFT:
+                case REJECTED:
+                    // 스스로 나갔거나 거절당했던 유저 -> 상태를 대기(PENDING)로 돌리고 부활
+                    member.rejoin();
+                    member.updateMessage(request.getMessage()); // 새로운 가입 메시지로 갱신
+                    break;
+            }
+        } else {
+            // 3. 완전 최초 가입인 경우 (기존 로직 동일)
+            StudyGroupMember application = StudyGroupMember.createMember(group, user, request.getMessage());
+            studyGroupMemberRepository.save(application);
+        }
     }
 
     // 2. 신청 목록 조회 (GET - 방장만 가능)

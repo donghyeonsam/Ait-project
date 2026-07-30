@@ -49,7 +49,8 @@ CREATE TABLE `users` (
                          `deleted_at` DATETIME DEFAULT NULL,
 
                          PRIMARY KEY (`id`),
-                         UNIQUE KEY `uk_users_email` (`email`)
+                         UNIQUE KEY `uk_users_email` (`email`),
+                         UNIQUE KEY `uk_users_nickname` (`nickname`)
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci
@@ -613,6 +614,8 @@ CREATE TABLE study_session_participants (
 
                                             session_id BIGINT NOT NULL,
                                             user_id BIGINT NOT NULL,
+                                            resume_id BIGINT NULL,
+                                            cover_letter_id BIGINT NULL,
 
                                             role VARCHAR(20) NOT NULL DEFAULT 'MEMBER',
                                             status VARCHAR(20) NOT NULL DEFAULT 'JOINED',

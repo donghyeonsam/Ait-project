@@ -7,6 +7,7 @@ const TABS: { value: CommunityTab; label: string }[] = [
   { value: 'recommend', label: '추천' },
   { value: 'latest', label: '최신' },
   { value: 'popular', label: '인기' },
+  { value: 'mine', label: '내 게시글' },
 ]
 
 interface PostTabsProps {
@@ -14,7 +15,7 @@ interface PostTabsProps {
   onChange: (tab: CommunityTab) => void
 }
 
-// 추천/최신/인기 탭. 활성 인디케이터가 layoutId로 좌우 슬라이드한다.
+// 추천/최신/인기/내 게시글 탭. 활성 인디케이터가 layoutId로 좌우 슬라이드한다.
 export function PostTabs({ value, onChange }: PostTabsProps) {
   return (
     <div

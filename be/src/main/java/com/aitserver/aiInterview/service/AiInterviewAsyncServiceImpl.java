@@ -1,6 +1,7 @@
 package com.aitserver.aiInterview.service;
 
 import com.aitserver.aiInterview.client.FastApiClient;
+import com.aitserver.aiInterview.dto.VoiceResult;
 import com.aitserver.aiInterview.requestDto.FastApiFaceAnalyzeRequest;
 import com.aitserver.aiInterview.requestDto.FastVoiceAnalysisRequest;
 import com.aitserver.aiInterview.requestDto.FollowUpQuestionRequest;
@@ -9,6 +10,8 @@ import com.aitserver.aiInterview.responseDto.FastScoreResponse;
 import com.aitserver.aiInterview.responseDto.GmsAnalysisResponse;
 import com.aitserver.aiInterview.entity.AiInterviewQuestion;
 import com.aitserver.aiInterview.repository.AiInterviewQuestionRepository;
+import com.aitserver.aiInterview.responseDto.VoiceAcceptedResponse;
+import com.aitserver.aiInterview.responseDto.VoiceResultResponse;
 import com.aitserver.global.gms.client.GmsClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -102,34 +105,57 @@ public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
         }
     }
 
+//    @Override
+//    @Async
+//    public void sendAudioToFastApiAsync(Long userId, Long aiInterviewId, byte[] audioBytes, String filename, String contentType) {
+//        log.info("[===Async=== AiInterviewAsyncServiceImpl] FastAPI로 음성 분석을 위한 바이트 전달, userId: {}, aiInterviewId, {}", userId, aiInterviewId);
+//
+//        try {
+//            // 1. FastAPI로 음성 바이트 전송하기 위해 객체에 담기
+//            FastVoiceAnalysisRequest request = new FastVoiceAnalysisRequest();
+//            request.setAudioData(audioBytes);
+//            // 2. 점수 리턴
+//            FastScoreResponse response = fastApiClient.sendAudioToFastApi(
+//                    "/analyses/voice", // 여기에는 uri가 정해지면 넣자
+//                    audioBytes,
+//                    filename,
+//                    FastScoreResponse.class
+//            );
+//
+//            // 3. 레디스에 userId + aiInterviewId + 점수를 키로 하고, value에는 리스트 형식으로 점수를 하나씩 추가하기
+//            String voiceRedisKey = "voice_score:" + userId + ":" + aiInterviewId;
+//            saveScoreInRedis(voiceRedisKey, String.valueOf(response.getScore()));
+//
+//        } catch (Exception e) {
+//            log.error("[===Async=== AiInterviewAsyncServiceImpl] FastAPI 음성 분석 로직 중 에러 발생, userId: {}, aiInterviewId,{}",
+//                    userId, aiInterviewId, e);
+//        }
+//    }
     @Override
     @Async
     public void sendAudioToFastApiAsync(Long userId, Long aiInterviewId, byte[] audioBytes, String filename, String contentType) {
-        log.info("[===Async=== AiInterviewAsyncServiceImpl] FastAPI로 음성 분석을 위한 바이트 전달, userId: {}, aiInterviewId, {}", userId, aiInterviewId);
+        log.info("[===Async===] FastAPI 음성 분석 요청 시작...");
 
-        // FastAPI로 음성 바이트를 보내서 분석을 시킨다. Librosa는 파일보다 바이트 스트림을 더 선호
         try {
-            // 1. FastAPI로 음성 바이트 전송하기 위해 객체에 담기
-            String requestId = aiInterviewId + "-" + aiInterviewId;
-
-            FastVoiceAnalysisRequest request = new FastVoiceAnalysisRequest();
-            request.setAudioData(audioBytes);
-            // 2. 점수 리턴
-            FastScoreResponse response = fastApiClient.sendAudioToFastApi(
-                    "/analyses/voice", // 여기에는 uri가 정해지면 넣자
+            // 💡 폴링 없이 바로 기다립니다. (FastAPI가 분석 후 VoiceResult를 바로 리턴해 줍니다)
+            VoiceResult finalResult = fastApiClient.sendAudioToFastApi(
+                    "/analyses/voice",
                     audioBytes,
                     filename,
-                    requestId,
-                    FastScoreResponse.class
+                    userId + "-" + aiInterviewId, // request_id 용도
+                    VoiceResult.class
             );
 
-            // 3. 레디스에 userId + aiInterviewId + 점수를 키로 하고, value에는 리스트 형식으로 점수를 하나씩 추가하기
+            // 레디스에 점수 저장
+            Integer score = finalResult.score();
             String voiceRedisKey = "voice_score:" + userId + ":" + aiInterviewId;
-            saveScoreInRedis(voiceRedisKey, String.valueOf(response.getScore()));
+            redisTemplate.opsForList().rightPush(voiceRedisKey, String.valueOf(score));
+            redisTemplate.expire(voiceRedisKey, 1, TimeUnit.DAYS);
+
+            log.info(">> Redis 음성 분석 점수({}점) 누적 완료!", score);
 
         } catch (Exception e) {
-            log.error("[===Async=== AiInterviewAsyncServiceImpl] FastAPI 음성 분석 로직 중 에러 발생, userId: {}, aiInterviewId,{}",
-                    userId, aiInterviewId, e);
+            log.error("[===Async===] FastAPI 음성 분석 중 에러 발생", e);
         }
     }
 

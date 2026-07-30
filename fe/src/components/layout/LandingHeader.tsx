@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { landingRoutes } from '@/components/landing/landing.data'
 import { cn } from '@/lib/utils'
+import '@/components/landing/landing.css'
 
 // 비로그인 랜딩 상단에서 홈 로고와 로그인·회원가입 경로를 제공한다.
 export function LandingHeader() {

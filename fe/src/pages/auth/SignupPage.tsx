@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
@@ -22,7 +22,9 @@ const signupSchema = z
       .trim()
       .min(2, '닉네임은 2자 이상 입력해주세요.')
       .max(12, '닉네임은 12자 이하로 입력해주세요.'),
+    nicknameChecked: z.boolean().refine(Boolean, '닉네임 중복확인을 해주세요.'),
     email: z.string().trim().email('올바른 이메일 형식을 입력해주세요.'),
+    emailChecked: z.boolean().refine(Boolean, '이메일 중복확인을 해주세요.'),
     emailVerified: z.boolean().refine(Boolean, '이메일 인증을 완료해주세요.'),
     password: z
       .string()
@@ -41,8 +43,7 @@ type SignupFormValues = z.infer<typeof signupSchema>
 
 const TOTAL_STEPS = 2
 
-const CUSTOM_DOMAIN_OPTION = '직접입력'
-const emailDomainOptions = ['gmail.com', 'naver.com', 'daum.net', 'kakao.com', 'nate.com', CUSTOM_DOMAIN_OPTION]
+const DUPLICATE_CHECK_DELAY_MS = 400
 
 const stepDescriptions = {
   1: '이용약관에 동의하고 시작해보세요.',
@@ -65,7 +66,9 @@ export function SignupPage() {
     defaultValues: {
       name: '',
       nickname: '',
+      nicknameChecked: false,
       email: '',
+      emailChecked: false,
       emailVerified: false,
       password: '',
       passwordConfirm: '',
@@ -75,32 +78,58 @@ export function SignupPage() {
     },
   })
 
-  const [termsAccepted, privacyAccepted, emailVerified] = useWatch({
+  const [termsAccepted, privacyAccepted, emailVerified, nicknameChecked, emailChecked, nickname, email] = useWatch({
     control,
-    name: ['termsAccepted', 'privacyAccepted', 'emailVerified'],
+    name: ['termsAccepted', 'privacyAccepted', 'emailVerified', 'nicknameChecked', 'emailChecked', 'nickname', 'email'],
   })
 
-  const [emailLocalPart, setEmailLocalPart] = useState('')
-  const [emailDomain, setEmailDomain] = useState(emailDomainOptions[0])
-  const [customDomain, setCustomDomain] = useState('')
   const [verificationCode, setVerificationCode] = useState('')
-  const isCustomDomain = emailDomain === CUSTOM_DOMAIN_OPTION
+  const [verificationError, setVerificationError] = useState<string | null>(null)
+  const [isCodeSent, setIsCodeSent] = useState(false)
+  const [isCheckingNickname, setIsCheckingNickname] = useState(false)
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false)
 
-  // 이메일이 바뀌면 기존 인증 상태와 입력한 인증번호를 무효화한다.
-  const updateEmail = (localPart: string, domain: string) => {
-    setValue('email', localPart ? `${localPart}@${domain}` : '', { shouldValidate: false })
-    setValue('emailVerified', false)
-    setVerificationCode('')
-  }
+  // 닉네임 입력이 멈추면 자동으로 중복확인을 수행한다.
+  // TODO: 실제 API 연동 필요 - BE에 닉네임 중복확인 엔드포인트가 없어 형식 검사만 통과하면 사용 가능한 것으로 처리한다.
+  useEffect(() => {
+    if (!nickname?.trim()) return
+    const timer = setTimeout(async () => {
+      const isValid = await trigger('nickname')
+      setValue('nicknameChecked', isValid, { shouldValidate: true })
+      setIsCheckingNickname(false)
+    }, DUPLICATE_CHECK_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [nickname, trigger, setValue])
+
+  // 이메일 입력이 멈추면 자동으로 중복확인을 수행한다.
+  // TODO: 실제 API 연동 필요 - BE에 이메일 중복확인 엔드포인트가 없어 형식 검사만 통과하면 사용 가능한 것으로 처리한다.
+  useEffect(() => {
+    if (!email?.trim()) return
+    const timer = setTimeout(async () => {
+      const isValid = await trigger('email')
+      setValue('emailChecked', isValid, { shouldValidate: true })
+      setIsCheckingEmail(false)
+    }, DUPLICATE_CHECK_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [email, trigger, setValue])
 
   // TODO: 실제 API 연동 필요 - BE에 인증번호 발송 엔드포인트가 없어 이메일 형식 검사만 수행한다.
   const requestVerificationCode = async () => {
-    await trigger('email')
+    const isValid = await trigger('email')
+    if (!isValid) return
+    setIsCodeSent(true)
+    setVerificationCode('')
+    setVerificationError(null)
+    setValue('emailVerified', false)
   }
 
   // TODO: 실제 API 연동 필요 - BE에 인증번호 확인 엔드포인트가 없어 코드가 입력되면 인증된 것으로 처리한다.
   const confirmVerificationCode = () => {
-    if (!verificationCode.trim()) return
+    if (!verificationCode.trim()) {
+      setVerificationError('인증번호를 입력해주세요.')
+      return
+    }
+    setVerificationError(null)
     setValue('emailVerified', true, { shouldValidate: true })
   }
 
@@ -126,7 +155,14 @@ export function SignupPage() {
   }
 
   const isSubmitDisabled =
-    !termsAccepted || !privacyAccepted || !emailVerified || isSubmitting
+    !termsAccepted ||
+    !privacyAccepted ||
+    !nicknameChecked ||
+    !emailChecked ||
+    !emailVerified ||
+    isCheckingNickname ||
+    isCheckingEmail ||
+    isSubmitting
 
   return (
     <AuthLayout>
@@ -226,7 +262,7 @@ export function SignupPage() {
           {step === 2 ? (
             <div key={step} className="survey-step mx-auto flex w-full max-w-xl flex-1 flex-col">
               <div className="flex flex-1 flex-col justify-center">
-                <div className="grid grid-cols-[6.5rem_1fr] items-start gap-x-6 gap-y-5">
+                <div className="grid grid-cols-[6.5rem_1fr] items-start gap-x-6 gap-y-2">
                   <label htmlFor="signup-name" className="pt-2.5 text-body-2 font-semibold">
                     이름
                   </label>
@@ -240,7 +276,7 @@ export function SignupPage() {
                       {...register('name')}
                     />
                     {errors.name ? (
-                      <p id="signup-name-error" className="mt-2 text-caption text-status-error">
+                      <p id="signup-name-error" className="mt-1 text-caption text-status-error">
                         {errors.name.message}
                       </p>
                     ) : null}
@@ -256,75 +292,77 @@ export function SignupPage() {
                       placeholder="다른 사용자에게 보여질 닉네임을 입력하세요"
                       aria-invalid={Boolean(errors.nickname)}
                       aria-describedby={errors.nickname ? 'signup-nickname-error' : undefined}
-                      {...register('nickname')}
+                      {...register('nickname', {
+                        onChange: (event) => {
+                          setValue('nicknameChecked', false)
+                          setIsCheckingNickname(Boolean(event.target.value.trim()))
+                        },
+                      })}
                     />
-                    {errors.nickname ? (
-                      <p id="signup-nickname-error" className="mt-2 text-caption text-status-error">
-                        {errors.nickname.message}
-                      </p>
-                    ) : null}
+                    <div className="mt-0.5 min-h-3 leading-tight">
+                      {errors.nickname ? (
+                        <p id="signup-nickname-error" className="text-caption leading-tight text-status-error">
+                          {errors.nickname.message}
+                        </p>
+                      ) : isCheckingNickname ? (
+                        <p className="text-caption leading-tight text-text-secondary">중복확인 중...</p>
+                      ) : errors.nicknameChecked ? (
+                        <p className="text-caption leading-tight text-status-error">
+                          {errors.nicknameChecked.message}
+                        </p>
+                      ) : nicknameChecked ? (
+                        <p className="text-caption leading-tight text-status-success">사용 가능한 닉네임이에요.</p>
+                      ) : null}
+                    </div>
                   </div>
 
-                  <label htmlFor="signup-email-local" className="pt-2.5 text-body-2 font-semibold">
+                  <label htmlFor="signup-email" className="pt-2.5 text-body-2 font-semibold">
                     이메일
                   </label>
                   <div>
                     <div className="flex items-center gap-2">
                       <Input
-                        id="signup-email-local"
+                        id="signup-email"
                         className="min-w-0 flex-1"
-                        autoComplete="off"
-                        placeholder="이메일"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="이메일을 입력하세요"
                         aria-invalid={Boolean(errors.email)}
                         aria-describedby={errors.email ? 'signup-email-error' : undefined}
-                        value={emailLocalPart}
-                        onChange={(event) => {
-                          setEmailLocalPart(event.target.value)
-                          updateEmail(event.target.value, isCustomDomain ? customDomain : emailDomain)
-                        }}
+                        {...register('email', {
+                          onChange: (event) => {
+                            setValue('emailChecked', false)
+                            setValue('emailVerified', false)
+                            setVerificationCode('')
+                            setVerificationError(null)
+                            setIsCodeSent(false)
+                            setIsCheckingEmail(Boolean(event.target.value.trim()))
+                          },
+                        })}
                       />
-                      <span className="shrink-0 text-body-2 text-text-secondary">@</span>
-                      <select
-                        value={emailDomain}
-                        onChange={(event) => {
-                          const nextDomain = event.target.value
-                          setEmailDomain(nextDomain)
-                          updateEmail(emailLocalPart, nextDomain === CUSTOM_DOMAIN_OPTION ? customDomain : nextDomain)
-                        }}
-                        className="h-11 shrink-0 rounded-ait-s border border-border-default bg-surface-default px-3 text-body-2"
-                      >
-                        {emailDomainOptions.map((domain) => (
-                          <option key={domain} value={domain}>
-                            {domain}
-                          </option>
-                        ))}
-                      </select>
                       <Button
                         type="button"
                         variant="secondary"
                         className="shrink-0"
+                        disabled={emailVerified}
                         onClick={requestVerificationCode}
                       >
-                        인증하기
+                        {emailVerified ? '인증 완료' : isCodeSent ? '재발송' : '인증하기'}
                       </Button>
                     </div>
-                    {isCustomDomain ? (
-                      <Input
-                        className="mt-2"
-                        autoComplete="off"
-                        placeholder="도메인을 직접 입력하세요 (예: naver.com)"
-                        value={customDomain}
-                        onChange={(event) => {
-                          setCustomDomain(event.target.value)
-                          updateEmail(emailLocalPart, event.target.value)
-                        }}
-                      />
-                    ) : null}
-                    {errors.email ? (
-                      <p id="signup-email-error" className="mt-2 text-caption text-status-error">
-                        {errors.email.message}
-                      </p>
-                    ) : null}
+                    <div className="mt-0.5 min-h-3 leading-tight">
+                      {errors.email ? (
+                        <p id="signup-email-error" className="text-caption leading-tight text-status-error">
+                          {errors.email.message}
+                        </p>
+                      ) : isCheckingEmail ? (
+                        <p className="text-caption leading-tight text-text-secondary">중복확인 중...</p>
+                      ) : errors.emailChecked ? (
+                        <p className="text-caption leading-tight text-status-error">{errors.emailChecked.message}</p>
+                      ) : emailChecked ? (
+                        <p className="text-caption leading-tight text-status-success">사용 가능한 이메일이에요.</p>
+                      ) : null}
+                    </div>
                   </div>
 
                   <label htmlFor="signup-verification-code" className="pt-2.5 text-body-2 font-semibold">
@@ -336,22 +374,41 @@ export function SignupPage() {
                         id="signup-verification-code"
                         className="min-w-0 flex-1"
                         autoComplete="off"
-                        placeholder="인증번호를 입력하세요"
+                        placeholder={
+                          isCodeSent ? '인증번호를 입력하세요' : '인증하기를 먼저 눌러주세요'
+                        }
+                        disabled={!isCodeSent || emailVerified}
+                        aria-invalid={Boolean(verificationError)}
+                        aria-describedby={verificationError ? 'signup-verification-code-error' : undefined}
                         value={verificationCode}
-                        onChange={(event) => setVerificationCode(event.target.value)}
+                        onChange={(event) => {
+                          setVerificationCode(event.target.value)
+                          setVerificationError(null)
+                        }}
                       />
                       <Button
                         type="button"
                         variant="secondary"
                         className="shrink-0"
+                        disabled={!isCodeSent || emailVerified}
                         onClick={confirmVerificationCode}
                       >
                         확인
                       </Button>
                     </div>
-                    {emailVerified ? (
-                      <p className="mt-2 text-caption text-status-success">이메일 인증이 완료됐어요.</p>
-                    ) : null}
+                    <div className="mt-0.5 min-h-3 leading-tight">
+                      {verificationError ? (
+                        <p id="signup-verification-code-error" className="text-caption leading-tight text-status-error">
+                          {verificationError}
+                        </p>
+                      ) : emailVerified ? (
+                        <p className="text-caption leading-tight text-status-success">이메일 인증이 완료됐어요.</p>
+                      ) : isCodeSent ? (
+                        <p className="text-caption leading-tight text-text-secondary" role="status">
+                          인증번호를 발송했어요. 메일함을 확인해주세요.
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
 
                   <label htmlFor="signup-password" className="pt-2.5 text-body-2 font-semibold">

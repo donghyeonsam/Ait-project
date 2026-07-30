@@ -1,6 +1,6 @@
 import { useEffect, useState, type DragEvent, type MouseEvent } from 'react'
 import { VideoTrack, type TrackReference } from '@livekit/components-react'
-import { Lock, UserRound, Volume2, VolumeX } from 'lucide-react'
+import { Lock, MicOff, ScreenShare, UserRound, Volume2, VolumeX } from 'lucide-react'
 import type { RemoteAudioTrack } from 'livekit-client'
 import { MasterVolumeSlider } from '@/components/interview/MasterVolumeSlider'
 import type { StudyParticipant } from '@/mocks/study'
@@ -15,6 +15,12 @@ interface ParticipantTileProps {
   /** 그리드 순서 변경(다른 참가자 타일 사이 드래그 앤 드롭)에만 쓴다. 본인 타일은 대상이 아니다. */
   draggableEnabled?: boolean
   locked?: boolean
+  /** LiveKit active speaker 감지 결과. 발화 중이면 타일 테두리를 강조한다. */
+  speaking?: boolean
+  /** 이 참가자의 마이크 음소거 여부. 로컬 재생 음소거(remoteMuted)와는 다른, 상대방 자신의 마이크 상태다. */
+  micMuted?: boolean
+  /** 이 참가자가 화면을 공유하는 중이면 타일에 공유 아이콘을 표시한다. */
+  sharingScreen?: boolean
   onDragStart?: () => void
   onDropOn?: () => void
   onContextMenu?: (event: MouseEvent<HTMLDivElement>) => void
@@ -28,6 +34,9 @@ export function ParticipantTile({
   audioTrackRef = null,
   draggableEnabled = false,
   locked = false,
+  speaking = false,
+  micMuted = false,
+  sharingScreen = false,
   onDragStart,
   onDropOn,
   onContextMenu,
@@ -36,7 +45,19 @@ export function ParticipantTile({
   const [remoteVolume, setRemoteVolume] = useState(100)
   const [remoteMuted, setRemoteMuted] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  // 발화 강조는 켤 때는 즉시(렌더 중 상태 조정), 끌 때는 잠시 지연시켜 짧은 잡음·호흡에 테두리가 깜빡이지 않게 한다.
+  const [speakingHighlight, setSpeakingHighlight] = useState(false)
   const showVideo = Boolean(trackRef && !trackRef.publication.isMuted)
+
+  if (speaking && !speakingHighlight) {
+    setSpeakingHighlight(true)
+  }
+
+  useEffect(() => {
+    if (speaking) return
+    const timer = window.setTimeout(() => setSpeakingHighlight(false), 500)
+    return () => window.clearTimeout(timer)
+  }, [speaking])
 
   useEffect(() => {
     const track = audioTrackRef?.publication.track as RemoteAudioTrack | undefined
@@ -69,6 +90,7 @@ export function ParticipantTile({
         // @container로 감싸 하위 오버레이가 이 타일의 실제 크기에 맞춰 커지고 작아지게 한다.
         'group @container relative flex h-full w-full items-center justify-center overflow-hidden rounded-ait-m bg-theater-backdrop text-white transition-shadow duration-(--duration-fast) ease-standard',
         !participant.isSelf && 'hover:ring-2 hover:ring-white/70',
+        speakingHighlight && 'ring-2 ring-status-success hover:ring-status-success',
         dragOver && 'ring-2 ring-action-primary',
         className,
       )}
@@ -88,22 +110,51 @@ export function ParticipantTile({
         </div>
       )}
 
-      {participant.isSelf ? (
-        <span className="absolute left-2 top-2 rounded-ait-s bg-black/40 px-2 py-1 text-caption text-white">
-          나
-        </span>
-      ) : (
-        <>
-          {locked ? (
-            <span
-              className="absolute right-2 top-2 flex size-6 items-center justify-center rounded-ait-s bg-black/40 text-white"
-              title="위치 고정됨"
-            >
-              <Lock className="size-3.5" aria-hidden="true" />
-            </span>
-          ) : null}
+      <div className="absolute right-2 top-2 flex items-center gap-1">
+        {micMuted ? (
+          <span
+            className="flex size-6 items-center justify-center rounded-ait-s bg-black/40 text-white"
+            title="마이크 음소거됨"
+            aria-label={`${participant.name} 마이크 음소거됨`}
+          >
+            <MicOff className="size-3.5" aria-hidden="true" />
+          </span>
+        ) : null}
+        {locked ? (
+          <span
+            className="flex size-6 items-center justify-center rounded-ait-s bg-black/40 text-white"
+            title="위치 고정됨"
+          >
+            <Lock className="size-3.5" aria-hidden="true" />
+          </span>
+        ) : null}
+      </div>
 
-          <div className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-linear-to-t from-black/70 to-transparent px-2 py-1 opacity-0 transition-opacity duration-(--duration-fast) ease-standard group-hover:opacity-100 group-focus-within:opacity-100 @sm:gap-2 @sm:px-3 @sm:py-2 @lg:gap-3 @lg:px-4 @lg:py-2.5 @2xl:gap-4 @2xl:px-5 @2xl:py-3">
+      <div className="absolute left-2 top-2 flex items-center gap-1">
+        {participant.isSelf ? (
+          <span className="rounded-ait-s bg-black/40 px-2 py-1 text-caption text-white">나</span>
+        ) : null}
+        {sharingScreen ? (
+          <span
+            className="flex size-6 items-center justify-center rounded-ait-s bg-black/40 text-white"
+            title="화면 공유 중"
+            aria-label={`${participant.name} 화면 공유 중`}
+          >
+            <ScreenShare className="size-3.5" aria-hidden="true" />
+          </span>
+        ) : null}
+      </div>
+
+      {participant.isSelf ? null : (
+        <>
+          {/* 볼륨 슬라이더를 끌 때 타일의 HTML5 드래그(순서 교환)가 함께 시작되지 않도록 이 영역에서 시작된 dragstart는 취소한다. */}
+          <div
+            onDragStart={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+            className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-linear-to-t from-black/70 to-transparent px-2 py-1 opacity-0 transition-opacity duration-(--duration-fast) ease-standard group-hover:opacity-100 group-focus-within:opacity-100 @sm:gap-2 @sm:px-3 @sm:py-2 @lg:gap-3 @lg:px-4 @lg:py-2.5 @2xl:gap-4 @2xl:px-5 @2xl:py-3"
+          >
             <span className="truncate text-caption font-medium text-white @lg:text-body-2 @2xl:text-body-1">
               {participant.name}
             </span>

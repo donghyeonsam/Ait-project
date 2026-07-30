@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+} from 'react'
 import { User } from 'lucide-react'
 
 interface FloatingSelfViewProps {
@@ -50,7 +57,7 @@ export function FloatingSelfView({
     })
   }, [boundsRef, initialBottomOffset, position])
 
-  const clamp = (x: number, y: number): Position => {
+  const clamp = useCallback((x: number, y: number): Position => {
     const bounds = boundsRef.current
     if (!bounds) {
       return { x, y }
@@ -58,7 +65,17 @@ export function FloatingSelfView({
     const maxX = Math.max(bounds.clientWidth - SELF_VIEW_WIDTH, 0)
     const maxY = Math.max(bounds.clientHeight - SELF_VIEW_HEIGHT, 0)
     return { x: Math.min(Math.max(x, 0), maxX), y: Math.min(Math.max(y, 0), maxY) }
-  }
+  }, [boundsRef])
+
+  useEffect(() => {
+    const handleResize = () => {
+      setPosition((current) =>
+        current ? clamp(current.x, current.y) : current,
+      )
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [clamp])
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!position) {
@@ -95,7 +112,7 @@ export function FloatingSelfView({
       ref={boxRef}
       role="presentation"
       aria-label="내 카메라 화면 (드래그로 이동 가능)"
-      className="absolute touch-none cursor-grab overflow-hidden rounded-ait-s border-2 border-surface-default bg-status-neutral-surface text-text-secondary shadow-elevation-2 active:cursor-grabbing"
+      className="session-theater-self-view absolute touch-none cursor-grab overflow-hidden rounded-ait-s border-2 border-surface-default bg-status-neutral-surface text-text-secondary shadow-elevation-2 active:cursor-grabbing"
       style={{ width: SELF_VIEW_WIDTH, height: SELF_VIEW_HEIGHT, left: position.x, top: position.y }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}

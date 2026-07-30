@@ -11,10 +11,13 @@ import com.aitserver.studyGroupRoom.entity.StudyGroupChat;
 import com.aitserver.studyGroupRoom.repository.StudyGroupChatRepository;
 import com.aitserver.studyGroupRoom.repository.StudyGroupRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -25,7 +28,7 @@ public class StudyGroupChatService {
     private final StudyGroupRepository studyGroupRepository;
     private final UserRepository userRepository;
 
-    @Transactional // 데이터를 삽입(Save)해야 하므로 쓰기 권한 부여
+    @Transactional
     public ChatDto.Response saveChat(Long groupId, Long userId, String message) {
 
         // 1. 발송 유저 엔티티 조회
@@ -97,5 +100,30 @@ public class StudyGroupChatService {
                 .notice(null)
                 .updatedAt(LocalDateTime.now())
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public ChatDto.CursorResponse getPastChats(Long groupId, Long userId, Long lastChatId, Pageable pageable) {
+
+        // 1. 스터디 그룹 엔티티 조회
+        StudyGroup studyGroup = studyGroupRepository.findById(groupId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.STUDY_GROUP_NOT_FOUND));
+
+        // 2. 그룹 멤버인지 권한 확인
+        studyGroup.validateMember(userId);
+
+        // 3. 채팅 내역 조회
+        Slice<StudyGroupChat> chatSlice = chatRepository.findChatsByCursor(groupId, lastChatId, pageable);
+
+        // 4. DTO 변환 후 반환
+        List<ChatDto.Response> chatList = chatSlice.getContent().stream()
+                .map(chat -> ChatDto.Response.from(
+                        chat,
+                        chat.getUser().getNickname(),
+                        chat.getUser().getProfileImage()
+                ))
+                .toList();
+
+        return new ChatDto.CursorResponse(chatList, chatSlice.hasNext());
     }
 }

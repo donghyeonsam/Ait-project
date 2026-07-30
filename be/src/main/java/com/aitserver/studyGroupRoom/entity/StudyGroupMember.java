@@ -171,6 +171,7 @@ public class StudyGroupMember {
         }
 
         this.status = StudyGroupMemberStatus.PENDING;
+        this.deletedAt = null;
     }
 
 
@@ -186,5 +187,9 @@ public class StudyGroupMember {
     public void reject() {
         this.status = StudyGroupMemberStatus.REJECTED;
         this.deletedAt = LocalDateTime.now();
+    }
+
+    public void updateMessage(String newMessage) {
+        this.message = newMessage;
     }
 }

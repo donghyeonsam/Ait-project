@@ -9,7 +9,8 @@ interface MyStudySectionProps {
   studies: MyStudyGroup[]
   isLoading: boolean
   errorMessage: string | null
-  onOpenStudy: (study: MyStudyGroup) => void
+  activeSessionGroupIds: Set<number>
+  onEnterSession: (study: MyStudyGroup) => void
 }
 
 const MAX_VISIBLE_AVATARS = 4
@@ -19,7 +20,8 @@ export function MyStudySection({
   studies,
   isLoading,
   errorMessage,
-  onOpenStudy,
+  activeSessionGroupIds,
+  onEnterSession,
 }: MyStudySectionProps) {
   const { ref, isInView } = useInView<HTMLElement>({ threshold: 0.1 })
 
@@ -48,6 +50,7 @@ export function MyStudySection({
       ) : (
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           {studies.map((study) => {
+            const hasActiveSession = activeSessionGroupIds.has(study.id)
             const visibleAvatars = Math.min(
               study.currentMemberCount,
               MAX_VISIBLE_AVATARS,
@@ -71,10 +74,19 @@ export function MyStudySection({
                 <div className="pointer-events-none relative z-10 flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      {/* TODO: 실제 API 연동 필요 — 그룹의 활성 세션 조회 엔드포인트가 없어 항상 비활성(회색)으로 표시한다. */}
                       <span
-                        className="size-2 shrink-0 rounded-ait-pill bg-status-neutral"
-                        aria-hidden="true"
+                        className={cn(
+                          'size-2 shrink-0 rounded-ait-pill',
+                          hasActiveSession
+                            ? 'bg-status-success'
+                            : 'bg-status-neutral',
+                        )}
+                        role="img"
+                        aria-label={
+                          hasActiveSession
+                            ? '세션 진행 중'
+                            : '진행 중인 세션 없음'
+                        }
                       />
                       <h3 className="truncate text-body-1 font-semibold text-text-primary">
                         {study.title}
@@ -123,14 +135,17 @@ export function MyStudySection({
                     </span>
                   </div>
 
+                  {/* 그룹장은 세션이 없어도 프리조인에서 새로 시작할 수 있어 항상 눌러볼 수 있다.
+                      그룹원은 참여할 세션이 있을 때만 의미가 있으므로, 왼쪽 상태 점과 같은 기준
+                      (활성 세션 여부)으로 버튼을 활성/비활성화해 상태를 그대로 드러낸다. */}
                   <Button
                     type="button"
                     variant="secondary"
                     className="cta-lift pointer-events-auto"
-                    onClick={() => onOpenStudy(study)}
+                    disabled={!study.owner && !hasActiveSession}
+                    onClick={() => onEnterSession(study)}
                   >
-                    {/* 그룹장 전용 "세션 생성하기" 진입은 그룹 상세 페이지에서 안내한다. */}
-                    그룹 페이지
+                    {study.owner && !hasActiveSession ? '세션 시작하기' : '세션 참여하기'}
                   </Button>
                 </div>
               </article>

@@ -1,0 +1,14 @@
+# 학습 코드/데이터는 서버 이미지에 넣지 않는다.
+training/
+data/
+docs/
+frontend-sample/
+requirements-train.txt
+
+__pycache__/
+*.pyc
+*.pyo
+.env
+.git/
+.venv/
+README.md

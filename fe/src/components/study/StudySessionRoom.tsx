@@ -13,9 +13,10 @@ import {
   isTrackReference,
   useLocalParticipant,
   useRemoteParticipants,
+  useSpeakingParticipants,
   useTracks,
 } from '@livekit/components-react'
-import { Room, Track } from 'livekit-client'
+import { DisconnectReason, Room, RoomEvent, Track } from 'livekit-client'
 import {
   ChevronDown,
   ChevronLeft,
@@ -29,10 +30,12 @@ import {
   VideoOff,
   Volume2,
   VolumeX,
+  X,
 } from 'lucide-react'
 import { FloatingChatButton } from '@/components/study/FloatingChatButton'
 import { HoverVolumeButton } from '@/components/study/HoverVolumeButton'
 import { ParticipantTile } from '@/components/study/ParticipantTile'
+import { ScreenShareTile } from '@/components/study/ScreenShareTile'
 import { StudySessionSidePanel } from '@/components/study/StudySessionSidePanel'
 import { Button } from '@/components/ui/button'
 import {
@@ -45,7 +48,12 @@ import {
 } from '@/components/ui/dialog'
 import type { StudyParticipant } from '@/mocks/study'
 import { getMyCoverLetters, type CoverLetterListItem } from '@/api/cover-letters'
-import type { StudySessionConnection } from '@/api/study-sessions'
+import {
+  endStudySession,
+  kickStudySessionParticipant,
+  type StudySessionConnection,
+} from '@/api/study-sessions'
+import { toErrorMessage } from '@/api/http'
 import { cn } from '@/lib/utils'
 
 export interface StudySessionRoomDeviceSelection {
@@ -65,7 +73,7 @@ interface StudySessionRoomProps {
   onLeave: () => void
 }
 
-type StageMode = { type: 'grid' } | { type: 'participants'; ids: number[] } | { type: 'screen' }
+type StageMode = { type: 'grid' } | { type: 'participants'; ids: number[] } | { type: 'screen'; sid: string }
 
 interface ContextMenuState {
   participantId: number
@@ -165,6 +173,12 @@ function computeGridTileSize(count: number, width: number, height: number, gap: 
   return best
 }
 
+// LiveKitTokenService.createParticipantIdentity(userId)가 만드는 "user-{userId}" 형식과 짝을 이룬다.
+function parseUserIdFromIdentity(identity: string): number | null {
+  const match = /^user-(\d+)$/.exec(identity)
+  return match ? Number(match[1]) : null
+}
+
 // 스터디 세션 화상 회의방: 참가자 그리드/스테이지 뷰, 컨트롤 바, 이력서·자소서·평가 패널을 구성한다.
 // LiveKit Room 연결/트랙 구독은 이 컴포넌트가 소유하고, 하위 트리에는 RoomContext로 내려준다.
 // 채팅은 같은 Room의 데이터 채널(useChat)로 실연동되어 있다(FloatingChatButton 참고).
@@ -185,6 +199,20 @@ export function StudySessionRoom({
     // 재시도 때마다 새 인스턴스로 연결해야 안전하다.
     const activeRoom = new Room()
     let cancelled = false
+
+    // 강퇴되거나 방장이 세션을 종료하면 서버가 이 클라이언트를 강제로 끊는다. 자발적으로 나갈 때는
+    // cleanup에서 cancelled를 먼저 true로 만든 뒤 disconnect를 호출하므로 여기서 걸러진다.
+    //
+    // DisconnectReason에는 그 외에도 여러 사유가 있는데(DUPLICATE_IDENTITY, SIGNAL_CLOSE 등),
+    // 특히 개발 모드 StrictMode의 이중 mount로 같은 identity의 연결이 두 개 생겼다가 뒤늦게
+    // 도착한 연결이 정리되며 지금 연결이 DUPLICATE_IDENTITY로 끊기는 경우가 있다. 그런 사유까지
+    // 나가기로 처리하면 아무 조작 없이도 몇 초 뒤 튕기므로, 실제로 강퇴/세션 종료인 경우에만 나간다.
+    const handleDisconnected = (reason?: DisconnectReason) => {
+      if (cancelled) return
+      if (reason !== DisconnectReason.PARTICIPANT_REMOVED && reason !== DisconnectReason.ROOM_DELETED) return
+      onLeave()
+    }
+    activeRoom.on(RoomEvent.Disconnected, handleDisconnected)
 
     const connectToRoom = async () => {
       setRoom(activeRoom)
@@ -214,6 +242,7 @@ export function StudySessionRoom({
 
     return () => {
       cancelled = true
+      activeRoom.off(RoomEvent.Disconnected, handleDisconnected)
       void activeRoom.disconnect()
     }
     // 최초 접속 정보로 한 번만 연결한다. 재연결이 필요한 경우는 이 화면을 다시 마운트해서 처리한다.
@@ -254,7 +283,11 @@ function StudySessionRoomStage({
   const cameraTracks = useTracks([Track.Source.Camera]).filter(isTrackReference)
   const micTracks = useTracks([Track.Source.Microphone]).filter(isTrackReference)
   const screenShareTracks = useTracks([Track.Source.ScreenShare]).filter(isTrackReference)
-  const activeScreenShareTrack = screenShareTracks[0] ?? null
+
+  const screenShareLabel = (trackRef: (typeof screenShareTracks)[number]) =>
+    trackRef.participant.isLocal
+      ? '내 화면'
+      : `${trackRef.participant.name || trackRef.participant.identity}님의 화면`
 
   // LiveKit participant.identity(문자열)를 기존 코드 전반(order/lockedIds/stageMode 등)이 쓰는
   // number id로 바꿔주는 안정적인 매핑. 본인은 항상 0, 나머지는 처음 본 순서대로 1부터 채번한다.
@@ -356,13 +389,59 @@ function StudySessionRoomStage({
     return map
   }, [micTracks, resolveParticipantId])
 
+  // LiveKit이 오디오 레벨 임계값 기반으로 판별한 현재 발화자 목록. 타일 테두리 강조에 쓴다.
+  const speakingParticipants = useSpeakingParticipants()
+  const speakingIds = useMemo(
+    () =>
+      new Set(
+        speakingParticipants.map((participant) =>
+          resolveParticipantId(participant.identity, participant.isLocal),
+        ),
+      ),
+    [speakingParticipants, resolveParticipantId],
+  )
+
+  // 마이크 트랙이 아예 없거나(꺼짐) 트랙이 음소거 상태면 그 참가자는 음소거로 본다.
+  const isMicMuted = useCallback(
+    (participant: StudyParticipant) => {
+      if (participant.isSelf) return !isMicrophoneEnabled
+      const trackRef = micTrackByParticipantId.get(participant.participantId)
+      return !trackRef || trackRef.publication.isMuted
+    },
+    [isMicrophoneEnabled, micTrackByParticipantId],
+  )
+
+  // 화면을 공유 중인 참가자 id 집합. 카메라 타일에 공유 중 아이콘을 띄우는 데 쓴다.
+  const sharingParticipantIds = useMemo(() => {
+    const set = new Set<number>()
+    for (const trackRef of screenShareTracks) {
+      set.add(resolveParticipantId(trackRef.participant.identity, trackRef.participant.isLocal))
+    }
+    return set
+  }, [screenShareTracks, resolveParticipantId])
+
+  // 참가자별 LiveKit identity. 강퇴 API는 identity가 아니라 userId를 받으므로 보관해 둔다.
+  const identityByParticipantId = useMemo(() => {
+    const map = new Map<number, string>()
+    for (const participant of remoteParticipants) {
+      map.set(resolveParticipantId(participant.identity, false), participant.identity)
+    }
+    return map
+  }, [remoteParticipants, resolveParticipantId])
+
   const selfId = participants.find((participant) => participant.isSelf)?.participantId ?? null
+  const isHost = connection.role === 'HOST'
 
   const [panelOpen, setPanelOpen] = useState(false)
   const [micGain, setMicGain] = useState(initialDevices.micGain)
   const [speakerMuted, setSpeakerMuted] = useState(false)
   const [speakerVolume, setSpeakerVolume] = useState(initialDevices.speakerVolume)
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  const [leaveError, setLeaveError] = useState<string | null>(null)
+  const [kickTarget, setKickTarget] = useState<{ participantId: number; name: string } | null>(null)
+  const [kicking, setKicking] = useState(false)
+  const [kickError, setKickError] = useState<string | null>(null)
   const [stageMode, setStageMode] = useState<StageMode>({ type: 'grid' })
   const [stripCollapsed, setStripCollapsed] = useState(false)
   const [order, setOrder] = useState<number[]>([0])
@@ -388,18 +467,33 @@ function StudySessionRoomStage({
     setOrder([...kept, ...added])
   }
 
-  // 참가자(본인 포함)의 화면 공유가 시작되면 자동으로 스테이지로 전환하고, 끝나면 그리드로 되돌아간다.
-  const activeScreenShareSid = activeScreenShareTrack?.publication.trackSid ?? null
-  const [prevScreenShareSid, setPrevScreenShareSid] = useState(activeScreenShareSid)
+  // 새 화면 공유가 시작되면 자동으로 그 화면을 확대한다. 이미 다른 공유를 보고 있으면 시선을 뺏지 않는다.
+  // (렌더 중 상태 조정 패턴)
+  const screenShareSids = screenShareTracks.map((trackRef) => trackRef.publication.trackSid)
+  const [prevScreenShareSids, setPrevScreenShareSids] = useState(screenShareSids)
+  const screenShareSidsChanged =
+    screenShareSids.length !== prevScreenShareSids.length ||
+    screenShareSids.some((sid, index) => sid !== prevScreenShareSids[index])
 
-  if (activeScreenShareSid !== prevScreenShareSid) {
-    setPrevScreenShareSid(activeScreenShareSid)
-    if (activeScreenShareSid && stageMode.type !== 'screen') {
-      setStageMode({ type: 'screen' })
-    } else if (!activeScreenShareSid && stageMode.type === 'screen') {
-      setStageMode({ type: 'grid' })
+  if (screenShareSidsChanged) {
+    setPrevScreenShareSids(screenShareSids)
+    const addedSid = screenShareSids.find((sid) => !prevScreenShareSids.includes(sid))
+    if (addedSid && stageMode.type !== 'screen') {
+      setStageMode({ type: 'screen', sid: addedSid })
     }
   }
+
+  // 보고 있던 공유가 끝나면 남아 있는 다른 공유로 넘어가고, 더 없으면 그리드로 복귀한다.
+  if (stageMode.type === 'screen' && !screenShareSids.includes(stageMode.sid)) {
+    setStageMode(
+      screenShareSids.length > 0 ? { type: 'screen', sid: screenShareSids[0] } : { type: 'grid' },
+    )
+  }
+
+  const stageScreenShareTrack =
+    stageMode.type === 'screen'
+      ? (screenShareTracks.find((trackRef) => trackRef.publication.trackSid === stageMode.sid) ?? null)
+      : null
 
   useEffect(() => {
     if (!contextMenu) return
@@ -424,9 +518,16 @@ function StudySessionRoomStage({
   )
 
   // 셀을 꽉 채우는 대신, 레터박스가 가장 적게 남도록 타일 크기 자체를 4:3으로 계산한다.
+  // 그리드에는 참가자 카메라와 진행 중인 화면 공유가 모두 타일로 배치되므로 둘을 합쳐 센다.
   const gridTileSize = useMemo(
-    () => computeGridTileSize(participants.length, gridSize?.width ?? 0, gridSize?.height ?? 0, GRID_GAP),
-    [participants.length, gridSize],
+    () =>
+      computeGridTileSize(
+        participants.length + screenShareTracks.length,
+        gridSize?.width ?? 0,
+        gridSize?.height ?? 0,
+        GRID_GAP,
+      ),
+    [participants.length, screenShareTracks.length, gridSize],
   )
 
   const stageParticipants = useMemo(() => {
@@ -446,11 +547,8 @@ function StudySessionRoomStage({
     void localParticipant.setScreenShareEnabled(!isScreenShareEnabled)
   }
 
-  // 우클릭 메뉴의 "그리드로 보기"에서만 쓴다. 화면 접기 버튼은 더 이상 그리드로 돌아가지 않는다.
+  // 확대만 해제하고 그리드로 돌아간다. 진행 중인 화면 공유는 그리드에 타일로 남으므로 중단하지 않는다.
   const handleReturnToGrid = () => {
-    if (stageMode.type === 'screen' && isScreenShareEnabled) {
-      void localParticipant.setScreenShareEnabled(false)
-    }
     setStageMode({ type: 'grid' })
   }
 
@@ -538,9 +636,54 @@ function StudySessionRoomStage({
     })
   }
 
-  const handleConfirmLeave = () => {
-    setLeaveDialogOpen(false)
-    onLeave()
+  // 방장이 나가면 세션 자체를 종료한다 — 참가자만 따로 나가는 API는 없고, 방장이 없는 세션을 계속
+  // 유지할 방법도 없기 때문이다. 종료 요청이 실패하면 나가기를 진행하지 않고 재시도할 수 있게 한다.
+  const handleConfirmLeave = async () => {
+    if (!isHost) {
+      setLeaveDialogOpen(false)
+      onLeave()
+      return
+    }
+
+    setLeaving(true)
+    setLeaveError(null)
+    try {
+      await endStudySession(connection.sessionId)
+      setLeaveDialogOpen(false)
+      onLeave()
+    } catch (error) {
+      setLeaveError(toErrorMessage(error))
+    } finally {
+      setLeaving(false)
+    }
+  }
+
+  const openKickConfirm = (participantId: number) => {
+    const participant = participants.find((entry) => entry.participantId === participantId)
+    if (!participant) return
+    setKickError(null)
+    setKickTarget({ participantId, name: participant.name })
+  }
+
+  const handleConfirmKick = async () => {
+    if (!kickTarget) return
+    const identity = identityByParticipantId.get(kickTarget.participantId)
+    const targetUserId = identity ? parseUserIdFromIdentity(identity) : null
+    if (targetUserId === null) {
+      setKickError('참가자 정보를 확인할 수 없습니다.')
+      return
+    }
+
+    setKicking(true)
+    setKickError(null)
+    try {
+      await kickStudySessionParticipant(connection.sessionId, targetUserId)
+      setKickTarget(null)
+    } catch (error) {
+      setKickError(toErrorMessage(error))
+    } finally {
+      setKicking(false)
+    }
   }
 
   // 패널이 열고 닫힐 폭만큼 그리드/스테이지 폭을 미리 계산해 둔다 — 실측 리사이즈 이벤트를
@@ -587,6 +730,9 @@ function StudySessionRoomStage({
                   >
                     <ParticipantTile
                       participant={participant}
+                      speaking={speakingIds.has(participant.participantId)}
+                      micMuted={isMicMuted(participant)}
+                      sharingScreen={sharingParticipantIds.has(participant.participantId)}
                       trackRef={cameraTrackByParticipantId.get(participant.participantId) ?? null}
                       audioTrackRef={
                         participant.isSelf ? null : (micTrackByParticipantId.get(participant.participantId) ?? null)
@@ -602,6 +748,25 @@ function StudySessionRoomStage({
                     />
                   </div>
                 ))}
+
+                {screenShareTracks.map((trackRef) => (
+                  <div
+                    key={trackRef.publication.trackSid}
+                    className="shrink-0 transition-[width,height] ease-standard duration-(--duration-base)"
+                    style={
+                      gridTileSize.width > 0
+                        ? { width: gridTileSize.width, height: gridTileSize.height }
+                        : { width: '30%', aspectRatio: CAMERA_ASPECT }
+                    }
+                  >
+                    <ScreenShareTile
+                      trackRef={trackRef}
+                      label={screenShareLabel(trackRef)}
+                      onSelect={() => setStageMode({ type: 'screen', sid: trackRef.publication.trackSid })}
+                      className="h-full w-full"
+                    />
+                  </div>
+                ))}
               </div>
             ) : (
               <div key="stage" className="screen-fade-in flex h-full min-h-0 flex-col gap-2">
@@ -611,6 +776,22 @@ function StudySessionRoomStage({
                     stripCollapsed ? 'h-0' : 'h-24',
                   )}
                 >
+                  {/* 지금 확대해서 보고 있는 공유 화면은 아래 스테이지에 이미 보이므로 위 줄에서는 뺀다. */}
+                  {screenShareTracks
+                    .filter(
+                      (trackRef) =>
+                        !(stageMode.type === 'screen' && trackRef.publication.trackSid === stageMode.sid),
+                    )
+                    .map((trackRef) => (
+                      <ScreenShareTile
+                        key={trackRef.publication.trackSid}
+                        trackRef={trackRef}
+                        label={screenShareLabel(trackRef)}
+                        onSelect={() => setStageMode({ type: 'screen', sid: trackRef.publication.trackSid })}
+                        className="aspect-12/9 h-24 w-auto shrink-0"
+                      />
+                    ))}
+
                   {/* 확대된 참가자는 아래 스테이지에 이미 보이므로 위 줄에는 남겨두지 않는다. */}
                   {orderedParticipants
                     .filter((participant) => !stagePinnedIds.includes(participant.participantId))
@@ -618,6 +799,9 @@ function StudySessionRoomStage({
                       <ParticipantTile
                         key={participant.participantId}
                         participant={participant}
+                        speaking={speakingIds.has(participant.participantId)}
+                        micMuted={isMicMuted(participant)}
+                        sharingScreen={sharingParticipantIds.has(participant.participantId)}
                         trackRef={cameraTrackByParticipantId.get(participant.participantId) ?? null}
                         audioTrackRef={
                           participant.isSelf ? null : (micTrackByParticipantId.get(participant.participantId) ?? null)
@@ -653,8 +837,25 @@ function StudySessionRoomStage({
                   className="flex min-h-0 flex-1 flex-wrap content-center items-center justify-center gap-3 overflow-hidden"
                 >
                   {stageMode.type === 'screen' ? (
-                    activeScreenShareTrack ? (
-                      <VideoTrack trackRef={activeScreenShareTrack} className="size-full bg-black object-contain" />
+                    stageScreenShareTrack ? (
+                      <div className="relative size-full overflow-hidden rounded-ait-m">
+                        <VideoTrack
+                          trackRef={stageScreenShareTrack}
+                          className="size-full bg-black object-contain"
+                        />
+                        <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-ait-s bg-black/60 px-2.5 py-1 text-caption text-white">
+                          <ScreenShare className="size-3.5 shrink-0" aria-hidden="true" />
+                          {screenShareLabel(stageScreenShareTrack)}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label="확대 종료하고 그리드로 보기"
+                          onClick={handleReturnToGrid}
+                          className="absolute right-3 top-3 flex size-7 items-center justify-center rounded-ait-s bg-black/60 text-white transition-colors hover:bg-black/80"
+                        >
+                          <X className="size-4" aria-hidden="true" />
+                        </button>
+                      </div>
                     ) : null
                   ) : (
                     stageParticipants.map((participant) => (
@@ -669,6 +870,9 @@ function StudySessionRoomStage({
                       >
                         <ParticipantTile
                           participant={participant}
+                          speaking={speakingIds.has(participant.participantId)}
+                          micMuted={isMicMuted(participant)}
+                          sharingScreen={sharingParticipantIds.has(participant.participantId)}
                           trackRef={cameraTrackByParticipantId.get(participant.participantId) ?? null}
                           audioTrackRef={
                             participant.isSelf ? null : (micTrackByParticipantId.get(participant.participantId) ?? null)
@@ -741,6 +945,19 @@ function StudySessionRoomStage({
                     className="block w-full border-t border-border-default px-3 py-2 text-left text-body-2 text-text-primary hover:bg-status-neutral-surface"
                   >
                     전체 그리드로 보기
+                  </button>
+                ) : null}
+                {isHost && identityByParticipantId.has(contextMenu.participantId) ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      openKickConfirm(contextMenu.participantId)
+                      setContextMenu(null)
+                    }}
+                    className="block w-full border-t border-border-default px-3 py-2 text-left text-body-2 text-status-error hover:bg-status-neutral-surface"
+                  >
+                    강퇴
                   </button>
                 ) : null}
               </div>
@@ -827,18 +1044,57 @@ function StudySessionRoomStage({
         </div>
       </div>
 
-      <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
+      <Dialog
+        open={leaveDialogOpen}
+        onOpenChange={(open) => {
+          if (leaving) return
+          setLeaveDialogOpen(open)
+          if (!open) setLeaveError(null)
+        }}
+      >
         <DialogContent className="w-[min(26rem,calc(100vw-2rem))] p-6" showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>세션에서 나갈까요?</DialogTitle>
-            <DialogDescription>나가면 화상 스터디 세션 연결이 종료됩니다.</DialogDescription>
+            <DialogTitle>{isHost ? '세션을 종료할까요?' : '세션에서 나갈까요?'}</DialogTitle>
+            <DialogDescription>
+              {isHost
+                ? '방장이 나가면 세션이 종료되고 모든 참가자와의 연결이 끊어집니다.'
+                : '나가면 화상 스터디 세션 연결이 종료됩니다.'}
+            </DialogDescription>
           </DialogHeader>
+          {leaveError ? <p className="mt-3 text-body-2 text-status-error">{leaveError}</p> : null}
           <DialogFooter className="mt-6">
-            <Button type="button" variant="text" onClick={() => setLeaveDialogOpen(false)}>
+            <Button type="button" variant="text" disabled={leaving} onClick={() => setLeaveDialogOpen(false)}>
               계속 참여
             </Button>
-            <Button type="button" variant="destructive" onClick={handleConfirmLeave}>
-              나가기
+            <Button type="button" variant="destructive" disabled={leaving} onClick={() => void handleConfirmLeave()}>
+              {isHost ? (leaving ? '종료 중…' : '세션 종료') : '나가기'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={kickTarget !== null}
+        onOpenChange={(open) => {
+          if (kicking) return
+          if (!open) {
+            setKickTarget(null)
+            setKickError(null)
+          }
+        }}
+      >
+        <DialogContent className="w-[min(26rem,calc(100vw-2rem))] p-6" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>{kickTarget?.name}님을 강퇴할까요?</DialogTitle>
+            <DialogDescription>강퇴하면 이 세션에 다시 참여할 수 없습니다.</DialogDescription>
+          </DialogHeader>
+          {kickError ? <p className="mt-3 text-body-2 text-status-error">{kickError}</p> : null}
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="text" disabled={kicking} onClick={() => setKickTarget(null)}>
+              취소
+            </Button>
+            <Button type="button" variant="destructive" disabled={kicking} onClick={() => void handleConfirmKick()}>
+              {kicking ? '강퇴 중…' : '강퇴'}
             </Button>
           </DialogFooter>
         </DialogContent>
