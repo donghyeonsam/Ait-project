@@ -4,10 +4,11 @@ import SockJS from 'sockjs-client'
 import { backendRequest } from '@/api/http'
 import { getStoredAccessToken } from '@/api/auth-storage'
 
-const backendBaseUrl = (import.meta.env.VITE_BE_API_URL ?? '/backend').replace(
-  /\/$/,
-  '',
-)
+// WebSocket은 Vercel의 /backend rewrite를 거치지 않고 Spring Boot 서버에 직접 연결한다.
+// 로컬·별도 배포 환경에서는 VITE_WS_URL로 연결 대상을 재정의할 수 있다.
+const websocketBaseUrl = (
+  import.meta.env.VITE_WS_URL ?? 'https://i15d202.p.ssafy.io'
+).replace(/\/$/, '')
 
 export interface StudyGroupChatMessage {
   chatId: number
@@ -17,6 +18,19 @@ export interface StudyGroupChatMessage {
   profileImageUrl: string | null
   message: string
   createdAt: string
+  reactions?: StudyGroupChatReactionSummary[]
+}
+
+export interface StudyGroupChatReactionSummary {
+  emoji: string
+  count: number
+  userIds: number[]
+}
+
+export interface StudyGroupChatReactionUpdate {
+  groupId: number
+  chatId: number
+  reactions: StudyGroupChatReactionSummary[]
 }
 
 export interface StudyGroupChatCursorResult {
@@ -40,6 +54,7 @@ export function getStudyGroupChats(groupId: number, lastChatId?: number) {
 interface StudyGroupChatSocketHandlers {
   onMessage: (message: StudyGroupChatMessage) => void
   onNotice: (notice: StudyGroupChatNotice) => void
+  onReaction: (reaction: StudyGroupChatReactionUpdate) => void
   onError?: (message: string) => void
   onConnect?: () => void
   onDisconnect?: () => void
@@ -51,7 +66,7 @@ export function connectStudyGroupChat(
   handlers: StudyGroupChatSocketHandlers,
 ) {
   const client = new Client({
-    webSocketFactory: () => new SockJS(`${backendBaseUrl}/ws/chat`),
+    webSocketFactory: () => new SockJS(`${websocketBaseUrl}/ws/chat`),
     connectHeaders: {
       Authorization: `Bearer ${getStoredAccessToken() ?? ''}`,
     },
@@ -67,6 +82,14 @@ export function connectStudyGroupChat(
         `/topic/study-groups/${groupId}/notices`,
         (frame: IMessage) => {
           handlers.onNotice(JSON.parse(frame.body) as StudyGroupChatNotice)
+        },
+      )
+      client.subscribe(
+        `/topic/study-groups/${groupId}/reactions`,
+        (frame: IMessage) => {
+          handlers.onReaction(
+            JSON.parse(frame.body) as StudyGroupChatReactionUpdate,
+          )
         },
       )
       handlers.onConnect?.()
@@ -112,5 +135,17 @@ export function sendStudyGroupChatNotice(
 export function deleteStudyGroupChatNotice(client: Client, groupId: number) {
   client.publish({
     destination: `/app/study-groups/${groupId}/notices/delete`,
+  })
+}
+
+export function toggleStudyGroupChatReaction(
+  client: Client,
+  groupId: number,
+  chatId: number,
+  emoji: string,
+) {
+  client.publish({
+    destination: `/app/study-groups/${groupId}/messages/${chatId}/reactions`,
+    body: JSON.stringify({ emoji }),
   })
 }

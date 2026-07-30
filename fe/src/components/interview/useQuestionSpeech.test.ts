@@ -105,9 +105,11 @@ describe('useQuestionSpeech', () => {
     expect(audio?.src).toBe('blob:question-audio')
     expect(audio?.volume).toBe(0.7)
     expect(result.current.isSpeaking).toBe(true)
+    expect(result.current.completedSpeechKey).toBeNull()
 
     act(() => audio?.onended?.())
     expect(result.current.isSpeaking).toBe(false)
+    expect(result.current.completedSpeechKey).toBe('첫 번째 질문입니다.')
     unmount()
   })
 
@@ -134,6 +136,9 @@ describe('useQuestionSpeech', () => {
     expect(utterance?.text).toBe('첫 번째 질문입니다.')
     expect(utterance?.lang).toBe('ko-KR')
     expect(result.current.isSpeaking).toBe(true)
+
+    act(() => utterance?.onend?.())
+    expect(result.current.completedSpeechKey).toBe('첫 번째 질문입니다.')
     unmount()
   })
 
@@ -145,6 +150,7 @@ describe('useQuestionSpeech', () => {
     expect(result.current.error).toContain('질문 다시 듣기')
     expect(speak).not.toHaveBeenCalled()
     expect(result.current.isSpeaking).toBe(false)
+    expect(result.current.completedSpeechKey).toBeNull()
 
     playBlocked = false
     await act(async () => result.current.replay())
@@ -163,6 +169,7 @@ describe('useQuestionSpeech', () => {
     await flushSpeech()
 
     expect(result.current.isSpeaking).toBe(false)
+    expect(result.current.completedSpeechKey).toBe('첫 번째 질문입니다.')
     unmount()
   })
 

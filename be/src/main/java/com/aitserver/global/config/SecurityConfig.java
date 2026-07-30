@@ -1,5 +1,6 @@
 package com.aitserver.global.config;
 
+import com.aitserver.global.filter.JwtAuthenticationEntryPoint;
 import com.aitserver.global.filter.JwtAuthenticationFilter;
 import com.aitserver.global.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final StringRedisTemplate redisTemplate;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -54,6 +56,13 @@ public class SecurityConfig {
 
                 // HTTP Basic 인증 비활성화
                 .httpBasic(AbstractHttpConfigurer::disable)
+
+                // 인증 실패 시 기본 403 대신 401 JSON을 반환(프론트 자동 재발급 트리거용)
+                .exceptionHandling(exception ->
+                        exception.authenticationEntryPoint(
+                                jwtAuthenticationEntryPoint
+                        )
+                )
 
                 // 현재 개발 단계에서는 모든 요청 허용
                 .authorizeHttpRequests(auth -> auth

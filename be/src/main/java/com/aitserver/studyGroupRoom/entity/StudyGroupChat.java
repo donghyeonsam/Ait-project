@@ -9,6 +9,8 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "study_group_chats")
@@ -34,6 +36,10 @@ public class StudyGroupChat {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id ASC")
+    private List<StudyGroupChatReaction> reactions = new ArrayList<>();
 
     @Builder
     public StudyGroupChat(StudyGroup studyGroup, User user, String message) {

@@ -12,6 +12,7 @@ import { PageLayout } from '@/components/layout/PageLayout'
 import { QuestionGenerationStage } from '@/components/interview/QuestionGenerationStage'
 import { SessionTheater } from '@/components/interview/SessionTheater'
 import { useAnswerCountdown } from '@/components/interview/useAnswerCountdown'
+import { useAutoRecordingAfterSpeech } from '@/components/interview/useAutoRecordingAfterSpeech'
 import { useMediaDevices } from '@/components/interview/useMediaDevices'
 import { useQuestionSpeech } from '@/components/interview/useQuestionSpeech'
 import { useVoiceAnswer } from '@/components/interview/useVoiceAnswer'
@@ -57,7 +58,7 @@ const difficultyMap: Record<Difficulty, InterviewRecord['difficulty']> = {
 
 // 대기 화면 페이드아웃(--duration-slow)과 같은 값. 전환 시 두 시간이 함께 움직여야 한다.
 const STAGE_EXIT_FADE_MS = 400
-const ANSWER_DURATION_SECONDS = 60
+const ANSWER_DURATION_SECONDS = 90
 
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
@@ -280,9 +281,17 @@ function ActiveInterviewSession({
   })
   const questionSpeech = useQuestionSpeech({
     text: question.question,
+    speechKey: questionKey,
     volume: speakerVolume,
     muted: speakerMuted,
     enabled: Boolean(stream),
+  })
+  const resetAutoRecording = useAutoRecordingAfterSpeech({
+    questionKey,
+    completedSpeechKey: questionSpeech.completedSpeechKey,
+    enabled: Boolean(stream) && !micMuted,
+    answerStatus: voiceAnswer.status,
+    startRecording: voiceAnswer.startRecording,
   })
 
   const isLastQuestion = questionIndex === sessionQuestions.length - 1
@@ -393,49 +402,45 @@ function ActiveInterviewSession({
   ])
 
   const primaryActionDisabled =
-    questionSpeech.isSpeaking ||
-    !stream ||
-    micMuted ||
     isSubmittingAnswer ||
-    voiceAnswer.status === 'processing' ||
-    (voiceAnswer.status === 'review' && !voiceAnswer.transcript.trim())
+    voiceAnswer.status !== 'review' ||
+    !voiceAnswer.transcript.trim()
 
   const handlePrimaryAction = useCallback(() => {
     if (primaryActionDisabled) return
-
-    if (voiceAnswer.status === 'recording') {
-      voiceAnswer.stopRecording()
-      return
-    }
     if (voiceAnswer.status === 'review') {
       void handleSubmitAnswer()
-      return
-    }
-    if (
-      voiceAnswer.status === 'idle' ||
-      voiceAnswer.status === 'error'
-    ) {
-      voiceAnswer.startRecording()
     }
   }, [handleSubmitAnswer, primaryActionDisabled, voiceAnswer])
 
   const primaryActionLabel = isSubmittingAnswer
     ? '답변 분석 중'
-    : voiceAnswer.status === 'recording'
-      ? '녹음 중지'
-      : voiceAnswer.status === 'processing'
-        ? '음성 처리 중'
-        : voiceAnswer.status === 'review'
-          ? isLastQuestion
-            ? '마지막 답변 제출'
-            : '답변 제출'
-          : '답변 녹음 시작'
+    : isLastQuestion
+      ? '마지막 답변 제출'
+      : '답변 제출'
+
+  const replayQuestion = questionSpeech.replay
+  const resetVoiceAnswer = voiceAnswer.reset
+  const voiceAnswerStatus = voiceAnswer.status
+  const handleReplayQuestion = useCallback(() => {
+    if (voiceAnswerStatus === 'error') {
+      resetAutoRecording()
+      resetVoiceAnswer()
+    }
+    replayQuestion()
+  }, [
+    replayQuestion,
+    resetAutoRecording,
+    resetVoiceAnswer,
+    voiceAnswerStatus,
+  ])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
         endDialogOpen ||
         event.code !== 'Space' ||
+        voiceAnswer.status !== 'review' ||
         isTypingTarget(event.target)
       ) {
         return
@@ -446,7 +451,7 @@ function ActiveInterviewSession({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [endDialogOpen, handlePrimaryAction])
+  }, [endDialogOpen, handlePrimaryAction, voiceAnswer.status])
 
   // 답변을 하나라도 제출했으면 분석 대기 기록으로 이동하고, 아니면 면접 설정으로 돌아간다.
   const handleConfirmEnd = () => {
@@ -491,7 +496,7 @@ function ActiveInterviewSession({
         primaryActionDisabled={primaryActionDisabled}
         onPrimaryAction={handlePrimaryAction}
         isAiSpeaking={questionSpeech.isSpeaking}
-        onReplayQuestion={questionSpeech.replay}
+        onReplayQuestion={handleReplayQuestion}
         replayDisabled={
           !stream ||
           questionSpeech.isSpeaking ||

@@ -1,5 +1,16 @@
 import { useState } from 'react'
-import { FilePenLine, FileText, Search } from 'lucide-react'
+import {
+  CheckCircle2,
+  FilePenLine,
+  FileText,
+  Search,
+  UserRound,
+} from 'lucide-react'
+import { CountUp } from '@/components/reactbits/CountUp'
+import {
+  StudyEvaluationRadar,
+  type StudyEvaluationScores,
+} from '@/components/study/StudyEvaluationRadar'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -7,9 +18,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { studyEvaluationCategories, type StudyParticipant } from '@/mocks/study'
+import {
+  studyEvaluationCategories,
+  type StudyEvaluationCategory,
+  type StudyParticipant,
+} from '@/mocks/study'
 import { cn } from '@/lib/utils'
 
 type SidePanelTab = 'documents' | 'evaluation'
@@ -26,6 +40,16 @@ const tabs: Array<{ id: SidePanelTab; label: string }> = [
 
 const commentMaxLength = 100
 
+function createDefaultEvaluationScores(): StudyEvaluationScores {
+  return studyEvaluationCategories.reduce<StudyEvaluationScores>(
+    (result, category) => {
+      result[category] = 5
+      return result
+    },
+    {} as StudyEvaluationScores,
+  )
+}
+
 // 세션 우측 패널: 참가자 이력서·자소서 열람과 참가자 평가 입력을 탭으로 전환한다.
 export function StudySessionSidePanel({ participants }: StudySessionSidePanelProps) {
   const otherParticipants = participants.filter((participant) => !participant.isSelf)
@@ -33,20 +57,35 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
   const [documentTargetId, setDocumentTargetId] = useState(otherParticipants[0]?.participantId ?? null)
   const [openDocumentType, setOpenDocumentType] = useState<DocumentType | null>(null)
   const [evaluationTargetId, setEvaluationTargetId] = useState(otherParticipants[0]?.participantId ?? null)
-  const [scores, setScores] = useState<Record<string, string>>({})
+  const [scores, setScores] = useState<StudyEvaluationScores>(
+    createDefaultEvaluationScores,
+  )
   const [comment, setComment] = useState('')
 
   const documentTarget = participants.find((participant) => participant.participantId === documentTargetId) ?? null
 
-  const handleScoreChange = (category: string, value: string) => {
-    if (value !== '' && !/^\d{0,2}$/.test(value)) return
-    setScores((prev) => ({ ...prev, [category]: value }))
+  const isEvaluationComplete = evaluationTargetId !== null
+  const averageScore =
+    studyEvaluationCategories.reduce(
+      (total, category) => total + scores[category],
+      0,
+    ) / studyEvaluationCategories.length
+
+  const handleScoreChange = (
+    category: StudyEvaluationCategory,
+    value: number,
+  ) => {
+    if (!Number.isFinite(value)) return
+    const normalizedScore = Math.min(Math.max(Math.round(value), 0), 10)
+    setScores((prev) => ({ ...prev, [category]: normalizedScore }))
   }
 
   const handleSubmitEvaluation = () => {
+    if (!isEvaluationComplete) return
+
     // TODO: 실제 API 연동 필요 — 평가 제출 API로 교체. 지금은 입력값만 확인한다.
     console.log('스터디 세션 평가 제출', { targetId: evaluationTargetId, scores, comment })
-    setScores({})
+    setScores(createDefaultEvaluationScores())
     setComment('')
   }
 
@@ -140,17 +179,29 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-5">
-            <div>
-              <label htmlFor="evaluation-target-select" className="text-body-2 font-medium text-text-primary">
+          <div className="flex flex-col gap-4">
+            <div className="rounded-ait-m border border-border-default bg-surface-default p-4 shadow-elevation-1">
+              <label
+                htmlFor="evaluation-target-select"
+                className="flex items-center gap-2 text-body-2 font-semibold text-text-primary"
+              >
+                <UserRound className="size-4 text-text-secondary" aria-hidden="true" />
                 평가 대상
               </label>
               <select
                 id="evaluation-target-select"
                 className="mt-2 w-full rounded-ait-s border border-border-default bg-surface-default px-3 py-2 text-body-2 text-text-primary focus:border-action-primary focus:outline-none focus:ring-3 focus:ring-action-primary/25"
                 value={evaluationTargetId ?? ''}
-                onChange={(event) => setEvaluationTargetId(Number(event.target.value))}
+                onChange={(event) => {
+                  setEvaluationTargetId(Number(event.target.value))
+                  setScores(createDefaultEvaluationScores())
+                  setComment('')
+                }}
+                disabled={otherParticipants.length === 0}
               >
+                {otherParticipants.length === 0 ? (
+                  <option value="">평가할 참가자가 없습니다</option>
+                ) : null}
                 {otherParticipants.map((participant) => (
                   <option key={participant.participantId} value={participant.participantId}>
                     {participant.name}
@@ -159,48 +210,140 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
               </select>
             </div>
 
-            <div className="flex flex-col gap-3">
-              {studyEvaluationCategories.map((category) => (
-                <div key={category} className="flex items-center justify-between gap-3">
-                  <label htmlFor={`score-${category}`} className="text-body-2 text-text-primary">
-                    {category}
-                  </label>
-                  <div className="flex items-center gap-1.5">
-                    <Input
-                      id={`score-${category}`}
-                      inputMode="numeric"
-                      value={scores[category] ?? ''}
-                      onChange={(event) => handleScoreChange(category, event.target.value)}
-                      className="h-9 w-16 text-center"
-                      aria-describedby={`score-${category}-unit`}
-                    />
-                    <span id={`score-${category}-unit`} className="text-caption text-text-secondary">
-                      /10
-                    </span>
+            <StudyEvaluationRadar scores={scores} />
+
+            <section className="rounded-ait-m border border-border-default bg-surface-default p-4 shadow-elevation-1">
+              <div className="mb-2 flex items-end justify-between gap-3">
+                <h2 className="text-body-2 font-semibold text-text-primary">
+                  항목별 점수
+                </h2>
+                <p
+                  id="evaluation-score-help"
+                  className="text-[11px] text-text-secondary"
+                >
+                  휠 또는 ↑↓로 조절
+                </p>
+              </div>
+
+              <div className="divide-y divide-border-default">
+                {studyEvaluationCategories.map((category) => (
+                  <div
+                    key={category}
+                    className="flex min-h-16 items-center justify-between gap-4 py-2.5"
+                  >
+                    <label
+                      htmlFor={`score-${category}`}
+                      className="text-body-1 font-medium text-text-primary"
+                    >
+                      {category}
+                    </label>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <div className="relative h-11 w-20 overflow-hidden rounded-ait-s border-2 border-action-primary bg-surface-default transition-[border-color,box-shadow] focus-within:ring-3 focus-within:ring-action-primary/20">
+                        <input
+                          id={`score-${category}`}
+                          type="number"
+                          min={0}
+                          max={10}
+                          step={1}
+                          inputMode="numeric"
+                          value={scores[category]}
+                          onChange={(event) =>
+                            handleScoreChange(
+                              category,
+                              event.currentTarget.valueAsNumber,
+                            )
+                          }
+                          onWheel={(event) => {
+                            event.preventDefault()
+                            const delta = event.deltaY < 0 ? 1 : -1
+                            handleScoreChange(
+                              category,
+                              scores[category] + delta,
+                            )
+                          }}
+                          onFocus={(event) => event.currentTarget.select()}
+                          aria-describedby="evaluation-score-help"
+                          className="absolute inset-0 z-10 size-full bg-transparent px-2 text-center text-transparent caret-transparent focus:outline-none"
+                        />
+                        <span
+                          className="pointer-events-none absolute inset-y-0 left-0 right-5 flex items-center justify-center text-body-1 font-bold tabular-nums text-action-primary"
+                          aria-hidden="true"
+                        >
+                          <CountUp
+                            from={5}
+                            to={scores[category]}
+                            duration={0.28}
+                          />
+                        </span>
+                      </div>
+                      <span className="w-7 text-caption tabular-nums text-text-secondary">
+                        /10
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </section>
+
+            <div
+              className="flex items-center justify-between rounded-ait-m border border-status-achievement-border bg-status-achievement-surface px-4 py-3"
+              aria-label={`5개 항목 평균 ${averageScore.toFixed(1)}점`}
+            >
+              <div>
+                <p className="text-body-2 font-semibold text-action-primary">
+                  5개 항목 평균
+                </p>
+                <p className="mt-0.5 text-caption text-text-secondary">
+                  입력한 점수에 따라 실시간으로 계산됩니다.
+                </p>
+              </div>
+              <strong className="flex items-baseline gap-1 text-h2 tabular-nums text-action-primary">
+                <CountUp
+                  from={5}
+                  to={averageScore}
+                  duration={0.38}
+                  decimals={1}
+                />
+                <span className="text-caption font-medium text-text-secondary">
+                  /10
+                </span>
+              </strong>
             </div>
 
-            <div>
-              <label htmlFor="evaluation-comment" className="text-body-2 font-medium text-text-primary">
-                코멘트
-              </label>
+            <div className="rounded-ait-m border border-border-default bg-surface-default p-4 shadow-elevation-1">
+              <div className="flex items-center justify-between gap-3">
+                <label
+                  htmlFor="evaluation-comment"
+                  className="text-body-2 font-semibold text-text-primary"
+                >
+                  한 줄 피드백
+                </label>
+                <span className="text-caption tabular-nums text-text-secondary">
+                  {comment.length}/{commentMaxLength}
+                </span>
+              </div>
               <Textarea
                 id="evaluation-comment"
                 value={comment}
                 maxLength={commentMaxLength}
                 onChange={(event) => setComment(event.target.value)}
-                placeholder="총평을 남겨주세요."
-                className="mt-2 min-h-24 resize-none"
+                placeholder="잘한 점과 보완할 점을 구체적으로 남겨주세요."
+                className="mt-2 min-h-24 resize-none shadow-none"
               />
-              <p className="mt-1 text-right text-caption text-text-secondary">
-                {comment.length}/{commentMaxLength}
-              </p>
             </div>
 
-            <Button type="button" className="w-full" onClick={handleSubmitEvaluation}>
-              평가 제출
+            <Button
+              type="button"
+              className="w-full"
+              disabled={!isEvaluationComplete}
+              onClick={handleSubmitEvaluation}
+            >
+              {isEvaluationComplete ? (
+                <CheckCircle2 className="size-5" aria-hidden="true" />
+              ) : null}
+              {isEvaluationComplete
+                ? '평가 제출'
+                : '평가할 참가자가 없습니다'}
             </Button>
           </div>
         )}

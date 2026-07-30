@@ -347,7 +347,10 @@ export function StudyPage() {
         )}
       </section>
 
-      <StudyChatFloatingButton onClick={() => setIsChatOpen(true)} />
+      <StudyChatFloatingButton
+        open={isChatOpen}
+        onClick={() => setIsChatOpen((current) => !current)}
+      />
       <StudyChatModal open={isChatOpen} onOpenChange={setIsChatOpen} />
       <StudyCreateDialog
         open={isCreateDialogOpen}
