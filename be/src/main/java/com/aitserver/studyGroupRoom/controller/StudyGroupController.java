@@ -12,7 +12,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -33,10 +32,12 @@ public class StudyGroupController {
     public ResponseEntity<ApiResponse<Page<StudyGroupListResponseDto>>> getStudyGroups(
             @RequestParam(required = false) StudyGroupStatus status,
             @RequestParam(required = false) String keyword,
-            @PageableDefault(size = 6, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @RequestParam(required = false, defaultValue = "latest") String sortBy,
+            @PageableDefault(size = 6) Pageable pageable,
+            @AuthenticationPrincipal Long userId,
             HttpServletRequest request
     ) {
-        Page<StudyGroupListResponseDto> response = studyGroupService.getStudyGroups(status, keyword, pageable);
+        Page<StudyGroupListResponseDto> response = studyGroupService.getStudyGroups(status, keyword, sortBy, userId, pageable);
 
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK,

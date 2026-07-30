@@ -1,4 +1,4 @@
-import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import {
   StudySessionRoom,
   type StudySessionRoomDeviceSelection,
@@ -27,11 +27,10 @@ function isStudySessionRoomNavigationState(
 export function StudySessionRoomPage() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { sessionId } = useParams<{ sessionId: string }>()
   const navState = location.state as unknown
 
   if (!isStudySessionRoomNavigationState(navState)) {
-    return <Navigate to={`/study/session/${sessionId ?? ''}/prejoin`} replace />
+    return <Navigate to="/study" replace />
   }
 
   const handleLeave = () => {

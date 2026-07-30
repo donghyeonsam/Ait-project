@@ -13,7 +13,9 @@ import com.aitserver.studyGroupRoom.repository.StudyGroupMemberRepository;
 import com.aitserver.studyGroupRoom.repository.StudyGroupRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,8 +30,28 @@ public class StudyGroupService {
     private final StudyGroupRepository studyGroupRepository;
     private final StudyGroupMemberRepository studyGroupMemberRepository;
 
-    public Page<StudyGroupListResponseDto> getStudyGroups(StudyGroupStatus status, String keyword, Pageable pageable) {
-        Page<StudyGroup> studyGroups = studyGroupRepository.findByCondition(status, keyword, pageable);
+    @Transactional(readOnly = true)
+    public Page<StudyGroupListResponseDto> getStudyGroups(
+            StudyGroupStatus status, String keyword, String sortBy, Long userId, Pageable pageable) {
+
+        String statusString = (status != null) ? status.name() : null;
+
+        List<String> excludedStatuses = List.of(
+                StudyGroupMemberStatus.ACTIVE.name(),
+                StudyGroupMemberStatus.KICKED.name(),
+                StudyGroupMemberStatus.PENDING.name()
+        );
+
+        Sort sort = "oldest".equalsIgnoreCase(sortBy)
+                ? Sort.by(Sort.Direction.ASC, "created_at")
+                : Sort.by(Sort.Direction.DESC, "created_at");
+
+        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
+
+        Page<StudyGroup> studyGroups = studyGroupRepository.findByConditionAndUserStatus(
+                statusString, keyword, userId, excludedStatuses, sortedPageable
+        );
+
         return studyGroups.map(StudyGroupListResponseDto::from);
     }
 

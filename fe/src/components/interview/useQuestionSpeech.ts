@@ -3,6 +3,7 @@ import { synthesizeQuestionSpeech, ttsResponseToBlob } from '@/api/speech'
 
 interface UseQuestionSpeechOptions {
   text: string
+  speechKey?: string
   volume: number
   muted: boolean
   enabled: boolean
@@ -15,13 +16,18 @@ function clampVolume(volume: number) {
 // 질문 텍스트를 서버 TTS mp3로 재생하고, 실패 시 브라우저 음성 합성으로 폴백한다.
 export function useQuestionSpeech({
   text,
+  speechKey = text,
   volume,
   muted,
   enabled,
 }: UseQuestionSpeechOptions) {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [completedSpeechKey, setCompletedSpeechKey] = useState<string | null>(
+    null,
+  )
   const textRef = useRef(text)
+  const speechKeyRef = useRef(speechKey)
   const volumeRef = useRef(volume)
   const mutedRef = useRef(muted)
   const enabledRef = useRef(enabled)
@@ -31,10 +37,11 @@ export function useQuestionSpeech({
 
   useEffect(() => {
     textRef.current = text
+    speechKeyRef.current = speechKey
     volumeRef.current = volume
     mutedRef.current = muted
     enabledRef.current = enabled
-  }, [enabled, muted, text, volume])
+  }, [enabled, muted, speechKey, text, volume])
 
   const invalidateSpeech = useCallback(() => {
     generationRef.current += 1
@@ -47,36 +54,50 @@ export function useQuestionSpeech({
     setIsSpeaking(false)
   }, [invalidateSpeech])
 
-  const speakWithSynthesis = useCallback((generation: number) => {
-    if (
-      typeof window === 'undefined' ||
-      !window.speechSynthesis ||
-      typeof SpeechSynthesisUtterance === 'undefined'
-    ) {
-      setError('질문 음성을 재생하지 못했습니다. 화면의 질문을 확인해주세요.')
-      return
-    }
+  const speakWithSynthesis = useCallback(
+    (generation: number, questionText: string, currentSpeechKey: string) => {
+      if (
+        typeof window === 'undefined' ||
+        !window.speechSynthesis ||
+        typeof SpeechSynthesisUtterance === 'undefined'
+      ) {
+        setError('질문 음성을 재생하지 못했습니다. 화면의 질문을 확인해주세요.')
+        setCompletedSpeechKey(currentSpeechKey)
+        return
+      }
 
-    const utterance = new SpeechSynthesisUtterance(textRef.current)
-    utterance.lang = 'ko-KR'
-    utterance.rate = 1
-    utterance.volume = clampVolume(volumeRef.current)
-    utterance.onstart = () => {
-      if (generationRef.current === generation) setIsSpeaking(true)
-    }
-    utterance.onend = () => {
-      if (generationRef.current === generation) setIsSpeaking(false)
-    }
-    utterance.onerror = () => {
-      if (generationRef.current !== generation) return
-      setIsSpeaking(false)
-      setError('질문 음성을 재생하지 못했습니다. 질문 다시 듣기를 눌러 재시도해주세요.')
-    }
-    window.speechSynthesis.speak(utterance)
-  }, [])
+      const utterance = new SpeechSynthesisUtterance(questionText)
+      utterance.lang = 'ko-KR'
+      utterance.rate = 1
+      utterance.volume = clampVolume(volumeRef.current)
+      utterance.onstart = () => {
+        if (generationRef.current === generation) setIsSpeaking(true)
+      }
+      utterance.onend = () => {
+        if (generationRef.current !== generation) return
+        setIsSpeaking(false)
+        setCompletedSpeechKey(currentSpeechKey)
+      }
+      utterance.onerror = () => {
+        if (generationRef.current !== generation) return
+        setIsSpeaking(false)
+        setError(
+          '질문 음성을 재생하지 못했습니다. 질문 다시 듣기를 눌러 재시도해주세요.',
+        )
+        setCompletedSpeechKey(currentSpeechKey)
+      }
+      window.speechSynthesis.speak(utterance)
+    },
+    [],
+  )
 
   const playFromUrl = useCallback(
-    async (url: string, generation: number) => {
+    async (
+      url: string,
+      generation: number,
+      questionText: string,
+      currentSpeechKey: string,
+    ) => {
       audioRef.current?.pause()
       const audio = new Audio()
       audio.src = url
@@ -85,7 +106,9 @@ export function useQuestionSpeech({
         if (generationRef.current === generation) setIsSpeaking(true)
       }
       audio.onended = () => {
-        if (generationRef.current === generation) setIsSpeaking(false)
+        if (generationRef.current !== generation) return
+        setIsSpeaking(false)
+        setCompletedSpeechKey(currentSpeechKey)
       }
       audio.onpause = () => {
         if (generationRef.current === generation) setIsSpeaking(false)
@@ -104,7 +127,7 @@ export function useQuestionSpeech({
           setError('질문 다시 듣기를 눌러 질문을 들어주세요.')
           return
         }
-        speakWithSynthesis(generation)
+        speakWithSynthesis(generation, questionText, currentSpeechKey)
       }
     },
     [speakWithSynthesis],
@@ -113,13 +136,20 @@ export function useQuestionSpeech({
   const speak = useCallback(() => {
     cancel()
     setError(null)
-    if (mutedRef.current || !enabledRef.current) return
+    setCompletedSpeechKey(null)
+    if (!enabledRef.current) return
+
+    const questionText = textRef.current
+    const currentSpeechKey = speechKeyRef.current
+    if (mutedRef.current) {
+      setCompletedSpeechKey(currentSpeechKey)
+      return
+    }
 
     const generation = generationRef.current
-    const questionText = textRef.current
     const cachedUrl = cacheRef.current.get(questionText)
     if (cachedUrl) {
-      void playFromUrl(cachedUrl, generation)
+      void playFromUrl(cachedUrl, generation, questionText, currentSpeechKey)
       return
     }
 
@@ -130,10 +160,10 @@ export function useQuestionSpeech({
         // 응답 대기 중 질문이 넘어갔어도 캐시에는 남겨 다음 히트에 재사용한다.
         cacheRef.current.set(questionText, url)
         if (generationRef.current !== generation) return
-        await playFromUrl(url, generation)
+        await playFromUrl(url, generation, questionText, currentSpeechKey)
       } catch {
         if (generationRef.current !== generation) return
-        speakWithSynthesis(generation)
+        speakWithSynthesis(generation, questionText, currentSpeechKey)
       }
     })()
   }, [cancel, playFromUrl, speakWithSynthesis])
@@ -144,7 +174,7 @@ export function useQuestionSpeech({
       window.clearTimeout(timer)
       invalidateSpeech()
     }
-  }, [enabled, invalidateSpeech, speak, text])
+  }, [enabled, invalidateSpeech, speak, speechKey, text])
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = clampVolume(volume)
@@ -154,7 +184,10 @@ export function useQuestionSpeech({
     if (!muted) return
 
     invalidateSpeech()
-    const timer = window.setTimeout(() => setIsSpeaking(false), 0)
+    const timer = window.setTimeout(() => {
+      setIsSpeaking(false)
+      if (enabledRef.current) setCompletedSpeechKey(speechKeyRef.current)
+    }, 0)
     return () => window.clearTimeout(timer)
   }, [invalidateSpeech, muted])
 
@@ -168,5 +201,5 @@ export function useQuestionSpeech({
     }
   }, [])
 
-  return { isSpeaking, error, replay: speak }
+  return { isSpeaking, error, completedSpeechKey, replay: speak }
 }

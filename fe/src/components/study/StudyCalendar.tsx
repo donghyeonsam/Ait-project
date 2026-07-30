@@ -2,12 +2,14 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Clock,
+  History,
   Pencil,
   Plus,
   Trash2,
   X,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -17,21 +19,47 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Dropdown, type DropdownOption } from '@/components/ui/dropdown'
 import { Input } from '@/components/ui/input'
+import { toErrorMessage } from '@/api/http'
+import {
+  createStudyCalendar,
+  deleteStudyCalendar,
+  getMonthlyStudyCalendars,
+  updateStudyCalendar,
+  type StudyCalendar as StudyCalendarItem,
+} from '@/api/study-calendars'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
-import type { StudyCalendarEvent } from '@/mocks/study-lounge'
 
 interface StudyCalendarProps {
-  events: StudyCalendarEvent[]
+  groupId: number
+}
+
+type RepeatValue = 'none' | '2' | '4' | '8'
+
+// 서버는 진행 내용 한 줄을 한 건으로 저장하므로, 같은 날짜의 여러 건을 날짜 단위로 묶어 화면에서 다룬다.
+interface StudyCalendarDay {
+  date: string
+  startTime: string
+  entries: { calendarId: number; content: string }[]
 }
 
 // 일정 추가·편집 폼이 다루는 상태로, agenda는 편집 중인 진행 내용 줄 목록이다.
 interface ScheduleFormState {
   mode: 'create' | 'edit'
   dateKey: string
+  startTime: string
+  repeat: RepeatValue
   agenda: string[]
 }
+
+const repeatOptions: DropdownOption<RepeatValue>[] = [
+  { value: 'none', label: '반복 안 함' },
+  { value: '2', label: '매주 · 2회' },
+  { value: '4', label: '매주 · 4회' },
+  { value: '8', label: '매주 · 8회' },
+]
 
 const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -46,18 +74,47 @@ function formatSelectedDate(dateKey: string) {
   return dateKey.replaceAll('-', '. ')
 }
 
+function addWeeksToDateKey(dateKey: string, weeks: number) {
+  const [year, month, day] = dateKey.split('-').map(Number)
+  return toDateKey(new Date(year, month - 1, day + weeks * 7))
+}
+
+// 서버의 LocalDateTime은 시간대 표기가 없어, Date로 바꾸지 않고 문자열에서 날짜와 시각을 잘라 쓴다.
+function toDayKeyAndTime(startTime: string) {
+  return { dateKey: startTime.slice(0, 10), time: startTime.slice(11, 16) }
+}
+
+function groupByDate(calendars: StudyCalendarItem[]) {
+  const daysByDate = new Map<string, StudyCalendarDay>()
+
+  for (const calendar of calendars) {
+    const { dateKey, time } = toDayKeyAndTime(calendar.startTime)
+    const entry = { calendarId: calendar.calendarId, content: calendar.content }
+    const day = daysByDate.get(dateKey)
+
+    if (day) {
+      day.entries.push(entry)
+      continue
+    }
+    daysByDate.set(dateKey, { date: dateKey, startTime: time, entries: [entry] })
+  }
+
+  return [...daysByDate.values()]
+}
+
 // 기본에는 월력을 가득 보여주고 날짜 선택 시 왼쪽 상세 패널에서 일정을 추가·편집·삭제한다.
-export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
-  const [viewDate, setViewDate] = useState(() => new Date(2026, 6, 1))
+export function StudyCalendar({ groupId }: StudyCalendarProps) {
+  const [viewDate, setViewDate] = useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), 1)
+  })
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null)
-  // TODO: 실제 API 연동 필요 — 목업 일정을 로컬 상태로 복제해 CRUD UI만 확인한다.
-  const [events, setEvents] = useState<StudyCalendarEvent[]>(() =>
-    initialEvents.map((event) => ({
-      ...event,
-      attendance: event.attendance.map((attendance) => ({ ...attendance })),
-      agenda: [...event.agenda],
-    })),
-  )
+  const [calendars, setCalendars] = useState<StudyCalendarItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [requestError, setRequestError] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [scheduleForm, setScheduleForm] = useState<ScheduleFormState | null>(
     null,
   )
@@ -66,6 +123,29 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
   const { ref: sectionRef, isInView } = useInView<HTMLElement>({
     threshold: 0.05,
   })
+
+  const viewYear = viewDate.getFullYear()
+  const viewMonth = viewDate.getMonth() + 1
+
+  // 최초 로딩은 isLoading 초기값(true)이 담당하고, 달 이동·재시도 시에만 호출부에서 다시 세운다.
+  const loadCalendars = useCallback(
+    () =>
+      getMonthlyStudyCalendars(groupId, viewYear, viewMonth)
+        .then((response) => {
+          setCalendars(response)
+          setLoadError(null)
+        })
+        .catch((error: unknown) => {
+          setCalendars([])
+          setLoadError(toErrorMessage(error))
+        })
+        .finally(() => setIsLoading(false)),
+    [groupId, viewYear, viewMonth],
+  )
+
+  useEffect(() => {
+    void loadCalendars()
+  }, [loadCalendars])
 
   const calendarDays = useMemo(() => {
     const firstDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1)
@@ -84,17 +164,19 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
     })
   }, [viewDate])
 
-  const eventsByDate = useMemo(
-    () => new Map(events.map((event) => [event.date, event])),
-    [events],
+  const days = useMemo(() => groupByDate(calendars), [calendars])
+  const daysByDate = useMemo(
+    () => new Map(days.map((day) => [day.date, day])),
+    [days],
   )
-  const selectedEvent = selectedDateKey
-    ? eventsByDate.get(selectedDateKey)
+  const selectedDay = selectedDateKey
+    ? daysByDate.get(selectedDateKey)
     : undefined
   const scheduleAgenda = scheduleForm?.agenda ?? []
   const canSaveSchedule = scheduleAgenda.some((line) => line.trim().length > 0)
 
   const changeMonth = (offset: number) => {
+    setIsLoading(true)
     setViewDate(
       (currentDate) =>
         new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1),
@@ -105,19 +187,53 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
   const selectDate = (date: Date, key: string) => {
     setSelectedDateKey((currentKey) => (currentKey === key ? null : key))
     if (date.getMonth() !== viewDate.getMonth()) {
+      setIsLoading(true)
       setViewDate(new Date(date.getFullYear(), date.getMonth(), 1))
     }
   }
 
-  const openCreateForm = (dateKey: string) =>
-    setScheduleForm({ mode: 'create', dateKey, agenda: [''] })
+  const openCreateForm = (dateKey: string) => {
+    setRequestError(null)
+    setScheduleForm({
+      mode: 'create',
+      dateKey,
+      startTime: '',
+      repeat: 'none',
+      agenda: [''],
+    })
+  }
 
-  const openEditForm = (event: StudyCalendarEvent) =>
+  const openEditForm = (day: StudyCalendarDay) => {
+    setRequestError(null)
     setScheduleForm({
       mode: 'edit',
-      dateKey: event.date,
-      agenda: event.agenda.length > 0 ? [...event.agenda] : [''],
+      dateKey: day.date,
+      startTime: day.startTime,
+      repeat: 'none',
+      agenda: day.entries.map((entry) => entry.content),
     })
+  }
+
+  // 폼 날짜보다 앞선 일정 중 가장 최근 것을 불러오기 템플릿으로 쓴다. 조회한 달 안에서만 찾는다.
+  const latestPastDay = useMemo(() => {
+    if (!scheduleForm) return undefined
+    return days
+      .filter((day) => day.date < scheduleForm.dateKey && day.entries.length > 0)
+      .sort((first, second) => second.date.localeCompare(first.date))[0]
+  }, [days, scheduleForm])
+
+  const loadLatestPastDay = () => {
+    if (!latestPastDay) return
+    setScheduleForm((current) =>
+      current
+        ? {
+            ...current,
+            startTime: latestPastDay.startTime || current.startTime,
+            agenda: latestPastDay.entries.map((entry) => entry.content),
+          }
+        : current,
+    )
+  }
 
   const updateAgendaLine = (index: number, value: string) =>
     setScheduleForm((current) =>
@@ -146,36 +262,84 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
         : current,
     )
 
-  const saveSchedule = () => {
+  const saveSchedule = async () => {
     if (!scheduleForm) return
     const cleanedAgenda = scheduleForm.agenda
       .map((line) => line.trim())
       .filter((line) => line.length > 0)
     if (cleanedAgenda.length === 0) return
 
-    const { dateKey } = scheduleForm
-    setEvents((current) => {
-      const exists = current.some((event) => event.date === dateKey)
-      if (exists) {
-        return current.map((event) =>
-          event.date === dateKey ? { ...event, agenda: cleanedAgenda } : event,
+    const { dateKey, mode, startTime, repeat } = scheduleForm
+    const existingEntries = daysByDate.get(dateKey)?.entries ?? []
+    // 시간을 비워 두면 자정으로 저장한다. 서버에 "시간 미정"을 표현할 자리가 없다.
+    const toStartTime = (key: string) => `${key}T${startTime || '00:00'}:00`
+
+    setIsSaving(true)
+    setRequestError(null)
+
+    try {
+      // 기존 건과 입력 줄을 순서대로 맞춰 수정하고, 남는 줄은 등록하고 남는 기존 건은 삭제한다.
+      await Promise.all([
+        ...cleanedAgenda.map((content, index) => {
+          const existing = existingEntries[index]
+          const request = { content, startTime: toStartTime(dateKey) }
+          return existing
+            ? updateStudyCalendar(groupId, existing.calendarId, request)
+            : createStudyCalendar(groupId, request)
+        }),
+        ...existingEntries
+          .slice(cleanedAgenda.length)
+          .map((entry) => deleteStudyCalendar(groupId, entry.calendarId)),
+      ])
+
+      // 서버에 반복 개념이 없어 주 단위로 각각 등록한다. 이미 일정이 있는 주는 건너뛴다.
+      if (mode === 'create' && repeat !== 'none') {
+        const occupiedDateKeys = new Set(days.map((day) => day.date))
+        const repeatDateKeys = Array.from(
+          { length: Number(repeat) - 1 },
+          (_, index) => addWeeksToDateKey(dateKey, index + 1),
+        ).filter((key) => !occupiedDateKeys.has(key))
+
+        await Promise.all(
+          repeatDateKeys.flatMap((key) =>
+            cleanedAgenda.map((content) =>
+              createStudyCalendar(groupId, {
+                content,
+                startTime: toStartTime(key),
+              }),
+            ),
+          ),
         )
       }
-      return [
-        ...current,
-        { date: dateKey, attendance: [], agenda: cleanedAgenda },
-      ]
-    })
-    setSelectedDateKey(dateKey)
-    setScheduleForm(null)
+
+      await loadCalendars()
+      setSelectedDateKey(dateKey)
+      setScheduleForm(null)
+    } catch (error) {
+      setRequestError(toErrorMessage(error))
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const confirmDeleteSchedule = () => {
+  const confirmDeleteSchedule = async () => {
     if (!deleteTargetKey) return
-    setEvents((current) =>
-      current.filter((event) => event.date !== deleteTargetKey),
-    )
-    setDeleteTargetKey(null)
+    const entries = daysByDate.get(deleteTargetKey)?.entries ?? []
+
+    setIsDeleting(true)
+    setRequestError(null)
+
+    try {
+      await Promise.all(
+        entries.map((entry) => deleteStudyCalendar(groupId, entry.calendarId)),
+      )
+      await loadCalendars()
+      setDeleteTargetKey(null)
+    } catch (error) {
+      setRequestError(toErrorMessage(error))
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   return (
@@ -204,7 +368,7 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
             className="min-w-16 text-center text-h2 text-text-primary"
             aria-live="polite"
           >
-            {viewDate.getMonth() + 1}월
+            {viewMonth}월
           </p>
           <button
             type="button"
@@ -216,6 +380,29 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
           </button>
         </div>
       </div>
+
+      {isLoading ? (
+        <p className="mt-4 text-caption text-text-secondary" role="status">
+          일정을 불러오고 있어요...
+        </p>
+      ) : loadError ? (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <p className="text-caption text-status-error" role="alert">
+            {loadError}
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-8 py-0 text-caption"
+            onClick={() => {
+              setIsLoading(true)
+              void loadCalendars()
+            }}
+          >
+            다시 시도
+          </Button>
+        </div>
+      ) : null}
 
       <div
         className={cn(
@@ -239,37 +426,22 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
               </button>
             </div>
 
-            {selectedEvent ? (
+            {selectedDay ? (
               <>
+                <p className="mt-2 flex items-center gap-1.5 text-caption text-text-secondary">
+                  <Clock className="size-3.5 shrink-0" aria-hidden="true" />
+                  {selectedDay.startTime
+                    ? `${selectedDay.startTime} 시작`
+                    : '시간 미정'}
+                </p>
                 <div className="mt-6">
                   <h4 className="text-body-2 font-semibold text-text-primary">
                     참석 현황
                   </h4>
-                  {selectedEvent.attendance.length > 0 ? (
-                    <ul className="mt-2 space-y-1">
-                      {selectedEvent.attendance.map((attendance) => (
-                        <li
-                          key={attendance.name}
-                          className="flex items-center gap-2 text-caption text-text-secondary"
-                        >
-                          {attendance.name}
-                          <span
-                            className={cn(
-                              'size-2 rounded-ait-pill',
-                              attendance.attended
-                                ? 'bg-status-success'
-                                : 'bg-status-error',
-                            )}
-                            aria-label={attendance.attended ? '참석' : '불참'}
-                          />
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-2 text-caption text-text-secondary">
-                      출석 기록이 아직 없습니다.
-                    </p>
-                  )}
+                  {/* TODO: 실제 API 연동 필요 — 출석 기록 엔드포인트가 없어 항상 빈 상태로 둔다. */}
+                  <p className="mt-2 text-caption text-text-secondary">
+                    출석 기록이 아직 없습니다.
+                  </p>
                 </div>
 
                 <div className="mt-6">
@@ -277,8 +449,8 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
                     진행 내용
                   </h4>
                   <ul className="mt-2 list-disc space-y-2 pl-4 text-caption text-text-secondary">
-                    {selectedEvent.agenda.map((agenda) => (
-                      <li key={agenda}>{agenda}</li>
+                    {selectedDay.entries.map((entry) => (
+                      <li key={entry.calendarId}>{entry.content}</li>
                     ))}
                   </ul>
                 </div>
@@ -288,7 +460,7 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
                     type="button"
                     variant="secondary"
                     className="h-8 w-full gap-1 py-0 text-caption [&_svg]:size-3.5"
-                    onClick={() => openEditForm(selectedEvent)}
+                    onClick={() => openEditForm(selectedDay)}
                   >
                     <Pencil aria-hidden="true" />
                     일정 편집
@@ -297,7 +469,10 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
                     type="button"
                     variant="destructive"
                     className="h-8 w-full gap-1 py-0 text-caption text-white [&_svg]:size-3.5"
-                    onClick={() => setDeleteTargetKey(selectedEvent.date)}
+                    onClick={() => {
+                      setRequestError(null)
+                      setDeleteTargetKey(selectedDay.date)
+                    }}
                   >
                     <Trash2 aria-hidden="true" />
                     일정 삭제
@@ -346,10 +521,10 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
           <div
             className="grid grid-cols-7"
             role="grid"
-            aria-label={`${viewDate.getFullYear()}년 ${viewDate.getMonth() + 1}월`}
+            aria-label={`${viewYear}년 ${viewMonth}월`}
           >
             {calendarDays.map(({ date, key, isCurrentMonth }) => {
-              const event = eventsByDate.get(key)
+              const day = daysByDate.get(key)
               const isSelected = key === selectedDateKey
               const isToday = key === todayKey
               const weekday = date.getDay()
@@ -372,7 +547,7 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
                       'text-text-primary',
                     isSelected && 'bg-status-info-surface font-semibold',
                   )}
-                  aria-label={`${key}${isToday ? ', 오늘' : ''}${event ? ', 스터디 일정 있음' : ''}`}
+                  aria-label={`${key}${isToday ? ', 오늘' : ''}${day ? ', 스터디 일정 있음' : ''}`}
                 >
                   <span
                     className={cn(
@@ -383,14 +558,9 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
                   >
                     {date.getDate()}
                   </span>
-                  {event ? (
+                  {day ? (
                     <span
-                      className={cn(
-                        'mt-1 size-1.5 rounded-ait-pill',
-                        key.endsWith('-30')
-                          ? 'bg-status-error'
-                          : 'bg-calendar-dot',
-                      )}
+                      className="mt-1 size-1.5 rounded-ait-pill bg-calendar-dot"
                       aria-hidden="true"
                     />
                   ) : null}
@@ -404,7 +574,8 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
       <Dialog
         open={scheduleForm !== null}
         onOpenChange={(open) => {
-          if (!open) setScheduleForm(null)
+          if (open || isSaving) return
+          setScheduleForm(null)
         }}
       >
         <DialogContent className="w-[min(32rem,calc(100vw-2rem))] border border-border-default p-6">
@@ -420,8 +591,63 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
 
           <div className="mt-4">
             <p className="text-body-2 font-semibold text-text-primary">
-              진행 내용
+              시작 시간
             </p>
+            <Input
+              type="time"
+              className="mt-2"
+              value={scheduleForm?.startTime ?? ''}
+              onChange={(changeEvent) =>
+                setScheduleForm((current) =>
+                  current
+                    ? { ...current, startTime: changeEvent.target.value }
+                    : current,
+                )
+              }
+              aria-label="시작 시간"
+            />
+          </div>
+
+          {scheduleForm?.mode === 'create' ? (
+            <div className="mt-4">
+              <p className="text-body-2 font-semibold text-text-primary">
+                반복
+              </p>
+              <Dropdown
+                className="mt-2"
+                buttonClassName="h-10 py-0"
+                options={repeatOptions}
+                value={scheduleForm.repeat}
+                onChange={(repeat) =>
+                  setScheduleForm((current) =>
+                    current ? { ...current, repeat } : current,
+                  )
+                }
+                ariaLabel="반복"
+              />
+              <p className="mt-1.5 text-caption text-text-secondary">
+                같은 요일에 매주 반복 생성되며, 이미 일정이 있는 날은
+                건너뜁니다.
+              </p>
+            </div>
+          ) : null}
+
+          <div className="mt-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-body-2 font-semibold text-text-primary">
+                진행 내용
+              </p>
+              <Button
+                type="button"
+                variant="text"
+                className="h-8 gap-1 py-0 text-caption [&_svg]:size-3.5"
+                onClick={loadLatestPastDay}
+                disabled={!latestPastDay}
+              >
+                <History aria-hidden="true" />
+                지난 일정 불러오기
+              </Button>
+            </div>
             <div className="mt-2 space-y-2">
               {scheduleAgenda.map((line, index) => (
                 <div key={index} className="flex items-center gap-2">
@@ -456,10 +682,17 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
             </Button>
           </div>
 
+          {requestError ? (
+            <p className="mt-4 text-body-2 text-status-error" role="alert">
+              {requestError}
+            </p>
+          ) : null}
+
           <DialogFooter className="mt-6">
             <Button
               type="button"
               variant="secondary"
+              disabled={isSaving}
               onClick={() => setScheduleForm(null)}
             >
               취소
@@ -467,10 +700,11 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
             <Button
               type="button"
               variant="primary"
-              onClick={saveSchedule}
-              disabled={!canSaveSchedule}
+              onClick={() => void saveSchedule()}
+              disabled={!canSaveSchedule || isSaving}
+              aria-busy={isSaving}
             >
-              저장
+              {isSaving ? '저장 중' : '저장'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -479,7 +713,8 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
       <Dialog
         open={deleteTargetKey !== null}
         onOpenChange={(open) => {
-          if (!open) setDeleteTargetKey(null)
+          if (open || isDeleting) return
+          setDeleteTargetKey(null)
         }}
       >
         <DialogContent
@@ -493,10 +728,16 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
               진행 내용이 사라지며 되돌릴 수 없습니다.
             </DialogDescription>
           </DialogHeader>
+          {requestError ? (
+            <p className="mt-4 text-body-2 text-status-error" role="alert">
+              {requestError}
+            </p>
+          ) : null}
           <DialogFooter className="mt-6">
             <Button
               type="button"
               variant="secondary"
+              disabled={isDeleting}
               onClick={() => setDeleteTargetKey(null)}
             >
               취소
@@ -504,9 +745,11 @@ export function StudyCalendar({ events: initialEvents }: StudyCalendarProps) {
             <Button
               type="button"
               variant="destructive"
-              onClick={confirmDeleteSchedule}
+              onClick={() => void confirmDeleteSchedule()}
+              disabled={isDeleting}
+              aria-busy={isDeleting}
             >
-              삭제
+              {isDeleting ? '삭제 중' : '삭제'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -2,7 +2,7 @@
 
 export type CommunityCategory = 'review' | 'qna' | 'tip' | 'study'
 
-export type CommunityTab = 'recommend' | 'latest' | 'popular'
+export type CommunityTab = 'recommend' | 'latest' | 'popular' | 'mine'
 
 export type CommunitySort = 'latest' | 'popular' | 'comments'
 
@@ -20,6 +20,9 @@ export interface CommunityPost {
   likeCount: number
   liked: boolean
   bookmarked: boolean
+  visibility?: 'public' | 'members'
+  allowComments?: boolean
+  notify?: boolean
 }
 
 export interface CommunityReply {

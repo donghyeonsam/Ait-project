@@ -181,4 +181,118 @@ public class LiveKitRoomClient {
             );
         }
     }
+
+    /**
+     * 참가자가 실제 LiveKit 방에 연결돼 있다면 강제로 퇴장시킵니다.
+     *
+     * @return 실제 RemoveParticipant API를 호출했으면 true,
+     *         이미 연결돼 있지 않았다면 false
+     */
+    public boolean removeParticipantIfConnected(
+            String roomName,
+            String participantIdentity
+    ) {
+        boolean connected =
+                listParticipants(roomName)
+                        .stream()
+                        .anyMatch(participant ->
+                                participantIdentity.equals(
+                                        participant.getIdentity()
+                                )
+                        );
+
+        if (!connected) {
+            return false;
+        }
+
+        try {
+            Response<Void> response =
+                    liveKitAPI.getRoom()
+                            .removeParticipant(
+                                    roomName,
+                                    participantIdentity
+                            )
+                            .execute();
+
+            if (response.isSuccessful()) {
+                return true;
+            }
+
+            /*
+             * 목록 확인 직후 사용자가 먼저 퇴장하는 경쟁 상황이
+             * 발생할 수 있습니다.
+             */
+            if (response.code() == 404) {
+                return false;
+            }
+
+            ServerError serverError =
+                    ServerError.from(response);
+
+            if (serverError != null
+                    && "not_found".equalsIgnoreCase(
+                    serverError.getCode()
+            )) {
+                return false;
+            }
+
+            throw createApiException(
+                    "LiveKit 참가자 제거",
+                    response
+            );
+
+        } catch (IOException exception) {
+            throw new IllegalStateException(
+                    "LiveKit 서버에 연결할 수 없습니다.",
+                    exception
+            );
+        }
+    }
+
+    public boolean deleteRoomIfExists(
+            String roomName
+    ) {
+        try {
+            Response<Void> response =
+                    liveKitAPI.getRoom()
+                            .deleteRoom(roomName)
+                            .execute();
+
+            if (response.isSuccessful()) {
+                return true;
+            }
+
+            ServerError serverError =
+                    ServerError.from(response);
+
+            boolean roomNotFound =
+                    response.code() == 404
+                            || (
+                            serverError != null
+                                    && "not_found".equalsIgnoreCase(
+                                    serverError.getCode()
+                            )
+                    );
+
+            /*
+             * 이미 방이 종료됐거나 자동으로 사라졌다면
+             * DB 종료 처리는 계속 진행합니다.
+             */
+            if (roomNotFound) {
+                return false;
+            }
+
+            throw createApiException(
+                    "LiveKit 방 삭제",
+                    response
+            );
+
+        } catch (IOException exception) {
+            throw new IllegalStateException(
+                    "LiveKit 서버에 연결할 수 없습니다.",
+                    exception
+            );
+        }
+    }
+
 }

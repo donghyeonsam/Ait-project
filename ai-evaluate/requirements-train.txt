@@ -1,0 +1,21 @@
+# ── 학습 전용 의존성 ──
+# 서버 도커 이미지에는 절대 포함되지 않는다. 개발자 로컬에서만 설치한다.
+#   pip install -r requirements.txt -r requirements-train.txt
+
+# 학습 데이터 만들 때 녹화 영상에서 랜드마크를 뽑기 위한 파이썬 MediaPipe.
+# (추론 시에는 브라우저의 JS MediaPipe 가 같은 일을 한다)
+mediapipe==0.10.14
+opencv-python-headless==4.10.0.84
+
+# 음성 teacher 모델(wav2vec2-large, jungjongho/audeering 공용). pseudo-label 생성 1회성 용도.
+transformers==4.44.2
+
+# 표정 teacher 모델(EMO-AffectNet) 가중치를 HF Hub 에서 받을 때 필요.
+# transformers 가 이미 이걸 의존성으로 깔지만, 버전을 명시적으로 고정해둔다.
+huggingface_hub==0.24.6
+
+# Pillow: EMO-AffectNet 전처리(224x224 리사이즈)에 사용. opencv 만으로도 가능하지만
+# 원 저장소 코드가 PIL 리사이즈 결과를 기준으로 학습됐으므로 동일하게 맞춘다.
+pillow==10.4.0
+
+scikit-learn==1.5.2

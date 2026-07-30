@@ -23,6 +23,12 @@ const delay = () =>
 
 // 세션 동안 작성한 글을 목록·상세에서 함께 보여주기 위한 인메모리 저장소.
 const createdPosts: CommunityPost[] = []
+const updatedPosts = new Map<string, CommunityPost>()
+const deletedPostIds = new Set<string>()
+
+// API 함수를 인증 화면 밖에서 단독 확인할 때 사용하는 목업 사용자 이름.
+// TODO: 실제 API 연동 필요
+const CURRENT_USER = '김싸피'
 
 export interface FetchPostsParams {
   tab: CommunityTab
@@ -31,6 +37,7 @@ export interface FetchPostsParams {
   offset: number
   limit: number
   query?: string
+  currentUserNickname?: string
 }
 
 export interface FetchPostsResult {
@@ -45,11 +52,17 @@ export async function fetchPosts({
   offset,
   limit,
   query,
+  currentUserNickname = CURRENT_USER,
 }: FetchPostsParams): Promise<FetchPostsResult> {
   await delay()
 
   let items = [...createdPosts, ...mockPosts]
+    .filter((post) => !deletedPostIds.has(post.id))
+    .map((post) => updatedPosts.get(post.id) ?? post)
 
+  if (tab === 'mine') {
+    items = items.filter((post) => post.author === currentUserNickname)
+  }
   if (category !== 'all') {
     items = items.filter((post) => post.category === category)
   }
@@ -71,7 +84,8 @@ export async function fetchPosts({
   const byComments = (a: CommunityPost, b: CommunityPost) =>
     b.commentCount - a.commentCount
 
-  if (tab === 'latest') items.sort(byLatest)
+  // 내 게시글 탭은 정렬 성격이 없으므로 최신순을 기본으로 둔다.
+  if (tab === 'latest' || tab === 'mine') items.sort(byLatest)
   else if (tab === 'popular') items.sort(byPopular)
 
   if (sort === 'latest') items.sort(byLatest)
@@ -84,7 +98,9 @@ export async function fetchPosts({
 
 export async function fetchPost(postId: string): Promise<CommunityPost | null> {
   await delay()
+  if (deletedPostIds.has(postId)) return null
   return (
+    updatedPosts.get(postId) ??
     createdPosts.find((post) => post.id === postId) ??
     mockPosts.find((post) => post.id === postId) ??
     null
@@ -114,6 +130,7 @@ export async function fetchSearchSuggestions(query: string): Promise<string[]> {
 
 export async function createPost(
   draft: CommunityPostDraft,
+  author = CURRENT_USER,
 ): Promise<CommunityPost> {
   await delay()
   const post: CommunityPost = {
@@ -122,7 +139,7 @@ export async function createPost(
     title: draft.title,
     excerpt: draft.contentHtml.replace(/<[^>]+>/g, ' ').trim().slice(0, 80),
     contentHtml: draft.contentHtml,
-    author: '김싸피',
+    author,
     createdAt: new Date().toISOString(),
     tags: draft.tags,
     viewCount: 0,
@@ -130,9 +147,72 @@ export async function createPost(
     likeCount: 0,
     liked: false,
     bookmarked: false,
+    visibility: draft.visibility,
+    allowComments: draft.allowComments,
+    notify: draft.notify,
   }
   createdPosts.unshift(post)
   return post
+}
+
+export async function updatePost(
+  postId: string,
+  draft: CommunityPostDraft,
+  currentUserNickname = CURRENT_USER,
+): Promise<CommunityPost> {
+  await delay()
+  const post =
+    updatedPosts.get(postId) ??
+    createdPosts.find((item) => item.id === postId) ??
+    mockPosts.find((item) => item.id === postId)
+
+  if (!post || deletedPostIds.has(postId)) {
+    throw new Error('게시글을 찾을 수 없습니다.')
+  }
+  if (post.author !== currentUserNickname) {
+    throw new Error('게시글을 수정할 권한이 없습니다.')
+  }
+
+  const updatedPost: CommunityPost = {
+    ...post,
+    category: draft.category ?? post.category,
+    title: draft.title,
+    excerpt: draft.contentHtml.replace(/<[^>]+>/g, ' ').trim().slice(0, 80),
+    contentHtml: draft.contentHtml,
+    tags: draft.tags,
+    visibility: draft.visibility,
+    allowComments: draft.allowComments,
+    notify: draft.notify,
+  }
+
+  const createdIndex = createdPosts.findIndex((item) => item.id === postId)
+  if (createdIndex >= 0) createdPosts[createdIndex] = updatedPost
+  else updatedPosts.set(postId, updatedPost)
+
+  return updatedPost
+}
+
+export async function deletePost(
+  postId: string,
+  currentUserNickname = CURRENT_USER,
+): Promise<void> {
+  await delay()
+  const post =
+    updatedPosts.get(postId) ??
+    createdPosts.find((item) => item.id === postId) ??
+    mockPosts.find((item) => item.id === postId)
+
+  if (!post || deletedPostIds.has(postId)) {
+    throw new Error('게시글을 찾을 수 없습니다.')
+  }
+  if (post.author !== currentUserNickname) {
+    throw new Error('게시글을 삭제할 권한이 없습니다.')
+  }
+
+  const createdIndex = createdPosts.findIndex((item) => item.id === postId)
+  if (createdIndex >= 0) createdPosts.splice(createdIndex, 1)
+  updatedPosts.delete(postId)
+  deletedPostIds.add(postId)
 }
 
 export async function toggleLike(_postId: string, liked: boolean): Promise<boolean> {

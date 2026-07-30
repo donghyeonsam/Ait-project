@@ -29,6 +29,7 @@ import {
   type StudyGroupStatus,
 } from '@/api/study-groups'
 import { toErrorMessage } from '@/api/http'
+import { getStudyGroupActiveSession } from '@/api/study-sessions'
 import { useAuth } from '@/lib/useAuth'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
@@ -83,6 +84,9 @@ export function StudyPage() {
   const [myStudies, setMyStudies] = useState<MyStudyGroup[]>([])
   const [isLoadingMyStudies, setIsLoadingMyStudies] = useState(true)
   const [myStudiesError, setMyStudiesError] = useState<string | null>(null)
+  const [activeSessionGroupIds, setActiveSessionGroupIds] = useState<
+    Set<number>
+  >(() => new Set())
   const [appliedStudyIds, setAppliedStudyIds] = useState<Set<number>>(
     () => new Set(),
   )
@@ -135,6 +139,27 @@ export function StudyPage() {
     void loadGroups()
     void loadMyStudies()
   }, [loadGroups, loadMyStudies])
+
+  // 내 스터디 목록 응답에 활성 세션 정보가 없어 그룹별로 조회해 모은다. 실패한 그룹은 비활성으로 둔다.
+  useEffect(() => {
+    let isActive = true
+    void Promise.all(
+      myStudies.map((study) =>
+        getStudyGroupActiveSession(study.id)
+          .then((session) => (session.hasActiveSession ? study.id : null))
+          .catch(() => null),
+      ),
+    ).then((groupIds) => {
+      if (!isActive) return
+      setActiveSessionGroupIds(
+        new Set(groupIds.filter((groupId): groupId is number => groupId !== null)),
+      )
+    })
+
+    return () => {
+      isActive = false
+    }
+  }, [myStudies])
 
   const myStudyIds = useMemo(
     () => new Set(myStudies.map((study) => study.id)),
@@ -201,7 +226,7 @@ export function StudyPage() {
   }
 
   return (
-    <PageLayout contentClassName="relative isolate max-w-dashboard px-4 sm:px-8">
+    <PageLayout contentClassName="page-content-zoom-90 relative isolate max-w-dashboard px-4 sm:px-8">
       <StudyHeroGlow />
       <section
         ref={heroRef}
@@ -234,7 +259,10 @@ export function StudyPage() {
         studies={myStudies}
         isLoading={isLoadingMyStudies}
         errorMessage={myStudiesError}
-        onOpenStudy={(study) => navigate(`/study/groups/${study.id}`)}
+        activeSessionGroupIds={activeSessionGroupIds}
+        onEnterSession={(study) =>
+          navigate(`/study/groups/${study.id}/session/prejoin`)
+        }
       />
 
       <section

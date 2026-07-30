@@ -167,9 +167,8 @@ export function MyPage() {
             <ActivityTabs />
           </div>
 
-          {documentBoxOpen ? (
-            <DocumentBoxDialog open onOpenChange={setDocumentBoxOpen} />
-          ) : null}
+          {/* 닫힘 애니메이션이 끝나기 전에 언마운트되지 않도록 조건부 렌더링 대신 open prop으로 제어한다. */}
+          <DocumentBoxDialog open={documentBoxOpen} onOpenChange={setDocumentBoxOpen} />
         </>
       ) : null}
     </PageLayout>

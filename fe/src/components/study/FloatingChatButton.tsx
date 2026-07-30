@@ -16,8 +16,12 @@ interface FloatingChatButtonProps {
 
 const BUTTON_SIZE = 48
 const MARGIN = 16
-const PANEL_WIDTH = 288
-const PANEL_HEIGHT = 320
+const DEFAULT_PANEL_WIDTH = 288
+const DEFAULT_PANEL_HEIGHT = 320
+const MIN_PANEL_WIDTH = 240
+const MIN_PANEL_HEIGHT = 240
+const MAX_PANEL_WIDTH = 560
+const MAX_PANEL_HEIGHT = 640
 const PANEL_GAP = 12
 /** 이 거리 이하로 움직이면 드래그가 아니라 클릭(열기/닫기)으로 간주한다. */
 const DRAG_THRESHOLD = 5
@@ -25,6 +29,11 @@ const DRAG_THRESHOLD = 5
 interface Position {
   x: number
   y: number
+}
+
+interface Size {
+  width: number
+  height: number
 }
 
 interface DragState {
@@ -36,16 +45,31 @@ interface DragState {
   moved: boolean
 }
 
+interface ResizeState {
+  pointerId: number
+  startX: number
+  startY: number
+  startWidth: number
+  startHeight: number
+  /** 리사이즈 도중 크기 변화로 열림 방향이 뒤집혀 델타 기준이 바뀌지 않도록 시작 시점 방향을 고정한다. */
+  openUp: boolean
+}
+
+const clampValue = (value: number, min: number, max: number) => Math.min(Math.max(value, min), Math.max(max, min))
+
 // 자유롭게 드래그해서 위치를 옮길 수 있는 채팅 버튼. 누른 자리에서 채팅창이 열린다.
 // 실시간 송수신은 LiveKit Room의 데이터 채널을 쓰는 useChat()으로 처리한다 —
 // 별도 백엔드 없이 세션에 연결된 참가자끼리만 실시간으로 메시지를 주고받는다(이력은 저장되지 않음).
 export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
   const buttonRef = useRef<HTMLButtonElement>(null)
+  const resizeHandleRef = useRef<HTMLDivElement>(null)
   const dragState = useRef<DragState | null>(null)
+  const resizeState = useRef<ResizeState | null>(null)
   // 사용자가 아직 드래그하지 않았다면 위치를 상태로 커밋하지 않고, 컨테이너 크기로부터 매번 기본값을 계산한다.
   const [position, setPosition] = useState<Position | null>(null)
   const [open, setOpen] = useState(false)
-  const [containerSize, setContainerSize] = useState<{ width: number; height: number } | null>(null)
+  const [panelSize, setPanelSize] = useState<Size>({ width: DEFAULT_PANEL_WIDTH, height: DEFAULT_PANEL_HEIGHT })
+  const [containerSize, setContainerSize] = useState<Size | null>(null)
   const { chatMessages, send, isSending } = useChat()
   const [draft, setDraft] = useState('')
   const [unreadCount, setUnreadCount] = useState(0)
@@ -86,11 +110,21 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
     return () => observer.disconnect()
   }, [boundsRef])
 
-  const effectivePosition =
+  // 저장된 위치는 그대로 두고 표시 위치만 컨테이너 크기로 잘라낸다 — 우측 패널이 열려 영역이
+  // 좁아지면 버튼이 경계를 따라 안쪽으로 밀려나고(패널 폭 트랜지션을 ResizeObserver가 프레임마다
+  // 따라가므로 밀림도 같은 속도로 애니메이션된다), 패널이 닫히면 원래 자리로 되돌아온다.
+  const storedPosition =
     position ??
     (containerSize
       ? { x: containerSize.width - BUTTON_SIZE - MARGIN, y: containerSize.height - BUTTON_SIZE - MARGIN }
       : null)
+  const effectivePosition =
+    storedPosition && containerSize
+      ? {
+          x: clampValue(storedPosition.x, 0, containerSize.width - BUTTON_SIZE),
+          y: clampValue(storedPosition.y, 0, containerSize.height - BUTTON_SIZE),
+        }
+      : storedPosition
 
   const clamp = (x: number, y: number): Position => {
     const bounds = boundsRef.current
@@ -134,13 +168,58 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
 
   if (!effectivePosition) return null
 
+  const panelWidth = containerSize ? Math.min(panelSize.width, containerSize.width) : panelSize.width
+  const panelHeight = containerSize ? Math.min(panelSize.height, containerSize.height) : panelSize.height
+
+  // 버튼 위 공간이 패널 높이보다 부족하면 아래 방향으로 열고, 그래도 넘치면 top을 컨테이너 안으로
+  // 잘라내 어떤 버튼 위치에서도 패널 전체가 영역 안에 남게 한다.
+  const spaceAbove = effectivePosition.y - PANEL_GAP
+  const spaceBelow = containerSize ? containerSize.height - (effectivePosition.y + BUTTON_SIZE) - PANEL_GAP : 0
+  const openUp = spaceAbove >= panelHeight || spaceAbove >= spaceBelow
   const panelLeft = containerSize
-    ? Math.min(
-        Math.max(effectivePosition.x - PANEL_WIDTH + BUTTON_SIZE, 0),
-        Math.max(containerSize.width - PANEL_WIDTH, 0),
-      )
+    ? clampValue(effectivePosition.x - panelWidth + BUTTON_SIZE, 0, Math.max(containerSize.width - panelWidth, 0))
     : effectivePosition.x
-  const panelBottom = containerSize ? containerSize.height - effectivePosition.y + PANEL_GAP : 0
+  const rawPanelTop = openUp
+    ? effectivePosition.y - PANEL_GAP - panelHeight
+    : effectivePosition.y + BUTTON_SIZE + PANEL_GAP
+  const panelTop = containerSize
+    ? clampValue(rawPanelTop, 0, Math.max(containerSize.height - panelHeight, 0))
+    : rawPanelTop
+
+  const handleResizePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    resizeHandleRef.current?.setPointerCapture(event.pointerId)
+    resizeState.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startWidth: panelWidth,
+      startHeight: panelHeight,
+      openUp,
+    }
+  }
+
+  const handleResizePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const resize = resizeState.current
+    if (!resize || resize.pointerId !== event.pointerId) return
+    const maxWidth = containerSize ? Math.min(MAX_PANEL_WIDTH, containerSize.width) : MAX_PANEL_WIDTH
+    const maxHeight = containerSize ? Math.min(MAX_PANEL_HEIGHT, containerSize.height) : MAX_PANEL_HEIGHT
+    // 패널은 버튼에 오른쪽 끝이 맞춰져 왼쪽으로 자라므로 왼쪽 드래그가 너비 증가, 열림 방향의
+    // 반대쪽(위로 열렸으면 위쪽) 드래그가 높이 증가다.
+    const deltaHeight = resize.openUp ? resize.startY - event.clientY : event.clientY - resize.startY
+    setPanelSize({
+      width: clampValue(resize.startWidth + (resize.startX - event.clientX), MIN_PANEL_WIDTH, maxWidth),
+      height: clampValue(resize.startHeight + deltaHeight, MIN_PANEL_HEIGHT, maxHeight),
+    })
+  }
+
+  const handleResizePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const resize = resizeState.current
+    if (!resize || resize.pointerId !== event.pointerId) return
+    resizeHandleRef.current?.releasePointerCapture(event.pointerId)
+    resizeState.current = null
+  }
 
   return (
     <>
@@ -169,9 +248,22 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
 
       {open ? (
         <div
-          style={{ left: panelLeft, bottom: panelBottom, width: PANEL_WIDTH, height: PANEL_HEIGHT }}
+          style={{ left: panelLeft, top: panelTop, width: panelWidth, height: panelHeight }}
           className="absolute z-20 flex flex-col rounded-ait-l border border-border-default bg-surface-default shadow-elevation-3"
         >
+          <div
+            ref={resizeHandleRef}
+            aria-hidden="true"
+            title="드래그해서 채팅창 크기 조절"
+            onPointerDown={handleResizePointerDown}
+            onPointerMove={handleResizePointerMove}
+            onPointerUp={handleResizePointerUp}
+            onPointerCancel={handleResizePointerUp}
+            className={cn(
+              'absolute left-0 z-10 size-4 touch-none',
+              openUp ? 'top-0 cursor-nwse-resize' : 'bottom-0 cursor-nesw-resize',
+            )}
+          />
           <div className="flex shrink-0 items-center justify-between border-b border-border-default px-4 py-3">
             <p className="text-body-2 font-medium text-text-primary">채팅</p>
             <button

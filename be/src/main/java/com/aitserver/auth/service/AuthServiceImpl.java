@@ -10,6 +10,7 @@ import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.global.jwt.JwtTokenProvider;
 import com.aitserver.resume.entity.Resume;
 import com.aitserver.resume.repository.ResumeRepository;
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -33,6 +34,7 @@ public class AuthServiceImpl implements AuthService{
 
     // 일반 회원가입 로직
     @Override
+    @Transactional
     public void insert(SignupRequest signupRequest) {
         // 이메일 중복 확인
         log.info("[AuthService, insert] 이메일 중복 확인 로직 수행");
@@ -74,10 +76,6 @@ public class AuthServiceImpl implements AuthService{
         User user = userRepository.findByEmail(loginRequest.email())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-
-        String encodedPassword = passwordEncoder.encode(loginRequest.password());
-        log.info("사용자 비밀번호 암호화: {}", encodedPassword);
-
         // 이메일은 존재하지만, 비밀번호가 다를 경우 에러 던지기
         if(!passwordEncoder.matches(loginRequest.password(), user.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD);
@@ -112,16 +110,22 @@ public class AuthServiceImpl implements AuthService{
             log.info("[AuthService, logout] RefreshToken 삭제 완료");
         }
         // 남은 유효시간 계산
-        long expiration = jwtTokenProvider.getExpiration(accessToken);
+        if(StringUtils.hasText(accessToken)) {
+            try {
+                long expiration = jwtTokenProvider.getExpiration(accessToken);
 
-        if(expiration > 0) { // 아직 시간이 남아있을 경우
-            redisTemplate.opsForValue().set(
-                    "BL:" + accessToken,
-                    "logout",
-                    expiration,
-                    TimeUnit.MILLISECONDS
-            );
-            log.info("[AuthService, logout] accessToken 블랙 리스트 등록 완료: {}", accessToken);
+                if(expiration > 0) { // 아직 시간이 남아있을 경우
+                    redisTemplate.opsForValue().set(
+                            "BL:" + accessToken,
+                            "logout",
+                            expiration,
+                            TimeUnit.MILLISECONDS
+                    );
+                    log.info("[AuthService, logout] accessToken 블랙 리스트 등록 완료: {}", accessToken);
+                }
+            } catch (JwtException e) {
+                log.debug("[logout] 이미 만료되었거나 유효하지 않은 토큰, 블랙리스트 등록 생략");
+            }
         }
     }
 
