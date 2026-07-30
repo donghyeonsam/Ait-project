@@ -74,3 +74,7 @@ spring:
       max-request-size: 20MB   # 요청 1번당 최대 허용 용량 (파일 여러 개 묶음)
 
 # http://localhost:8080/swagger-ui/index.html#/
+
+file:
+  upload:
+    dir: C:/aitserver/uploads/
