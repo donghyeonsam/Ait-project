@@ -11,6 +11,8 @@ interface DocumentEditorShellProps {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
   onNavigateHome: () => void
   topBar?: ReactNode
+  /** 저장 영역 왼쪽에 따로 떨어뜨려 놓을 삭제 등 되돌리기 어려운 동작. */
+  destructiveAction?: ReactNode
   children: ReactNode
 }
 
@@ -24,6 +26,7 @@ export function DocumentEditorShell({
   onSubmit,
   onNavigateHome,
   topBar,
+  destructiveAction,
   children,
 }: DocumentEditorShellProps) {
   return (
@@ -53,6 +56,9 @@ export function DocumentEditorShell({
       <div className="px-8 py-6">{children}</div>
 
       <footer className="flex flex-wrap items-center justify-end gap-3 border-t border-border-default bg-surface-default px-8 py-4">
+        {destructiveAction ? (
+          <div className="mr-auto">{destructiveAction}</div>
+        ) : null}
         <Button type="button" variant="secondary" onClick={onNavigateHome}>
           <ArrowLeft aria-hidden="true" />
           마이페이지로
