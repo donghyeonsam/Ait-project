@@ -342,14 +342,12 @@ describe('StudyPage', () => {
     expect(groupTabs[0]).toHaveAccessibleName('금융권 면접 PT 대비')
     expect(groupDock).toHaveClass(
       'study-chat-dock',
+      'flex-col',
       'items-center',
-      'gap-7',
-      'overflow-visible',
+      'gap-6',
+      'overflow-y-auto',
     )
-    expect(groupDock).not.toHaveClass(
-      'bg-surface-default',
-      'overflow-y-hidden',
-    )
+    expect(groupDock).toHaveAttribute('aria-orientation', 'vertical')
     expect(groupTabs[0]).toHaveClass('study-chat-dock-item')
     expect(groupTabs[0]).toHaveClass('study-chat-dock-item-selected')
 
@@ -366,11 +364,11 @@ describe('StudyPage', () => {
     })
     groupTabs.forEach((tab, index) => {
       Object.defineProperties(tab, {
-        offsetLeft: { configurable: true, value: index * 76 },
-        offsetWidth: { configurable: true, value: 48 },
+        offsetTop: { configurable: true, value: index * 76 },
+        offsetHeight: { configurable: true, value: 48 },
       })
     })
-    fireEvent.pointerMove(groupDock, { clientX: 24 })
+    fireEvent.pointerMove(groupDock, { clientY: 24 })
     expect(
       groupTabs[0].style.getPropertyValue('--study-chat-dock-scale'),
     ).toBe('1.420')

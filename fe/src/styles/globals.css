@@ -1511,9 +1511,10 @@ button:not(:disabled) {
 .study-chat-dock-item {
   --study-chat-dock-scale: 1;
   --study-chat-dock-lift: 0px;
-  transform: translateY(var(--study-chat-dock-lift))
+  /* 세로 독이라 확대는 왼쪽 가장자리를 기준으로 오른쪽(채팅 영역 쪽)으로 커진다. */
+  transform: translateX(var(--study-chat-dock-lift))
     scale(var(--study-chat-dock-scale));
-  transform-origin: center bottom;
+  transform-origin: left center;
   transition:
     transform 140ms var(--easing-emphasized),
     border-color var(--duration-fast) var(--easing-standard),
@@ -1523,7 +1524,7 @@ button:not(:disabled) {
 
 .study-chat-dock-item:focus-visible {
   --study-chat-dock-scale: 1.2;
-  --study-chat-dock-lift: -0.375rem;
+  --study-chat-dock-lift: 0.25rem;
 }
 
 .study-chat-dock-item-selected {

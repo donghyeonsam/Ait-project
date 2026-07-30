@@ -9,16 +9,19 @@ interface StudyChatMessageReactionsProps {
   reactions: StudyGroupChatReactionSummary[]
   currentUserId: number | null
   onToggle: (messageId: number, emoji: string) => void
+  /** end는 내 메시지처럼 오른쪽에 붙는 경우로, 이모지 선택창이 화면 밖으로 나가지 않게 오른쪽 기준으로 띄운다. */
+  align?: 'start' | 'end'
 }
 
 const quickReactionEmojis = ['👍', '❤️', '😂', '🎉', '👏']
 
-// 상대방 메시지에만 노출되는 반응 선택기다. 같은 반응을 다시 누르면 서버에서 토글된다.
+// 메시지에 달린 이모지 반응 목록과 반응 선택기다. 같은 반응을 다시 누르면 서버에서 토글된다.
 export function StudyChatMessageReactions({
   messageId,
   reactions,
   currentUserId,
   onToggle,
+  align = 'start',
 }: StudyChatMessageReactionsProps) {
   const [pickerOpen, setPickerOpen] = useState(false)
 
@@ -71,7 +74,10 @@ export function StudyChatMessageReactions({
         <div
           role="dialog"
           aria-label="메시지 반응 선택"
-          className="absolute bottom-9 left-0 z-[var(--z-index-dropdown)] w-64 rounded-ait-m border border-border-default bg-surface-default p-2 shadow-elevation-2"
+          className={cn(
+            'absolute bottom-9 z-(--z-index-dropdown) w-64 rounded-ait-m border border-border-default bg-surface-default p-2 shadow-elevation-2',
+            align === 'end' ? 'right-0' : 'left-0',
+          )}
         >
           <p className="mb-1.5 px-1 text-caption text-text-secondary">
             빠른 반응
