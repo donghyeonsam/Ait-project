@@ -11,6 +11,7 @@ import {
   connectStudyGroupChat,
   getStudyGroupChats,
   sendStudyGroupChatMessage,
+  toggleStudyGroupChatReaction,
   type StudyGroupChatMessage,
 } from '@/api/study-group-chat'
 import {
@@ -29,6 +30,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/lib/useAuth'
 import { cn } from '@/lib/utils'
 import type { Client } from '@stomp/stompjs'
+import { StudyChatMessageReactions } from '@/components/study/StudyChatMessageReactions'
 
 interface StudyChatModalProps {
   open: boolean
@@ -142,6 +144,15 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
         )
       },
       onNotice: (payload) => setNotice(payload.notice ?? ''),
+      onReaction: (payload) => {
+        setMessages((current) =>
+          current.map((message) =>
+            message.chatId === payload.chatId
+              ? { ...message, reactions: payload.reactions }
+              : message,
+          ),
+        )
+      },
       onConnect: () => {
         setIsConnected(true)
         setConnectError(null)
@@ -175,6 +186,21 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
 
     sendStudyGroupChatMessage(clientRef.current, selectedGroupId, content)
     setDraft('')
+  }
+
+  const toggleReaction = (chatId: number, emoji: string) => {
+    if (
+      selectedGroupId === null ||
+      !clientRef.current?.connected
+    ) {
+      return
+    }
+    toggleStudyGroupChatReaction(
+      clientRef.current,
+      selectedGroupId,
+      chatId,
+      emoji,
+    )
   }
 
   const handleDraftKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -231,6 +257,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        id="study-chat-dialog"
         centered={false}
         className="study-chat-dialog flex flex-col overflow-hidden border border-border-default bg-background-default p-4 sm:p-5"
       >
@@ -382,13 +409,21 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
                             {message.message}
                           </p>
                         </div>
+                        {!isSelf ? (
+                          <StudyChatMessageReactions
+                            messageId={message.chatId}
+                            reactions={message.reactions ?? []}
+                            currentUserId={currentUserId}
+                            onToggle={toggleReaction}
+                          />
+                        ) : null}
                       </div>
                     </div>
                   )
                 })}
               </div>
 
-              <div className="flex shrink-0 items-end gap-3">
+              <div className="flex min-w-0 shrink-0 items-end gap-2 sm:gap-3">
                 <label className="min-w-0 flex-1">
                   <span className="sr-only">메시지 입력</span>
                   <Textarea

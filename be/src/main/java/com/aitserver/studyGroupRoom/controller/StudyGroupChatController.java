@@ -2,6 +2,7 @@ package com.aitserver.studyGroupRoom.controller;
 
 import com.aitserver.studyGroupRoom.dto.chat.ChatDto;
 import com.aitserver.studyGroupRoom.dto.chat.ChatNoticeDto;
+import com.aitserver.studyGroupRoom.dto.chat.ChatReactionDto;
 import com.aitserver.studyGroupRoom.service.chat.StudyGroupChatService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -38,6 +39,27 @@ public class StudyGroupChatController {
         // 2. 우체국을 통해 구독자들에게 배달
         // "/topic/study-groups/1" 을 구독하고 있는 모든 클라이언트에게 방금 저장된 채팅 내역을 쏴줍니다.
         messagingTemplate.convertAndSend("/topic/study-groups/" + groupId, response);
+    }
+
+    @MessageMapping("/study-groups/{groupId}/messages/{chatId}/reactions")
+    public void toggleReaction(
+            @DestinationVariable Long groupId,
+            @DestinationVariable Long chatId,
+            @Payload ChatReactionDto.Request request,
+            Authentication authentication) {
+
+        Long currentUserId = Long.valueOf(authentication.getPrincipal().toString());
+        ChatReactionDto.Response response = chatService.toggleReaction(
+                groupId,
+                chatId,
+                currentUserId,
+                request.getEmoji()
+        );
+
+        messagingTemplate.convertAndSend(
+                "/topic/study-groups/" + groupId + "/reactions",
+                response
+        );
     }
 
     @MessageMapping("/study-groups/{groupId}/notices")
