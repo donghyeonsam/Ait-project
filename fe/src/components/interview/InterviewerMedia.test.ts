@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   getInterviewerPhase,
   getInterviewerPlaylist,
-} from '@/components/interview/InterviewerMedia'
+} from '@/components/interview/interviewer-media'
 
 describe('InterviewerMedia', () => {
   it('답변 녹음 중에는 선택한 면접 유형의 리액션 영상을 사용한다', () => {
