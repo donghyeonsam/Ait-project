@@ -1,6 +1,7 @@
 package com.aitserver.studySession.controller;
 
 
+import com.aitserver.coverletter.dto.CoverLetterDetailResponse;
 import com.aitserver.global.response.ApiResponse;
 import com.aitserver.studySession.dto.MemberResponse;
 import com.aitserver.studySession.dto.StudySessionParticipantJoinRequest;
@@ -105,6 +106,25 @@ public class StudySessionParticipantController {
                         request
                 ));
 
+    }
+
+    @GetMapping("/{coverLetterId}")
+    public ResponseEntity<ApiResponse<CoverLetterDetailResponse>> getCoverLetter(
+            @PathVariable Long coverLetterId,
+            HttpServletRequest request
+    ){
+
+        CoverLetterDetailResponse response = participantService.getCoverLetter(coverLetterId);
+
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.success(
+                        HttpStatus.OK,
+                        "세션 참여자 목록 반환을 성공했습니다.",
+                        response,
+                        request
+                ));
     }
 
 }

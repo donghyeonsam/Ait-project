@@ -1,6 +1,9 @@
 package com.aitserver.studySession.service;
 
 
+import com.aitserver.coverletter.dto.CoverLetterDetailResponse;
+import com.aitserver.coverletter.entity.CoverLetter;
+import com.aitserver.coverletter.repository.CoverLetterRepository;
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.global.livekit.LiveKitRoomClient;
@@ -31,6 +34,8 @@ public class StudySessionParticipantService {
     private final LiveKitRoomClient liveKitRoomClient;
 
     private final LiveKitTokenService liveKitTokenService;
+
+    private final CoverLetterRepository coverLetterRepository;
 
 
     @Transactional
@@ -191,5 +196,15 @@ public class StudySessionParticipantService {
                     ErrorCode.STUDY_SESSION_ACCESS_DENIED
             );
         }
+    }
+
+    // 권한 검사 없이 자소서 조회
+    public CoverLetterDetailResponse getCoverLetter(Long coverLetterId){
+        CoverLetter coverLetter = coverLetterRepository.findById(coverLetterId)
+                .orElseThrow(() ->
+                        new BusinessException(ErrorCode.COVER_LETTER_NOT_FOUND)
+                );
+
+        return CoverLetterDetailResponse.from(coverLetter);
     }
 }
