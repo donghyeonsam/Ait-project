@@ -24,6 +24,10 @@ const delay = () =>
 // 세션 동안 작성한 글을 목록·상세에서 함께 보여주기 위한 인메모리 저장소.
 const createdPosts: CommunityPost[] = []
 
+// 로그인 연동 전까지 '내 게시글' 필터와 글 작성에 쓰는 목업 사용자 이름.
+// TODO: 실제 API 연동 필요
+const CURRENT_USER = '김싸피'
+
 export interface FetchPostsParams {
   tab: CommunityTab
   category: CommunityCategory | 'all'
@@ -50,6 +54,9 @@ export async function fetchPosts({
 
   let items = [...createdPosts, ...mockPosts]
 
+  if (tab === 'mine') {
+    items = items.filter((post) => post.author === CURRENT_USER)
+  }
   if (category !== 'all') {
     items = items.filter((post) => post.category === category)
   }
@@ -71,7 +78,8 @@ export async function fetchPosts({
   const byComments = (a: CommunityPost, b: CommunityPost) =>
     b.commentCount - a.commentCount
 
-  if (tab === 'latest') items.sort(byLatest)
+  // 내 게시글 탭은 정렬 성격이 없으므로 최신순을 기본으로 둔다.
+  if (tab === 'latest' || tab === 'mine') items.sort(byLatest)
   else if (tab === 'popular') items.sort(byPopular)
 
   if (sort === 'latest') items.sort(byLatest)
@@ -122,7 +130,7 @@ export async function createPost(
     title: draft.title,
     excerpt: draft.contentHtml.replace(/<[^>]+>/g, ' ').trim().slice(0, 80),
     contentHtml: draft.contentHtml,
-    author: '김싸피',
+    author: CURRENT_USER,
     createdAt: new Date().toISOString(),
     tags: draft.tags,
     viewCount: 0,

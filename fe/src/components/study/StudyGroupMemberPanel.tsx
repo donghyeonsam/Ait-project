@@ -47,7 +47,7 @@ export function StudyGroupMemberPanel({
         구성원 {members.length} / {capacity}
       </h2>
 
-      <ul className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]">
+      <ul className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 [scrollbar-gutter:stable]">
         {members.map((member, index) => (
           <li
             key={member.id}
