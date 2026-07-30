@@ -9,6 +9,7 @@ DROP TABLE IF EXISTS `peer_feedbacks`;
 DROP TABLE IF EXISTS `ai_peer_summaries`;
 DROP TABLE IF EXISTS `study_sessions`;
 DROP TABLE IF EXISTS `study_group_members`;
+DROP TABLE IF EXISTS `study_group_chat_reactions`;
 DROP TABLE IF EXISTS `study_group_chats`;
 DROP TABLE IF EXISTS `study_group_calendars`;
 DROP TABLE IF EXISTS `study_groups`;
@@ -511,6 +512,33 @@ CREATE TABLE `study_group_chats` (
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci
   COMMENT='스터디 그룹에 포함되는 채팅';
+
+CREATE TABLE `study_group_chat_reactions` (
+                                              `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                              `chat_id` BIGINT NOT NULL,
+                                              `user_id` BIGINT NOT NULL,
+                                              `emoji` VARCHAR(32) NOT NULL,
+                                              `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                                              PRIMARY KEY (`id`),
+
+                                              UNIQUE KEY `uk_study_group_chat_reactions_chat_user_emoji`
+                                                  (`chat_id`, `user_id`, `emoji`),
+                                              KEY `idx_study_group_chat_reactions_chat_id` (`chat_id`),
+                                              KEY `idx_study_group_chat_reactions_user_id` (`user_id`),
+
+                                              CONSTRAINT `fk_study_group_chat_reactions_chat`
+                                                  FOREIGN KEY (`chat_id`)
+                                                      REFERENCES `study_group_chats` (`id`)
+                                                      ON DELETE CASCADE,
+                                              CONSTRAINT `fk_study_group_chat_reactions_user`
+                                                  FOREIGN KEY (`user_id`)
+                                                      REFERENCES `users` (`id`)
+                                                      ON DELETE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='스터디 그룹 채팅 이모지 반응';
 
 -- =========================================================
 -- 4. 스터디 그룹 멤버

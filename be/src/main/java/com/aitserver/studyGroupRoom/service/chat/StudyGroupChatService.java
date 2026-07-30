@@ -6,9 +6,12 @@ import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.studyGroupRoom.dto.chat.ChatDto;
 import com.aitserver.studyGroupRoom.dto.chat.ChatNoticeDto;
+import com.aitserver.studyGroupRoom.dto.chat.ChatReactionDto;
 import com.aitserver.studyGroupRoom.entity.StudyGroup;
 import com.aitserver.studyGroupRoom.entity.StudyGroupChat;
+import com.aitserver.studyGroupRoom.entity.StudyGroupChatReaction;
 import com.aitserver.studyGroupRoom.repository.StudyGroupChatRepository;
+import com.aitserver.studyGroupRoom.repository.StudyGroupChatReactionRepository;
 import com.aitserver.studyGroupRoom.repository.StudyGroupRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -25,6 +28,7 @@ import java.util.List;
 public class StudyGroupChatService {
 
     private final StudyGroupChatRepository chatRepository;
+    private final StudyGroupChatReactionRepository reactionRepository;
     private final StudyGroupRepository studyGroupRepository;
     private final UserRepository userRepository;
 
@@ -54,6 +58,47 @@ public class StudyGroupChatService {
 
         // 6. Response DTO로 변환
         return ChatDto.Response.from(savedChat, user.getNickname(), user.getProfileImage());
+    }
+
+    @Transactional
+    public ChatReactionDto.Response toggleReaction(
+            Long groupId,
+            Long chatId,
+            Long userId,
+            String emoji
+    ) {
+        String normalizedEmoji = emoji == null ? "" : emoji.trim();
+        if (normalizedEmoji.isEmpty() || normalizedEmoji.length() > 32) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        StudyGroupChat chat = chatRepository.findByIdAndGroupId(chatId, groupId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.STUDY_GROUP_CHAT_NOT_FOUND));
+        chat.getStudyGroup().validateMember(userId);
+
+        if (chat.getUser().getId().equals(userId)) {
+            throw new BusinessException(ErrorCode.STUDY_GROUP_CHAT_SELF_REACTION);
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NO_USER));
+
+        reactionRepository.findByChatIdAndUserIdAndEmoji(chatId, userId, normalizedEmoji)
+                .ifPresentOrElse(
+                        reactionRepository::delete,
+                        () -> reactionRepository.save(
+                                new StudyGroupChatReaction(chat, user, normalizedEmoji)
+                        )
+                );
+        reactionRepository.flush();
+
+        return ChatReactionDto.Response.builder()
+                .groupId(groupId)
+                .chatId(chatId)
+                .reactions(ChatDto.ReactionSummary.from(
+                        reactionRepository.findAllByChatIdOrderByIdAsc(chatId)
+                ))
+                .build();
     }
 
     @Transactional

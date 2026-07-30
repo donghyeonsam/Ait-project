@@ -53,6 +53,8 @@ public enum ErrorCode {
     STUDY_GROUP_NOT_FOUND(HttpStatus.NOT_FOUND, "STUDY_GROUP_001", "스터디 그룹을 찾을 수 없습니다."),
     STUDY_GROUP_ACCESS_DENIED(HttpStatus.FORBIDDEN, "STUDY_GROUP_002", "스터디 그룹장만 사용할 수 있는 기능입니다."),
     CANNOT_KICK_SELF(HttpStatus.BAD_REQUEST, "STUDY_GROUP_003", "자기 자신을 추방할 수 없습니다."),
+    STUDY_GROUP_CHAT_NOT_FOUND(HttpStatus.NOT_FOUND, "STUDY_GROUP_CHAT_001", "채팅 메시지를 찾을 수 없습니다."),
+    STUDY_GROUP_CHAT_SELF_REACTION(HttpStatus.BAD_REQUEST, "STUDY_GROUP_CHAT_002", "자신이 보낸 메시지에는 반응할 수 없습니다."),
 
     // 그룹 달력
     CALENDAR_NOT_FOUND(HttpStatus.NOT_FOUND, "CALENDAR_001", "해당 일정을 찾을 수 없습니다."),

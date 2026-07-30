@@ -28,9 +28,11 @@ import {
   getStudyGroupChats,
   sendStudyGroupChatMessage,
   sendStudyGroupChatNotice,
+  toggleStudyGroupChatReaction,
   type StudyGroupChatMessage,
 } from '@/api/study-group-chat'
 import type { Client } from '@stomp/stompjs'
+import { StudyChatMessageReactions } from '@/components/study/StudyChatMessageReactions'
 
 interface StudyGroupChatPanelProps {
   groupId: number
@@ -144,6 +146,15 @@ export function StudyGroupChatPanel({
         setLiveMessageTick((tick) => tick + 1)
       },
       onNotice: (payload) => setNotice(payload.notice ?? ''),
+      onReaction: (payload) => {
+        setMessages((current) =>
+          current.map((message) =>
+            message.chatId === payload.chatId
+              ? { ...message, reactions: payload.reactions }
+              : message,
+          ),
+        )
+      },
       onConnect: () => {
         setIsConnected(true)
         setConnectError(null)
@@ -214,6 +225,11 @@ export function StudyGroupChatPanel({
     sendStudyGroupChatMessage(clientRef.current, groupId, content)
     setDraft('')
     setComposerPicker(null)
+  }
+
+  const toggleReaction = (chatId: number, emoji: string) => {
+    if (!clientRef.current?.connected) return
+    toggleStudyGroupChatReaction(clientRef.current, groupId, chatId, emoji)
   }
 
   const appendToDraft = (value: string, addLeadingSpace = false) => {
@@ -493,6 +509,14 @@ export function StudyGroupChatPanel({
                     {message.message}
                   </p>
                 </div>
+                {!isSelf ? (
+                  <StudyChatMessageReactions
+                    messageId={message.chatId}
+                    reactions={message.reactions ?? []}
+                    currentUserId={currentUserId}
+                    onToggle={toggleReaction}
+                  />
+                ) : null}
               </div>
             </div>
           )
@@ -506,7 +530,7 @@ export function StudyGroupChatPanel({
       >
         <div
           data-message-input-card
-          className="w-full rounded-ait-m border border-input bg-surface-default shadow-elevation-1 transition-[border-color,box-shadow] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--easing-standard)] focus-within:border-action-primary"
+            className="min-w-0 w-full rounded-ait-m border border-input bg-surface-default shadow-elevation-1 transition-[border-color,box-shadow] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--easing-standard)] focus-within:border-action-primary"
         >
           <label className="block w-full">
             <span className="sr-only">그룹톡 메시지 입력</span>

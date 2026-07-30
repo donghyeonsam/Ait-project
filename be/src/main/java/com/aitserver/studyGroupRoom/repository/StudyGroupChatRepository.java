@@ -20,4 +20,11 @@ public interface StudyGroupChatRepository extends JpaRepository<StudyGroupChat, 
             @Param("lastChatId") Long lastChatId,
             Pageable pageable
     );
+
+    @Query("SELECT c FROM StudyGroupChat c JOIN FETCH c.studyGroup JOIN FETCH c.user " +
+            "WHERE c.id = :chatId AND c.studyGroup.id = :groupId")
+    java.util.Optional<StudyGroupChat> findByIdAndGroupId(
+            @Param("chatId") Long chatId,
+            @Param("groupId") Long groupId
+    );
 }
