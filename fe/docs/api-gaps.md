@@ -106,9 +106,11 @@
 
 ### 3-5. 세션 단건 조회
 
-`GET /api/study-sessions/{sessionId}`가 없어 입장 전 화면의 세션 제목이 목업이다.
+`GET /api/study-sessions/{sessionId}`가 없어 세션별 제목을 받을 수 없다.
+입장 전 화면은 목업을 걷어내고 `GET /api/study-groups/{groupId}`의 그룹 제목으로 대신 표시하고 있어,
+같은 그룹의 세션이 여러 번 열려도 제목이 구분되지 않는다.
 
-- 위치: [`src/mocks/study.ts`](../src/mocks/study.ts) `mockPrejoinSessionTitle`
+- 위치: [`src/pages/StudySessionPrejoinPage.tsx`](../src/pages/StudySessionPrejoinPage.tsx)
 
 ### 3-6. 스터디 일정·출석
 
