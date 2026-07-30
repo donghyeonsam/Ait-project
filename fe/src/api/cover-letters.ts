@@ -1,4 +1,4 @@
-// 자기소개서 조회·생성·수정 API 호출과 관련 타입을 모아둔 모듈.
+// 자기소개서 조회·생성·수정·삭제 API 호출과 관련 타입을 모아둔 모듈.
 import { backendRequest } from '@/api/http'
 
 export interface CoverLetterListItem {
@@ -68,5 +68,12 @@ export function updateCoverLetter(
   return backendRequest<CoverLetterDetail>(`/api/cover-letters/${coverLetterId}`, {
     method: 'PUT',
     body: JSON.stringify(request),
+  })
+}
+
+// 서버는 논리 삭제로 처리하며, 본인 소유가 아니면 조회 단계에서 404로 걸러진다.
+export function deleteCoverLetter(coverLetterId: number) {
+  return backendRequest<void>(`/api/cover-letters/${coverLetterId}`, {
+    method: 'DELETE',
   })
 }
