@@ -13,6 +13,7 @@ interface CountUpProps {
   duration?: number
   className?: string
   separator?: string
+  decimals?: number
 }
 
 // ReactBits CountUp을 설치된 Framer Motion API와 reduced-motion 정책에 맞춰 제공한다.
@@ -23,6 +24,7 @@ export function CountUp({
   duration = 1,
   className = '',
   separator = '',
+  decimals = 0,
 }: CountUpProps) {
   const ref = useRef<HTMLSpanElement>(null)
   const reduceMotion = useReducedMotion()
@@ -36,12 +38,13 @@ export function CountUp({
   const formatValue = useCallback(
     (value: number) => {
       const formatted = Intl.NumberFormat('ko-KR', {
-        maximumFractionDigits: 0,
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
         useGrouping: Boolean(separator),
       }).format(value)
       return separator ? formatted.replace(/,/g, separator) : formatted
     },
-    [separator],
+    [decimals, separator],
   )
 
   useEffect(() => {
