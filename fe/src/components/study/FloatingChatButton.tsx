@@ -7,7 +7,8 @@ import {
   type RefObject,
 } from 'react'
 import { useChat } from '@livekit/components-react'
-import { MessageSquare, Send, X } from 'lucide-react'
+import { MessageSquare, Send, SmilePlus, X } from 'lucide-react'
+import { studyChatEmojis } from '@/components/study/studyChatEmojis'
 import { cn } from '@/lib/utils'
 
 interface FloatingChatButtonProps {
@@ -72,8 +73,10 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
   const [containerSize, setContainerSize] = useState<Size | null>(null)
   const { chatMessages, send, isSending } = useChat()
   const [draft, setDraft] = useState('')
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const messageListRef = useRef<HTMLDivElement>(null)
+  const messageInputRef = useRef<HTMLInputElement>(null)
 
   // 패널이 닫혀 있을 때 도착한 메시지 수만큼 배지를 채우고, 열려 있으면 즉시 읽음 처리한다.
   // (렌더 중 상태 조정 패턴 — StudySessionRoom의 identityIdMap 갱신과 동일한 이유로 useEffect 대신 사용한다.)
@@ -97,6 +100,7 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
     const trimmed = draft.trim()
     if (!trimmed || isSending) return
     setDraft('')
+    setEmojiPickerOpen(false)
     void send(trimmed)
   }
 
@@ -162,7 +166,8 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
     buttonRef.current?.releasePointerCapture(event.pointerId)
     dragState.current = null
     if (!drag.moved) {
-      setOpen((value) => !value)
+      setOpen(!open)
+      if (open) setEmojiPickerOpen(false)
     }
   }
 
@@ -233,7 +238,7 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         style={{ left: effectivePosition.x, top: effectivePosition.y, width: BUTTON_SIZE, height: BUTTON_SIZE }}
-        className="absolute z-20 flex touch-none cursor-grab items-center justify-center rounded-ait-pill bg-action-primary text-white shadow-elevation-2 transition-colors hover:bg-action-primary/90 active:cursor-grabbing"
+        className="absolute z-(--z-index-dropdown) flex touch-none cursor-grab items-center justify-center rounded-ait-pill bg-action-primary text-white shadow-elevation-2 transition-colors hover:bg-action-primary/90 active:cursor-grabbing"
       >
         <MessageSquare className="size-5" aria-hidden="true" />
         {unreadCount > 0 ? (
@@ -249,7 +254,7 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
       {open ? (
         <div
           style={{ left: panelLeft, top: panelTop, width: panelWidth, height: panelHeight }}
-          className="absolute z-20 flex flex-col rounded-ait-l border border-border-default bg-surface-default shadow-elevation-3"
+          className="absolute z-(--z-index-sticky) flex flex-col rounded-ait-l border border-border-default bg-surface-default shadow-elevation-3"
         >
           <div
             ref={resizeHandleRef}
@@ -269,7 +274,10 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
             <button
               type="button"
               aria-label="채팅 닫기"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setOpen(false)
+                setEmojiPickerOpen(false)
+              }}
               className="rounded-ait-s p-1 text-text-secondary hover:bg-status-neutral-surface"
             >
               <X className="size-4" aria-hidden="true" />
@@ -304,8 +312,44 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="flex shrink-0 items-center gap-2 border-t border-border-default p-2">
+          <form
+            onSubmit={handleSubmit}
+            className="relative flex shrink-0 items-center gap-2 border-t border-border-default p-2"
+          >
+            {emojiPickerOpen ? (
+              <div
+                role="dialog"
+                aria-label="이모지 선택"
+                className="absolute inset-x-2 bottom-full z-10 mb-2 grid max-h-40 grid-cols-8 gap-1 overflow-y-auto rounded-ait-m border border-border-default bg-surface-default p-2 shadow-elevation-2"
+              >
+                {studyChatEmojis.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => {
+                      setDraft((current) => `${current}${emoji}`)
+                      setEmojiPickerOpen(false)
+                      messageInputRef.current?.focus()
+                    }}
+                    aria-label={`${emoji} 입력`}
+                    className="flex aspect-square items-center justify-center rounded-ait-s text-body-1 hover:bg-status-neutral-surface focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <button
+              type="button"
+              aria-label="이모지 선택"
+              aria-expanded={emojiPickerOpen}
+              onClick={() => setEmojiPickerOpen((value) => !value)}
+              className="flex size-8 shrink-0 items-center justify-center rounded-ait-s text-text-secondary transition-colors hover:bg-status-neutral-surface hover:text-text-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25"
+            >
+              <SmilePlus className="size-4" aria-hidden="true" />
+            </button>
             <input
+              ref={messageInputRef}
               type="text"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}

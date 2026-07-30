@@ -1,4 +1,4 @@
-import { useEffect, useState, type DragEvent, type MouseEvent } from 'react'
+import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from 'react'
 import { VideoTrack, type TrackReference } from '@livekit/components-react'
 import { Lock, MicOff, ScreenShare, UserRound, Volume2, VolumeX } from 'lucide-react'
 import type { RemoteAudioTrack } from 'livekit-client'
@@ -45,6 +45,7 @@ export function ParticipantTile({
   const [remoteVolume, setRemoteVolume] = useState(100)
   const [remoteMuted, setRemoteMuted] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const volumeControlActiveRef = useRef(false)
   // 발화 강조는 켤 때는 즉시(렌더 중 상태 조정), 끌 때는 잠시 지연시켜 짧은 잡음·호흡에 테두리가 깜빡이지 않게 한다.
   const [speakingHighlight, setSpeakingHighlight] = useState(false)
   const showVideo = Boolean(trackRef && !trackRef.publication.isMuted)
@@ -80,7 +81,21 @@ export function ParticipantTile({
   return (
     <div
       draggable={draggableEnabled}
-      onDragStart={draggableEnabled ? () => onDragStart?.() : undefined}
+      onDragStart={
+        draggableEnabled
+          ? (event) => {
+              // range 입력에서 시작된 포인터 이동은 참가자 순서 변경으로 이어지지 않게 한다.
+              if (volumeControlActiveRef.current) {
+                event.preventDefault()
+                return
+              }
+              onDragStart?.()
+            }
+          : undefined
+      }
+      onDragEnd={() => {
+        volumeControlActiveRef.current = false
+      }}
       onDragOver={handleDragOver}
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
@@ -89,8 +104,8 @@ export function ParticipantTile({
         // 호출부(그리드/스트립/스테이지)가 이미 정확한 비율의 박스를 만들어 넘겨주므로 그 크기를 그대로 채운다.
         // @container로 감싸 하위 오버레이가 이 타일의 실제 크기에 맞춰 커지고 작아지게 한다.
         'group @container relative flex h-full w-full items-center justify-center overflow-hidden rounded-ait-m bg-theater-backdrop text-white transition-shadow duration-(--duration-fast) ease-standard',
-        !participant.isSelf && 'hover:ring-2 hover:ring-white/70',
-        speakingHighlight && 'ring-2 ring-status-success hover:ring-status-success',
+        !participant.isSelf && !speakingHighlight && 'hover:ring-2 hover:ring-white/70',
+        speakingHighlight && 'study-participant-speaking',
         dragOver && 'ring-2 ring-action-primary',
         className,
       )}
@@ -149,6 +164,15 @@ export function ParticipantTile({
         <>
           {/* 볼륨 슬라이더를 끌 때 타일의 HTML5 드래그(순서 교환)가 함께 시작되지 않도록 이 영역에서 시작된 dragstart는 취소한다. */}
           <div
+            onPointerDownCapture={() => {
+              volumeControlActiveRef.current = true
+            }}
+            onPointerUpCapture={() => {
+              volumeControlActiveRef.current = false
+            }}
+            onPointerCancelCapture={() => {
+              volumeControlActiveRef.current = false
+            }}
             onDragStart={(event) => {
               event.preventDefault()
               event.stopPropagation()

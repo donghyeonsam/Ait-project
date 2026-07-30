@@ -2,7 +2,7 @@ import { MessageCircleMore } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface StudyChatFloatingButtonProps {
-  // 실제 채팅 연동 전까지는 값을 넘기지 않는다. 값이 오면 카카오톡처럼 버튼 위에 겹친 뱃지로 보여준다.
+  // 미확인 수를 알 수 없는 화면은 생략하고, 값이 오면 버튼 위의 알림 뱃지로 보여준다.
   unreadCount?: number
   onClick: () => void
 }
