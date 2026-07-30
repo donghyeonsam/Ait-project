@@ -17,6 +17,7 @@ import { PageLayout } from '@/components/layout/PageLayout'
 import { Dropdown } from '@/components/ui/dropdown'
 import { CATEGORY_OPTIONS } from '@/lib/community-categories'
 import { EASE_OUT, listContainer } from '@/lib/motion'
+import { useAuth } from '@/lib/useAuth'
 import type {
   CommunityCategory,
   CommunityPost,
@@ -40,6 +41,7 @@ const SORT_OPTIONS: { value: CommunitySort; label: string }[] = [
 
 // 커뮤니티 목록 화면. 검색·인기 검색어 롤링·탭·필터·게시글 카드·더보기를 담당한다.
 export function CommunityPage() {
+  const { user } = useAuth()
   const [query, setQuery] = useState('')
   const [tab, setTab] = useState<CommunityTab>('recommend')
   const [category, setCategory] = useState<CommunityCategory | 'all'>('all')
@@ -64,7 +66,15 @@ export function CommunityPage() {
 
   useEffect(() => {
     const id = ++requestId.current
-    fetchPosts({ tab, category, sort, offset: 0, limit: PAGE_SIZE, query }).then(
+    fetchPosts({
+      tab,
+      category,
+      sort,
+      offset: 0,
+      limit: PAGE_SIZE,
+      query,
+      currentUserNickname: user?.nickname,
+    }).then(
       ({ items, hasMore: more }) => {
         if (id !== requestId.current) return
         setPosts(items)
@@ -72,7 +82,7 @@ export function CommunityPage() {
         setLoadedKey(listKey)
       },
     )
-  }, [tab, category, sort, query, listKey])
+  }, [tab, category, sort, query, listKey, user?.nickname])
 
   const loadMore = async () => {
     if (isLoadingMore) return
@@ -84,6 +94,7 @@ export function CommunityPage() {
       offset: posts.length,
       limit: PAGE_SIZE,
       query,
+      currentUserNickname: user?.nickname,
     })
     setPosts((prev) => [...prev, ...items])
     setHasMore(more)

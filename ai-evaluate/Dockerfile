@@ -1,5 +1,7 @@
 FROM python:3.11-slim
 
+RUN apt-get update && apt-get install -y ffmpeg libsm6 libxext6
+
 WORKDIR /app
 
 # ffmpeg : librosa 가 webm/m4a/mp3 등을 디코딩할 때 필요.

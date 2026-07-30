@@ -2,8 +2,8 @@ import type { Editor } from '@tiptap/react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Loader2, PenLine } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { createPost } from '@/api/community'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { createPost, fetchPost, updatePost } from '@/api/community'
 import { PageTransition } from '@/components/common/PageTransition'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
 import { FileDropzone } from '@/components/form/FileDropzone'
@@ -13,15 +13,17 @@ import { Toggle } from '@/components/form/Toggle'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Dropdown } from '@/components/ui/dropdown'
+import { Skeleton } from '@/components/ui/skeleton'
 import { ToastStack } from '@/components/ui/toast'
 import { CATEGORY_OPTIONS } from '@/lib/community-categories'
 import { formatRelativeTime } from '@/lib/format'
 import { collapseSection } from '@/lib/motion'
+import { useAuth } from '@/lib/useAuth'
 import { useToasts } from '@/lib/useToasts'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { cn } from '@/lib/utils'
 import { mockTagSuggestions } from '@/mocks/community'
-import type { CommunityCategory } from '@/types/community'
+import type { CommunityCategory, CommunityPostDraft } from '@/types/community'
 
 const TITLE_MAX = 50
 const TITLE_WARN = 45
@@ -66,10 +68,23 @@ interface DraftPayload {
 
 type FieldName = 'category' | 'title' | 'content'
 
-// 게시글 작성 화면. 게시판·제목·내용·첨부·태그·게시 설정과 임시 저장/유효성 검사를 담당한다.
+type EditLoadState = 'loading' | 'ready' | 'not-found' | 'forbidden'
+
+const htmlToPlainText = (html: string) =>
+  new DOMParser().parseFromString(html, 'text/html').body.textContent ?? ''
+
+// 게시글 작성·수정 화면. 같은 폼에서 새 글과 기존 글의 입력·검증·저장을 처리한다.
 export function CommunityWritePage() {
+  const { postId } = useParams<{ postId: string }>()
+  const isEditMode = Boolean(postId)
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const currentUserNickname = user?.nickname
   const { toasts, showToast } = useToasts()
+  const [editLoadState, setEditLoadState] = useState<EditLoadState>(
+    isEditMode ? 'loading' : 'ready',
+  )
+  const [editBaseline, setEditBaseline] = useState<string | null>(null)
 
   const [category, setCategory] = useState<CommunityCategory | null>(null)
   const [title, setTitle] = useState('')
@@ -86,6 +101,7 @@ export function CommunityWritePage() {
   const [isSubmitting, setSubmitting] = useState(false)
   // 재진입 시 저장된 초안이 있으면 이어쓰기 배너를 보여준다.
   const [pendingDraft, setPendingDraft] = useState<DraftPayload | null>(() => {
+    if (isEditMode) return null
     try {
       const raw = localStorage.getItem(DRAFT_KEY)
       return raw ? (JSON.parse(raw) as DraftPayload) : null
@@ -100,14 +116,65 @@ export function CommunityWritePage() {
   const titleFieldRef = useRef<HTMLDivElement>(null)
   const contentFieldRef = useRef<HTMLDivElement>(null)
 
-  const isDirty =
-    category !== null ||
-    title.trim().length > 0 ||
-    contentText.trim().length > 0 ||
-    tags.length > 0 ||
-    files.length > 0
+  const formSnapshot = JSON.stringify({
+    category,
+    title,
+    contentHtml,
+    tags,
+    visibility,
+    allowComments,
+    notify,
+  })
+  const isDirty = isEditMode
+    ? (editBaseline !== null && formSnapshot !== editBaseline) || files.length > 0
+    : category !== null ||
+      title.trim().length > 0 ||
+      contentText.trim().length > 0 ||
+      tags.length > 0 ||
+      files.length > 0
 
   const guard = useUnsavedChangesGuard(isDirty && !isSubmitting)
+
+  useEffect(() => {
+    if (!isEditMode || !postId) return
+    let cancelled = false
+
+    fetchPost(postId).then((post) => {
+      if (cancelled) return
+      if (!post) {
+        setEditLoadState('not-found')
+        return
+      }
+      if (!currentUserNickname || post.author !== currentUserNickname) {
+        setEditLoadState('forbidden')
+        return
+      }
+
+      const nextForm = {
+        category: post.category,
+        title: post.title,
+        contentHtml: post.contentHtml,
+        tags: post.tags,
+        visibility: post.visibility ?? ('public' as const),
+        allowComments: post.allowComments ?? true,
+        notify: post.notify ?? true,
+      }
+      setCategory(nextForm.category)
+      setTitle(nextForm.title)
+      setContentHtml(nextForm.contentHtml)
+      setContentText(htmlToPlainText(nextForm.contentHtml))
+      setTags(nextForm.tags)
+      setVisibility(nextForm.visibility)
+      setAllowComments(nextForm.allowComments)
+      setNotify(nextForm.notify)
+      setEditBaseline(JSON.stringify(nextForm))
+      setEditLoadState('ready')
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [currentUserNickname, isEditMode, postId])
 
   const buildDraft = useCallback(
     (): DraftPayload => ({
@@ -133,13 +200,14 @@ export function CommunityWritePage() {
 
   // 30초마다 작성 중인 내용을 자동 저장한다.
   useEffect(() => {
+    if (isEditMode) return
     const timer = setInterval(() => {
       if (isDirtyRef.current) {
         localStorage.setItem(DRAFT_KEY, JSON.stringify(draftRef.current()))
       }
     }, AUTOSAVE_INTERVAL_MS)
     return () => clearInterval(timer)
-  }, [])
+  }, [isEditMode])
 
   // 브라우저 이탈(새로고침·탭 닫기)도 확인을 거친다.
   useEffect(() => {
@@ -171,6 +239,7 @@ export function CommunityWritePage() {
   }
 
   const saveDraft = () => {
+    if (isEditMode) return
     localStorage.setItem(DRAFT_KEY, JSON.stringify(buildDraft()))
     showToast('임시 저장했어요.')
   }
@@ -207,7 +276,7 @@ export function CommunityWritePage() {
 
     setSubmitting(true)
     try {
-      const post = await createPost({
+      const draft: CommunityPostDraft = {
         category,
         title: title.trim(),
         contentHtml,
@@ -215,17 +284,34 @@ export function CommunityWritePage() {
         visibility,
         allowComments,
         notify: allowComments && notify,
-      })
-      localStorage.removeItem(DRAFT_KEY)
-      showToast('게시글을 등록했어요.')
+      }
+      const post =
+        isEditMode && postId
+          ? await updatePost(postId, draft, currentUserNickname)
+          : await createPost(draft, currentUserNickname)
+      if (!isEditMode) localStorage.removeItem(DRAFT_KEY)
+      showToast(isEditMode ? '게시글을 수정했어요.' : '게시글을 등록했어요.')
       setTimeout(() => navigate(`/community/posts/${post.id}`), 700)
     } catch {
       setSubmitting(false)
-      showToast('등록에 실패했어요. 잠시 후 다시 시도해주세요.')
+      showToast(
+        isEditMode
+          ? '수정에 실패했어요. 잠시 후 다시 시도해주세요.'
+          : '등록에 실패했어요. 잠시 후 다시 시도해주세요.',
+      )
     }
   }
 
   const placeholderKey = category ?? 'default'
+
+  if (isEditMode && editLoadState !== 'ready') {
+    return (
+      <EditPostLoadState
+        state={editLoadState}
+        postId={postId}
+      />
+    )
+  }
 
   return (
     <PageLayout contentClassName="page-content-zoom-90 max-w-dashboard px-4 sm:px-8">
@@ -244,18 +330,24 @@ export function CommunityWritePage() {
           <span aria-hidden="true" className="mx-1.5">
             &gt;
           </span>
-          <span className="text-ink-700">글쓰기</span>
+          <span className="text-ink-700">
+            {isEditMode ? '게시글 수정' : '글쓰기'}
+          </span>
         </nav>
 
         <div className="py-6">
-          <h1 className="text-[32px] font-bold text-navy-900">게시글 작성</h1>
+          <h1 className="text-[32px] font-bold text-navy-900">
+            {isEditMode ? '게시글 수정' : '게시글 작성'}
+          </h1>
           <p className="mt-2 text-body-2 text-ink-500">
-            면접 경험과 유용한 정보를 공유해보세요.
+            {isEditMode
+              ? '작성한 내용을 확인하고 필요한 부분을 수정해보세요.'
+              : '면접 경험과 유용한 정보를 공유해보세요.'}
           </p>
 
           {/* 이어쓰기 배너 */}
           <AnimatePresence initial={false}>
-            {pendingDraft ? (
+            {!isEditMode && pendingDraft ? (
               <motion.div
                 variants={collapseSection}
                 initial="collapsed"
@@ -378,6 +470,7 @@ export function CommunityWritePage() {
                 <RichTextEditor
                   placeholderKey={placeholderKey}
                   placeholderLines={CONTENT_PLACEHOLDERS[placeholderKey]}
+                  initialContent={isEditMode ? contentHtml : undefined}
                   invalid={Boolean(errors.content)}
                   onReady={(editor) => {
                     editorRef.current = editor
@@ -458,10 +551,18 @@ export function CommunityWritePage() {
             <div className="flex items-center justify-end gap-3 py-5">
               <button
                 type="button"
-                onClick={saveDraft}
+                onClick={() => {
+                  if (isEditMode && postId) {
+                    guard.guardNavigation(() =>
+                      navigate(`/community/posts/${postId}`),
+                    )
+                    return
+                  }
+                  saveDraft()
+                }}
                 className="rounded-ait-s border border-line bg-surface-default px-5 py-2.5 text-body-2 font-medium text-ink-700 transition-colors hover:bg-surface-muted"
               >
-                임시 저장
+                {isEditMode ? '수정 취소' : '임시 저장'}
               </button>
               <button
                 type="submit"
@@ -471,7 +572,7 @@ export function CommunityWritePage() {
                 {isSubmitting ? (
                   <Loader2 aria-hidden="true" className="size-4 animate-spin" />
                 ) : (
-                  '게시글 등록'
+                  isEditMode ? '수정 완료' : '게시글 등록'
                 )}
               </button>
             </div>
@@ -482,10 +583,10 @@ export function CommunityWritePage() {
       <ConfirmDialog
         open={guard.isConfirmOpen}
         onOpenChange={guard.setConfirmOpen}
-        title="작성 중인 내용이 사라집니다."
+        title={isEditMode ? '수정 중인 내용이 사라집니다.' : '작성 중인 내용이 사라집니다.'}
         description="지금 나가면 저장하지 않은 내용은 복구할 수 없어요."
         confirmLabel="나가기"
-        cancelLabel="계속 작성"
+        cancelLabel={isEditMode ? '계속 수정' : '계속 작성'}
         onConfirm={guard.runPendingAction}
       />
       <ToastStack toasts={toasts} />
@@ -539,5 +640,64 @@ function FormSection({
         ) : null}
       </AnimatePresence>
     </div>
+  )
+}
+
+interface EditPostLoadStateProps {
+  state: Exclude<EditLoadState, 'ready'>
+  postId?: string
+}
+
+// 수정할 글을 불러오는 동안의 로딩과 접근 실패 상태를 안내한다.
+function EditPostLoadState({ state, postId }: EditPostLoadStateProps) {
+  const isLoading = state === 'loading'
+  const isForbidden = state === 'forbidden'
+
+  return (
+    <PageLayout contentClassName="page-content-zoom-90 max-w-dashboard px-4 sm:px-8">
+      <PageTransition>
+        <nav aria-label="현재 위치" className="pt-6 text-caption text-ink-500">
+          <Link to="/community" className="transition-colors hover:text-navy-800">
+            커뮤니티
+          </Link>
+          <span aria-hidden="true" className="mx-1.5">
+            &gt;
+          </span>
+          <span className="text-ink-700">게시글 수정</span>
+        </nav>
+
+        {isLoading ? (
+          <div className="py-6">
+            <Skeleton className="h-10 w-40" />
+            <Skeleton className="mt-3 h-5 w-72" />
+            <div className="mt-6 rounded-ait-m border border-line bg-surface-default p-8">
+              <Skeleton className="h-5 w-20" />
+              <Skeleton className="mt-4 h-11 w-full" />
+              <Skeleton className="mt-8 h-5 w-20" />
+              <Skeleton className="mt-4 h-72 w-full" />
+            </div>
+          </div>
+        ) : (
+          <div className="my-16 rounded-ait-m border border-line bg-surface-default px-6 py-20 text-center">
+            <p className="text-body-1 font-semibold text-ink-900">
+              {isForbidden
+                ? '이 게시글을 수정할 수 없어요.'
+                : '수정할 게시글을 찾을 수 없어요.'}
+            </p>
+            <p className="mt-2 text-body-2 text-ink-500">
+              {isForbidden
+                ? '게시글을 작성한 사용자만 내용을 수정할 수 있습니다.'
+                : '삭제됐거나 주소가 잘못됐을 수 있어요.'}
+            </p>
+            <Link
+              to={isForbidden && postId ? `/community/posts/${postId}` : '/community'}
+              className="mt-6 inline-flex rounded-ait-s bg-navy-900 px-5 py-2.5 text-body-2 font-semibold text-surface-default transition-[filter] hover:brightness-[.92]"
+            >
+              {isForbidden ? '게시글로 돌아가기' : '목록으로 돌아가기'}
+            </Link>
+          </div>
+        )}
+      </PageTransition>
+    </PageLayout>
   )
 }
