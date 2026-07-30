@@ -1,6 +1,6 @@
 import { useEffect, useState, type DragEvent, type MouseEvent } from 'react'
 import { VideoTrack, type TrackReference } from '@livekit/components-react'
-import { Lock, MicOff, UserRound, Volume2, VolumeX } from 'lucide-react'
+import { Lock, MicOff, ScreenShare, UserRound, Volume2, VolumeX } from 'lucide-react'
 import type { RemoteAudioTrack } from 'livekit-client'
 import { MasterVolumeSlider } from '@/components/interview/MasterVolumeSlider'
 import type { StudyParticipant } from '@/mocks/study'
@@ -19,6 +19,8 @@ interface ParticipantTileProps {
   speaking?: boolean
   /** 이 참가자의 마이크 음소거 여부. 로컬 재생 음소거(remoteMuted)와는 다른, 상대방 자신의 마이크 상태다. */
   micMuted?: boolean
+  /** 이 참가자가 화면을 공유하는 중이면 타일에 공유 아이콘을 표시한다. */
+  sharingScreen?: boolean
   onDragStart?: () => void
   onDropOn?: () => void
   onContextMenu?: (event: MouseEvent<HTMLDivElement>) => void
@@ -34,6 +36,7 @@ export function ParticipantTile({
   locked = false,
   speaking = false,
   micMuted = false,
+  sharingScreen = false,
   onDragStart,
   onDropOn,
   onContextMenu,
@@ -127,11 +130,22 @@ export function ParticipantTile({
         ) : null}
       </div>
 
-      {participant.isSelf ? (
-        <span className="absolute left-2 top-2 rounded-ait-s bg-black/40 px-2 py-1 text-caption text-white">
-          나
-        </span>
-      ) : (
+      <div className="absolute left-2 top-2 flex items-center gap-1">
+        {participant.isSelf ? (
+          <span className="rounded-ait-s bg-black/40 px-2 py-1 text-caption text-white">나</span>
+        ) : null}
+        {sharingScreen ? (
+          <span
+            className="flex size-6 items-center justify-center rounded-ait-s bg-black/40 text-white"
+            title="화면 공유 중"
+            aria-label={`${participant.name} 화면 공유 중`}
+          >
+            <ScreenShare className="size-3.5" aria-hidden="true" />
+          </span>
+        ) : null}
+      </div>
+
+      {participant.isSelf ? null : (
         <>
           {/* 볼륨 슬라이더를 끌 때 타일의 HTML5 드래그(순서 교환)가 함께 시작되지 않도록 이 영역에서 시작된 dragstart는 취소한다. */}
           <div

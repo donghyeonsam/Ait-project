@@ -30,10 +30,12 @@ import {
   VideoOff,
   Volume2,
   VolumeX,
+  X,
 } from 'lucide-react'
 import { FloatingChatButton } from '@/components/study/FloatingChatButton'
 import { HoverVolumeButton } from '@/components/study/HoverVolumeButton'
 import { ParticipantTile } from '@/components/study/ParticipantTile'
+import { ScreenShareTile } from '@/components/study/ScreenShareTile'
 import { StudySessionSidePanel } from '@/components/study/StudySessionSidePanel'
 import { Button } from '@/components/ui/button'
 import {
@@ -71,7 +73,7 @@ interface StudySessionRoomProps {
   onLeave: () => void
 }
 
-type StageMode = { type: 'grid' } | { type: 'participants'; ids: number[] } | { type: 'screen' }
+type StageMode = { type: 'grid' } | { type: 'participants'; ids: number[] } | { type: 'screen'; sid: string }
 
 interface ContextMenuState {
   participantId: number
@@ -281,7 +283,11 @@ function StudySessionRoomStage({
   const cameraTracks = useTracks([Track.Source.Camera]).filter(isTrackReference)
   const micTracks = useTracks([Track.Source.Microphone]).filter(isTrackReference)
   const screenShareTracks = useTracks([Track.Source.ScreenShare]).filter(isTrackReference)
-  const activeScreenShareTrack = screenShareTracks[0] ?? null
+
+  const screenShareLabel = (trackRef: (typeof screenShareTracks)[number]) =>
+    trackRef.participant.isLocal
+      ? '내 화면'
+      : `${trackRef.participant.name || trackRef.participant.identity}님의 화면`
 
   // LiveKit participant.identity(문자열)를 기존 코드 전반(order/lockedIds/stageMode 등)이 쓰는
   // number id로 바꿔주는 안정적인 매핑. 본인은 항상 0, 나머지는 처음 본 순서대로 1부터 채번한다.
@@ -405,6 +411,15 @@ function StudySessionRoomStage({
     [isMicrophoneEnabled, micTrackByParticipantId],
   )
 
+  // 화면을 공유 중인 참가자 id 집합. 카메라 타일에 공유 중 아이콘을 띄우는 데 쓴다.
+  const sharingParticipantIds = useMemo(() => {
+    const set = new Set<number>()
+    for (const trackRef of screenShareTracks) {
+      set.add(resolveParticipantId(trackRef.participant.identity, trackRef.participant.isLocal))
+    }
+    return set
+  }, [screenShareTracks, resolveParticipantId])
+
   // 참가자별 LiveKit identity. 강퇴 API는 identity가 아니라 userId를 받으므로 보관해 둔다.
   const identityByParticipantId = useMemo(() => {
     const map = new Map<number, string>()
@@ -452,18 +467,33 @@ function StudySessionRoomStage({
     setOrder([...kept, ...added])
   }
 
-  // 참가자(본인 포함)의 화면 공유가 시작되면 자동으로 스테이지로 전환하고, 끝나면 그리드로 되돌아간다.
-  const activeScreenShareSid = activeScreenShareTrack?.publication.trackSid ?? null
-  const [prevScreenShareSid, setPrevScreenShareSid] = useState(activeScreenShareSid)
+  // 새 화면 공유가 시작되면 자동으로 그 화면을 확대한다. 이미 다른 공유를 보고 있으면 시선을 뺏지 않는다.
+  // (렌더 중 상태 조정 패턴)
+  const screenShareSids = screenShareTracks.map((trackRef) => trackRef.publication.trackSid)
+  const [prevScreenShareSids, setPrevScreenShareSids] = useState(screenShareSids)
+  const screenShareSidsChanged =
+    screenShareSids.length !== prevScreenShareSids.length ||
+    screenShareSids.some((sid, index) => sid !== prevScreenShareSids[index])
 
-  if (activeScreenShareSid !== prevScreenShareSid) {
-    setPrevScreenShareSid(activeScreenShareSid)
-    if (activeScreenShareSid && stageMode.type !== 'screen') {
-      setStageMode({ type: 'screen' })
-    } else if (!activeScreenShareSid && stageMode.type === 'screen') {
-      setStageMode({ type: 'grid' })
+  if (screenShareSidsChanged) {
+    setPrevScreenShareSids(screenShareSids)
+    const addedSid = screenShareSids.find((sid) => !prevScreenShareSids.includes(sid))
+    if (addedSid && stageMode.type !== 'screen') {
+      setStageMode({ type: 'screen', sid: addedSid })
     }
   }
+
+  // 보고 있던 공유가 끝나면 남아 있는 다른 공유로 넘어가고, 더 없으면 그리드로 복귀한다.
+  if (stageMode.type === 'screen' && !screenShareSids.includes(stageMode.sid)) {
+    setStageMode(
+      screenShareSids.length > 0 ? { type: 'screen', sid: screenShareSids[0] } : { type: 'grid' },
+    )
+  }
+
+  const stageScreenShareTrack =
+    stageMode.type === 'screen'
+      ? (screenShareTracks.find((trackRef) => trackRef.publication.trackSid === stageMode.sid) ?? null)
+      : null
 
   useEffect(() => {
     if (!contextMenu) return
@@ -488,9 +518,16 @@ function StudySessionRoomStage({
   )
 
   // 셀을 꽉 채우는 대신, 레터박스가 가장 적게 남도록 타일 크기 자체를 4:3으로 계산한다.
+  // 그리드에는 참가자 카메라와 진행 중인 화면 공유가 모두 타일로 배치되므로 둘을 합쳐 센다.
   const gridTileSize = useMemo(
-    () => computeGridTileSize(participants.length, gridSize?.width ?? 0, gridSize?.height ?? 0, GRID_GAP),
-    [participants.length, gridSize],
+    () =>
+      computeGridTileSize(
+        participants.length + screenShareTracks.length,
+        gridSize?.width ?? 0,
+        gridSize?.height ?? 0,
+        GRID_GAP,
+      ),
+    [participants.length, screenShareTracks.length, gridSize],
   )
 
   const stageParticipants = useMemo(() => {
@@ -510,11 +547,8 @@ function StudySessionRoomStage({
     void localParticipant.setScreenShareEnabled(!isScreenShareEnabled)
   }
 
-  // 우클릭 메뉴의 "그리드로 보기"에서만 쓴다. 화면 접기 버튼은 더 이상 그리드로 돌아가지 않는다.
+  // 확대만 해제하고 그리드로 돌아간다. 진행 중인 화면 공유는 그리드에 타일로 남으므로 중단하지 않는다.
   const handleReturnToGrid = () => {
-    if (stageMode.type === 'screen' && isScreenShareEnabled) {
-      void localParticipant.setScreenShareEnabled(false)
-    }
     setStageMode({ type: 'grid' })
   }
 
@@ -698,6 +732,7 @@ function StudySessionRoomStage({
                       participant={participant}
                       speaking={speakingIds.has(participant.participantId)}
                       micMuted={isMicMuted(participant)}
+                      sharingScreen={sharingParticipantIds.has(participant.participantId)}
                       trackRef={cameraTrackByParticipantId.get(participant.participantId) ?? null}
                       audioTrackRef={
                         participant.isSelf ? null : (micTrackByParticipantId.get(participant.participantId) ?? null)
@@ -713,6 +748,25 @@ function StudySessionRoomStage({
                     />
                   </div>
                 ))}
+
+                {screenShareTracks.map((trackRef) => (
+                  <div
+                    key={trackRef.publication.trackSid}
+                    className="shrink-0 transition-[width,height] ease-standard duration-(--duration-base)"
+                    style={
+                      gridTileSize.width > 0
+                        ? { width: gridTileSize.width, height: gridTileSize.height }
+                        : { width: '30%', aspectRatio: CAMERA_ASPECT }
+                    }
+                  >
+                    <ScreenShareTile
+                      trackRef={trackRef}
+                      label={screenShareLabel(trackRef)}
+                      onSelect={() => setStageMode({ type: 'screen', sid: trackRef.publication.trackSid })}
+                      className="h-full w-full"
+                    />
+                  </div>
+                ))}
               </div>
             ) : (
               <div key="stage" className="screen-fade-in flex h-full min-h-0 flex-col gap-2">
@@ -722,6 +776,22 @@ function StudySessionRoomStage({
                     stripCollapsed ? 'h-0' : 'h-24',
                   )}
                 >
+                  {/* 지금 확대해서 보고 있는 공유 화면은 아래 스테이지에 이미 보이므로 위 줄에서는 뺀다. */}
+                  {screenShareTracks
+                    .filter(
+                      (trackRef) =>
+                        !(stageMode.type === 'screen' && trackRef.publication.trackSid === stageMode.sid),
+                    )
+                    .map((trackRef) => (
+                      <ScreenShareTile
+                        key={trackRef.publication.trackSid}
+                        trackRef={trackRef}
+                        label={screenShareLabel(trackRef)}
+                        onSelect={() => setStageMode({ type: 'screen', sid: trackRef.publication.trackSid })}
+                        className="aspect-12/9 h-24 w-auto shrink-0"
+                      />
+                    ))}
+
                   {/* 확대된 참가자는 아래 스테이지에 이미 보이므로 위 줄에는 남겨두지 않는다. */}
                   {orderedParticipants
                     .filter((participant) => !stagePinnedIds.includes(participant.participantId))
@@ -731,6 +801,7 @@ function StudySessionRoomStage({
                         participant={participant}
                         speaking={speakingIds.has(participant.participantId)}
                         micMuted={isMicMuted(participant)}
+                        sharingScreen={sharingParticipantIds.has(participant.participantId)}
                         trackRef={cameraTrackByParticipantId.get(participant.participantId) ?? null}
                         audioTrackRef={
                           participant.isSelf ? null : (micTrackByParticipantId.get(participant.participantId) ?? null)
@@ -766,8 +837,25 @@ function StudySessionRoomStage({
                   className="flex min-h-0 flex-1 flex-wrap content-center items-center justify-center gap-3 overflow-hidden"
                 >
                   {stageMode.type === 'screen' ? (
-                    activeScreenShareTrack ? (
-                      <VideoTrack trackRef={activeScreenShareTrack} className="size-full bg-black object-contain" />
+                    stageScreenShareTrack ? (
+                      <div className="relative size-full overflow-hidden rounded-ait-m">
+                        <VideoTrack
+                          trackRef={stageScreenShareTrack}
+                          className="size-full bg-black object-contain"
+                        />
+                        <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-ait-s bg-black/60 px-2.5 py-1 text-caption text-white">
+                          <ScreenShare className="size-3.5 shrink-0" aria-hidden="true" />
+                          {screenShareLabel(stageScreenShareTrack)}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label="확대 종료하고 그리드로 보기"
+                          onClick={handleReturnToGrid}
+                          className="absolute right-3 top-3 flex size-7 items-center justify-center rounded-ait-s bg-black/60 text-white transition-colors hover:bg-black/80"
+                        >
+                          <X className="size-4" aria-hidden="true" />
+                        </button>
+                      </div>
                     ) : null
                   ) : (
                     stageParticipants.map((participant) => (
@@ -784,6 +872,7 @@ function StudySessionRoomStage({
                           participant={participant}
                           speaking={speakingIds.has(participant.participantId)}
                           micMuted={isMicMuted(participant)}
+                          sharingScreen={sharingParticipantIds.has(participant.participantId)}
                           trackRef={cameraTrackByParticipantId.get(participant.participantId) ?? null}
                           audioTrackRef={
                             participant.isSelf ? null : (micTrackByParticipantId.get(participant.participantId) ?? null)
