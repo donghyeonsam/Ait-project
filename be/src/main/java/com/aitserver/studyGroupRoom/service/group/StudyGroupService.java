@@ -28,8 +28,16 @@ public class StudyGroupService {
     private final StudyGroupRepository studyGroupRepository;
     private final StudyGroupMemberRepository studyGroupMemberRepository;
 
-    public Page<StudyGroupListResponseDto> getStudyGroups(StudyGroupStatus status, String keyword, Pageable pageable) {
-        Page<StudyGroup> studyGroups = studyGroupRepository.findByCondition(status, keyword, pageable);
+    public Page<StudyGroupListResponseDto> getStudyGroups(StudyGroupStatus status, String keyword, Long userId, Pageable pageable) {
+
+        List<StudyGroupMemberStatus> excludedStatuses = List.of(
+                StudyGroupMemberStatus.ACTIVE,
+                StudyGroupMemberStatus.KICKED,
+                StudyGroupMemberStatus.PENDING,
+                StudyGroupMemberStatus.REJECTED
+        );
+
+        Page<StudyGroup> studyGroups = studyGroupRepository.findByConditionAndUserStatus(status, keyword, userId, excludedStatuses, pageable);
         return studyGroups.map(StudyGroupListResponseDto::from);
     }
 

@@ -23,6 +23,7 @@ public class GroupDetailResponse {
     private String notice;
     public static GroupDetailResponse from(StudyGroup group) {
         List<MemberInfo> memberInfos = group.getMembers().stream()
+                .filter(StudyGroupMember::isActive)
                 .map(groupMember -> MemberInfo.from(groupMember, group.getOwner().getId()))
                 .toList();
 

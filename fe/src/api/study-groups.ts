@@ -40,6 +40,8 @@ export interface StudyGroupDetail {
   createdAt: string
   ownerId: number
   members: StudyGroupMemberInfo[]
+  // 공지 변경은 STOMP로 오지만, 화면 진입 시점의 공지는 이 값으로만 알 수 있다.
+  notice: string | null
 }
 
 export interface MyStudyGroup {
@@ -105,6 +107,14 @@ export function getMyStudyGroups() {
 
 export function getMyActiveStudyGroups() {
   return backendRequest<MyStudyGroup[]>('/api/study-groups/me/active')
+}
+
+// 방장만 호출할 수 있고, 대상은 이미 그룹에 속한 사용자여야 한다.
+export function kickStudyGroupMember(groupId: number, targetUserId: number) {
+  return backendRequest<void>(
+    `/api/study-groups/${groupId}/members/${targetUserId}`,
+    { method: 'DELETE' },
+  )
 }
 
 export function leaveStudyGroup(groupId: number) {

@@ -70,4 +70,6 @@ public interface StudyGroupMemberRepository
             StudyGroupMemberStatus status
     );
 
+    @Query(value = "SELECT * FROM study_group_members WHERE group_id = :groupId AND user_id = :userId", nativeQuery = true)
+    Optional<StudyGroupMember> findByGroupAndUserIncludeDeleted(@Param("groupId") Long groupId, @Param("userId") Long userId);
 }

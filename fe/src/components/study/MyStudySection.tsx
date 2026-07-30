@@ -9,6 +9,7 @@ interface MyStudySectionProps {
   studies: MyStudyGroup[]
   isLoading: boolean
   errorMessage: string | null
+  activeSessionGroupIds: Set<number>
   onOpenStudy: (study: MyStudyGroup) => void
 }
 
@@ -19,6 +20,7 @@ export function MyStudySection({
   studies,
   isLoading,
   errorMessage,
+  activeSessionGroupIds,
   onOpenStudy,
 }: MyStudySectionProps) {
   const { ref, isInView } = useInView<HTMLElement>({ threshold: 0.1 })
@@ -48,6 +50,7 @@ export function MyStudySection({
       ) : (
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           {studies.map((study) => {
+            const hasActiveSession = activeSessionGroupIds.has(study.id)
             const visibleAvatars = Math.min(
               study.currentMemberCount,
               MAX_VISIBLE_AVATARS,
@@ -71,10 +74,19 @@ export function MyStudySection({
                 <div className="pointer-events-none relative z-10 flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      {/* TODO: 실제 API 연동 필요 — 그룹의 활성 세션 조회 엔드포인트가 없어 항상 비활성(회색)으로 표시한다. */}
                       <span
-                        className="size-2 shrink-0 rounded-ait-pill bg-status-neutral"
-                        aria-hidden="true"
+                        className={cn(
+                          'size-2 shrink-0 rounded-ait-pill',
+                          hasActiveSession
+                            ? 'bg-status-success'
+                            : 'bg-status-neutral',
+                        )}
+                        role="img"
+                        aria-label={
+                          hasActiveSession
+                            ? '세션 진행 중'
+                            : '진행 중인 세션 없음'
+                        }
                       />
                       <h3 className="truncate text-body-1 font-semibold text-text-primary">
                         {study.title}
