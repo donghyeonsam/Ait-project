@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useLayoutEffect, useRef } from 'react'
 import type { VoiceAnswerStatus } from '@/components/interview/useVoiceAnswer'
 
 interface UseAutoRecordingAfterSpeechOptions {
@@ -18,7 +18,7 @@ export function useAutoRecordingAfterSpeech({
 }: UseAutoRecordingAfterSpeechOptions) {
   const recordedQuestionRef = useRef<string | null>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (
       completedSpeechKey !== questionKey ||
       !enabled ||
@@ -28,13 +28,10 @@ export function useAutoRecordingAfterSpeech({
       return
     }
 
-    // StrictMode의 이펙트 재실행에서도 한 질문당 한 번만 자동 녹음한다.
-    const timer = window.setTimeout(() => {
-      if (recordedQuestionRef.current === questionKey) return
-      recordedQuestionRef.current = questionKey
-      startRecording()
-    }, 0)
-    return () => window.clearTimeout(timer)
+    // 브라우저가 중간 idle 화면을 그리기 전에 녹음을 시작하고,
+    // StrictMode의 이펙트 재실행에서도 한 질문당 한 번만 실행한다.
+    recordedQuestionRef.current = questionKey
+    startRecording()
   }, [
     answerStatus,
     completedSpeechKey,
