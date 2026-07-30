@@ -828,6 +828,26 @@ button:not(:disabled) {
   color: #ffffff;
 }
 
+.interviewer-media {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #0e151b;
+}
+
+.interviewer-media-poster,
+.interviewer-media-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.interviewer-media-video {
+  z-index: 1;
+}
+
 .session-theater-scrim {
   position: absolute;
   inset: 0;
