@@ -15,7 +15,7 @@ import {
   useRemoteParticipants,
   useTracks,
 } from '@livekit/components-react'
-import { Room, Track } from 'livekit-client'
+import { DisconnectReason, Room, RoomEvent, Track } from 'livekit-client'
 import {
   ChevronDown,
   ChevronLeft,
@@ -45,7 +45,12 @@ import {
 } from '@/components/ui/dialog'
 import type { StudyParticipant } from '@/mocks/study'
 import { getMyCoverLetters, type CoverLetterListItem } from '@/api/cover-letters'
-import type { StudySessionConnection } from '@/api/study-sessions'
+import {
+  endStudySession,
+  kickStudySessionParticipant,
+  type StudySessionConnection,
+} from '@/api/study-sessions'
+import { toErrorMessage } from '@/api/http'
 import { cn } from '@/lib/utils'
 
 export interface StudySessionRoomDeviceSelection {
@@ -165,6 +170,12 @@ function computeGridTileSize(count: number, width: number, height: number, gap: 
   return best
 }
 
+// LiveKitTokenService.createParticipantIdentity(userId)가 만드는 "user-{userId}" 형식과 짝을 이룬다.
+function parseUserIdFromIdentity(identity: string): number | null {
+  const match = /^user-(\d+)$/.exec(identity)
+  return match ? Number(match[1]) : null
+}
+
 // 스터디 세션 화상 회의방: 참가자 그리드/스테이지 뷰, 컨트롤 바, 이력서·자소서·평가 패널을 구성한다.
 // LiveKit Room 연결/트랙 구독은 이 컴포넌트가 소유하고, 하위 트리에는 RoomContext로 내려준다.
 // 채팅은 같은 Room의 데이터 채널(useChat)로 실연동되어 있다(FloatingChatButton 참고).
@@ -185,6 +196,20 @@ export function StudySessionRoom({
     // 재시도 때마다 새 인스턴스로 연결해야 안전하다.
     const activeRoom = new Room()
     let cancelled = false
+
+    // 강퇴되거나 방장이 세션을 종료하면 서버가 이 클라이언트를 강제로 끊는다. 자발적으로 나갈 때는
+    // cleanup에서 cancelled를 먼저 true로 만든 뒤 disconnect를 호출하므로 여기서 걸러진다.
+    //
+    // DisconnectReason에는 그 외에도 여러 사유가 있는데(DUPLICATE_IDENTITY, SIGNAL_CLOSE 등),
+    // 특히 개발 모드 StrictMode의 이중 mount로 같은 identity의 연결이 두 개 생겼다가 뒤늦게
+    // 도착한 연결이 정리되며 지금 연결이 DUPLICATE_IDENTITY로 끊기는 경우가 있다. 그런 사유까지
+    // 나가기로 처리하면 아무 조작 없이도 몇 초 뒤 튕기므로, 실제로 강퇴/세션 종료인 경우에만 나간다.
+    const handleDisconnected = (reason?: DisconnectReason) => {
+      if (cancelled) return
+      if (reason !== DisconnectReason.PARTICIPANT_REMOVED && reason !== DisconnectReason.ROOM_DELETED) return
+      onLeave()
+    }
+    activeRoom.on(RoomEvent.Disconnected, handleDisconnected)
 
     const connectToRoom = async () => {
       setRoom(activeRoom)
@@ -214,6 +239,7 @@ export function StudySessionRoom({
 
     return () => {
       cancelled = true
+      activeRoom.off(RoomEvent.Disconnected, handleDisconnected)
       void activeRoom.disconnect()
     }
     // 최초 접속 정보로 한 번만 연결한다. 재연결이 필요한 경우는 이 화면을 다시 마운트해서 처리한다.
@@ -356,13 +382,28 @@ function StudySessionRoomStage({
     return map
   }, [micTracks, resolveParticipantId])
 
+  // 참가자별 LiveKit identity. 강퇴 API는 identity가 아니라 userId를 받으므로 보관해 둔다.
+  const identityByParticipantId = useMemo(() => {
+    const map = new Map<number, string>()
+    for (const participant of remoteParticipants) {
+      map.set(resolveParticipantId(participant.identity, false), participant.identity)
+    }
+    return map
+  }, [remoteParticipants, resolveParticipantId])
+
   const selfId = participants.find((participant) => participant.isSelf)?.participantId ?? null
+  const isHost = connection.role === 'HOST'
 
   const [panelOpen, setPanelOpen] = useState(false)
   const [micGain, setMicGain] = useState(initialDevices.micGain)
   const [speakerMuted, setSpeakerMuted] = useState(false)
   const [speakerVolume, setSpeakerVolume] = useState(initialDevices.speakerVolume)
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  const [leaveError, setLeaveError] = useState<string | null>(null)
+  const [kickTarget, setKickTarget] = useState<{ participantId: number; name: string } | null>(null)
+  const [kicking, setKicking] = useState(false)
+  const [kickError, setKickError] = useState<string | null>(null)
   const [stageMode, setStageMode] = useState<StageMode>({ type: 'grid' })
   const [stripCollapsed, setStripCollapsed] = useState(false)
   const [order, setOrder] = useState<number[]>([0])
@@ -538,9 +579,54 @@ function StudySessionRoomStage({
     })
   }
 
-  const handleConfirmLeave = () => {
-    setLeaveDialogOpen(false)
-    onLeave()
+  // 방장이 나가면 세션 자체를 종료한다 — 참가자만 따로 나가는 API는 없고, 방장이 없는 세션을 계속
+  // 유지할 방법도 없기 때문이다. 종료 요청이 실패하면 나가기를 진행하지 않고 재시도할 수 있게 한다.
+  const handleConfirmLeave = async () => {
+    if (!isHost) {
+      setLeaveDialogOpen(false)
+      onLeave()
+      return
+    }
+
+    setLeaving(true)
+    setLeaveError(null)
+    try {
+      await endStudySession(connection.sessionId)
+      setLeaveDialogOpen(false)
+      onLeave()
+    } catch (error) {
+      setLeaveError(toErrorMessage(error))
+    } finally {
+      setLeaving(false)
+    }
+  }
+
+  const openKickConfirm = (participantId: number) => {
+    const participant = participants.find((entry) => entry.participantId === participantId)
+    if (!participant) return
+    setKickError(null)
+    setKickTarget({ participantId, name: participant.name })
+  }
+
+  const handleConfirmKick = async () => {
+    if (!kickTarget) return
+    const identity = identityByParticipantId.get(kickTarget.participantId)
+    const targetUserId = identity ? parseUserIdFromIdentity(identity) : null
+    if (targetUserId === null) {
+      setKickError('참가자 정보를 확인할 수 없습니다.')
+      return
+    }
+
+    setKicking(true)
+    setKickError(null)
+    try {
+      await kickStudySessionParticipant(connection.sessionId, targetUserId)
+      setKickTarget(null)
+    } catch (error) {
+      setKickError(toErrorMessage(error))
+    } finally {
+      setKicking(false)
+    }
   }
 
   // 패널이 열고 닫힐 폭만큼 그리드/스테이지 폭을 미리 계산해 둔다 — 실측 리사이즈 이벤트를
@@ -743,6 +829,19 @@ function StudySessionRoomStage({
                     전체 그리드로 보기
                   </button>
                 ) : null}
+                {isHost && identityByParticipantId.has(contextMenu.participantId) ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      openKickConfirm(contextMenu.participantId)
+                      setContextMenu(null)
+                    }}
+                    className="block w-full border-t border-border-default px-3 py-2 text-left text-body-2 text-status-error hover:bg-status-neutral-surface"
+                  >
+                    강퇴
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -827,18 +926,57 @@ function StudySessionRoomStage({
         </div>
       </div>
 
-      <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
+      <Dialog
+        open={leaveDialogOpen}
+        onOpenChange={(open) => {
+          if (leaving) return
+          setLeaveDialogOpen(open)
+          if (!open) setLeaveError(null)
+        }}
+      >
         <DialogContent className="w-[min(26rem,calc(100vw-2rem))] p-6" showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>세션에서 나갈까요?</DialogTitle>
-            <DialogDescription>나가면 화상 스터디 세션 연결이 종료됩니다.</DialogDescription>
+            <DialogTitle>{isHost ? '세션을 종료할까요?' : '세션에서 나갈까요?'}</DialogTitle>
+            <DialogDescription>
+              {isHost
+                ? '방장이 나가면 세션이 종료되고 모든 참가자와의 연결이 끊어집니다.'
+                : '나가면 화상 스터디 세션 연결이 종료됩니다.'}
+            </DialogDescription>
           </DialogHeader>
+          {leaveError ? <p className="mt-3 text-body-2 text-status-error">{leaveError}</p> : null}
           <DialogFooter className="mt-6">
-            <Button type="button" variant="text" onClick={() => setLeaveDialogOpen(false)}>
+            <Button type="button" variant="text" disabled={leaving} onClick={() => setLeaveDialogOpen(false)}>
               계속 참여
             </Button>
-            <Button type="button" variant="destructive" onClick={handleConfirmLeave}>
-              나가기
+            <Button type="button" variant="destructive" disabled={leaving} onClick={() => void handleConfirmLeave()}>
+              {isHost ? (leaving ? '종료 중…' : '세션 종료') : '나가기'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={kickTarget !== null}
+        onOpenChange={(open) => {
+          if (kicking) return
+          if (!open) {
+            setKickTarget(null)
+            setKickError(null)
+          }
+        }}
+      >
+        <DialogContent className="w-[min(26rem,calc(100vw-2rem))] p-6" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>{kickTarget?.name}님을 강퇴할까요?</DialogTitle>
+            <DialogDescription>강퇴하면 이 세션에 다시 참여할 수 없습니다.</DialogDescription>
+          </DialogHeader>
+          {kickError ? <p className="mt-3 text-body-2 text-status-error">{kickError}</p> : null}
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="text" disabled={kicking} onClick={() => setKickTarget(null)}>
+              취소
+            </Button>
+            <Button type="button" variant="destructive" disabled={kicking} onClick={() => void handleConfirmKick()}>
+              {kicking ? '강퇴 중…' : '강퇴'}
             </Button>
           </DialogFooter>
         </DialogContent>
