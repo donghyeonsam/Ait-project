@@ -11,6 +11,7 @@ import {
   getStudyGroupActiveSession,
   joinStudySessionParticipant,
 } from '@/api/study-sessions'
+import { getMyResume } from '@/api/resume'
 import { toErrorMessage } from '@/api/http'
 import { mockPrejoinSessionTitle } from '@/mocks/study'
 
@@ -54,7 +55,11 @@ export function StudySessionPrejoinPage() {
       const currentSessionId = sessionId ?? (await resolveSessionId(parsedGroupId))
       setSessionId(currentSessionId)
 
+      // 이력서는 자소서와 달리 유저당 1개만 존재해 선택 UI 없이 본인 이력서를 그대로 사용한다.
+      const { resumeId } = await getMyResume()
+
       await joinStudySessionParticipant(currentSessionId, {
+        resumeId,
         coverLetterId: selection.coverLetterId,
       })
       const connection = await createStudySessionConnection(currentSessionId)

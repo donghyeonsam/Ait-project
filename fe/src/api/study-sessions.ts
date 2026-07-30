@@ -51,7 +51,23 @@ export function createStudySessionConnection(sessionId: number) {
   )
 }
 
+// 방장만 호출할 수 있고, 자기 자신은 강퇴할 수 없다.
+export function kickStudySessionParticipant(sessionId: number, targetUserId: number) {
+  return backendRequest<void>(
+    `/api/study-sessions/${sessionId}/participants/${targetUserId}`,
+    { method: 'DELETE' },
+  )
+}
+
+// 방장만 호출할 수 있고, 호출하면 모든 참가자의 연결이 종료된다.
+export function endStudySession(sessionId: number) {
+  return backendRequest<void>(`/api/study-groups/${sessionId}/end`, {
+    method: 'POST',
+  })
+}
+
 export interface StudySessionParticipantJoinRequest {
+  resumeId: number
   coverLetterId: number | null
 }
 
