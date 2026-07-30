@@ -17,16 +17,20 @@ vi.mock('@/components/reactbits/CountUp', () => ({
 const participants: StudyParticipant[] = [
   {
     participantId: 1,
+    userId: 11,
     name: '나',
     isSelf: true,
+    role: 'HOST',
     resumeSummary: '내 이력서',
     coverLetterTitle: '내 자소서',
     coverLetterSummary: '내 자소서 내용',
   },
   {
     participantId: 2,
+    userId: 12,
     name: '김지원',
     isSelf: false,
+    role: 'MEMBER',
     resumeSummary: '지원 이력서',
     coverLetterTitle: '지원 자소서',
     coverLetterSummary: '지원 자소서 내용',

@@ -50,8 +50,10 @@ import type { StudyParticipant } from '@/mocks/study'
 import { getMyCoverLetters, type CoverLetterListItem } from '@/api/cover-letters'
 import {
   endStudySession,
+  getStudySessionMembers,
   kickStudySessionParticipant,
   type StudySessionConnection,
+  type StudySessionMember,
 } from '@/api/study-sessions'
 import { toErrorMessage } from '@/api/http'
 import { cn } from '@/lib/utils'
@@ -297,6 +299,10 @@ function StudySessionRoomStage({
   const [knownIdentities, setKnownIdentities] = useState<string[]>([])
   // 본인 카드에 선택한 자소서 제목을 보여주기 위해 서류함 목록을 조회한다. 실패해도 세션 진행은 막지 않는다.
   const [myCoverLetters, setMyCoverLetters] = useState<CoverLetterListItem[]>([])
+  // 서버가 확인한 참가자 정보(닉네임·역할·제출 서류)를 userId로 찾을 수 있게 담아 둔다.
+  const [membersByUserId, setMembersByUserId] = useState<
+    Map<number, StudySessionMember>
+  >(new Map())
   const currentIdentities = remoteParticipants.map((participant) => participant.identity)
   const identitiesChanged =
     currentIdentities.length !== knownIdentities.length ||
@@ -337,15 +343,42 @@ function StudySessionRoomStage({
     }
   }, [])
 
+  // 참가자가 드나들 때마다 서버 목록을 다시 맞춘다. identity 문자열을 이어 붙인 값이 바뀔 때만 조회한다.
+  const remoteIdentityKey = currentIdentities.join(',')
+
+  useEffect(() => {
+    let isActive = true
+
+    getStudySessionMembers(connection.sessionId)
+      .then((members) => {
+        if (!isActive) return
+        setMembersByUserId(
+          new Map(members.map((member) => [member.userId, member])),
+        )
+      })
+      // 참가자 정보는 보조 표시라, 실패하면 LiveKit이 주는 값만으로 계속 진행한다.
+      .catch(() => {})
+
+    return () => {
+      isActive = false
+    }
+  }, [connection.sessionId, remoteIdentityKey])
+
   const participants = useMemo<StudyParticipant[]>(() => {
     const selectedCoverLetter = myCoverLetters.find(
       (coverLetter) => coverLetter.coverLetterId === selfCoverLetterId,
     )
 
+    const selfUserId = parseUserIdFromIdentity(connection.participantIdentity)
+    const selfMember =
+      selfUserId === null ? undefined : membersByUserId.get(selfUserId)
+
     const selfEntry: StudyParticipant = {
       participantId: 0,
-      name: connection.participantName || '나',
+      userId: selfMember?.userId ?? selfUserId,
+      name: selfMember?.nickname || connection.participantName || '나',
       isSelf: true,
+      role: selfMember?.role ?? connection.role,
       resumeSummary: '내가 선택한 이력서가 여기에 표시됩니다.',
       coverLetterTitle: selectedCoverLetter?.title ?? '선택한 자소서',
       coverLetterSummary: selectedCoverLetter
@@ -353,22 +386,42 @@ function StudySessionRoomStage({
         : '내가 선택한 자소서가 여기에 표시됩니다.',
     }
 
-    // TODO: 실제 API 연동 필요 — 참가자별 이력서/자소서 조회 API가 생기면 placeholder 대신 실제 데이터로 채운다.
-    const remoteEntries: StudyParticipant[] = remoteParticipants.map((participant) => ({
-      participantId: resolveParticipantId(participant.identity, false),
-      name: participant.name || participant.identity,
-      isSelf: false,
-      resumeSummary: '정보 없음',
-      coverLetterTitle: '정보 없음',
-      coverLetterSummary: '상대방의 이력서·자소서 정보는 아직 제공되지 않습니다.',
-    }))
+    const remoteEntries: StudyParticipant[] = remoteParticipants.map(
+      (participant) => {
+        const userId = parseUserIdFromIdentity(participant.identity)
+        const member = userId === null ? undefined : membersByUserId.get(userId)
+
+        return {
+          participantId: resolveParticipantId(participant.identity, false),
+          userId: member?.userId ?? userId,
+          // 서버 닉네임을 우선 쓰고, 없을 때만 LiveKit 값으로 내려간다. identity 문자열 노출은 마지막 수단이다.
+          name: member?.nickname || participant.name || participant.identity,
+          isSelf: false,
+          role: member?.role ?? null,
+          // TODO: 실제 API 연동 필요 — 참가자별 이력서·자소서 열람 API가 생기면 제출 여부 대신 실제 내용을 채운다.
+          resumeSummary:
+            member?.resumeId != null
+              ? '이력서를 제출했습니다. 내용 열람은 아직 제공되지 않습니다.'
+              : '제출한 이력서가 없습니다.',
+          coverLetterTitle:
+            member?.coverLetterId != null ? '제출한 자소서' : '제출 안 함',
+          coverLetterSummary:
+            member?.coverLetterId != null
+              ? '자소서를 제출했습니다. 내용 열람은 아직 제공되지 않습니다.'
+              : '제출한 자소서가 없습니다.',
+        }
+      },
+    )
 
     return [selfEntry, ...remoteEntries]
   }, [
     remoteParticipants,
     selfCoverLetterId,
     myCoverLetters,
+    membersByUserId,
     connection.participantName,
+    connection.participantIdentity,
+    connection.role,
     resolveParticipantId,
   ])
 
@@ -667,8 +720,13 @@ function StudySessionRoomStage({
 
   const handleConfirmKick = async () => {
     if (!kickTarget) return
+    // 세션 참가자 목록으로 확인한 userId를 우선 쓰고, 아직 조회되지 않았으면 identity에서 뽑아낸다.
+    const target = participants.find(
+      (entry) => entry.participantId === kickTarget.participantId,
+    )
     const identity = identityByParticipantId.get(kickTarget.participantId)
-    const targetUserId = identity ? parseUserIdFromIdentity(identity) : null
+    const targetUserId =
+      target?.userId ?? (identity ? parseUserIdFromIdentity(identity) : null)
     if (targetUserId === null) {
       setKickError('참가자 정보를 확인할 수 없습니다.')
       return
