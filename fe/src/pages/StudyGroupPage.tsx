@@ -75,6 +75,8 @@ export function StudyGroupPage() {
   const [memberRemovalError, setMemberRemovalError] = useState<string | null>(
     null,
   )
+  const [isDeletingGroup, setIsDeletingGroup] = useState(false)
+  const [groupDeleteError, setGroupDeleteError] = useState<string | null>(null)
   const { ref: headerRef, isInView: isHeaderInView } =
     useInView<HTMLDivElement>({ threshold: 0.1 })
   const { ref: panelsRef, isInView: isPanelsInView } =
@@ -285,6 +287,19 @@ export function StudyGroupPage() {
     }
   }
 
+  // 그룹 삭제는 BE가 논리 삭제라 상태를 CLOSED로 바꾸는 것으로 처리한다.
+  const confirmGroupDeletion = async () => {
+    setIsDeletingGroup(true)
+    setGroupDeleteError(null)
+    try {
+      await updateStudyGroupStatus(groupId, 'CLOSED')
+      navigate('/study', { replace: true })
+    } catch (error) {
+      setGroupDeleteError(toErrorMessage(error))
+      setIsDeletingGroup(false)
+    }
+  }
+
   const transferLeadership = (memberId: number) => {
     const nextLeader = members.find((member) => member.id === memberId)
     if (!nextLeader || nextLeader.isSelf || nextLeader.role === '초대 대기') {
@@ -440,7 +455,15 @@ export function StudyGroupPage() {
         onTransfer={transferLeadership}
       />
 
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <Dialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          // 삭제 요청이 진행되는 동안에는 대화상자를 닫지 않는다.
+          if (!open && isDeletingGroup) return
+          setIsDeleteDialogOpen(open)
+          if (!open) setGroupDeleteError(null)
+        }}
+      >
         <DialogContent
           className="w-[min(28rem,calc(100vw-2rem))] border border-border-default p-6"
           showCloseButton={false}
@@ -451,21 +474,28 @@ export function StudyGroupPage() {
               삭제하면 이 그룹과 일정에 다시 접근할 수 없습니다.
             </DialogDescription>
           </DialogHeader>
+          {groupDeleteError ? (
+            <p className="mt-4 text-body-2 text-status-error" role="alert">
+              {groupDeleteError}
+            </p>
+          ) : null}
           <DialogFooter className="mt-6">
             <Button
               type="button"
               variant="secondary"
+              disabled={isDeletingGroup}
               onClick={() => setIsDeleteDialogOpen(false)}
             >
               취소
             </Button>
-            {/* TODO: 실제 API 연동 필요 — 그룹 삭제 엔드포인트가 없어 라운지로 이동만 한다. */}
             <Button
               type="button"
               variant="destructive"
-              onClick={() => navigate('/study', { replace: true })}
+              disabled={isDeletingGroup}
+              aria-busy={isDeletingGroup}
+              onClick={() => void confirmGroupDeletion()}
             >
-              그룹 삭제
+              {isDeletingGroup ? '삭제하는 중' : '그룹 삭제'}
             </Button>
           </DialogFooter>
         </DialogContent>
