@@ -1117,11 +1117,6 @@ button:not(:disabled) {
   box-shadow: none;
 }
 
-.session-theater-record-button.is-recording {
-  background: var(--color-theater-live);
-  color: #ffffff;
-}
-
 .session-theater-hint {
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.75);

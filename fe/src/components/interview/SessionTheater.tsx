@@ -3,11 +3,9 @@ import { useRef } from 'react'
 import {
   Info,
   LoaderCircle,
-  Mic,
   RotateCcw,
   Send,
   ShieldCheck,
-  Square,
 } from 'lucide-react'
 import { DeviceControlBar } from '@/components/interview/DeviceControlBar'
 import { FloatingSelfView } from '@/components/interview/FloatingSelfView'
@@ -197,14 +195,10 @@ export function SessionTheater({
   const isProcessing = answerStatus === 'processing'
   const isReview = answerStatus === 'review'
 
-  const actionIcon = isRecording ? (
-    <Square className="size-5" aria-hidden="true" />
-  ) : isProcessing ? (
+  const actionIcon = isSubmittingAnswer ? (
     <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />
-  ) : isReview ? (
-    <Send className="size-5" aria-hidden="true" />
   ) : (
-    <Mic className="size-5" aria-hidden="true" />
+    <Send className="size-5" aria-hidden="true" />
   )
 
   const mediaPermissionError =
@@ -369,25 +363,24 @@ export function SessionTheater({
             ) : null}
           </div>
 
-          <div className="session-theater-record-column">
-            <button
-              type="button"
-              className={cn(
-                'session-theater-record-button',
-                isRecording && 'is-recording',
-              )}
-              onClick={onPrimaryAction}
-              disabled={primaryActionDisabled}
-              aria-busy={isProcessing}
-              aria-label={primaryActionLabel}
-            >
-              {actionIcon}
-              {primaryActionLabel}
-            </button>
-            <span className="session-theater-hint">
-              Space 키로도 실행할 수 있어요
-            </span>
-          </div>
+          {isReview || isSubmittingAnswer ? (
+            <div className="session-theater-record-column">
+              <button
+                type="button"
+                className="session-theater-record-button"
+                onClick={onPrimaryAction}
+                disabled={primaryActionDisabled}
+                aria-busy={isSubmittingAnswer}
+                aria-label={primaryActionLabel}
+              >
+                {actionIcon}
+                {primaryActionLabel}
+              </button>
+              <span className="session-theater-hint">
+                Space 키로 답변을 제출할 수 있어요
+              </span>
+            </div>
+          ) : null}
         </div>
 
         <div className="session-theater-secondary-row">
