@@ -2,7 +2,7 @@
 
 export type CommunityCategory = 'review' | 'qna' | 'tip' | 'study'
 
-export type CommunityTab = 'recommend' | 'latest' | 'popular'
+export type CommunityTab = 'recommend' | 'latest' | 'popular' | 'mine'
 
 export type CommunitySort = 'latest' | 'popular' | 'comments'
 
