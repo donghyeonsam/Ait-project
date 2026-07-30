@@ -83,7 +83,13 @@ public enum ErrorCode {
     // Livekit
     LIVEKIT_TOKEN_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "LIVEKIT_002", "화상 스터디 접속 토큰 생성에 실패했습니다."),
     LIVEKIT_WEBHOOK_AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "LIVEKIT_003", "LiveKit Webhook 인증에 실패했습니다."),
-    LIVEKIT_WEBHOOK_INVALID_PARTICIPANT(HttpStatus.BAD_REQUEST, "LIVEKIT_004", "LiveKit 참가자 정보를 확인할 수 없습니다.");
+    LIVEKIT_WEBHOOK_INVALID_PARTICIPANT(HttpStatus.BAD_REQUEST, "LIVEKIT_004", "LiveKit 참가자 정보를 확인할 수 없습니다."),
+
+    // PeerFeedback
+    PEER_FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "PEER_FEEDBACK_001", "해당 id의 상호 평가를 찾을 수 없습니다.");
+
+
+
 
     private final HttpStatus status;
     private final String code;

@@ -693,11 +693,10 @@ CREATE TABLE `peer_feedbacks` (
                                   `evaluator_id` BIGINT NOT NULL,
                                   `evaluatee_id` BIGINT NOT NULL,
                                   `logical_score` INT NOT NULL,
-                                  `answer_score` INT NOT NULL,
                                   `communication_score` INT NOT NULL,
-                                  `comprehension_score` INT NOT NULL,
                                   `attitude_score` INT NOT NULL,
-                                  `time_management_score` INT NOT NULL,
+                                  `job_competency_score` INT NOT NULL,
+                                  `confidence_score` INT NOT NULL,
                                   `feedback` TEXT NOT NULL,
                                   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
