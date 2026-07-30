@@ -7,16 +7,15 @@ import {
   Send,
   ShieldCheck,
   Square,
-  UserRound,
 } from 'lucide-react'
 import { DeviceControlBar } from '@/components/interview/DeviceControlBar'
 import { FloatingSelfView } from '@/components/interview/FloatingSelfView'
+import { InterviewerMedia } from '@/components/interview/InterviewerMedia'
 import type { MediaPermissionState } from '@/components/interview/useMediaDevices'
 import type { VoiceAnswerStatus } from '@/components/interview/useVoiceAnswer'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
-
-const AI_INTERVIEWER_IMAGE_SRC = '/interview/ai-interviewer.png'
+import type { InterviewStyle } from '@/mocks/interview'
 
 // PIP 초기 위치가 하단 오버레이 패널(질문 카드 + 컨트롤 행)에 가리지 않게 띄우는 값.
 const PIP_BOTTOM_OFFSET = 200
@@ -29,6 +28,9 @@ interface SessionTheaterProps {
   totalQuestions: number
   question: string
   answerStatus: VoiceAnswerStatus
+  interviewStyle: InterviewStyle
+  isSubmittingAnswer: boolean
+  isLastQuestion: boolean
   transcript: string
   onChangeTranscript: (value: string) => void
   voiceError: string | null
@@ -101,6 +103,9 @@ export function SessionTheater({
   totalQuestions,
   question,
   answerStatus,
+  interviewStyle,
+  isSubmittingAnswer,
+  isLastQuestion,
   transcript,
   onChangeTranscript,
   voiceError,
@@ -126,7 +131,6 @@ export function SessionTheater({
   onChangeSpeakerVolume,
 }: SessionTheaterProps) {
   const stageRef = useRef<HTMLDivElement>(null)
-  const [imageFailed, setImageFailed] = useState(false)
   const recordingElapsedMs = useRecordingElapsed(answerStatus === 'recording')
 
   const isRecording = answerStatus === 'recording'
@@ -154,20 +158,14 @@ export function SessionTheater({
     <div ref={stageRef} className="session-theater screen-fade-in">
       <h1 className="sr-only">AI 모의면접 진행</h1>
 
-      {/* 영상 레이어. TODO: 실제 API 연동 필요 — 면접관 스틸 이미지를 실시간 영상 스트림으로 대체 */}
-      {imageFailed ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white/60">
-          <UserRound className="size-16" aria-hidden="true" />
-          <p className="text-body-2">AI 면접관 이미지를 준비 중이에요.</p>
-        </div>
-      ) : (
-        <img
-          src={AI_INTERVIEWER_IMAGE_SRC}
-          alt="AI 면접관"
-          className="absolute inset-0 size-full object-cover"
-          onError={() => setImageFailed(true)}
-        />
-      )}
+      <InterviewerMedia
+        questionIndex={questionIndex}
+        interviewStyle={interviewStyle}
+        answerStatus={answerStatus}
+        isAiSpeaking={isAiSpeaking}
+        isSubmittingAnswer={isSubmittingAnswer}
+        isLastQuestion={isLastQuestion}
+      />
       <FloatingSelfView
         stream={stream}
         boundsRef={stageRef}
