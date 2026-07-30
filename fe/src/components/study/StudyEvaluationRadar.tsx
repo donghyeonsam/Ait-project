@@ -8,6 +8,8 @@ export type StudyEvaluationScores = Record<StudyEvaluationCategory, number>
 
 interface StudyEvaluationRadarProps {
   scores: StudyEvaluationScores
+  /** 그래프 위에 붙는 설명. 세션 중 입력값과 누적 평균을 구분하기 위해 화면마다 다르게 준다. */
+  caption?: string
 }
 
 const center = { x: 130, y: 112 }
@@ -36,6 +38,7 @@ function polygonPoints(radius: number) {
 // 다섯 평가 점수를 동일한 축 순서로 연결하고 값 변경 시 꼭짓점을 부드럽게 이동시킨다.
 export function StudyEvaluationRadar({
   scores,
+  caption = '실시간 역량 그래프',
 }: StudyEvaluationRadarProps) {
   const reduceMotion = useReducedMotion()
   const scorePoints = studyEvaluationCategories.map((category, index) =>
@@ -51,7 +54,7 @@ export function StudyEvaluationRadar({
   return (
     <figure className="rounded-ait-m border border-border-default bg-surface-default px-3 py-4 shadow-elevation-1">
       <figcaption className="text-center text-body-2 font-semibold text-text-primary">
-        실시간 역량 그래프
+        {caption}
       </figcaption>
       <svg
         viewBox="0 0 260 230"
