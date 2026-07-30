@@ -108,7 +108,13 @@ export function ProfileInfo({
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-border-default pt-4">
-        <Button type="button" variant="secondary" disabled={isEditing} onClick={onOpenDocuments}>
+        <Button
+          type="button"
+          variant="secondary"
+          className="px-3 py-1.5 text-caption [&_svg]:size-4"
+          disabled={isEditing}
+          onClick={onOpenDocuments}
+        >
           <FilePenLine aria-hidden="true" />
           서류함
         </Button>
@@ -122,7 +128,12 @@ export function ProfileInfo({
             </Button>
           </div>
         ) : (
-          <Button type="button" variant="secondary" className="ml-auto" onClick={onStartEditing}>
+          <Button
+            type="button"
+            variant="secondary"
+            className="ml-auto px-3 py-1.5 text-caption [&_svg]:size-4"
+            onClick={onStartEditing}
+          >
             <Pencil aria-hidden="true" />
             수정하기
           </Button>
