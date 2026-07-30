@@ -19,6 +19,7 @@ import {
 } from 'react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { studyChatEmojis } from '@/components/study/studyChatEmojis'
 import { cn } from '@/lib/utils'
 import { toErrorMessage } from '@/api/http'
 import {
@@ -36,18 +37,13 @@ interface StudyGroupChatPanelProps {
   currentUserId: number | null
   isOwner: boolean
   initialNotice: string | null
+  onIncomingMessage?: () => void
 }
 
 // 최근 사용 이모지가 아직 없을 때 처음 보여줄 기본 목록이다.
 const defaultRecentEmojis = ['👍', '❤️', '😂', '🎉', '👏']
 const recentEmojiStorageKey = 'ait-study-chat-recent-emojis'
 const maxRecentEmojis = 12
-const composerEmojis = [
-  '😀', '😃', '😄', '😁', '😊', '🙂', '😉', '😍', '🥰', '😘', '😎', '🤩',
-  '🥳', '😂', '🤣', '🥹', '😅', '😢', '😭', '😡', '🤔', '🫡', '😴', '🤯',
-  '👍', '👎', '👌', '✌️', '🤞', '👏', '🙌', '🙏', '💪', '👀', '💯', '🔥',
-  '🎉', '🎊', '✨', '⭐', '❤️', '🩷', '🧡', '💛', '💚', '💙', '💜', '🤍',
-]
 const composerEmoticons = ['( •̀ᴗ•́ )و', '(｡•̀ᴗ-)✧', 'ㅎㅎ', 'ㅠㅠ']
 
 // localStorage에서 최근 사용 이모지를 읽되, 값이 깨졌거나 접근 불가하면 빈 목록으로 처리한다.
@@ -70,6 +66,7 @@ export function StudyGroupChatPanel({
   currentUserId,
   isOwner,
   initialNotice,
+  onIncomingMessage,
 }: StudyGroupChatPanelProps) {
   const [messages, setMessages] = useState<StudyGroupChatMessage[]>([])
   const [hasMoreHistory, setHasMoreHistory] = useState(false)
@@ -101,10 +98,12 @@ export function StudyGroupChatPanel({
   const clientRef = useRef<Client | null>(null)
   const messageListRef = useRef<HTMLDivElement>(null)
   const noticeTextRef = useRef<HTMLParagraphElement>(null)
+  const knownChatIdsRef = useRef<Set<number>>(new Set())
 
   // 그룹의 최근 채팅 이력을 불러온다 (최신순 응답을 오래된 순으로 뒤집어 저장한다).
   useEffect(() => {
     let cancelled = false
+    knownChatIdsRef.current = new Set()
 
     const loadHistory = async () => {
       setIsLoadingHistory(true)
@@ -112,7 +111,11 @@ export function StudyGroupChatPanel({
       try {
         const result = await getStudyGroupChats(groupId)
         if (cancelled) return
-        setMessages([...result.chats].reverse())
+        const history = [...result.chats].reverse()
+        history.forEach((message) =>
+          knownChatIdsRef.current.add(message.chatId),
+        )
+        setMessages(history)
         setHasMoreHistory(result.hasNext)
       } catch (error) {
         if (!cancelled) setHistoryError(toErrorMessage(error))
@@ -132,11 +135,12 @@ export function StudyGroupChatPanel({
   useEffect(() => {
     const client = connectStudyGroupChat(groupId, {
       onMessage: (incoming) => {
-        setMessages((current) =>
-          current.some((message) => message.chatId === incoming.chatId)
-            ? current
-            : [...current, incoming],
-        )
+        if (knownChatIdsRef.current.has(incoming.chatId)) return
+        knownChatIdsRef.current.add(incoming.chatId)
+        setMessages((current) => [...current, incoming])
+        if (currentUserId !== null && incoming.senderId !== currentUserId) {
+          onIncomingMessage?.()
+        }
         setLiveMessageTick((tick) => tick + 1)
       },
       onNotice: (payload) => setNotice(payload.notice ?? ''),
@@ -153,7 +157,7 @@ export function StudyGroupChatPanel({
       clientRef.current = null
       void client.deactivate()
     }
-  }, [groupId])
+  }, [currentUserId, groupId, onIncomingMessage])
 
   useEffect(() => {
     messageListRef.current?.scrollTo({
@@ -193,6 +197,9 @@ export function StudyGroupChatPanel({
     setIsLoadingMoreHistory(true)
     getStudyGroupChats(groupId, oldestChatId)
       .then((result) => {
+        result.chats.forEach((message) =>
+          knownChatIdsRef.current.add(message.chatId),
+        )
         setMessages((current) => [...[...result.chats].reverse(), ...current])
         setHasMoreHistory(result.hasNext)
       })
@@ -539,7 +546,7 @@ export function StudyGroupChatPanel({
               >
                 {[
                   { key: 'recent', label: '최근 사용', emojis: recentEmojis },
-                  { key: 'all', label: '전체 이모지', emojis: composerEmojis },
+                  { key: 'all', label: '전체 이모지', emojis: studyChatEmojis },
                 ]
                   .filter((section) => section.emojis.length > 0)
                   .map((section) => (
