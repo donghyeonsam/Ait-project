@@ -44,7 +44,7 @@ public class FastApiClient {
             throw new BusinessException(ErrorCode.FASTAPI_SERVER_ERROR);
         }
     }
-    // 오디오를 보내기 위한 메서드임
+    // 오디오를 보내기 위한 메서드.
     public <R> R sendAudioToFastApi(String uri, byte[] audioBytes, String filename, String requestId, Class<R> responseType) {
         try {
             log.info("[FastAPI 오디오 전송] URI: {}, Filename: {}", uri, filename);
