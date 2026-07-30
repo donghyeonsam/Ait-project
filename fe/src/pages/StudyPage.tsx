@@ -260,7 +260,9 @@ export function StudyPage() {
         isLoading={isLoadingMyStudies}
         errorMessage={myStudiesError}
         activeSessionGroupIds={activeSessionGroupIds}
-        onOpenStudy={(study) => navigate(`/study/groups/${study.id}`)}
+        onEnterSession={(study) =>
+          navigate(`/study/groups/${study.id}/session/prejoin`)
+        }
       />
 
       <section
