@@ -22,7 +22,9 @@ const signupSchema = z
       .trim()
       .min(2, '닉네임은 2자 이상 입력해주세요.')
       .max(12, '닉네임은 12자 이하로 입력해주세요.'),
+    nicknameChecked: z.boolean().refine(Boolean, '닉네임 중복확인을 해주세요.'),
     email: z.string().trim().email('올바른 이메일 형식을 입력해주세요.'),
+    emailChecked: z.boolean().refine(Boolean, '이메일 중복확인을 해주세요.'),
     emailVerified: z.boolean().refine(Boolean, '이메일 인증을 완료해주세요.'),
     password: z
       .string()
@@ -65,7 +67,9 @@ export function SignupPage() {
     defaultValues: {
       name: '',
       nickname: '',
+      nicknameChecked: false,
       email: '',
+      emailChecked: false,
       emailVerified: false,
       password: '',
       passwordConfirm: '',
@@ -75,9 +79,9 @@ export function SignupPage() {
     },
   })
 
-  const [termsAccepted, privacyAccepted, emailVerified] = useWatch({
+  const [termsAccepted, privacyAccepted, emailVerified, nicknameChecked, emailChecked] = useWatch({
     control,
-    name: ['termsAccepted', 'privacyAccepted', 'emailVerified'],
+    name: ['termsAccepted', 'privacyAccepted', 'emailVerified', 'nicknameChecked', 'emailChecked'],
   })
 
   const [emailLocalPart, setEmailLocalPart] = useState('')
@@ -86,11 +90,24 @@ export function SignupPage() {
   const [verificationCode, setVerificationCode] = useState('')
   const isCustomDomain = emailDomain === CUSTOM_DOMAIN_OPTION
 
-  // 이메일이 바뀌면 기존 인증 상태와 입력한 인증번호를 무효화한다.
+  // 이메일이 바뀌면 기존 중복확인·인증 상태와 입력한 인증번호를 무효화한다.
   const updateEmail = (localPart: string, domain: string) => {
     setValue('email', localPart ? `${localPart}@${domain}` : '', { shouldValidate: false })
+    setValue('emailChecked', false)
     setValue('emailVerified', false)
     setVerificationCode('')
+  }
+
+  // TODO: 실제 API 연동 필요 - BE에 닉네임 중복확인 엔드포인트가 없어 형식 검사만 통과하면 사용 가능한 것으로 처리한다.
+  const checkNicknameDuplicate = async () => {
+    const isValid = await trigger('nickname')
+    if (isValid) setValue('nicknameChecked', true, { shouldValidate: true })
+  }
+
+  // TODO: 실제 API 연동 필요 - BE에 이메일 중복확인 엔드포인트가 없어 형식 검사만 통과하면 사용 가능한 것으로 처리한다.
+  const checkEmailDuplicate = async () => {
+    const isValid = await trigger('email')
+    if (isValid) setValue('emailChecked', true, { shouldValidate: true })
   }
 
   // TODO: 실제 API 연동 필요 - BE에 인증번호 발송 엔드포인트가 없어 이메일 형식 검사만 수행한다.
@@ -126,7 +143,12 @@ export function SignupPage() {
   }
 
   const isSubmitDisabled =
-    !termsAccepted || !privacyAccepted || !emailVerified || isSubmitting
+    !termsAccepted ||
+    !privacyAccepted ||
+    !nicknameChecked ||
+    !emailChecked ||
+    !emailVerified ||
+    isSubmitting
 
   return (
     <AuthLayout>
@@ -250,18 +272,37 @@ export function SignupPage() {
                     닉네임
                   </label>
                   <div>
-                    <Input
-                      id="signup-nickname"
-                      autoComplete="off"
-                      placeholder="다른 사용자에게 보여질 닉네임을 입력하세요"
-                      aria-invalid={Boolean(errors.nickname)}
-                      aria-describedby={errors.nickname ? 'signup-nickname-error' : undefined}
-                      {...register('nickname')}
-                    />
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="signup-nickname"
+                        className="min-w-0 flex-1"
+                        autoComplete="off"
+                        placeholder="다른 사용자에게 보여질 닉네임을 입력하세요"
+                        aria-invalid={Boolean(errors.nickname)}
+                        aria-describedby={errors.nickname ? 'signup-nickname-error' : undefined}
+                        {...register('nickname', {
+                          onChange: () => setValue('nicknameChecked', false),
+                        })}
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="shrink-0"
+                        onClick={checkNicknameDuplicate}
+                      >
+                        중복확인
+                      </Button>
+                    </div>
                     {errors.nickname ? (
                       <p id="signup-nickname-error" className="mt-2 text-caption text-status-error">
                         {errors.nickname.message}
                       </p>
+                    ) : errors.nicknameChecked ? (
+                      <p className="mt-2 text-caption text-status-error">
+                        {errors.nicknameChecked.message}
+                      </p>
+                    ) : nicknameChecked ? (
+                      <p className="mt-2 text-caption text-status-success">사용 가능한 닉네임이에요.</p>
                     ) : null}
                   </div>
 
@@ -303,6 +344,14 @@ export function SignupPage() {
                         type="button"
                         variant="secondary"
                         className="shrink-0"
+                        onClick={checkEmailDuplicate}
+                      >
+                        중복확인
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="shrink-0"
                         onClick={requestVerificationCode}
                       >
                         인증하기
@@ -324,6 +373,12 @@ export function SignupPage() {
                       <p id="signup-email-error" className="mt-2 text-caption text-status-error">
                         {errors.email.message}
                       </p>
+                    ) : errors.emailChecked ? (
+                      <p className="mt-2 text-caption text-status-error">
+                        {errors.emailChecked.message}
+                      </p>
+                    ) : emailChecked ? (
+                      <p className="mt-2 text-caption text-status-success">사용 가능한 이메일이에요.</p>
                     ) : null}
                   </div>
 
