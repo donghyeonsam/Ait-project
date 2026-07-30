@@ -19,8 +19,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // 1. 전화선(웹소켓)을 꽂을 '연결 주소' 설정
         registry.addEndpoint("/ws/chat")
-                .setAllowedOriginPatterns("*") // CORS 허용 (실전에서는 프론트 도메인만 허용하도록 수정)
-                .withSockJS(); // 만약 브라우저가 웹소켓을 지원하지 않으면 대체 기술(HTTP Polling 등)을 쓰게 해주는 안전장치
+                .setAllowedOrigins(
+                        "http://localhost:5173",
+                        "http://localhost:3000",
+                        "https://ait8.vercel.app"
+                )
+                .withSockJS(); // 브라우저 호환성을 위한 SockJS 안전장치
     }
 
     @Override
