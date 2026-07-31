@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fetchPost, updatePost } from '@/api/community'
+import { fetchPost, updatePost, uploadPostFiles } from '@/api/community'
 import { CommunityWritePage } from '@/pages/CommunityWritePage'
 import type { CommunityPost } from '@/types/community'
 
@@ -10,6 +10,7 @@ vi.mock('@/api/community', () => ({
   createPost: vi.fn(),
   fetchPost: vi.fn(),
   updatePost: vi.fn(),
+  uploadPostFiles: vi.fn(),
 }))
 
 vi.mock('@/lib/useAuth', () => ({
@@ -82,6 +83,43 @@ describe('CommunityWritePage edit mode', () => {
   beforeEach(() => {
     vi.mocked(fetchPost).mockResolvedValue(post)
     vi.mocked(updatePost).mockResolvedValue()
+    vi.mocked(uploadPostFiles).mockResolvedValue([])
+  })
+
+  it('uploads a selected attachment before updating the post', async () => {
+    const user = userEvent.setup()
+    vi.mocked(uploadPostFiles).mockResolvedValue([
+      {
+        originalFilename: 'guide.pdf',
+        storedFilename: 'stored-guide.pdf',
+        fileType: 'PDF',
+        usageType: 'ATTACHMENT',
+        url: '/backend/images/stored-guide.pdf',
+      },
+    ])
+    renderPage()
+
+    await screen.findByDisplayValue('기존 게시글 제목')
+    await user.upload(
+      screen.getByLabelText('파일 첨부'),
+      new File(['pdf'], 'guide.pdf', { type: 'application/pdf' }),
+    )
+    await user.click(screen.getByRole('button', { name: '수정 완료' }))
+
+    await waitFor(() => {
+      expect(uploadPostFiles).toHaveBeenCalledWith(
+        [expect.objectContaining({ name: 'guide.pdf' })],
+        'ATTACHMENT',
+      )
+      expect(updatePost).toHaveBeenCalledWith(
+        'post-3',
+        expect.objectContaining({
+          files: [
+            expect.objectContaining({ storedFilename: 'stored-guide.pdf' }),
+          ],
+        }),
+      )
+    })
   })
 
   it('기존 글을 폼에 채우고 수정된 내용으로 저장한다', async () => {

@@ -4,6 +4,19 @@ export type CommunityCategory = 'review' | 'qna' | 'tip' | 'study'
 
 export type CommunityTab = 'recommend' | 'popular' | 'latest'
 
+export type CommunityPostFileType = 'IMAGE' | 'PDF' | 'OTHER'
+
+export type CommunityPostFileUsageType = 'INLINE' | 'ATTACHMENT'
+
+export interface CommunityPostFile {
+  id?: number
+  originalFilename: string
+  storedFilename: string
+  fileType: CommunityPostFileType
+  usageType: CommunityPostFileUsageType
+  url: string
+}
+
 export interface CommunityPost {
   id: string
   category: CommunityCategory
@@ -19,6 +32,7 @@ export interface CommunityPost {
   liked: boolean
   bookmarked: boolean
   visibility?: 'public' | 'members'
+  files?: CommunityPostFile[]
   allowComments?: boolean
   notify?: boolean
 }
@@ -48,6 +62,7 @@ export interface CommunityPostDraft {
   contentHtml: string
   tags: string[]
   visibility: 'public' | 'members'
+  files: CommunityPostFile[]
   allowComments: boolean
   notify: boolean
 }

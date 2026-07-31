@@ -10,6 +10,11 @@ const backendBaseUrl = (import.meta.env.VITE_BE_API_URL ?? '/backend').replace(
   '',
 )
 
+export function getBackendAssetUrl(path: string) {
+  if (/^https?:\/\//i.test(path) || path.startsWith('data:')) return path
+  return `${backendBaseUrl}/${path.replace(/^\/+/, '')}`
+}
+
 export const unauthorizedEvent = 'ait:unauthorized'
 
 interface ReissueResponse {
