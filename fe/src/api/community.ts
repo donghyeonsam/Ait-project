@@ -81,12 +81,22 @@ const toPostFile = ({
   url: getBackendAssetUrl(`/images/${encodeURIComponent(storedFilename)}`),
 })
 
+// 서버가 요약을 길이 기준으로 잘라 태그 중간이 끊길 수 있어, 완성 태그와 잘린 꼬리 태그를 모두 제거한다.
+const htmlToExcerpt = (html: string) =>
+  html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/<[^>]*$/, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80)
+
 // 목록 응답에는 본문 HTML이 없어 상세 조회에서 채운다.
 const toPostSummary = (item: PostListItemResponse): CommunityPost => ({
   id: String(item.id),
   category: toCategoryValue(item.category),
   title: item.title,
-  excerpt: item.contentSummary ?? '',
+  excerpt: htmlToExcerpt(item.contentSummary ?? ''),
   contentHtml: '',
   author: item.nickname,
   createdAt: item.createdAt,
@@ -185,9 +195,6 @@ interface PostDetailResponse {
   files: PostFileResponse[] | null
   createdAt: string
 }
-
-const htmlToExcerpt = (html: string) =>
-  html.replace(/<[^>]+>/g, ' ').trim().slice(0, 80)
 
 export async function fetchPost(postId: string): Promise<CommunityPost | null> {
   let data: PostDetailResponse

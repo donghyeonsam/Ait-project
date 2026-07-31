@@ -141,6 +141,29 @@ describe('fetchPosts', () => {
     expect(url.searchParams.get('sortType')).toBe('LATEST')
     expect(result.hasMore).toBe(false)
   })
+
+  it('요약의 HTML 태그를 제거해 excerpt로 만든다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      pageResponse({
+        content: [
+          {
+            ...listItem,
+            contentSummary: '<p>게시글 테스트입니다.&nbsp;수정합니다</p><p></',
+          },
+        ],
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await fetchPosts({
+      tab: 'latest',
+      category: 'all',
+      offset: 0,
+      limit: 3,
+    })
+
+    expect(result.items[0]?.excerpt).toBe('게시글 테스트입니다. 수정합니다')
+  })
 })
 
 describe('fetchMyActivityPosts', () => {
