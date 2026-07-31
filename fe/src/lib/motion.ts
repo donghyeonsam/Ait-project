@@ -47,7 +47,7 @@ export const dropdownPanel: Variants = {
   },
 }
 
-// 인기 검색어 롤링(아래 → 위)
+// 인기 태그 롤링(아래 → 위)
 export const tickerItem: Variants = {
   initial: { y: '100%', opacity: 0 },
   animate: {

@@ -201,7 +201,7 @@ export const mockComments: Record<string, CommunityComment[]> = {
   ],
 }
 
-// 인기 검색어 롤링용 10개. 등락은 ▲/▼/−/NEW 케이스를 모두 포함한다.
+// 인기 태그 롤링용 10개. 등락은 ▲/▼/−/NEW 케이스를 모두 포함한다.
 export const mockTrendingKeywords: TrendingKeyword[] = [
   { rank: 1, keyword: '삼성전자', change: 0 },
   { rank: 2, keyword: 'SK 하이닉스', change: 2 },

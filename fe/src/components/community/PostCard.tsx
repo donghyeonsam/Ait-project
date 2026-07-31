@@ -3,6 +3,7 @@ import { Bookmark, Eye, Heart, MessageCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { CategoryBadge, TagChip } from '@/components/community/badges'
 import { RollingCounter } from '@/components/community/RollingCounter'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { formatCompactCount } from '@/lib/format'
 import { listItem } from '@/lib/motion'
 import { cn } from '@/lib/utils'
@@ -59,7 +60,16 @@ export function PostCard({ post, onToggleBookmark, onToggleLike }: PostCardProps
       </h3>
       <p className="mt-1.5 line-clamp-1 text-body-2 text-ink-500">{post.excerpt}</p>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="mt-4 flex items-center gap-2">
+        <Avatar aria-hidden="true" className="size-8">
+          <AvatarFallback className="border-0 bg-profile-avatar text-caption font-semibold text-action-primary">
+            {post.author.slice(0, 1)}
+          </AvatarFallback>
+        </Avatar>
+        <span className="text-body-2 font-medium text-ink-700">{post.author}</span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-1.5">
           {post.tags.map((tag) => (
             <TagChip key={tag} label={tag} />
@@ -120,7 +130,11 @@ export function PostCardSkeleton() {
       </div>
       <div className="analyzing-shimmer mt-4 h-5 w-2/3 rounded-ait-s" />
       <div className="analyzing-shimmer mt-2.5 h-4 w-1/2 rounded-ait-s" />
-      <div className="mt-4 flex items-center justify-between">
+      <div className="mt-4 flex items-center gap-2">
+        <div className="analyzing-shimmer size-8 rounded-ait-pill" />
+        <div className="analyzing-shimmer h-4 w-16 rounded-ait-s" />
+      </div>
+      <div className="mt-3 flex items-center justify-between">
         <div className="flex gap-1.5">
           <div className="analyzing-shimmer h-5 w-14 rounded-ait-pill" />
           <div className="analyzing-shimmer h-5 w-14 rounded-ait-pill" />
