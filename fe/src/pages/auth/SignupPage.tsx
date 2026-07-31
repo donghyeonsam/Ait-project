@@ -44,11 +44,19 @@ type SignupFormValues = z.infer<typeof signupSchema>
 const TOTAL_STEPS = 2
 
 const DUPLICATE_CHECK_DELAY_MS = 400
+const RESEND_COOLDOWN_SECONDS = 30
+const CODE_EXPIRY_SECONDS = 300
 
 const stepDescriptions = {
   1: '이용약관에 동의하고 시작해보세요.',
   2: '가입에 필요한 정보를 입력해주세요.',
 } as const
+
+function formatCooldown(seconds: number) {
+  const minutes = Math.floor(seconds / 60)
+  const remainder = seconds % 60
+  return `${minutes}:${remainder.toString().padStart(2, '0')}`
+}
 
 export function SignupPage() {
   const navigate = useNavigate()
@@ -88,6 +96,23 @@ export function SignupPage() {
   const [isCodeSent, setIsCodeSent] = useState(false)
   const [isCheckingNickname, setIsCheckingNickname] = useState(false)
   const [isCheckingEmail, setIsCheckingEmail] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
+  const [codeValiditySeconds, setCodeValiditySeconds] = useState(0)
+  const isCodeExpired = isCodeSent && !emailVerified && codeValiditySeconds <= 0
+
+  // 발송/재발송 시 시작되는 재발송 대기 카운트다운.
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const timer = setTimeout(() => setResendCooldown((prev) => prev - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [resendCooldown])
+
+  // 발송된 인증코드의 유효시간 카운트다운. 만료되면 재발송 전까지 확인이 막힌다.
+  useEffect(() => {
+    if (!isCodeSent || emailVerified || codeValiditySeconds <= 0) return
+    const timer = setTimeout(() => setCodeValiditySeconds((prev) => prev - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [isCodeSent, emailVerified, codeValiditySeconds])
 
   // 닉네임 입력이 멈추면 자동으로 중복확인을 수행한다.
   // TODO: 실제 API 연동 필요 - BE에 닉네임 중복확인 엔드포인트가 없어 형식 검사만 통과하면 사용 가능한 것으로 처리한다.
@@ -113,7 +138,7 @@ export function SignupPage() {
     return () => clearTimeout(timer)
   }, [email, trigger, setValue])
 
-  // TODO: 실제 API 연동 필요 - BE에 인증번호 발송 엔드포인트가 없어 이메일 형식 검사만 수행한다.
+  // TODO: 실제 API 연동 필요 - BE에 인증코드 발송 엔드포인트가 없어 이메일 형식 검사만 수행한다.
   const requestVerificationCode = async () => {
     const isValid = await trigger('email')
     if (!isValid) return
@@ -121,12 +146,18 @@ export function SignupPage() {
     setVerificationCode('')
     setVerificationError(null)
     setValue('emailVerified', false)
+    setResendCooldown(RESEND_COOLDOWN_SECONDS)
+    setCodeValiditySeconds(CODE_EXPIRY_SECONDS)
   }
 
-  // TODO: 실제 API 연동 필요 - BE에 인증번호 확인 엔드포인트가 없어 코드가 입력되면 인증된 것으로 처리한다.
+  // TODO: 실제 API 연동 필요 - BE에 인증코드 확인 엔드포인트가 없어 만료 여부만 검사하고 통과 처리한다.
   const confirmVerificationCode = () => {
+    if (isCodeExpired) {
+      setVerificationError('인증코드가 만료됐어요. 재발송해주세요.')
+      return
+    }
     if (!verificationCode.trim()) {
-      setVerificationError('인증번호를 입력해주세요.')
+      setVerificationError('인증코드를 입력해주세요.')
       return
     }
     setVerificationError(null)
@@ -337,6 +368,8 @@ export function SignupPage() {
                             setVerificationError(null)
                             setIsCodeSent(false)
                             setIsCheckingEmail(Boolean(event.target.value.trim()))
+                            setResendCooldown(0)
+                            setCodeValiditySeconds(0)
                           },
                         })}
                       />
@@ -344,13 +377,13 @@ export function SignupPage() {
                         type="button"
                         variant="secondary"
                         className="shrink-0"
-                        disabled={emailVerified}
+                        disabled={emailVerified || resendCooldown > 0}
                         onClick={requestVerificationCode}
                       >
                         {emailVerified ? '인증 완료' : isCodeSent ? '재발송' : '인증하기'}
                       </Button>
                     </div>
-                    <div className="mt-0.5 min-h-3 leading-tight">
+                    <div className="mt-0.5 flex min-h-3 items-start justify-between gap-2 leading-tight">
                       {errors.email ? (
                         <p id="signup-email-error" className="text-caption leading-tight text-status-error">
                           {errors.email.message}
@@ -361,12 +394,19 @@ export function SignupPage() {
                         <p className="text-caption leading-tight text-status-error">{errors.emailChecked.message}</p>
                       ) : emailChecked ? (
                         <p className="text-caption leading-tight text-status-success">사용 가능한 이메일이에요.</p>
+                      ) : (
+                        <span />
+                      )}
+                      {resendCooldown > 0 ? (
+                        <span className="shrink-0 text-caption leading-tight text-text-secondary" role="status">
+                          {formatCooldown(resendCooldown)}
+                        </span>
                       ) : null}
                     </div>
                   </div>
 
                   <label htmlFor="signup-verification-code" className="pt-2.5 text-body-2 font-semibold">
-                    인증번호
+                    인증코드
                   </label>
                   <div>
                     <div className="flex items-center gap-2">
@@ -375,9 +415,9 @@ export function SignupPage() {
                         className="min-w-0 flex-1"
                         autoComplete="off"
                         placeholder={
-                          isCodeSent ? '인증번호를 입력하세요' : '인증하기를 먼저 눌러주세요'
+                          isCodeSent ? '인증코드를 입력하세요' : '인증하기를 먼저 눌러주세요'
                         }
-                        disabled={!isCodeSent || emailVerified}
+                        disabled={!isCodeSent || emailVerified || isCodeExpired}
                         aria-invalid={Boolean(verificationError)}
                         aria-describedby={verificationError ? 'signup-verification-code-error' : undefined}
                         value={verificationCode}
@@ -390,7 +430,7 @@ export function SignupPage() {
                         type="button"
                         variant="secondary"
                         className="shrink-0"
-                        disabled={!isCodeSent || emailVerified}
+                        disabled={!isCodeSent || emailVerified || isCodeExpired}
                         onClick={confirmVerificationCode}
                       >
                         확인
@@ -403,9 +443,16 @@ export function SignupPage() {
                         </p>
                       ) : emailVerified ? (
                         <p className="text-caption leading-tight text-status-success">이메일 인증이 완료됐어요.</p>
+                      ) : isCodeExpired ? (
+                        <p className="text-caption leading-tight text-status-error" role="status">
+                          인증코드가 만료됐어요. 재발송해주세요.
+                        </p>
                       ) : isCodeSent ? (
                         <p className="text-caption leading-tight text-text-secondary" role="status">
-                          인증번호를 발송했어요. 메일함을 확인해주세요.
+                          인증코드를 발송했어요. 메일함을 확인해주세요.{' '}
+                          <span className="text-status-error">
+                            남은 시간 {formatCooldown(codeValiditySeconds)}
+                          </span>
                         </p>
                       ) : null}
                     </div>
