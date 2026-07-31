@@ -213,6 +213,7 @@ public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
             // 3. DB의 aiComprehensiveReport 엔티티 참고해서 각각의 평균점수 계산해서 넣기
             // 4. 전체 내용 분석해서 개선하면 좋을 점을 도출하기....
             // 4-1. 점수에 관한 내용과 답변에 관한 내용을 도출???
+            // 4-2. 이때 분석 내용에는 잘한점들과 개선할 점이 있어야 한다.
 
 
 
