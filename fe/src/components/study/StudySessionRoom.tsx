@@ -389,11 +389,9 @@ function StudySessionRoomStage({
       name: selfMember?.nickname || connection.participantName || '나',
       isSelf: true,
       role: selfMember?.role ?? connection.role,
-      resumeSummary: '내가 선택한 이력서가 여기에 표시됩니다.',
+      resumeId: selfMember?.resumeId ?? null,
       coverLetterTitle: selectedCoverLetter?.title ?? '선택한 자소서',
-      coverLetterSummary: selectedCoverLetter
-        ? `${selectedCoverLetter.title} (${selectedCoverLetter.companyName} · ${selectedCoverLetter.role})`
-        : '내가 선택한 자소서가 여기에 표시됩니다.',
+      coverLetterId: selfMember?.coverLetterId ?? selfCoverLetterId,
     }
 
     const remoteEntries: StudyParticipant[] = remoteParticipants.map(
@@ -408,17 +406,10 @@ function StudySessionRoomStage({
           name: member?.nickname || participant.name || participant.identity,
           isSelf: false,
           role: member?.role ?? null,
-          // TODO: 실제 API 연동 필요 — 참가자별 이력서·자소서 열람 API가 생기면 제출 여부 대신 실제 내용을 채운다.
-          resumeSummary:
-            member?.resumeId != null
-              ? '이력서를 제출했습니다. 내용 열람은 아직 제공되지 않습니다.'
-              : '제출한 이력서가 없습니다.',
+          resumeId: member?.resumeId ?? null,
           coverLetterTitle:
             member?.coverLetterId != null ? '제출한 자소서' : '제출 안 함',
-          coverLetterSummary:
-            member?.coverLetterId != null
-              ? '자소서를 제출했습니다. 내용 열람은 아직 제공되지 않습니다.'
-              : '제출한 자소서가 없습니다.',
+          coverLetterId: member?.coverLetterId ?? null,
         }
       },
     )

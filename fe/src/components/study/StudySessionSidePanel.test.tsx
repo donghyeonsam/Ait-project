@@ -21,9 +21,9 @@ const participants: StudyParticipant[] = [
     name: '나',
     isSelf: true,
     role: 'HOST',
-    resumeSummary: '내 이력서',
+    resumeId: 101,
     coverLetterTitle: '내 자소서',
-    coverLetterSummary: '내 자소서 내용',
+    coverLetterId: 201,
   },
   {
     participantId: 2,
@@ -31,9 +31,9 @@ const participants: StudyParticipant[] = [
     name: '김지원',
     isSelf: false,
     role: 'MEMBER',
-    resumeSummary: '지원 이력서',
+    resumeId: 102,
     coverLetterTitle: '지원 자소서',
-    coverLetterSummary: '지원 자소서 내용',
+    coverLetterId: 202,
   },
 ]
 
