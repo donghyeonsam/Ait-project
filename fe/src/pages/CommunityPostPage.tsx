@@ -9,6 +9,7 @@ import {
   toggleBookmark,
   toggleLike,
 } from '@/api/community'
+import { AuthenticatedHtml } from '@/components/common/AuthenticatedHtml'
 import { PageTransition } from '@/components/common/PageTransition'
 import { CommentSection } from '@/components/community/CommentSection'
 import { RollingCounter } from '@/components/community/RollingCounter'
@@ -178,10 +179,9 @@ export function CommunityPostPage() {
 
               <hr className="mt-5 border-0 border-t border-gold-500" />
 
-              <div
+              <AuthenticatedHtml
+                html={safeContent}
                 className="community-prose mt-6"
-                // sanitize를 거친 에디터 HTML만 주입한다.
-                dangerouslySetInnerHTML={{ __html: safeContent }}
               />
 
               <div className="mt-6 flex flex-wrap gap-1.5">

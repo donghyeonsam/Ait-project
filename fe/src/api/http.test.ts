@@ -4,7 +4,7 @@ import {
   getStoredAccessToken,
   writeStoredAuth,
 } from '@/api/auth-storage'
-import { backendRequest } from '@/api/http'
+import { backendRequest, fetchBackendAssetBlob } from '@/api/http'
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(
@@ -56,5 +56,32 @@ describe('backendRequest', () => {
     expect(getStoredAccessToken()).toBe('refreshed-token')
     expect(window.localStorage.getItem('ait.access-token')).toBeNull()
     expect(window.sessionStorage.getItem('ait.access-token')).toBe('refreshed-token')
+  })
+
+  it('보호된 이미지 요청에 Bearer 토큰을 붙이고 Blob으로 반환한다', async () => {
+    writeStoredAuth(
+      'image-token',
+      { userId: 1, email: 'test@example.com', nickname: '테스트', role: 'USER' },
+      false,
+    )
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(new Blob(['image'], { type: 'image/png' }), {
+        status: 200,
+        headers: { 'content-type': 'image/png' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await fetchBackendAssetBlob(
+      '/backend/images/stored-image.png',
+    )
+
+    expect(result).toBeInstanceOf(Blob)
+    expect(result.type).toBe('image/png')
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/backend/images/stored-image.png',
+    )
+    const headers = fetchMock.mock.calls[0]?.[1]?.headers as Headers
+    expect(headers.get('Authorization')).toBe('Bearer image-token')
   })
 })

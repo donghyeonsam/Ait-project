@@ -53,6 +53,7 @@ describe('RichTextEditor', () => {
   it('uploads an image and inserts the server URL into the editor', async () => {
     const user = userEvent.setup()
     const onImageUploaded = vi.fn()
+    const onUpdate = vi.fn()
     vi.mocked(uploadPostFile).mockResolvedValue({
       originalFilename: 'sample.png',
       storedFilename: 'stored-sample.png',
@@ -66,6 +67,7 @@ describe('RichTextEditor', () => {
         placeholderKey="default"
         placeholderLines={['내용을 입력해주세요.']}
         onImageUploaded={onImageUploaded}
+        onUpdate={onUpdate}
       />,
     )
 
@@ -82,10 +84,12 @@ describe('RichTextEditor', () => {
       expect(onImageUploaded).toHaveBeenCalledWith(
         expect.objectContaining({ storedFilename: 'stored-sample.png' }),
       )
+      const latestPayload = onUpdate.mock.calls.at(-1)?.[0] as
+        | { html: string }
+        | undefined
+      expect(latestPayload?.html).toContain(
+        '/backend/images/stored-sample.png',
+      )
     })
-    expect(screen.getByRole('img')).toHaveAttribute(
-      'src',
-      '/backend/images/stored-sample.png',
-    )
   })
 })
