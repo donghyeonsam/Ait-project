@@ -30,19 +30,19 @@ public class AiComprehensiveReport {
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "eye_contact_score", nullable = false)
+    @Column(name = "eye_contact_score", nullable = false, columnDefinition = "DECIMAL(4,2)")
     private Double eyeContactScore;
 
-    @Column(name = "face_score", nullable = false)
+    @Column(name = "face_score", nullable = false, columnDefinition = "DECIMAL(4,2)")
     private Double faceScore;
 
-    @Column(name = "voice_score", nullable = false)
+    @Column(name = "voice_score", nullable = false, columnDefinition = "DECIMAL(4,2)")
     private Double voiceScore;
 
-    @Column(name = "qna_score", nullable = false)
+    @Column(name = "qna_score", nullable = false, columnDefinition = "DECIMAL(4,2)")
     private Double qnaScore;
 
-    @Column(name = "sentence_score", nullable = false)
+    @Column(name = "sentence_score", nullable = false, columnDefinition = "DECIMAL(4,2)")
     private Double sentenceScore;
 
     @CreationTimestamp
