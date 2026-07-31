@@ -57,6 +57,7 @@ public enum ErrorCode {
     ALREADY_SCRAPPED_POST(HttpStatus.CONFLICT, "COMMUNITY_006", "이미 스크랩한 게시글입니다."),
     LIKE_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMUNITY_007", "좋아요 내역을 찾을 수 없습니다."),
     SCRAP_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMUNITY_008", "스크랩 내역을 찾을 수 없습니다."),
+    COMMENT_ALREADY_DELETED(HttpStatus.BAD_REQUEST, "COMMUNITY_009", "이미 삭제된 댓글입니다."),
 
     // Study Group
     STUDY_GROUP_NOT_FOUND(HttpStatus.NOT_FOUND, "STUDY_GROUP_001", "스터디 그룹을 찾을 수 없습니다."),
