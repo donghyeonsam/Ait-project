@@ -484,6 +484,20 @@ button:not(:disabled) {
   animation: list-enter var(--duration-slow) var(--easing-emphasized) both;
 }
 
+.survey-stepper-current {
+  position: relative;
+}
+
+.survey-stepper-current::after {
+  position: absolute;
+  inset: -0.25rem;
+  border: 0.125rem solid var(--color-action-primary);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+  animation: survey-stepper-pulse 1.8s var(--easing-standard) infinite;
+}
+
 /* AI 모의 면접 설문(1~5단계) 화면 전용. 100% 배율에서도 브라우저 90% 배율로 본 크기로
    보이도록 요청받아 이 영역만 축소한다. width+margin-inline을 함께 지정해야
    zoom이 적용된 뒤에도 부모 안에서 가운데 정렬이 유지된다. */
@@ -1909,6 +1923,18 @@ button:not(:disabled) {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes survey-stepper-pulse {
+  0% {
+    opacity: 0.45;
+    transform: scale(0.92);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
   }
 }
 
