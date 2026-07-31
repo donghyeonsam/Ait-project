@@ -290,13 +290,16 @@ export function CommunityWritePage() {
         allowComments,
         notify: allowComments && notify,
       }
-      const post =
-        isEditMode && postId
-          ? await updatePost(postId, draft, currentUserNickname)
-          : await createPost(draft, currentUserNickname)
-      if (!isEditMode) localStorage.removeItem(DRAFT_KEY)
+      let targetPostId: string
+      if (isEditMode && postId) {
+        await updatePost(postId, draft, currentUserNickname)
+        targetPostId = postId
+      } else {
+        targetPostId = await createPost(draft)
+        localStorage.removeItem(DRAFT_KEY)
+      }
       showToast(isEditMode ? '게시글을 수정했어요.' : '게시글을 등록했어요.')
-      setTimeout(() => navigate(`/community/posts/${post.id}`), 700)
+      setTimeout(() => navigate(`/community/posts/${targetPostId}`), 700)
     } catch {
       setSubmitting(false)
       showToast(

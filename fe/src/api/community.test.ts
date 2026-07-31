@@ -196,25 +196,60 @@ describe('fetchPost', () => {
   })
 })
 
-describe('community mock CRUD', () => {
-  it('로그인 사용자의 게시글을 생성·수정·삭제한다', async () => {
-    const created = await createPost(draft, '테스트사용자')
+describe('createPost', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals()
+  })
 
+  it('작성 폼 값을 생성 요청 본문으로 변환해 호출한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 201,
+          message: '게시글 작성 성공',
+          data: 42,
+          error: null,
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const postId = await createPost(draft)
+
+    expect(postId).toBe('42')
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/backend/api/posts')
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(String(init.body))).toEqual({
+      category: '면접 팁',
+      title: 'CRUD 테스트 게시글',
+      content: '<p>게시글 수정과 삭제 동작을 확인합니다.</p>',
+      allowComments: true,
+      receiveNotifications: true,
+      tags: ['테스트'],
+    })
+  })
+})
+
+describe('community mock CRUD', () => {
+  it('작성자는 목업 게시글을 수정하고 삭제한다', async () => {
     const updated = await updatePost(
-      created.id,
+      'post-1',
       {
         ...draft,
         title: '수정된 CRUD 테스트 게시글',
         contentHtml: '<p>수정된 게시글 내용입니다.</p>',
       },
-      '테스트사용자',
+      '김싸피',
     )
 
     expect(updated.title).toBe('수정된 CRUD 테스트 게시글')
 
-    await deletePost(created.id, '테스트사용자')
+    await deletePost('post-1', '김싸피')
     await expect(
-      deletePost(created.id, '테스트사용자'),
+      deletePost('post-1', '김싸피'),
     ).rejects.toThrow('게시글을 찾을 수 없습니다.')
   })
 
