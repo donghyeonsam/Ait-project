@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   CheckCircle2,
   FilePenLine,
@@ -40,6 +40,55 @@ const tabs: Array<{ id: SidePanelTab; label: string }> = [
 
 const commentMaxLength = 100
 
+interface ScoreFieldProps {
+  category: StudyEvaluationCategory
+  score: number
+  onChange: (category: StudyEvaluationCategory, value: number) => void
+}
+
+// 점수 입력칸: 휠로 점수를 조절한다. React의 onWheel은 passive 리스너로 등록돼 preventDefault가
+// 무시되고 뒤에 있는 목록까지 같이 스크롤되므로, 네이티브 리스너를 직접 걸어 그 버블링을 막는다.
+function ScoreField({ category, score, onChange }: ScoreFieldProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const node = inputRef.current
+    if (!node) return
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      const delta = event.deltaY < 0 ? 1 : -1
+      onChange(category, score + delta)
+    }
+    node.addEventListener('wheel', handleWheel, { passive: false })
+    return () => node.removeEventListener('wheel', handleWheel)
+  }, [category, score, onChange])
+
+  return (
+    <div className="relative h-11 w-20 overflow-hidden rounded-ait-s bg-surface-default transition-shadow focus-within:ring-3 focus-within:ring-action-primary/20">
+      <input
+        ref={inputRef}
+        id={`score-${category}`}
+        type="number"
+        min={0}
+        max={10}
+        step={1}
+        inputMode="numeric"
+        value={score}
+        onChange={(event) => onChange(category, event.currentTarget.valueAsNumber)}
+        onFocus={(event) => event.currentTarget.select()}
+        aria-describedby="evaluation-score-help"
+        className="absolute inset-0 z-10 size-full bg-transparent px-2 text-center text-transparent caret-transparent focus:outline-none"
+      />
+      <span
+        className="pointer-events-none absolute inset-y-0 left-0 right-5 flex items-center justify-center text-body-1 font-bold tabular-nums text-action-primary"
+        aria-hidden="true"
+      >
+        <CountUp from={5} to={score} duration={0.28} />
+      </span>
+    </div>
+  )
+}
+
 function createDefaultEvaluationScores(): StudyEvaluationScores {
   return studyEvaluationCategories.reduce<StudyEvaluationScores>(
     (result, category) => {
@@ -71,14 +120,14 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
       0,
     ) / studyEvaluationCategories.length
 
-  const handleScoreChange = (
-    category: StudyEvaluationCategory,
-    value: number,
-  ) => {
-    if (!Number.isFinite(value)) return
-    const normalizedScore = Math.min(Math.max(Math.round(value), 0), 10)
-    setScores((prev) => ({ ...prev, [category]: normalizedScore }))
-  }
+  const handleScoreChange = useCallback(
+    (category: StudyEvaluationCategory, value: number) => {
+      if (!Number.isFinite(value)) return
+      const normalizedScore = Math.min(Math.max(Math.round(value), 0), 10)
+      setScores((prev) => ({ ...prev, [category]: normalizedScore }))
+    },
+    [],
+  )
 
   const handleSubmitEvaluation = () => {
     if (!isEvaluationComplete) return
@@ -210,7 +259,7 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
               </select>
             </div>
 
-            <StudyEvaluationRadar scores={scores} />
+            <StudyEvaluationRadar scores={scores} averageScore={averageScore} />
 
             <section className="rounded-ait-m border border-border-default bg-surface-default p-4 shadow-elevation-1">
               <div className="mb-2 flex items-end justify-between gap-3">
@@ -238,44 +287,11 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
                       {category}
                     </label>
                     <div className="flex shrink-0 items-center gap-2">
-                      <div className="relative h-11 w-20 overflow-hidden rounded-ait-s border-2 border-action-primary bg-surface-default transition-[border-color,box-shadow] focus-within:ring-3 focus-within:ring-action-primary/20">
-                        <input
-                          id={`score-${category}`}
-                          type="number"
-                          min={0}
-                          max={10}
-                          step={1}
-                          inputMode="numeric"
-                          value={scores[category]}
-                          onChange={(event) =>
-                            handleScoreChange(
-                              category,
-                              event.currentTarget.valueAsNumber,
-                            )
-                          }
-                          onWheel={(event) => {
-                            event.preventDefault()
-                            const delta = event.deltaY < 0 ? 1 : -1
-                            handleScoreChange(
-                              category,
-                              scores[category] + delta,
-                            )
-                          }}
-                          onFocus={(event) => event.currentTarget.select()}
-                          aria-describedby="evaluation-score-help"
-                          className="absolute inset-0 z-10 size-full bg-transparent px-2 text-center text-transparent caret-transparent focus:outline-none"
-                        />
-                        <span
-                          className="pointer-events-none absolute inset-y-0 left-0 right-5 flex items-center justify-center text-body-1 font-bold tabular-nums text-action-primary"
-                          aria-hidden="true"
-                        >
-                          <CountUp
-                            from={5}
-                            to={scores[category]}
-                            duration={0.28}
-                          />
-                        </span>
-                      </div>
+                      <ScoreField
+                        category={category}
+                        score={scores[category]}
+                        onChange={handleScoreChange}
+                      />
                       <span className="w-7 text-caption tabular-nums text-text-secondary">
                         /10
                       </span>
@@ -284,31 +300,6 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
                 ))}
               </div>
             </section>
-
-            <div
-              className="flex items-center justify-between rounded-ait-m border border-status-achievement-border bg-status-achievement-surface px-4 py-3"
-              aria-label={`5개 항목 평균 ${averageScore.toFixed(1)}점`}
-            >
-              <div>
-                <p className="text-body-2 font-semibold text-action-primary">
-                  5개 항목 평균
-                </p>
-                <p className="mt-0.5 text-caption text-text-secondary">
-                  입력한 점수에 따라 실시간으로 계산됩니다.
-                </p>
-              </div>
-              <strong className="flex items-baseline gap-1 text-h2 tabular-nums text-action-primary">
-                <CountUp
-                  from={5}
-                  to={averageScore}
-                  duration={0.38}
-                  decimals={1}
-                />
-                <span className="text-caption font-medium text-text-secondary">
-                  /10
-                </span>
-              </strong>
-            </div>
 
             <div className="rounded-ait-m border border-border-default bg-surface-default p-4 shadow-elevation-1">
               <div className="flex items-center justify-between gap-3">

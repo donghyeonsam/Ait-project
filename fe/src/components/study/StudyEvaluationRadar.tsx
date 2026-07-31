@@ -1,4 +1,5 @@
 import { motion, useReducedMotion } from 'framer-motion'
+import { CountUp } from '@/components/reactbits/CountUp'
 import {
   studyEvaluationCategories,
   type StudyEvaluationCategory,
@@ -10,6 +11,8 @@ interface StudyEvaluationRadarProps {
   scores: StudyEvaluationScores
   /** 그래프 위에 붙는 설명. 세션 중 입력값과 누적 평균을 구분하기 위해 화면마다 다르게 준다. */
   caption?: string
+  /** 지정하면 그래프 우측 상단에 평균 점수 배지를 띄운다. */
+  averageScore?: number
 }
 
 const center = { x: 130, y: 112 }
@@ -39,6 +42,7 @@ function polygonPoints(radius: number) {
 export function StudyEvaluationRadar({
   scores,
   caption = '실시간 역량 그래프',
+  averageScore,
 }: StudyEvaluationRadarProps) {
   const reduceMotion = useReducedMotion()
   const scorePoints = studyEvaluationCategories.map((category, index) =>
@@ -52,7 +56,20 @@ export function StudyEvaluationRadar({
     : { type: 'spring' as const, stiffness: 170, damping: 24 }
 
   return (
-    <figure className="rounded-ait-m border border-border-default bg-surface-default px-3 py-4 shadow-elevation-1">
+    <figure className="relative rounded-ait-m border border-border-default bg-surface-default px-3 py-4 shadow-elevation-1">
+      {typeof averageScore === 'number' ? (
+        <div
+          className="absolute bottom-3 right-3 flex items-baseline"
+          aria-label={`5개 항목 평균 ${averageScore.toFixed(1)}점`}
+        >
+          <span className="mr-1 text-caption font-medium text-text-secondary">평균</span>
+          <span className="text-h3 font-bold tabular-nums text-status-achievement">
+            <CountUp from={5} to={averageScore} duration={0.38} decimals={1} />
+          </span>
+          <span className="text-caption font-medium text-text-secondary">점</span>
+        </div>
+      ) : null}
+
       <figcaption className="text-center text-body-2 font-semibold text-text-primary">
         {caption}
       </figcaption>
