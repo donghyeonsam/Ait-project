@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/files")
 @RequiredArgsConstructor
@@ -35,6 +37,24 @@ public class FileController {
                 HttpStatus.OK,
                 "파일 업로드 성공",
                 storedFilename,
+                request
+        ));
+    }
+
+    /**
+     * 다중 파일 업로드 (첨부파일용)
+     */
+    @PostMapping("/uploads")
+    public ResponseEntity<ApiResponse<List<String>>> uploadFiles(
+            @RequestParam("files") List<MultipartFile> files,
+            HttpServletRequest request) {
+
+        List<String> storedFilenames = fileStorageService.storeFiles(files);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                HttpStatus.OK,
+                "다중 파일 업로드 성공",
+                storedFilenames,
                 request
         ));
     }
