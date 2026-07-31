@@ -36,11 +36,17 @@ export function HeroSearch({ value, onSearch }: HeroSearchProps) {
         setOpen(false)
         return
       }
-      const result = await fetchSearchSuggestions(keyword)
-      if (cancelled) return
-      setSuggestions(result)
-      setOpen(result.length > 0)
-      setActiveIndex(-1)
+      try {
+        const result = await fetchSearchSuggestions(keyword)
+        if (cancelled) return
+        setSuggestions(result)
+        setOpen(result.length > 0)
+        setActiveIndex(-1)
+      } catch {
+        if (cancelled) return
+        setSuggestions([])
+        setOpen(false)
+      }
     }, 200)
     return () => {
       cancelled = true
@@ -98,13 +104,21 @@ export function HeroSearch({ value, onSearch }: HeroSearchProps) {
           type="search"
           role="combobox"
           aria-label="커뮤니티 검색"
+          aria-autocomplete="list"
           aria-expanded={isOpen}
           aria-controls={isOpen ? listboxId : undefined}
           aria-activedescendant={
             isOpen && activeIndex >= 0 ? `${listboxId}-${activeIndex}` : undefined
           }
           value={input}
-          onChange={(event) => setInput(event.target.value)}
+          onChange={(event) => {
+            setInput(event.target.value)
+            setOpen(false)
+            setActiveIndex(-1)
+          }}
+          onFocus={() => {
+            if (suggestions.length > 0 && input.trim().length >= 2) setOpen(true)
+          }}
           onKeyDown={handleKeyDown}
           placeholder="직무, 기업 또는 스터디 명을 검색해보세요."
           className="w-full border-0 bg-transparent text-body-2 text-ink-900 outline-none placeholder:text-ink-400 focus-visible:outline-none [&::-webkit-search-cancel-button]:hidden"

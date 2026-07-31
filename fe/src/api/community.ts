@@ -1,8 +1,8 @@
 import { ApiError, backendRequest } from '@/api/http'
 import { CATEGORY_META } from '@/lib/community-categories'
+import { COMMUNITY_SEARCH_SUGGESTIONS } from '@/lib/community-suggestions'
 import {
   mockComments,
-  mockSearchSuggestions,
   mockTrendingKeywords,
 } from '@/mocks/community'
 import type {
@@ -169,12 +169,11 @@ export async function fetchTrendingKeywords(): Promise<TrendingKeyword[]> {
   return mockTrendingKeywords
 }
 
-// 검색어 자동완성은 대응하는 백엔드 API가 없어 목업을 유지한다. TODO: 실제 API 연동 필요
+// 서버 API가 없는 자동완성은 FE 후보군에서 대소문자 구분 없이 검색한다.
 export async function fetchSearchSuggestions(query: string): Promise<string[]> {
-  await delay()
   const keyword = query.trim().toLowerCase()
   if (keyword.length < 2) return []
-  return mockSearchSuggestions
+  return COMMUNITY_SEARCH_SUGGESTIONS
     .filter((item) => item.toLowerCase().includes(keyword))
     .slice(0, 6)
 }
