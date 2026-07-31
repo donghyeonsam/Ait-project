@@ -97,8 +97,8 @@ public enum ErrorCode {
     LIVEKIT_WEBHOOK_INVALID_PARTICIPANT(HttpStatus.BAD_REQUEST, "LIVEKIT_004", "LiveKit 참가자 정보를 확인할 수 없습니다."),
 
     // PeerFeedback
-    PEER_FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "PEER_FEEDBACK_001", "해당 id의 상호 평가를 찾을 수 없습니다.");
-
+    PEER_FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "PEER_FEEDBACK_001", "해당 id의 상호 평가를 찾을 수 없습니다."),
+    PEER_FEEDBACK_ACCESS_DENIED(HttpStatus.FORBIDDEN, "PEER_FEEDBACK_002", "해당 평가를 수정할 권한이 없습니다.");
 
 
 

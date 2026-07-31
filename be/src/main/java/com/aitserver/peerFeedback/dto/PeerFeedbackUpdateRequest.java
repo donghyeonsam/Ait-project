@@ -10,11 +10,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class PeerFeedbackCreateRequest {
-
-    // 작성 대상
-    private Long evaluateeId;
-
+public class PeerFeedbackUpdateRequest {
     // 논리성
     @Max(10)
     @Min(0)
@@ -42,8 +38,4 @@ public class PeerFeedbackCreateRequest {
 
     // 피드백
     private String feedback;
-
-
-
-
 }
