@@ -6,6 +6,10 @@ import {
   Search,
   UserRound,
 } from 'lucide-react'
+import type { CoverLetterDetail } from '@/api/cover-letters'
+import { toErrorMessage } from '@/api/http'
+import { getResume, type Resume } from '@/api/resume'
+import { getStudySessionCoverLetter } from '@/api/study-sessions'
 import { CountUp } from '@/components/reactbits/CountUp'
 import {
   StudyEvaluationRadar,
@@ -39,6 +43,137 @@ const tabs: Array<{ id: SidePanelTab; label: string }> = [
 ]
 
 const commentMaxLength = 100
+
+const documentCardClass = 'rounded-ait-s border border-border-default p-3'
+
+// 이력서 상세: 경력·프로젝트·학력을 최신 항목이 먼저 오도록 그대로(서버 정렬 순서) 나열한다.
+function ResumeDocumentView({ resume }: { resume: Resume }) {
+  return (
+    <div className="flex flex-col gap-5">
+      {resume.analysisContent ? (
+        <section>
+          <h3 className="text-body-2 font-semibold text-text-primary">AI 분석</h3>
+          <p className="mt-2 whitespace-pre-wrap text-body-1 leading-relaxed text-text-primary">
+            {resume.analysisContent}
+          </p>
+        </section>
+      ) : null}
+
+      <section>
+        <h3 className="text-body-2 font-semibold text-text-primary">경력</h3>
+        {resume.careers.length === 0 ? (
+          <p className="mt-2 text-body-2 text-text-secondary">등록된 경력이 없습니다.</p>
+        ) : (
+          <ul className="mt-2 flex flex-col gap-3">
+            {resume.careers.map((career) => (
+              <li key={career.careerId} className={documentCardClass}>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-body-1 font-medium text-text-primary">
+                    {career.companyName} · {career.role}
+                  </p>
+                  <p className="text-caption tabular-nums text-text-secondary">
+                    {career.startDate} ~ {career.endDate ?? '재직 중'}
+                  </p>
+                </div>
+                {career.description ? (
+                  <p className="mt-1 whitespace-pre-wrap text-body-2 text-text-secondary">
+                    {career.description}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section>
+        <h3 className="text-body-2 font-semibold text-text-primary">프로젝트</h3>
+        {resume.projects.length === 0 ? (
+          <p className="mt-2 text-body-2 text-text-secondary">등록된 프로젝트가 없습니다.</p>
+        ) : (
+          <ul className="mt-2 flex flex-col gap-3">
+            {resume.projects.map((project) => (
+              <li key={project.projectId} className={documentCardClass}>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-body-1 font-medium text-text-primary">{project.projectName}</p>
+                  <p className="text-caption text-text-secondary">{project.role}</p>
+                </div>
+                <p className="mt-1 text-caption text-text-secondary">{project.techStacks}</p>
+                {project.description ? (
+                  <p className="mt-1 whitespace-pre-wrap text-body-2 text-text-secondary">
+                    {project.description}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section>
+        <h3 className="text-body-2 font-semibold text-text-primary">학력/교육</h3>
+        {resume.trainings.length === 0 ? (
+          <p className="mt-2 text-body-2 text-text-secondary">등록된 학력/교육이 없습니다.</p>
+        ) : (
+          <ul className="mt-2 flex flex-col gap-3">
+            {resume.trainings.map((training) => (
+              <li key={training.trainingId} className={documentCardClass}>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-body-1 font-medium text-text-primary">
+                    {training.organization} · {training.course}
+                  </p>
+                  <p className="text-caption tabular-nums text-text-secondary">
+                    {training.startDate} ~ {training.endDate}
+                  </p>
+                </div>
+                {training.description ? (
+                  <p className="mt-1 whitespace-pre-wrap text-body-2 text-text-secondary">
+                    {training.description}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  )
+}
+
+// 자소서 상세: 문항 순서(contentOrder)대로 질문·답변을 나열한다.
+function CoverLetterDocumentView({ coverLetter }: { coverLetter: CoverLetterDetail }) {
+  const sortedContents = [...coverLetter.coverLetterContents].sort(
+    (a, b) => a.contentOrder - b.contentOrder,
+  )
+
+  return (
+    <div className="flex flex-col gap-5">
+      <p className="text-body-2 text-text-secondary">
+        {coverLetter.companyName} · {coverLetter.role}
+      </p>
+
+      {coverLetter.analysisContent ? (
+        <section>
+          <h3 className="text-body-2 font-semibold text-text-primary">AI 분석</h3>
+          <p className="mt-2 whitespace-pre-wrap text-body-1 leading-relaxed text-text-primary">
+            {coverLetter.analysisContent}
+          </p>
+        </section>
+      ) : null}
+
+      <section className="flex flex-col gap-4">
+        {sortedContents.map((content) => (
+          <div key={content.contentId}>
+            <h3 className="text-body-2 font-semibold text-text-primary">{content.question}</h3>
+            <p className="mt-2 whitespace-pre-wrap text-body-1 leading-relaxed text-text-primary">
+              {content.answer}
+            </p>
+          </div>
+        ))}
+      </section>
+    </div>
+  )
+}
 
 interface ScoreFieldProps {
   category: StudyEvaluationCategory
@@ -103,8 +238,13 @@ function createDefaultEvaluationScores(): StudyEvaluationScores {
 export function StudySessionSidePanel({ participants }: StudySessionSidePanelProps) {
   const otherParticipants = participants.filter((participant) => !participant.isSelf)
   const [activeTab, setActiveTab] = useState<SidePanelTab>('documents')
+  // 본인 문서는 서류함에서 볼 수 있으므로 이 열람 대상 목록엔 다른 참가자만 둔다.
   const [documentTargetId, setDocumentTargetId] = useState(otherParticipants[0]?.participantId ?? null)
   const [openDocumentType, setOpenDocumentType] = useState<DocumentType | null>(null)
+  const [resumeData, setResumeData] = useState<Resume | null>(null)
+  const [coverLetterData, setCoverLetterData] = useState<CoverLetterDetail | null>(null)
+  const [documentLoading, setDocumentLoading] = useState(false)
+  const [documentError, setDocumentError] = useState<string | null>(null)
   const [evaluationTargetId, setEvaluationTargetId] = useState(otherParticipants[0]?.participantId ?? null)
   const [scores, setScores] = useState<StudyEvaluationScores>(
     createDefaultEvaluationScores,
@@ -138,13 +278,51 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
     setComment('')
   }
 
-  // TODO: 실제 API 연동 필요 — 서류함의 이력서/자소서 상세 조회로 교체. 지금은 참가자별 mock 요약을 보여준다.
   const openDocumentTitle =
     openDocumentType === 'resume'
       ? (documentTarget ? `${documentTarget.name}님의 이력서` : '이력서')
       : (documentTarget?.coverLetterTitle ?? '자소서')
-  const openDocumentContent =
-    openDocumentType === 'resume' ? documentTarget?.resumeSummary : documentTarget?.coverLetterSummary
+
+  // 다이얼로그를 열 때(버튼 클릭)만 조회한다. 이력서는 소유자 제한이 없는 /api/resumes/{resumeId}로 바로 되지만,
+  // 자소서는 세션 소속 여부로 검증하는 /api/study-sessions/{coverLetterId}가 아직 백엔드에 없어 배포 전까지는 404가 난다.
+  // 로딩/이전 데이터 초기화는 이 이펙트가 아니라 버튼 클릭 핸들러(handleOpenDocument)에서 한다 —
+  // 이펙트 본문에서 곧장 setState를 부르면 렌더링이 연쇄로 발생해 react-hooks/set-state-in-effect가 걸린다.
+  useEffect(() => {
+    if (!openDocumentType) return
+    const targetId = openDocumentType === 'resume' ? documentTarget?.resumeId : documentTarget?.coverLetterId
+    if (targetId == null) return
+
+    let isActive = true
+
+    const request =
+      openDocumentType === 'resume'
+        ? getResume(targetId).then((data) => {
+            if (isActive) setResumeData(data)
+          })
+        : getStudySessionCoverLetter(targetId).then((data) => {
+            if (isActive) setCoverLetterData(data)
+          })
+
+    request
+      .catch((error: unknown) => {
+        if (isActive) setDocumentError(toErrorMessage(error))
+      })
+      .finally(() => {
+        if (isActive) setDocumentLoading(false)
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [openDocumentType, documentTarget?.resumeId, documentTarget?.coverLetterId])
+
+  const handleOpenDocument = (type: DocumentType) => {
+    setOpenDocumentType(type)
+    setDocumentLoading(true)
+    setDocumentError(null)
+    setResumeData(null)
+    setCoverLetterData(null)
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -180,8 +358,12 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
                 className="mt-2 w-full rounded-ait-s border border-border-default bg-surface-default px-3 py-2 text-body-2 text-text-primary focus:border-action-primary focus:outline-none focus:ring-3 focus:ring-action-primary/25"
                 value={documentTargetId ?? ''}
                 onChange={(event) => setDocumentTargetId(Number(event.target.value))}
+                disabled={otherParticipants.length === 0}
               >
-                {participants.map((participant) => (
+                {otherParticipants.length === 0 ? (
+                  <option value="">조회할 참가자가 없습니다</option>
+                ) : null}
+                {otherParticipants.map((participant) => (
                   <option key={participant.participantId} value={participant.participantId}>
                     {participant.name}
                   </option>
@@ -193,16 +375,20 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
               <FileText className="size-4 shrink-0 text-text-secondary" aria-hidden="true" />
               <span className="shrink-0 text-body-2 font-medium text-text-primary">이력서</span>
               <span className="min-w-0 flex-1 truncate text-body-2 text-text-secondary">
-                {documentTarget ? `${documentTarget.name}님의 이력서` : '-'}
+                {documentTarget
+                  ? documentTarget.resumeId != null
+                    ? `${documentTarget.name}님의 이력서`
+                    : '제출한 이력서가 없습니다'
+                  : '-'}
               </span>
               <Button
                 type="button"
                 variant="text"
                 size="icon"
-                className="size-8 shrink-0"
-                disabled={!documentTarget}
+                className="size-8 shrink-0 disabled:bg-transparent disabled:shadow-none"
+                disabled={documentTarget?.resumeId == null}
                 aria-label="이력서 크게 보기"
-                onClick={() => setOpenDocumentType('resume')}
+                onClick={() => handleOpenDocument('resume')}
               >
                 <Search className="size-4" aria-hidden="true" />
               </Button>
@@ -218,10 +404,10 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
                 type="button"
                 variant="text"
                 size="icon"
-                className="size-8 shrink-0"
-                disabled={!documentTarget}
+                className="size-8 shrink-0 disabled:bg-transparent disabled:shadow-none"
+                disabled={documentTarget?.coverLetterId == null}
                 aria-label="자소서 크게 보기"
-                onClick={() => setOpenDocumentType('coverLetter')}
+                onClick={() => handleOpenDocument('coverLetter')}
               >
                 <Search className="size-4" aria-hidden="true" />
               </Button>
@@ -346,9 +532,19 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
             <DialogTitle>{openDocumentTitle}</DialogTitle>
           </DialogHeader>
 
-          <p className="mt-4 whitespace-pre-wrap text-body-1 leading-relaxed text-text-primary">
-            {openDocumentContent}
-          </p>
+          <div className="mt-4">
+            {documentLoading ? (
+              <p className="text-body-2 text-text-secondary">불러오는 중...</p>
+            ) : documentError ? (
+              <p className="text-body-2 text-status-error" role="alert">
+                {documentError}
+              </p>
+            ) : openDocumentType === 'resume' ? (
+              resumeData ? <ResumeDocumentView resume={resumeData} /> : null
+            ) : coverLetterData ? (
+              <CoverLetterDocumentView coverLetter={coverLetterData} />
+            ) : null}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

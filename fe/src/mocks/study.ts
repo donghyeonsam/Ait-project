@@ -6,10 +6,12 @@ export interface StudyParticipant {
   name: string
   isSelf: boolean
   role: 'HOST' | 'MEMBER' | null
-  resumeSummary: string
+  /** 제출한 이력서 id. 제출하지 않았으면 null이고, 이 경우 상세 조회 버튼을 비활성화한다. */
+  resumeId: number | null
   /** 서류함에서 쓰는 것과 같은 자소서 제목. 목록 행에 이 제목만 짧게 보여준다. */
   coverLetterTitle: string
-  coverLetterSummary: string
+  /** 제출한 자소서 id. 제출하지 않았으면 null이고, 이 경우 상세 조회 버튼을 비활성화한다. */
+  coverLetterId: number | null
 }
 
 // 스터디 세션 상호평가 탭의 평가 항목. 순발력은 논리력·표현력과 겹쳐 제외하고 5개로 유지한다.
