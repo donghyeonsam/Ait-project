@@ -81,7 +81,7 @@ function renderPage() {
 describe('CommunityWritePage edit mode', () => {
   beforeEach(() => {
     vi.mocked(fetchPost).mockResolvedValue(post)
-    vi.mocked(updatePost).mockResolvedValue(post)
+    vi.mocked(updatePost).mockResolvedValue()
   })
 
   it('기존 글을 폼에 채우고 수정된 내용으로 저장한다', async () => {
@@ -105,7 +105,6 @@ describe('CommunityWritePage edit mode', () => {
           title: '수정된 게시글 제목',
           contentHtml: post.contentHtml,
         }),
-        '김싸피',
       )
     })
   })

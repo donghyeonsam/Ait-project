@@ -210,41 +210,15 @@ export async function createPost(draft: CommunityPostDraft): Promise<string> {
   return String(postId)
 }
 
+// 작성자 검증은 토큰 기반으로 백엔드가 수행한다.
 export async function updatePost(
   postId: string,
   draft: CommunityPostDraft,
-  currentUserNickname = CURRENT_USER,
-): Promise<CommunityPost> {
-  await delay()
-  const post =
-    updatedPosts.get(postId) ??
-    createdPosts.find((item) => item.id === postId) ??
-    mockPosts.find((item) => item.id === postId)
-
-  if (!post || deletedPostIds.has(postId)) {
-    throw new Error('게시글을 찾을 수 없습니다.')
-  }
-  if (post.author !== currentUserNickname) {
-    throw new Error('게시글을 수정할 권한이 없습니다.')
-  }
-
-  const updatedPost: CommunityPost = {
-    ...post,
-    category: draft.category ?? post.category,
-    title: draft.title,
-    excerpt: draft.contentHtml.replace(/<[^>]+>/g, ' ').trim().slice(0, 80),
-    contentHtml: draft.contentHtml,
-    tags: draft.tags,
-    visibility: draft.visibility,
-    allowComments: draft.allowComments,
-    notify: draft.notify,
-  }
-
-  const createdIndex = createdPosts.findIndex((item) => item.id === postId)
-  if (createdIndex >= 0) createdPosts[createdIndex] = updatedPost
-  else updatedPosts.set(postId, updatedPost)
-
-  return updatedPost
+): Promise<void> {
+  await backendRequest<void>(`/api/posts/${postId}`, {
+    method: 'PUT',
+    body: JSON.stringify(toPostRequestBody(draft)),
+  })
 }
 
 export async function deletePost(

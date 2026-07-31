@@ -292,7 +292,7 @@ export function CommunityWritePage() {
       }
       let targetPostId: string
       if (isEditMode && postId) {
-        await updatePost(postId, draft, currentUserNickname)
+        await updatePost(postId, draft)
         targetPostId = postId
       } else {
         targetPostId = await createPost(draft)
