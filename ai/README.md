@@ -23,17 +23,17 @@ Spring Boot (BE)
    │  ③ 사용자 답변 저장 후 (동기)
    │     POST /api/v1/interviews/followup  ──► GMS ──► rubric 채점 + 동적 꼬리질문
    │
-   │  ④ 사용자 답변 저장 직후 (비동기 백그라운드)
-   │     POST /api/v1/interviews/answers/supplement ──► GMS ──► 답변 보완(ai_answer)
+   │  자소서/GitHub 레포 삭제 시
+   │     POST /api/v1/embeddings/delete    ──► Chroma 에서 문서 단위 임베딩 삭제
    ▼
 FastAPI (AI)  ── Chroma(영속) + GMS gpt-5.4-nano
 ```
 
 BE는 결과를 `ai_interview_questions`(question/user_answer/ai_answer/feedback) 테이블에 저장한다.
-`ai_answer`는 질문 생성 시점이 아니라, 사용자가 실제로 답변을 제출한 뒤 ③에서 얻은
-rubric 채점 결과를 참고해 ④가 비동기로 채워 넣는다(루브릭 아키텍처, 자세한 내용은
-`docs/AI_작업일지_0722.md` 1절 참고). CS 카테고리 제한/문서 참고 비율 기능은 같은 문서
-3절 참고.
+`ai_answer`(답변 분석/보완) 및 `feedback`(평가)은 Spring Boot(BE)가 담당한다 — FastAPI는
+질문/rubric 생성과 rubric 채점 + 꼬리질문 생성까지만 책임진다(2026-07-31, 답변 보완
+기능 제거 배경은 `docs/AI_개발일지_0731.md` 참고). CS 카테고리 제한/문서 참고 비율
+기능은 `docs/AI_작업일지_0722.md` 3절 참고.
 
 ## 아키텍처 스타일 & 디자인 패턴
 
@@ -75,8 +75,8 @@ rubric 채점 결과를 참고해 ④가 비동기로 채워 넣는다(루브릭
   스키마 단계에서 422로 차단).
 - **방어적 폴백(Graceful Degradation)**: Chroma 조회 실패/빈 컬렉션 시 빈 리스트
   반환(`rag_service.py`), LLM 응답 파싱 실패 시 코드펜스 방어 파서 재시도
-  (`gms_client.py`), 답변 보완 결과가 비면 사용자 원문으로 폴백(`answer_service.py`)
-  등 — 부분 실패가 전체 요청 실패로 번지지 않도록 각 단계에서 안전한 기본값을 반환한다.
+  (`gms_client.py`) 등 — 부분 실패가 전체 요청 실패로 번지지 않도록 각 단계에서
+  안전한 기본값을 반환한다.
 - **One-Call JSON Mode**: 꼬리질문 생성(`followup_service.py`)에서 "rubric 채점"과
   "꼬리질문 생성"을 LLM 호출 1회로 동시에 처리하는 이 서비스만의 설계 기법 —
   왕복 호출을 줄이고 채점 근거와 질문이 서로 일관되게 만든다.
@@ -106,17 +106,16 @@ ai/
 ├── db/chroma.py                 # Chroma 영속 클라이언트 + 한국어 임베딩 (컬렉션 2개 관리)
 ├── schemas/                     # Pydantic 요청/응답
 │   ├── common.py                  # InterviewType/DocType/Difficulty/CSCategory enum
-│   ├── embedding.py                # 개인 문서 임베딩 요청/응답
+│   ├── embedding.py                # 개인 문서 임베딩 요청/응답 (전체 삭제 + 문서 단위 삭제)
 │   ├── cs_knowledge.py              # CS 지식 임베딩 요청/응답
-│   └── interview.py                 # 질문/꼬리질문/답변보완 요청·응답
-├── prompts/templates.py         # 면접 유형별 프롬프트 (질문/꼬리질문/답변보완)
+│   └── interview.py                 # 질문/꼬리질문 요청·응답
+├── prompts/templates.py         # 면접 유형별 프롬프트 (질문/꼬리질문)
 ├── services/
-│   ├── embedding_service.py       # 청킹 + Chroma 저장 (개인 문서)
+│   ├── embedding_service.py       # 청킹 + Chroma 저장/삭제 (개인 문서, 전체 삭제 + 문서 단위 삭제)
 │   ├── cs_embedding_service.py     # 청킹 + Chroma 저장 (CS 전역 지식) + 서버 기동 시 자동 시딩
 │   ├── rag_service.py              # 유사도 검색 + 면접 유형별 문서 참고 비율 + CS 카테고리 필터
 │   ├── question_service.py         # 질문 5개 + rubric(채점 기준) 생성, CS 카테고리 제한 로직
-│   ├── followup_service.py         # rubric 채점 + 동적 꼬리질문 (횟수 상한은 안전장치)
-│   └── answer_service.py           # 답변 보완(ai_answer) 생성 — 답변 제출 후 비동기 호출
+│   └── followup_service.py         # rubric 채점 + 동적 꼬리질문 (횟수 상한은 안전장치)
 └── routers/                     # 엔드포인트 (health/embedding/interview/cs_knowledge)
 ```
 
@@ -188,7 +187,7 @@ BE가 `analyses` 저장 후 호출. `replace=true`면 해당 user_id 기존 임�
   (`schemas/common.py`의 `INTERVIEWER_STYLE_KOREAN_INPUT_MAP`). 미지정 시 `실전 면접`
   (realistic) 기본값. 질문의 내용/난이도/rubric에는 영향을 주지 않고 오직 질문의
   말투/어조에만 반영된다. 현재는 질문 생성(`/questions`)에만 적용되며 꼬리질문
-  (`/followup`)/답변 보완(`/answers/supplement`)에는 아직 반영되지 않는다.
+  (`/followup`)에는 아직 반영되지 않는다.
 - `career`(경력), `skills`(보유 기술 스킬)는 선택 필드이며, RAG 검색 쿼리와 프롬프트
   "지원 정보" 섹션에 반영된다.
 - `resume_id`/`cover_letter_id`/`github_repo_id`(신규, 선택 필드): 이 면접에서 참고할
@@ -206,7 +205,7 @@ BE가 `analyses` 저장 후 호출. `replace=true`면 해당 user_id 기존 임�
   무작위로 근거를 뽑아 질문을 만든다(자세한 로직은 `docs/AI_작업일지_0722.md` 3절 참고).
 
 응답: `questions[]` 각 항목에 `question`, `rubric`(채점 기준 2~3개), `topic`, `source`.
-(`expected_answer`는 더 이상 생성하지 않는다 — 답변 보완은 답변 제출 후 4번 API가 담당)
+(`expected_answer`는 생성하지 않는다 — 답변 분석/보완/평가는 Spring Boot(BE)가 담당한다)
 응답 스키마 자체는 이번 요청 형식 변경과 무관하게 그대로다.
 
 ### 3. 꼬리질문 — `POST /api/v1/interviews/followup`
@@ -293,38 +292,62 @@ BE가 `analyses` 저장 후 호출. `replace=true`면 해당 user_id 기존 임�
 도달로 강제 종료함"** 두 경우를 모두 포함한다 — 이 둘을 구분해야 한다면 요청에
 실어 보낸 `question.depth` 값으로 판단해야 한다(응답 자체에는 별도 플래그가 없다).
 
-### 4. 답변 보완 — `POST /api/v1/interviews/answers/supplement`
+> ⚠️ **답변 분석/보완/평가 기능 제거 (2026-07-31, Breaking Change)**: 기존에 있던
+> `POST /api/v1/interviews/answers/supplement`(답변 보완, `ai_answer` 생성) 엔드포인트를
+> 완전히 제거했다. 답변 분석/보완/평가는 Spring Boot(BE)에서 처리하기로 결정됐고,
+> 이 엔드포인트는 BE 어디에서도 호출되지 않는 죽은 코드였다. 제거 배경/영향은
+> `docs/AI_개발일지_0731.md` 참고.
 
-사용자 답변을 DB에 저장한 직후, 면접 진행을 막지 않는 **비동기 백그라운드**로 호출.
-`rubric`에 3번 API(`/followup`) 요청 때 넘겼던 `question.rubric`(미통과 채점 기준)을
-그대로 넘기면, 재채점 없이 그 기준을 겨냥해 보완한다(선택 사항).
+### 4. 임베딩 전체 삭제 — `DELETE /api/v1/embeddings/{user_id}`
 
-> ⚠️ **`rubric_results` 필드 제거 (2026-07-26, rubric narrowing 전환에 따른
-> Breaking Change)**: narrowing 전환으로 `/followup`이 더 이상 rubric 항목별
-> pass/fail 채점 결과를 반환하지 않으므로(3번 API 참고), 이 API도 별도 채점
-> 결과 없이 `rubric` 목록만으로 "놓친 기준"을 판단한다.
+회원 탈퇴 시 호출. 해당 `user_id`의 이력서/자소서/GitHub 임베딩을 전부 삭제한다.
+삭제 대상이 없어도 실패로 취급하지 않는다(멱등성).
+
+### 5. 임베딩 문서 단위 삭제 — `POST /api/v1/embeddings/delete`
+
+자기소개서/GitHub 레포를 삭제할 때 호출(문서 1건 단위). 이력서는 현재 BE에 삭제
+기능이 없어 호출 대상이 아니다.
+
+> ⚠️ **신규 (2026-07-31)**: 기존에 노출된 삭제 API는 `DELETE /{user_id}`(사용자
+> 전량 삭제, 4번 참고) 하나뿐이라 문서 1건만 지울 방법이 없었다. 사용자가 자소서/
+> GitHub 레포를 삭제해도 Chroma에 임베딩이 남아 계속 검색 대상으로 잡히는 문제를
+> 해결하기 위해 신설했다.
+>
+> **`DELETE` 대신 `POST`를 쓰는 이유**: (1) Spring `RestClient`의 `.delete()`는
+> `RequestHeadersSpec`을 반환해 요청 바디를 실을 수 없다. (2) `DELETE` 바디는
+> 중간 프록시(nginx 등)가 버리는 경우가 있어 배포 환경에 따라 깨질 수 있다.
+> (3) 기존 `POST /api/v1/embeddings`와 요청 형태(`items` 배열)를 대칭으로 맞출 수 있다.
 
 ```json
 {
-  "user_id": 1,
-  "ai_interview_id": 100,
-  "question": "React에서 상태 관리를 어떻게 했나요?",
-  "rubric": ["Redux 도입 이유를 설명했는가"],
-  "user_answer": "Redux를 썼습니다.",
-  "interview_type": "tech",
-  "resume_id": 1,
-  "cover_letter_id": 1,
-  "github_repo_id": 1
+  "user_id": 42,
+  "items": [
+    { "doc_type": "cover_letter", "target_id": 7 },
+    { "doc_type": "github", "target_id": 3 }
+  ]
 }
 ```
 
-- `resume_id`/`cover_letter_id`/`github_repo_id`(신규, 선택 필드): 3번 API와 동일 —
-  이번 면접에서 지정한 문서 id를 그대로 넘겨야 답변 보완 RAG 검색도 같은 문서를
-  근거로 삼는다.
+응답:
 
-응답: `question`, `ai_answer`(`ai_interview_questions.ai_answer` 저장용, 사용자 답변을 보완한 결과).
+```json
+{
+  "user_id": 42,
+  "requested_count": 2,
+  "deleted": true,
+  "message": "문서 임베딩 삭제 완료"
+}
+```
 
-### 5. 임베딩 삭제 — `DELETE /api/v1/embeddings/{user_id}`
+- `requested_count`는 **요청한 `items` 개수**이지, 실제로 삭제된 청크 개수가 아니다
+  — Chroma의 `collection.delete(where=...)`가 삭제 건수를 반환하지 않기 때문에,
+  기존 `DeleteEmbeddingResponse`가 `deleted: bool`만 주는 컨벤션에 맞췄다.
+- 삭제 대상이 없는 `item`이 섞여 있어도(이미 삭제된 문서 재요청 등) 실패로 취급하지
+  않는다(멱등성).
+- 내부적으로 `delete_document_embedding()`을 `items` 개수만큼 순차 호출한다. Chroma
+  `where` 절을 `$or`로 묶어 한 번에 처리하는 최적화는 하지 않았다 — chromadb 0.5.5에서
+  `$or` 안에 `$and` 중첩이 되는지 검증되지 않았기 때문(자세한 내용은
+  `docs/AI_개발일지_0731.md` 참고).
 
 ### 6. CS 지식 관리 — `POST` / `DELETE /api/v1/cs-knowledge`
 
@@ -371,8 +394,8 @@ CS 전역 지식(`cs_knowledge` 컬렉션, user_id 없이 모든 사용자 공�
 
 전체 top_k를 doc_type(이력서/자소서/GitHub)별로 비율만큼 쪼개 각각 따로 검색한 뒤
 합치는 방식이라(최대 나머지법으로 배분), 위 표의 비율이 실제로 보장된다. 이 배분은
-질문 생성뿐 아니라 꼬리질문 채점(`followup_service.py`)·답변 보완(`answer_service.py`)의
-RAG 검색에도 동일하게 적용된다.
+질문 생성뿐 아니라 꼬리질문 채점(`followup_service.py`)의 RAG 검색에도 동일하게
+적용된다.
 
 **CS 면접**: 위 비율과 별개로, `cs_categories`(최대 3개)로 CS 지식 검색 범위 자체를
 해당 카테고리(들)의 합집합으로 하드 제한한다(`retrieve_cs_knowledge`의 category `$in`
