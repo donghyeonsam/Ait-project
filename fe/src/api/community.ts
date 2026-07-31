@@ -1,3 +1,5 @@
+import { backendRequest } from '@/api/http'
+import { CATEGORY_META } from '@/lib/community-categories'
 import {
   mockComments,
   mockPosts,
@@ -13,12 +15,63 @@ import type {
   TrendingKeyword,
 } from '@/types/community'
 
-// 커뮤니티 API 레이어. 지금은 목업 데이터를 300~600ms 지연과 함께 돌려주며,
-// 실제 API가 준비되면 이 모듈의 함수 내부만 교체한다.
+// 커뮤니티 API 레이어. 게시글 목록 조회는 실제 백엔드를 호출하고,
+// 나머지는 목업 데이터를 300~600ms 지연과 함께 돌려준다.
 // TODO: 실제 API 연동 필요
 
 const delay = () =>
   new Promise((resolve) => setTimeout(resolve, 300 + Math.random() * 300))
+
+// 백엔드는 카테고리를 한글 라벨 문자열로 저장하므로 FE 값과 상호 변환한다.
+const CATEGORY_LABEL_TO_VALUE = new Map(
+  (Object.keys(CATEGORY_META) as CommunityCategory[]).map((value) => [
+    CATEGORY_META[value].label,
+    value,
+  ]),
+)
+
+const toCategoryValue = (label: string): CommunityCategory =>
+  CATEGORY_LABEL_TO_VALUE.get(label) ?? 'tip'
+
+// Spring Data Page 직렬화 형태 중 화면이 쓰는 필드만 취한다.
+interface SpringPage<T> {
+  content: T[]
+  last: boolean
+}
+
+// 백엔드 게시글 목록 항목. boolean 필드(isLiked 등)는 Jackson 직렬화 시
+// is 접두사가 벗겨져 liked/bookmarked 키로 내려온다.
+interface PostListItemResponse {
+  id: number
+  category: string
+  title: string
+  contentSummary: string | null
+  nickname: string
+  tags: string[] | null
+  viewCount: number
+  commentCount: number
+  likeCount: number
+  bookmarked: boolean
+  liked: boolean
+  createdAt: string
+}
+
+// 목록 응답에는 본문 HTML이 없어 상세 조회에서 채운다.
+const toPostSummary = (item: PostListItemResponse): CommunityPost => ({
+  id: String(item.id),
+  category: toCategoryValue(item.category),
+  title: item.title,
+  excerpt: item.contentSummary ?? '',
+  contentHtml: '',
+  author: item.nickname,
+  createdAt: item.createdAt,
+  tags: item.tags ?? [],
+  viewCount: item.viewCount,
+  commentCount: item.commentCount,
+  likeCount: item.likeCount,
+  liked: item.liked ?? false,
+  bookmarked: item.bookmarked ?? false,
+})
 
 // 세션 동안 작성한 글을 목록·상세에서 함께 보여주기 위한 인메모리 저장소.
 const createdPosts: CommunityPost[] = []
@@ -47,38 +100,21 @@ export async function fetchPosts({
   category,
   offset,
   limit,
-  query,
 }: FetchPostsParams): Promise<FetchPostsResult> {
-  await delay()
-
-  let items = [...createdPosts, ...mockPosts]
-    .filter((post) => !deletedPostIds.has(post.id))
-    .map((post) => updatedPosts.get(post.id) ?? post)
-
+  const searchParams = new URLSearchParams()
   if (category !== 'all') {
-    items = items.filter((post) => post.category === category)
+    searchParams.set('category', CATEGORY_META[category].label)
   }
-  if (query?.trim()) {
-    const keyword = query.trim().toLowerCase()
-    items = items.filter(
-      (post) =>
-        post.title.toLowerCase().includes(keyword) ||
-        post.excerpt.toLowerCase().includes(keyword) ||
-        post.tags.some((tag) => tag.toLowerCase().includes(keyword)),
-    )
-  }
+  // 추천 탭은 백엔드 정렬 기준이 없어 최신순으로 대체한다. TODO: 추천 정렬 연동 필요
+  searchParams.set('sortType', tab === 'popular' ? 'POPULAR' : 'LATEST')
+  // 더보기는 항상 페이지 크기 배수만큼 쌓이므로 offset을 페이지 번호로 환산한다.
+  searchParams.set('page', String(Math.floor(offset / limit)))
+  searchParams.set('size', String(limit))
 
-  // 인기와 최신 탭은 각각 반응 수와 작성 시각을 기준으로 정렬한다.
-  const byLatest = (a: CommunityPost, b: CommunityPost) =>
-    b.createdAt.localeCompare(a.createdAt)
-  const byPopular = (a: CommunityPost, b: CommunityPost) =>
-    b.likeCount - a.likeCount
-
-  if (tab === 'latest') items.sort(byLatest)
-  else if (tab === 'popular') items.sort(byPopular)
-
-  const paged = items.slice(offset, offset + limit)
-  return { items: paged, hasMore: offset + limit < items.length }
+  const page = await backendRequest<SpringPage<PostListItemResponse>>(
+    `/api/posts?${searchParams}`,
+  )
+  return { items: page.content.map(toPostSummary), hasMore: !page.last }
 }
 
 export async function fetchPost(postId: string): Promise<CommunityPost | null> {
