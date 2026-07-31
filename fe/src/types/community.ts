@@ -31,7 +31,6 @@ export interface CommunityPost {
   likeCount: number
   liked: boolean
   bookmarked: boolean
-  visibility?: 'public' | 'members'
   files?: CommunityPostFile[]
   allowComments?: boolean
   notify?: boolean
@@ -61,7 +60,6 @@ export interface CommunityPostDraft {
   title: string
   contentHtml: string
   tags: string[]
-  visibility: 'public' | 'members'
   files: CommunityPostFile[]
   allowComments: boolean
   notify: boolean

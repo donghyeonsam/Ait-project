@@ -261,7 +261,6 @@ export async function uploadPostFiles(
   )
 }
 
-// 공개 범위(visibility)는 대응하는 백엔드 필드가 없어 전송하지 않는다.
 const toPostRequestBody = (draft: CommunityPostDraft) => ({
   category: draft.category ? CATEGORY_META[draft.category].label : '',
   title: draft.title,

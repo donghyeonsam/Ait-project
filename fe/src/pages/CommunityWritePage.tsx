@@ -13,7 +13,6 @@ import { toErrorMessage } from '@/api/http'
 import { PageTransition } from '@/components/common/PageTransition'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
 import { FileDropzone } from '@/components/form/FileDropzone'
-import { SegmentedControl } from '@/components/form/SegmentedControl'
 import { TagInput } from '@/components/form/TagInput'
 import { Toggle } from '@/components/form/Toggle'
 import { PageLayout } from '@/components/layout/PageLayout'
@@ -70,7 +69,6 @@ interface DraftPayload {
   title: string
   contentHtml: string
   tags: string[]
-  visibility: 'public' | 'members'
   files: CommunityPostFile[]
   allowComments: boolean
   notify: boolean
@@ -104,7 +102,6 @@ export function CommunityWritePage() {
   const [files, setFiles] = useState<File[]>([])
   const [postFiles, setPostFiles] = useState<CommunityPostFile[]>([])
   const [tags, setTags] = useState<string[]>([])
-  const [visibility, setVisibility] = useState<'public' | 'members'>('public')
   const [allowComments, setAllowComments] = useState(true)
   const [notify, setNotify] = useState(true)
 
@@ -133,7 +130,6 @@ export function CommunityWritePage() {
     title,
     contentHtml,
     tags,
-    visibility,
     files: postFiles.map(({ storedFilename, usageType }) => ({
       storedFilename,
       usageType,
@@ -173,7 +169,6 @@ export function CommunityWritePage() {
           title: post.title,
           contentHtml: post.contentHtml,
           tags: post.tags,
-          visibility: post.visibility ?? ('public' as const),
           files: post.files ?? [],
           allowComments: post.allowComments ?? true,
           notify: post.notify ?? true,
@@ -183,7 +178,6 @@ export function CommunityWritePage() {
         setContentHtml(nextForm.contentHtml)
         setContentText(htmlToPlainText(nextForm.contentHtml))
         setTags(nextForm.tags)
-        setVisibility(nextForm.visibility)
         setPostFiles(nextForm.files)
         setAllowComments(nextForm.allowComments)
         setNotify(nextForm.notify)
@@ -214,7 +208,6 @@ export function CommunityWritePage() {
       title,
       contentHtml,
       tags,
-      visibility,
       files: postFiles,
       allowComments,
       notify,
@@ -225,7 +218,6 @@ export function CommunityWritePage() {
       title,
       contentHtml,
       tags,
-      visibility,
       postFiles,
       allowComments,
       notify,
@@ -266,7 +258,6 @@ export function CommunityWritePage() {
     setCategory(pendingDraft.category)
     setTitle(pendingDraft.title)
     setTags(pendingDraft.tags)
-    setVisibility(pendingDraft.visibility)
     setPostFiles(pendingDraft.files ?? [])
     setAllowComments(pendingDraft.allowComments)
     setNotify(pendingDraft.notify)
@@ -350,7 +341,6 @@ export function CommunityWritePage() {
         title: title.trim(),
         contentHtml,
         tags,
-        visibility,
         files: requestFiles,
         allowComments,
         notify: allowComments && notify,
@@ -584,21 +574,6 @@ export function CommunityWritePage() {
               {/* 게시 설정 */}
               <FormSection label="게시 설정" labelId="write-settings">
                 <div className="flex flex-col gap-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span id="write-visibility" className="text-body-2 text-ink-700">
-                      공개 범위
-                    </span>
-                    <SegmentedControl
-                      options={[
-                        { value: 'public', label: '전체 공개' },
-                        { value: 'members', label: '멤버만' },
-                      ]}
-                      value={visibility}
-                      onChange={setVisibility}
-                      ariaLabel="공개 범위"
-                    />
-                  </div>
-
                   <div className="flex items-center justify-between gap-3">
                     <span id="write-allow-comments" className="text-body-2 text-ink-700">
                       댓글 허용
