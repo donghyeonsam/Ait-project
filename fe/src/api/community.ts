@@ -179,7 +179,6 @@ export async function fetchSearchSuggestions(query: string): Promise<string[]> {
     .slice(0, 6)
 }
 
-// 공개 범위(visibility)는 대응하는 백엔드 필드가 없어 전송하지 않는다.
 // TODO: 파일 업로드 API 연동 필요
 const toPostRequestBody = (draft: CommunityPostDraft) => ({
   category: draft.category ? CATEGORY_META[draft.category].label : '',

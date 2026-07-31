@@ -41,7 +41,6 @@ const draft: CommunityPostDraft = {
   title: 'CRUD 테스트 게시글',
   contentHtml: '<p>게시글 수정과 삭제 동작을 확인합니다.</p>',
   tags: ['테스트'],
-  visibility: 'public',
   allowComments: true,
   notify: true,
 }
