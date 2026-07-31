@@ -14,6 +14,7 @@ vi.mock('@/api/community', () => ({
   fetchPost: vi.fn(),
   fetchComments: vi.fn(),
   createComment: vi.fn(),
+  updateComment: vi.fn(),
   deletePost: vi.fn(),
   toggleBookmark: vi.fn(),
   toggleLike: vi.fn(),

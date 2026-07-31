@@ -282,6 +282,17 @@ export async function createComment(
   return String(commentId)
 }
 
+// 본인 댓글 여부 검증은 토큰 기반으로 백엔드가 수행한다.
+export async function updateComment(
+  commentId: string,
+  content: string,
+): Promise<void> {
+  await backendRequest<void>(`/api/comments/${commentId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ content }),
+  })
+}
+
 export async function fetchTrendingKeywords(): Promise<TrendingKeyword[]> {
   await delay()
   return mockTrendingKeywords

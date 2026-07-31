@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { createComment, fetchComments } from '@/api/community'
+import { createComment, fetchComments, updateComment } from '@/api/community'
 import { CommentComposer } from '@/components/community/CommentComposer'
 import { CommentItem } from '@/components/community/CommentItem'
 import { SegmentedControl } from '@/components/form/SegmentedControl'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatNumber } from '@/lib/format'
+import { useAuth } from '@/lib/useAuth'
 import type { CommunityComment } from '@/types/community'
 
 type CommentSort = 'registered' | 'likes'
@@ -22,6 +23,7 @@ export function CommentSection({
   commentCount,
   onNotify,
 }: CommentSectionProps) {
+  const { user } = useAuth()
   const [comments, setComments] = useState<CommunityComment[]>([])
   const [sort, setSort] = useState<CommentSort>('registered')
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
@@ -66,6 +68,17 @@ export function CommentSection({
 
   const submitReply = (commentId: string, content: string) =>
     submitNew(commentId, content)
+
+  const editComment = async (commentId: string, content: string) => {
+    try {
+      await updateComment(commentId, content)
+      setComments(await fetchComments(postId))
+      highlight(commentId)
+    } catch (error) {
+      onNotify?.('댓글 수정에 실패했습니다. 잠시 후 다시 시도해주세요.')
+      throw error
+    }
+  }
 
   const sortedComments = [...comments].sort((a, b) =>
     sort === 'likes'
@@ -127,9 +140,11 @@ export function CommentSection({
             <CommentItem
               key={comment.id}
               comment={comment}
+              currentUserId={user?.userId ?? null}
               isHighlighted={comment.id === highlightedId}
               highlightedReplyId={highlightedId}
               onSubmitReply={submitReply}
+              onEdit={editComment}
             />
           ))}
         </ul>
