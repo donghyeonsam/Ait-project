@@ -42,7 +42,7 @@ spring:
 
   sql:
     init:
-      mode: always
+      mode: never
 
   docker:
     compose:

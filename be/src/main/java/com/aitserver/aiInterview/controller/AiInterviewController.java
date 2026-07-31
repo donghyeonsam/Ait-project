@@ -19,6 +19,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Date;
+
 @RestController
 @RequestMapping("/api/ai-interviews")
 @RequiredArgsConstructor
@@ -99,7 +101,6 @@ public class AiInterviewController {
     }
 
 
-//    이 요청은 나중에 MediaPipe랑 WebGazer 되면 만들자
     @PostMapping("{aiInterviewId}/complete")
     public ResponseEntity<ApiResponse<Void>> complete(
             HttpServletRequest request,
@@ -110,6 +111,6 @@ public class AiInterviewController {
 
         return ResponseEntity.ok( // 전달 받은 요청만 처리하는 거라서 data는 없다.
                 ApiResponse.success(
-                        HttpStatus.OK, "면접 종료 후 AI 리포트 발행 요청 완료", null, request));
+                        HttpStatus.OK, "모의 면접이 종료되어 결과를 분석하고 있습니다.", null, request));
     }
 }
