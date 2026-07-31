@@ -6,6 +6,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -53,5 +55,16 @@ public class LocalFileStorageService implements FileStorageService {
         if (file.exists()) {
             file.delete();
         }
+    }
+
+    public List<String> storeFiles(List<MultipartFile> files) {
+        // 빈 리스트가 오면 빈 리스트 반환
+        if (files == null || files.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        return files.stream()
+                .map(this::storeFile)
+                .toList();
     }
 }
