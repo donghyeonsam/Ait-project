@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react'
-import { createComment, fetchComments, updateComment } from '@/api/community'
+import {
+  createComment,
+  deleteComment,
+  fetchComments,
+  updateComment,
+} from '@/api/community'
 import { CommentComposer } from '@/components/community/CommentComposer'
 import { CommentItem } from '@/components/community/CommentItem'
 import { SegmentedControl } from '@/components/form/SegmentedControl'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatNumber } from '@/lib/format'
 import { useAuth } from '@/lib/useAuth'
@@ -27,6 +33,8 @@ export function CommentSection({
   const [comments, setComments] = useState<CommunityComment[]>([])
   const [sort, setSort] = useState<CommentSort>('registered')
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  const [isDeleting, setDeleting] = useState(false)
 
   // 마지막으로 댓글을 불러온 글과 현재 글이 다르면 로딩 중으로 본다.
   const [loadedPostId, setLoadedPostId] = useState<string | null>(null)
@@ -77,6 +85,21 @@ export function CommentSection({
     } catch (error) {
       onNotify?.('댓글 수정에 실패했습니다. 잠시 후 다시 시도해주세요.')
       throw error
+    }
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTargetId) return
+    setDeleting(true)
+    try {
+      await deleteComment(deleteTargetId)
+      setComments(await fetchComments(postId))
+      onNotify?.('댓글이 삭제되었습니다.')
+    } catch {
+      onNotify?.('댓글 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.')
+    } finally {
+      setDeleting(false)
+      setDeleteTargetId(null)
     }
   }
 
@@ -145,10 +168,24 @@ export function CommentSection({
               highlightedReplyId={highlightedId}
               onSubmitReply={submitReply}
               onEdit={editComment}
+              onRequestDelete={setDeleteTargetId}
             />
           ))}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={deleteTargetId != null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTargetId(null)
+        }}
+        title="댓글을 삭제할까요?"
+        description="삭제한 댓글은 되돌릴 수 없습니다."
+        confirmLabel="댓글 삭제"
+        confirmVariant="destructive"
+        isConfirming={isDeleting}
+        onConfirm={() => void confirmDelete()}
+      />
     </section>
   )
 }

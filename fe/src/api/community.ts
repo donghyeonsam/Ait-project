@@ -293,6 +293,13 @@ export async function updateComment(
   })
 }
 
+// soft delete라 답글이 있는 원댓글은 목록에 "삭제된 댓글입니다." 껍데기로 남는다.
+export async function deleteComment(commentId: string): Promise<void> {
+  await backendRequest<void>(`/api/comments/${commentId}`, {
+    method: 'DELETE',
+  })
+}
+
 export async function fetchTrendingKeywords(): Promise<TrendingKeyword[]> {
   await delay()
   return mockTrendingKeywords

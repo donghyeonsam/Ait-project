@@ -18,9 +18,10 @@ interface CommentItemProps {
   highlightedReplyId: string | null
   onSubmitReply: (commentId: string, content: string) => Promise<void>
   onEdit: (commentId: string, content: string) => Promise<void>
+  onRequestDelete: (commentId: string) => void
 }
 
-// 최상위 댓글 하나. 긴 본문 축약, 답글 접힘·펼침, 답글 쓰기, 본인 댓글 수정을 담당한다.
+// 최상위 댓글 하나. 긴 본문 축약, 답글 접힘·펼침, 답글 쓰기, 본인 댓글 수정·삭제를 담당한다.
 export function CommentItem({
   comment,
   currentUserId,
@@ -28,6 +29,7 @@ export function CommentItem({
   highlightedReplyId,
   onSubmitReply,
   onEdit,
+  onRequestDelete,
 }: CommentItemProps) {
   const [isThreadOpen, setThreadOpen] = useState(false)
   const [showAllReplies, setShowAllReplies] = useState(false)
@@ -117,13 +119,22 @@ export function CommentItem({
             </button>
           ) : null}
           {isMine && !comment.deleted ? (
-            <button
-              type="button"
-              onClick={() => setEditing((editing) => !editing)}
-              className="text-caption font-medium text-ink-500 transition-colors hover:text-navy-800"
-            >
-              {isEditing ? '수정 취소' : '수정'}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setEditing((editing) => !editing)}
+                className="text-caption font-medium text-ink-500 transition-colors hover:text-navy-800"
+              >
+                {isEditing ? '수정 취소' : '수정'}
+              </button>
+              <button
+                type="button"
+                onClick={() => onRequestDelete(comment.id)}
+                className="text-caption font-medium text-ink-500 transition-colors hover:text-danger"
+              >
+                삭제
+              </button>
+            </>
           ) : null}
         </div>
       </div>
@@ -175,6 +186,7 @@ export function CommentItem({
                   currentUserId={currentUserId}
                   isHighlighted={reply.id === highlightedReplyId}
                   onEdit={onEdit}
+                  onRequestDelete={onRequestDelete}
                 />
               ))}
             </motion.ul>
@@ -199,11 +211,13 @@ function ReplyItem({
   currentUserId,
   isHighlighted,
   onEdit,
+  onRequestDelete,
 }: {
   reply: CommunityReply
   currentUserId: number | null
   isHighlighted: boolean
   onEdit: (commentId: string, content: string) => Promise<void>
+  onRequestDelete: (commentId: string) => void
 }) {
   const [isEditing, setEditing] = useState(false)
   const isMine = reply.authorId != null && reply.authorId === currentUserId
@@ -248,13 +262,22 @@ function ReplyItem({
           {reply.likeCount}
         </span>
         {isMine ? (
-          <button
-            type="button"
-            onClick={() => setEditing((editing) => !editing)}
-            className="text-caption font-medium text-ink-500 transition-colors hover:text-navy-800"
-          >
-            {isEditing ? '수정 취소' : '수정'}
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => setEditing((editing) => !editing)}
+              className="text-caption font-medium text-ink-500 transition-colors hover:text-navy-800"
+            >
+              {isEditing ? '수정 취소' : '수정'}
+            </button>
+            <button
+              type="button"
+              onClick={() => onRequestDelete(reply.id)}
+              className="text-caption font-medium text-ink-500 transition-colors hover:text-danger"
+            >
+              삭제
+            </button>
+          </>
         ) : null}
       </div>
     </motion.li>
