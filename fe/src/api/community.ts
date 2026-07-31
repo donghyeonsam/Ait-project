@@ -1,4 +1,4 @@
-import { ApiError, backendRequest } from '@/api/http'
+import { ApiError, backendRequest, getBackendAssetUrl } from '@/api/http'
 import { CATEGORY_META } from '@/lib/community-categories'
 import {
   mockComments,
@@ -10,6 +10,9 @@ import type {
   CommunityComment,
   CommunityPost,
   CommunityPostDraft,
+  CommunityPostFile,
+  CommunityPostFileType,
+  CommunityPostFileUsageType,
   CommunityTab,
   TrendingKeyword,
 } from '@/types/community'
@@ -53,6 +56,29 @@ interface PostListItemResponse {
   liked: boolean
   createdAt: string
 }
+
+interface PostFileResponse {
+  id: number
+  originalFilename: string
+  storedFilename: string
+  fileType: CommunityPostFileType
+  usageType: CommunityPostFileUsageType
+}
+
+const toPostFile = ({
+  id,
+  originalFilename,
+  storedFilename,
+  fileType,
+  usageType,
+}: PostFileResponse): CommunityPostFile => ({
+  id,
+  originalFilename,
+  storedFilename,
+  fileType,
+  usageType,
+  url: getBackendAssetUrl(`/images/${encodeURIComponent(storedFilename)}`),
+})
 
 // 목록 응답에는 본문 HTML이 없어 상세 조회에서 채운다.
 const toPostSummary = (item: PostListItemResponse): CommunityPost => ({
@@ -122,6 +148,7 @@ interface PostDetailResponse {
   likeCount: number
   viewCount: number
   tags: string[] | null
+  files: PostFileResponse[] | null
   createdAt: string
 }
 
@@ -152,6 +179,7 @@ export async function fetchPost(postId: string): Promise<CommunityPost | null> {
     commentCount: 0,
     liked: false,
     bookmarked: false,
+    files: (data.files ?? []).map(toPostFile),
     allowComments: data.allowComments ?? true,
     notify: data.receiveNotifications ?? true,
   }
@@ -179,8 +207,62 @@ export async function fetchSearchSuggestions(query: string): Promise<string[]> {
     .slice(0, 6)
 }
 
+const inferPostFileType = (file: File): CommunityPostFileType => {
+  if (file.type.startsWith('image/')) return 'IMAGE'
+  if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+    return 'PDF'
+  }
+  return 'OTHER'
+}
+
+const toUploadedPostFile = (
+  file: File,
+  storedFilename: string,
+  usageType: CommunityPostFileUsageType,
+): CommunityPostFile => ({
+  originalFilename: file.name,
+  storedFilename,
+  fileType: inferPostFileType(file),
+  usageType,
+  url: getBackendAssetUrl(`/images/${encodeURIComponent(storedFilename)}`),
+})
+
+export async function uploadPostFile(
+  file: File,
+  usageType: CommunityPostFileUsageType,
+): Promise<CommunityPostFile> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const storedFilename = await backendRequest<string>('/api/files/upload', {
+    method: 'POST',
+    body: formData,
+  })
+  return toUploadedPostFile(file, storedFilename, usageType)
+}
+
+export async function uploadPostFiles(
+  files: File[],
+  usageType: CommunityPostFileUsageType,
+): Promise<CommunityPostFile[]> {
+  if (files.length === 0) return []
+
+  const formData = new FormData()
+  files.forEach((file) => formData.append('files', file))
+  const storedFilenames = await backendRequest<string[]>('/api/files/uploads', {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (storedFilenames.length !== files.length) {
+    throw new Error('업로드한 파일 정보를 확인할 수 없습니다.')
+  }
+
+  return files.map((file, index) =>
+    toUploadedPostFile(file, storedFilenames[index], usageType),
+  )
+}
+
 // 공개 범위(visibility)는 대응하는 백엔드 필드가 없어 전송하지 않는다.
-// TODO: 파일 업로드 API 연동 필요
 const toPostRequestBody = (draft: CommunityPostDraft) => ({
   category: draft.category ? CATEGORY_META[draft.category].label : '',
   title: draft.title,
@@ -188,6 +270,14 @@ const toPostRequestBody = (draft: CommunityPostDraft) => ({
   allowComments: draft.allowComments,
   receiveNotifications: draft.notify,
   tags: draft.tags,
+  files: draft.files.map(
+    ({ originalFilename, storedFilename, fileType, usageType }) => ({
+      originalFilename,
+      storedFilename,
+      fileType,
+      usageType,
+    }),
+  ),
 })
 
 // 생성된 게시글의 id를 문자열로 돌려준다.

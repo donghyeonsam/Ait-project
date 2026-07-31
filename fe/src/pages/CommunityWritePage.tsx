@@ -3,7 +3,13 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Loader2, PenLine } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { createPost, fetchPost, updatePost } from '@/api/community'
+import {
+  createPost,
+  fetchPost,
+  updatePost,
+  uploadPostFiles,
+} from '@/api/community'
+import { toErrorMessage } from '@/api/http'
 import { PageTransition } from '@/components/common/PageTransition'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
 import { FileDropzone } from '@/components/form/FileDropzone'
@@ -23,7 +29,11 @@ import { useToasts } from '@/lib/useToasts'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { cn } from '@/lib/utils'
 import { mockTagSuggestions } from '@/mocks/community'
-import type { CommunityCategory, CommunityPostDraft } from '@/types/community'
+import type {
+  CommunityCategory,
+  CommunityPostDraft,
+  CommunityPostFile,
+} from '@/types/community'
 
 const TITLE_MAX = 50
 const TITLE_WARN = 45
@@ -61,6 +71,7 @@ interface DraftPayload {
   contentHtml: string
   tags: string[]
   visibility: 'public' | 'members'
+  files: CommunityPostFile[]
   allowComments: boolean
   notify: boolean
   savedAt: string
@@ -91,6 +102,7 @@ export function CommunityWritePage() {
   const [contentHtml, setContentHtml] = useState('')
   const [contentText, setContentText] = useState('')
   const [files, setFiles] = useState<File[]>([])
+  const [postFiles, setPostFiles] = useState<CommunityPostFile[]>([])
   const [tags, setTags] = useState<string[]>([])
   const [visibility, setVisibility] = useState<'public' | 'members'>('public')
   const [allowComments, setAllowComments] = useState(true)
@@ -122,6 +134,10 @@ export function CommunityWritePage() {
     contentHtml,
     tags,
     visibility,
+    files: postFiles.map(({ storedFilename, usageType }) => ({
+      storedFilename,
+      usageType,
+    })),
     allowComments,
     notify,
   })
@@ -131,6 +147,7 @@ export function CommunityWritePage() {
       title.trim().length > 0 ||
       contentText.trim().length > 0 ||
       tags.length > 0 ||
+      postFiles.length > 0 ||
       files.length > 0
 
   const guard = useUnsavedChangesGuard(isDirty && !isSubmitting)
@@ -157,6 +174,7 @@ export function CommunityWritePage() {
           contentHtml: post.contentHtml,
           tags: post.tags,
           visibility: post.visibility ?? ('public' as const),
+          files: post.files ?? [],
           allowComments: post.allowComments ?? true,
           notify: post.notify ?? true,
         }
@@ -166,9 +184,18 @@ export function CommunityWritePage() {
         setContentText(htmlToPlainText(nextForm.contentHtml))
         setTags(nextForm.tags)
         setVisibility(nextForm.visibility)
+        setPostFiles(nextForm.files)
         setAllowComments(nextForm.allowComments)
         setNotify(nextForm.notify)
-        setEditBaseline(JSON.stringify(nextForm))
+        setEditBaseline(
+          JSON.stringify({
+            ...nextForm,
+            files: nextForm.files.map(({ storedFilename, usageType }) => ({
+              storedFilename,
+              usageType,
+            })),
+          }),
+        )
         setEditLoadState('ready')
       })
       // 조회 실패도 무한 로딩 대신 찾을 수 없음 안내로 처리한다.
@@ -188,11 +215,21 @@ export function CommunityWritePage() {
       contentHtml,
       tags,
       visibility,
+      files: postFiles,
       allowComments,
       notify,
       savedAt: new Date().toISOString(),
     }),
-    [category, title, contentHtml, tags, visibility, allowComments, notify],
+    [
+      category,
+      title,
+      contentHtml,
+      tags,
+      visibility,
+      postFiles,
+      allowComments,
+      notify,
+    ],
   )
 
   // 자동 저장 타이머가 항상 최신 상태를 읽도록 렌더 후에 ref를 갱신한다.
@@ -230,6 +267,7 @@ export function CommunityWritePage() {
     setTitle(pendingDraft.title)
     setTags(pendingDraft.tags)
     setVisibility(pendingDraft.visibility)
+    setPostFiles(pendingDraft.files ?? [])
     setAllowComments(pendingDraft.allowComments)
     setNotify(pendingDraft.notify)
     setContentHtml(pendingDraft.contentHtml)
@@ -261,6 +299,14 @@ export function CommunityWritePage() {
     target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
+  const handleImageUploaded = useCallback((file: CommunityPostFile) => {
+    setPostFiles((current) =>
+      current.some((item) => item.storedFilename === file.storedFilename)
+        ? current
+        : [...current, file],
+    )
+  }, [])
+
   const submit = async () => {
     if (isSubmitting) return
 
@@ -281,12 +327,31 @@ export function CommunityWritePage() {
 
     setSubmitting(true)
     try {
+      const retainedFiles = postFiles.filter(
+        (file) =>
+          file.usageType === 'ATTACHMENT' ||
+          contentHtml.includes(file.storedFilename),
+      )
+      const uploadedAttachments = await uploadPostFiles(files, 'ATTACHMENT')
+      const requestFiles = [...retainedFiles, ...uploadedAttachments].filter(
+        (file, index, all) =>
+          all.findIndex(
+            (candidate) => candidate.storedFilename === file.storedFilename,
+          ) === index,
+      )
+
+      if (uploadedAttachments.length > 0) {
+        setPostFiles(requestFiles)
+        setFiles([])
+      }
+
       const draft: CommunityPostDraft = {
         category,
         title: title.trim(),
         contentHtml,
         tags,
         visibility,
+        files: requestFiles,
         allowComments,
         notify: allowComments && notify,
       }
@@ -300,13 +365,9 @@ export function CommunityWritePage() {
       }
       showToast(isEditMode ? '게시글을 수정했어요.' : '게시글을 등록했어요.')
       setTimeout(() => navigate(`/community/posts/${targetPostId}`), 700)
-    } catch {
+    } catch (error) {
       setSubmitting(false)
-      showToast(
-        isEditMode
-          ? '수정에 실패했어요. 잠시 후 다시 시도해주세요.'
-          : '등록에 실패했어요. 잠시 후 다시 시도해주세요.',
-      )
+      showToast(toErrorMessage(error))
     }
   }
 
@@ -488,12 +549,27 @@ export function CommunityWritePage() {
                     setContentText(text)
                     setErrors((prev) => ({ ...prev, content: undefined }))
                   }}
+                  onImageUploaded={handleImageUploaded}
                 />
               </FormSection>
 
               {/* 파일 첨부 */}
               <FormSection label="파일 첨부" labelId="write-files">
-                <FileDropzone files={files} onChange={setFiles} />
+                <FileDropzone
+                  files={files}
+                  onChange={setFiles}
+                  uploadedFiles={postFiles.filter(
+                    (file) => file.usageType === 'ATTACHMENT',
+                  )}
+                  onRemoveUploaded={(target) =>
+                    setPostFiles((current) =>
+                      current.filter(
+                        (file) => file.storedFilename !== target.storedFilename,
+                      ),
+                    )
+                  }
+                  disabled={isSubmitting}
+                />
               </FormSection>
 
               {/* 태그 */}

@@ -7,6 +7,8 @@ import {
   toggleBookmark,
   toggleLike,
   updatePost,
+  uploadPostFile,
+  uploadPostFiles,
 } from '@/api/community'
 import type { CommunityPostDraft } from '@/types/community'
 
@@ -42,6 +44,15 @@ const draft: CommunityPostDraft = {
   contentHtml: '<p>게시글 수정과 삭제 동작을 확인합니다.</p>',
   tags: ['테스트'],
   visibility: 'public',
+  files: [
+    {
+      originalFilename: 'guide.pdf',
+      storedFilename: 'stored-guide.pdf',
+      fileType: 'PDF',
+      usageType: 'ATTACHMENT',
+      url: '/backend/images/stored-guide.pdf',
+    },
+  ],
   allowComments: true,
   notify: true,
 }
@@ -154,7 +165,15 @@ describe('fetchPost', () => {
             likeCount: 5,
             viewCount: 10,
             tags: ['면접팁'],
-            files: [],
+            files: [
+              {
+                id: 1,
+                originalFilename: 'guide.pdf',
+                storedFilename: 'stored-guide.pdf',
+                fileType: 'PDF',
+                usageType: 'ATTACHMENT',
+              },
+            ],
             createdAt: '2026-07-30T10:00:00',
             updatedAt: '2026-07-30T10:00:00',
           },
@@ -177,6 +196,16 @@ describe('fetchPost', () => {
       author: '김싸피',
       allowComments: true,
       notify: false,
+      files: [
+        expect.objectContaining({
+          id: 1,
+          originalFilename: 'guide.pdf',
+          storedFilename: 'stored-guide.pdf',
+          fileType: 'PDF',
+          usageType: 'ATTACHMENT',
+          url: '/backend/images/stored-guide.pdf',
+        }),
+      ],
     })
   })
 
@@ -231,7 +260,81 @@ describe('createPost', () => {
       allowComments: true,
       receiveNotifications: true,
       tags: ['테스트'],
+      files: [
+        {
+          originalFilename: 'guide.pdf',
+          storedFilename: 'stored-guide.pdf',
+          fileType: 'PDF',
+          usageType: 'ATTACHMENT',
+        },
+      ],
     })
+  })
+})
+
+describe('post file upload', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('uploads an inline image as multipart data', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 201,
+          message: '파일 업로드 성공',
+          data: 'stored-image.png',
+          error: null,
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const file = new File(['image'], 'profile.png', { type: 'image/png' })
+
+    const result = await uploadPostFile(file, 'INLINE')
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/backend/api/files/upload')
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit
+    expect(init.method).toBe('POST')
+    expect(init.body).toBeInstanceOf(FormData)
+    expect((init.body as FormData).get('file')).toBe(file)
+    expect(result).toEqual({
+      originalFilename: 'profile.png',
+      storedFilename: 'stored-image.png',
+      fileType: 'IMAGE',
+      usageType: 'INLINE',
+      url: '/backend/images/stored-image.png',
+    })
+  })
+
+  it('uploads attachments in one multipart request and preserves order', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 201,
+          message: '파일 업로드 성공',
+          data: ['stored-guide.pdf', 'stored-note.txt'],
+          error: null,
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const files = [
+      new File(['pdf'], 'guide.pdf', { type: 'application/pdf' }),
+      new File(['text'], 'note.txt', { type: 'text/plain' }),
+    ]
+
+    const result = await uploadPostFiles(files, 'ATTACHMENT')
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/backend/api/files/uploads')
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit
+    expect((init.body as FormData).getAll('files')).toEqual(files)
+    expect(result.map(({ fileType, usageType }) => ({ fileType, usageType }))).toEqual([
+      { fileType: 'PDF', usageType: 'ATTACHMENT' },
+      { fileType: 'OTHER', usageType: 'ATTACHMENT' },
+    ])
   })
 })
 
