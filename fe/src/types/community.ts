@@ -40,10 +40,13 @@ export interface CommunityPost {
 
 export interface CommunityReply {
   id: string
+  // 삭제된 댓글은 작성자 식별 정보 없이 내려온다.
+  authorId: number | null
   author: string
   createdAt: string
   content: string
   likeCount: number
+  deleted: boolean
 }
 
 export interface CommunityComment extends CommunityReply {

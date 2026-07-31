@@ -55,14 +55,17 @@ export function CommentItem({
           author={comment.author}
           createdAt={comment.createdAt}
           content={comment.content}
+          muted={comment.deleted}
         />
 
         <div className="mt-2 flex items-center gap-4 pl-[52px]">
-          <span className="inline-flex items-center gap-1.5 text-caption text-ink-500">
-            <ThumbsUp aria-hidden="true" className="size-4 text-ink-400" />
-            <span className="sr-only">좋아요</span>
-            {comment.likeCount}
-          </span>
+          {!comment.deleted ? (
+            <span className="inline-flex items-center gap-1.5 text-caption text-ink-500">
+              <ThumbsUp aria-hidden="true" className="size-4 text-ink-400" />
+              <span className="sr-only">좋아요</span>
+              {comment.likeCount}
+            </span>
+          ) : null}
           {replyCount > 0 ? (
             <button
               type="button"
@@ -80,13 +83,15 @@ export function CommentItem({
               {isThreadOpen ? '답글 접기' : `답글 ${replyCount}개`}
             </button>
           ) : null}
-          <button
-            type="button"
-            onClick={() => setReplyOpen((open) => !open)}
-            className="text-caption font-medium text-ink-500 transition-colors hover:text-navy-800"
-          >
-            답글 쓰기
-          </button>
+          {!comment.deleted ? (
+            <button
+              type="button"
+              onClick={() => setReplyOpen((open) => !open)}
+              className="text-caption font-medium text-ink-500 transition-colors hover:text-navy-800"
+            >
+              답글 쓰기
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -193,11 +198,14 @@ function CommentBody({
   createdAt,
   content,
   compact = false,
+  muted = false,
 }: {
   author: string
   createdAt: string
   content: string
   compact?: boolean
+  // 삭제된 댓글 안내 문구를 본문보다 흐리게 보여준다.
+  muted?: boolean
 }) {
   const [isExpanded, setExpanded] = useState(false)
   const [needsClamp, setNeedsClamp] = useState(false)
@@ -228,7 +236,8 @@ function CommentBody({
           <p
             ref={contentRef}
             className={cn(
-              'mt-1 whitespace-pre-line text-body-2 leading-relaxed text-ink-700',
+              'mt-1 whitespace-pre-line text-body-2 leading-relaxed',
+              muted ? 'text-ink-400' : 'text-ink-700',
               !isExpanded && 'line-clamp-3',
             )}
           >

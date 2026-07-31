@@ -14,8 +14,8 @@ interface CommentSectionProps {
   commentCount: number
 }
 
-// 게시글 하단 댓글 영역. 정렬 토글·작성·답글 작성을 로컬 상태로 처리한다.
-// TODO: 실제 API 연동 필요
+// 게시글 하단 댓글 영역. 목록 조회는 실제 API를 쓰고 작성·답글은 로컬 상태로 처리한다.
+// TODO: 실제 API 연동 필요 - 댓글 작성
 export function CommentSection({ postId, commentCount }: CommentSectionProps) {
   const [comments, setComments] = useState<CommunityComment[]>([])
   const [sort, setSort] = useState<CommentSort>('registered')
@@ -51,10 +51,12 @@ export function CommentSection({ postId, commentCount }: CommentSectionProps) {
     const id = `local-comment-${nextId.current++}`
     const comment: CommunityComment = {
       id,
+      authorId: null,
       author: '김싸피',
       createdAt: new Date().toISOString(),
       content,
       likeCount: 0,
+      deleted: false,
       replies: [],
     }
     setComments((prev) => [comment, ...prev])
@@ -73,10 +75,12 @@ export function CommentSection({ postId, commentCount }: CommentSectionProps) {
                 ...comment.replies,
                 {
                   id,
+                  authorId: null,
                   author: '김싸피',
                   createdAt: new Date().toISOString(),
                   content,
                   likeCount: 0,
+                  deleted: false,
                 },
               ],
             }
@@ -92,6 +96,15 @@ export function CommentSection({ postId, commentCount }: CommentSectionProps) {
       : b.createdAt.localeCompare(a.createdAt),
   )
 
+  // 게시글 상세 응답에 댓글 수가 없어 목록 기준으로 센다. 삭제된 원댓글 껍데기는 제외한다.
+  const totalCount = isLoading
+    ? commentCount
+    : comments.reduce(
+        (count, comment) =>
+          count + (comment.deleted ? 0 : 1) + comment.replies.length,
+        0,
+      )
+
   return (
     <section
       aria-label="댓글"
@@ -99,7 +112,7 @@ export function CommentSection({ postId, commentCount }: CommentSectionProps) {
     >
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-h3 font-bold text-ink-900">
-          댓글 {formatNumber(commentCount)}
+          댓글 {formatNumber(totalCount)}
         </h2>
         <SegmentedControl
           options={[

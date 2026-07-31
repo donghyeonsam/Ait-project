@@ -1,10 +1,7 @@
 import { ApiError, backendRequest, getBackendAssetUrl } from '@/api/http'
 import { CATEGORY_META } from '@/lib/community-categories'
 import { COMMUNITY_SEARCH_SUGGESTIONS } from '@/lib/community-suggestions'
-import {
-  mockComments,
-  mockTrendingKeywords,
-} from '@/mocks/community'
+import { mockTrendingKeywords } from '@/mocks/community'
 import type {
   CommunityCategory,
   CommunityComment,
@@ -13,12 +10,13 @@ import type {
   CommunityPostFile,
   CommunityPostFileType,
   CommunityPostFileUsageType,
+  CommunityReply,
   CommunityTab,
   TrendingKeyword,
 } from '@/types/community'
 
-// 커뮤니티 API 레이어. 게시글 CRUD·검색·좋아요·저장은 실제 백엔드를 호출하고,
-// 댓글·트렌딩 키워드는 목업을 300~600ms 지연과 함께 돌려준다.
+// 커뮤니티 API 레이어. 게시글·댓글 CRUD·검색·좋아요·저장은 실제 백엔드를 호출하고,
+// 트렌딩 키워드는 목업을 300~600ms 지연과 함께 돌려준다.
 
 const delay = () =>
   new Promise((resolve) => setTimeout(resolve, 300 + Math.random() * 300))
@@ -227,11 +225,42 @@ export async function fetchPost(postId: string): Promise<CommunityPost | null> {
   }
 }
 
+// 백엔드 댓글 응답. 원댓글은 replies에 답글을 담은 1-depth 트리로 내려오고,
+// 삭제된 원댓글은 userId가 null·본문이 "삭제된 댓글입니다."인 껍데기로 유지된다.
+interface CommentResponse {
+  id: number
+  parentId: number | null
+  userId: number | null
+  nickname: string
+  content: string
+  likeCount: number
+  createdAt: string
+  deletedAt: string | null
+  replies: CommentResponse[] | null
+}
+
+const toReply = (item: CommentResponse): CommunityReply => ({
+  id: String(item.id),
+  authorId: item.userId,
+  author: item.nickname,
+  createdAt: item.createdAt,
+  content: item.content,
+  likeCount: item.likeCount,
+  deleted: item.deletedAt != null,
+})
+
+const toComment = (item: CommentResponse): CommunityComment => ({
+  ...toReply(item),
+  replies: (item.replies ?? []).map(toReply),
+})
+
 export async function fetchComments(
   postId: string,
 ): Promise<CommunityComment[]> {
-  await delay()
-  return structuredClone(mockComments[postId] ?? [])
+  const comments = await backendRequest<CommentResponse[]>(
+    `/api/posts/${postId}/comments`,
+  )
+  return comments.map(toComment)
 }
 
 export async function fetchTrendingKeywords(): Promise<TrendingKeyword[]> {
