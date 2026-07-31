@@ -18,6 +18,8 @@ interface DropdownProps<T extends string> {
   className?: string
   buttonClassName?: string
   invalid?: boolean
+  /** 트리거가 화면/컨테이너 하단에 가까워 아래로 펼치면 잘리는 경우, 위로 펼치도록 전환한다. */
+  openUpward?: boolean
 }
 
 // 네이티브 select 대신 쓰는 커스텀 드롭다운. 키보드 조작과 listbox ARIA 패턴을 지원한다.
@@ -30,6 +32,7 @@ export function Dropdown<T extends string>({
   className,
   buttonClassName,
   invalid = false,
+  openUpward = false,
 }: DropdownProps<T>) {
   const [isOpen, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
@@ -129,7 +132,10 @@ export function Dropdown<T extends string>({
             initial="initial"
             animate="animate"
             exit="exit"
-            className="absolute left-0 top-[calc(100%+0.375rem)] z-[var(--z-index-dropdown)] min-w-full origin-top overflow-hidden rounded-ait-s border border-line bg-surface-default py-1 shadow-elevation-2"
+            className={cn(
+              'absolute left-0 z-(--z-index-dropdown) min-w-full overflow-hidden rounded-ait-s border border-line bg-surface-default py-1 shadow-elevation-2',
+              openUpward ? 'bottom-[calc(100%+0.375rem)] origin-bottom' : 'top-[calc(100%+0.375rem)] origin-top',
+            )}
           >
             {options.map((option, index) => (
               <li
