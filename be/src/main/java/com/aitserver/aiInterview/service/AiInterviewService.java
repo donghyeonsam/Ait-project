@@ -2,10 +2,7 @@ package com.aitserver.aiInterview.service;
 
 import com.aitserver.aiInterview.requestDto.AiInterviewQuestionRequest;
 import com.aitserver.aiInterview.requestDto.FollowUpQuestionRequest;
-import com.aitserver.aiInterview.responseDto.AiInterviewPreparationResponse;
-import com.aitserver.aiInterview.responseDto.AiInterviewQuestionResponse;
-import com.aitserver.aiInterview.responseDto.FollowUpQuestionResponse;
-import com.aitserver.aiInterview.responseDto.ReportListResponse;
+import com.aitserver.aiInterview.responseDto.*;
 import jakarta.validation.Valid;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,4 +16,6 @@ public interface AiInterviewService {
     FollowUpQuestionResponse answerCheckForFollowUp(Long userId, Long aiInterviewId, FollowUpQuestionRequest questionRequest, MultipartFile audioFile);
 
     List<ReportListResponse> getList(Long userId);
+
+    AiInterviewDetailResponse getInterviewDetail(Long userId, Long aiInterviewId);
 }

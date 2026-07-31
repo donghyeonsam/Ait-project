@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface AiInterviewsRepository extends JpaRepository<AiInterview, Long> {
 
@@ -36,4 +37,6 @@ public interface AiInterviewsRepository extends JpaRepository<AiInterview, Long>
             order by i.createdAt desc
             """)
     List<ReportListResponse> findReportListByUserId(@Param("userId") Long userId);
+
+    Optional<AiInterview> findByIdAndUserId(Long id, Long userId);
 }
