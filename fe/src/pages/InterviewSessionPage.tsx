@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import {
+  completeInterview,
   generateInterviewQuestions,
   submitInterviewAnswer,
   type GeneratedInterviewQuestion,
@@ -314,6 +315,11 @@ function ActiveInterviewSession({
   }, [stream, micMuted])
 
   const handleViewResults = useCallback(() => {
+    // 종료를 알려야 서버가 리포트 생성을 시작한다. 실패해도 결과 화면 이동은 막지 않는다.
+    if (aiInterviewId !== null) {
+      void completeInterview(aiInterviewId).catch(() => {})
+    }
+
     const interviewType = input.interviewType
     const difficulty = input.difficulty
     const position = input.position ?? ''

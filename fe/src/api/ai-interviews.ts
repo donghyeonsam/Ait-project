@@ -174,3 +174,11 @@ export function submitInterviewAnswer({
     },
   )
 }
+
+// 면접 종료를 서버에 알려 리포트 비동기 생성을 시작시킨다.
+// 응답은 즉시 오고 리포트는 백그라운드에서 만들어지므로 완료 여부는 결과 조회로 확인한다.
+export function completeInterview(aiInterviewId: number) {
+  return backendRequest<void>(`/api/ai-interviews/${aiInterviewId}/complete`, {
+    method: 'POST',
+  })
+}

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  completeInterview,
   generateInterviewQuestions,
   submitInterviewAnswer,
 } from '@/api/ai-interviews'
@@ -159,5 +160,39 @@ describe('submitInterviewAnswer', () => {
       question: { ...question, depth: 0 },
       answer: '3-way handshake로 연결을 수립합니다.',
     })
+  })
+})
+
+describe('completeInterview', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('면접 종료를 POST로 알린다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 200,
+          timestamp: '2026-08-01T00:00:00Z',
+          path: '/api/ai-interviews/101/complete',
+          message: '모의 면접이 종료되어 결과를 분석하고 있습니다.',
+          data: null,
+          error: null,
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await completeInterview(101)
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/backend/api/ai-interviews/101/complete',
+    )
+    expect((fetchMock.mock.calls[0]?.[1] as RequestInit).method).toBe('POST')
   })
 })
