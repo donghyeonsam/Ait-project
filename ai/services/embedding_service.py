@@ -33,7 +33,7 @@ from schemas.analysis_document import (
     AnalysisDocumentError,
     EmbeddingDocumentChunk,
 )
-from schemas.embedding import EmbedRequest, EmbeddingItem
+from schemas.embedding import DeleteDocumentsRequest, EmbedRequest, EmbeddingItem
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +130,27 @@ def delete_document_embedding(user_id: int, doc_type: str, target_id: int) -> No
         "문서 단위 임베딩 삭제: user_id=%s doc_type=%s target_id=%s",
         user_id, doc_type, target_id,
     )
+
+
+def delete_document_embeddings(req: DeleteDocumentsRequest) -> int:
+    """
+    문서 여러 건의 임베딩을 한 번에 삭제 (자소서/GitHub 레포 삭제 시 BE가 호출).
+
+    [문서 단위 삭제 API 신설 - 신규, 2026-07-31] 기존 delete_document_embedding()을
+    items 개수만큼 그대로 반복 호출한다. Chroma where 절을 "$or"로 묶어 한 번에
+    처리하는 최적화는 하지 않았다 — chromadb 0.5.5에서 "$or" 안에 "$and"가 중첩
+    가능한지 검증되지 않았고, 이 루프 방식은 embed_user_documents()가 이미 쓰고
+    있는 검증된 패턴이기 때문이다. 삭제 대상이 없는 항목이 섞여 있어도(이미 삭제된
+    문서를 재요청 등) 예외 없이 조용히 넘어간다 — delete_document_embedding()
+    자체가 멱등이다.
+
+    Returns:
+        요청받은 items 개수 (실제 삭제된 청크 수는 Chroma collection.delete()가
+        반환하지 않아 알 수 없다).
+    """
+    for item in req.items:
+        delete_document_embedding(req.user_id, item.doc_type.value, item.target_id)
+    return len(req.items)
 
 
 def _make_id(user_id: int, item: EmbeddingItem, idx: int) -> str:

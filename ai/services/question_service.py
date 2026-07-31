@@ -2,7 +2,7 @@
 질문 생성 서비스
 - RAG 검색 → GMS LLM 프롬프트 구성 → 질문 N개 + rubric(채점 기준) 생성
 - [루브릭 아키텍처 재설계] expected_answer(사전 예상 답안) 생성은 제거됨.
-  답변 보완(ai_answer)은 사용자가 실제로 답변을 제출한 뒤 services/answer_service.py 가 담당한다.
+  답변 분석/보완/평가(ai_answer)는 Spring Boot(BE)가 담당한다.
 - [CS 카테고리 제한 기능 / 경력·스킬 반영 - 신규] CS 면접은 사용자가 고른 CS 카테고리
   내부로만 질문을 제한하고, 경력/보유 스킬을 RAG 쿼리와 프롬프트에 반영한다.
 """
@@ -69,8 +69,8 @@ async def generate_questions(req: QuestionGenerateRequest) -> QuestionGenerateRe
 
     # [BE 요청 형식 개편 - 신규] resume_id/cover_letter_id/github_repo_id 가 지정된
     # doc_type만 target_id로 좁혀 검색하도록 retrieve_context() 전 호출에 공통으로 넘긴다.
-    # (build_target_ids() 는 followup_service.py/answer_service.py 도 함께 쓰는 공용
-    # 헬퍼로, 세 서비스가 각자 동일한 변환 로직을 중복 구현하지 않도록 rag_service.py 에 둠)
+    # (build_target_ids() 는 followup_service.py 도 함께 쓰는 공용 헬퍼로, 여러
+    # 서비스가 각자 동일한 변환 로직을 중복 구현하지 않도록 rag_service.py 에 둠)
     target_ids = build_target_ids(req.resume_id, req.cover_letter_id, req.github_repo_id)
 
     if req.interview_type == InterviewType.CS:
@@ -135,7 +135,7 @@ async def generate_questions(req: QuestionGenerateRequest) -> QuestionGenerateRe
     # 스타일"이라는 개념을 다루는 것이지 BE wire 필드명과는 무관하기 때문. 질문
     # "내용"에 영향을 주는 다른 인자(difficulty, cs_categories 등)와 달리 이 값은
     # build_question_prompt() 내부에서 오직 어조 지시문(INTERVIEWER_STYLE_GUIDE)
-    # 섹션에만 쓰인다. followup_service.py/answer_service.py 프롬프트에는 아직 반영하지
+    # 섹션에만 쓰인다. followup_service.py 프롬프트에는 아직 반영하지
     # 않음(범위 밖 — 별도 논의 후 결정).
     prompt = build_question_prompt(
         interview_type=req.interview_type,

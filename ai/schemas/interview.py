@@ -138,12 +138,9 @@ class GeneratedQuestion(BaseModel):
     order: int = Field(..., description="질문 순서 (1부터)")
     question: str
     # [루브릭 아키텍처 재설계] 기존 expected_answer(질문 생성 시점에 미리 써두는 범용
-    # 모범 답안) 필드를 완전히 제거했다. ai_interview_questions.ai_answer 컬럼은 더 이상
-    # "질문 생성 시 미리 만든 답"이 아니라 "사용자가 실제로 답변을 제출한 뒤, 그 답변을
-    # AI가 보완한 결과"를 저장하는 용도로 재정의되었다. 즉 답이 존재하기 전에는 값이
-    # 없고, 사용자가 답변해야만(그리고 그 답변을 근거로) 채워진다.
-    # → 실제 생성 시점/방식은 schemas.interview.AnswerSupplementRequest/Response,
-    #   services/answer_service.py 참고 (사용자 답변 제출 후 BE가 비동기로 호출).
+    # 모범 답안) 필드를 완전히 제거했다. ai_interview_questions.ai_answer 컬럼(답변
+    # 분석/보완/평가)은 Spring Boot(BE)가 담당한다 — FastAPI는 더 이상 이 값을
+    # 생성하지 않는다(2026-07-31, docs/AI_개발일지_0731.md 참고).
     #
     # [루브릭 아키텍처 전환] 이 질문에 대한 답변이 "합격"으로 인정되려면 반드시
     # 언급/충족해야 하는 핵심 채점 기준 목록(2~3개, config.rubric_min_count~max_count).
@@ -269,48 +266,4 @@ class FollowupResponse(BaseModel):
     )
     next_question: FollowupNextQuestion | None = Field(
         None, description="꼬리질문. is_pass=false일 때만 값이 있다"
-    )
-
-
-# ────────────────────────────
-# 답변 보완 (사용자 답변 제출 후 비동기 처리)
-# ────────────────────────────
-# [루브릭 아키텍처 재설계 - 신규]
-# 기존 계획(Phase 3, remaining_work.md)은 "면접이 끝난 뒤 전체 대화 기록을 한 번에
-# 처리해 모범 답안을 만드는" 방식이었다. 이번 재설계로 이를 "사용자가 답변을 제출할
-# 때마다(기본 질문/꼬리질문 구분 없이) BE가 그때그때 비동기로 호출해, 그 답변 하나를
-# 보완한 ai_answer를 즉시 생성"하는 방식으로 바꿨다.
-#   - 호출 시점: BE가 사용자 답변을 DB에 저장한 직후, 백그라운드 작업으로 비동기 호출.
-#     (동기적으로 사용자를 기다리게 하지 않음 — 면접 진행 자체는 Phase 2 /followup 결과로
-#     즉시 이어지고, ai_answer는 나중에 채워짐)
-#   - 최종 면접 완료 화면에서 (질문, 사용자 답변, ai_answer) 목록과 함께
-#     "면접 전체에 대한 총평/피드백"을 보여주는 데 사용될 데이터.
-#     전체 총평/피드백 생성은 별도(면접 종료 시점 1회 호출, 아직 미구현 — remaining_work.md 참고).
-class AnswerSupplementRequest(BaseModel):
-    user_id: int
-    ai_interview_id: int
-    question: str = Field(..., description="사용자가 답변한 질문 원문 (기본 질문 또는 꼬리질문)")
-    # [꼬리질문 narrowing 전환] rubric_results(Phase 2 채점 결과) 필드를 제거했다.
-    # narrowing 방식에서는 /followup 요청에 실렸던 rubric 자체가 이미 "이 답변이
-    # 놓친 기준 목록"이므로, 별도로 pass/fail 채점 결과를 다시 실어 보내는 것은
-    # 중복 정보다. 아래 rubric 필드에 "놓친 기준"을 넘기면 된다.
-    rubric: list[str] = Field(
-        default_factory=list,
-        description="이 질문의 채점 기준 (있으면 보완 시 반영, 없으면 일반적인 답변 품질 기준으로 보완)",
-    )
-    user_answer: str = Field(..., description="사용자 답변 (STT 텍스트)")
-    interview_type: InterviewType
-    # [BE 요청 형식 개편 - 2026-07-23, 세션 전체로 확장] FollowupRequest 와 동일한 이유로
-    # 추가. 질문 생성(/questions)·꼬리질문(/followup)과 같은 값을 그대로 넘겨받아,
-    # 답변 보완 시의 RAG 검색도 이번 면접에서 지정한 문서로 일관되게 좁힌다.
-    resume_id: int | None = Field(None, description="이 면접에서 참고할 이력서 analyses.target_id")
-    cover_letter_id: int | None = Field(None, description="이 면접에서 참고할 자소서 analyses.target_id")
-    github_repo_id: int | None = Field(None, description="이 면접에서 참고할 GitHub 레포 analyses.target_id")
-
-
-class AnswerSupplementResponse(BaseModel):
-    ai_interview_id: int
-    question: str
-    ai_answer: str = Field(
-        ..., description="사용자 답변을 보완한 AI 답변 (ai_interview_questions.ai_answer 저장용)"
     )

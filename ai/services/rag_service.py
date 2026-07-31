@@ -98,13 +98,12 @@ def build_target_ids(
     dict[DocType, int] 형태로 변환하는 공용 헬퍼.
 
     처음엔 question_service.py 안에 로컬 함수로만 있었으나, "면접 시작 시 지정한
-    문서를 그 이후 꼬리질문(/followup)·답변 보완(/answers/supplement) 단계에서도
-    계속 참고해야 한다"는 요구사항에 따라 QuestionGenerateRequest 뿐 아니라
-    FollowupRequest/AnswerSupplementRequest 에도 동일한 3개 필드가 추가되면서,
-    3곳의 서비스(question_service.py/followup_service.py/answer_service.py)가
-    똑같은 변환 로직을 중복 구현하지 않도록 여기(retrieve_context()와 같은 모듈)로
-    옮겼다. 개별 인자를 받게 한 이유는 특정 request 스키마 타입에 결합되지 않기
-    위함이다(세 요청 스키마 모두 이 세 필드를 갖고 있지만 서로 다른 클래스다).
+    문서를 그 이후 꼬리질문(/followup) 단계에서도 계속 참고해야 한다"는 요구사항에
+    따라 QuestionGenerateRequest 뿐 아니라 FollowupRequest 에도 동일한 3개 필드가
+    추가되면서, question_service.py/followup_service.py 가 똑같은 변환 로직을
+    중복 구현하지 않도록 여기(retrieve_context()와 같은 모듈)로 옮겼다. 개별
+    인자를 받게 한 이유는 특정 request 스키마 타입에 결합되지 않기 위함이다(두
+    요청 스키마 모두 이 세 필드를 갖고 있지만 서로 다른 클래스다).
 
     셋 다 선택 값(문서 종류에 따라 없을 수 있음 - 예: 아직 GitHub 연동 안 한 사용자).
     """
@@ -482,9 +481,8 @@ def format_context(contexts: list[dict]) -> str:
     """
     retrieve_context()/retrieve_cs_knowledge()/retrieve_cs_knowledge_random() 결과를
     LLM 프롬프트에 그대로 붙여넣을 수 있는 텍스트 블록으로 정리한다.
-    prompts/templates.py 의 build_question_prompt(), build_followup_prompt(),
-    build_answer_supplement_prompt() 가 각각 이 함수의 반환값을
-    "## 지원자 문서 (RAG 검색 결과)" 섹션에 그대로 삽입한다.
+    prompts/templates.py 의 build_question_prompt(), build_followup_prompt() 가
+    각각 이 함수의 반환값을 "## 지원자 문서 (RAG 검색 결과)" 섹션에 그대로 삽입한다.
 
     검색 결과가 하나도 없으면(신규 가입자라 문서가 아직 없는 경우, 혹은 CS 카테고리에
     매칭되는 시드 데이터가 없는 경우 등) LLM이 근거 문서가 없다는 걸 명확히 인지하고
