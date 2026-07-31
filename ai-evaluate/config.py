@@ -40,6 +40,14 @@ class Settings(BaseSettings):
     face_model_path: str = "core/face/model/face_mlp.pt"
     face_scaler_path: str = "core/face/model/face_scaler.json"
 
+    # 표정 종합 점수(score) 산출 곡선. 음성(voice_ideal_tension 등)과 완전히 같은
+    # 개념이며, 값만 따로 둔 이유는 두 모달리티의 tension 분포가 다를 수 있어서다
+    # (같은 "긴장"이라도 목소리 떨림과 표정 굳음이 같은 눈금으로 나오리라는 보장이 없다).
+    # 일단 음성과 동일한 값에서 출발하되, 표정 데이터로 sanity check 후 따로 조정할 것.
+    # ⚠️ 아직 검증된 값이 아니다 - 표정 학습 데이터가 확보되면 반드시 재조정해야 한다.
+    face_ideal_tension: float = 0.4
+    face_tension_score_width: float = 0.35
+
     # ── 음성 분석 ──
     # librosa 계열 피처(MFCC/에너지/온셋)용 리샘플링 레이트.
     # teacher(wav2vec2)가 16kHz 기준이라 동일하게 맞춘다.
