@@ -2,6 +2,7 @@ package com.aitserver.community.dto;
 
 import com.aitserver.community.entity.Post;
 import com.aitserver.community.entity.PostFile;
+import com.aitserver.community.entity.PostTag;
 import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -63,7 +64,7 @@ public class PostDto {
         private Boolean allowComments;
         private Boolean receiveNotifications;
         private List<String> tags;
-        private List<FileRequest> files;
+        private List<FileRequest >files;
     }
 
     // 5. 게시글 상세 조회 Response
@@ -88,7 +89,7 @@ public class PostDto {
         private final LocalDateTime createdAt;
         private final LocalDateTime updatedAt;
 
-        public Response(Post post, List<PostFile> files, List<String> tags) {
+        public Response(Post post, List<PostFile> files, List<PostTag> postTags) {
             this.id = post.getId();
             this.userId = post.getUser().getId();
             this.nickname = post.getUser().getNickname();
@@ -101,7 +102,10 @@ public class PostDto {
             this.likeCount = post.getLikeCount();
             this.viewCount = post.getViewCount();
 
-            this.tags = tags;
+            this.tags = postTags.stream()
+                    .map(pt -> pt.getTag().getName())
+                    .collect(Collectors.toList());
+
             this.files = files.stream()
                     .map(FileResponse::new)
                     .collect(Collectors.toList());

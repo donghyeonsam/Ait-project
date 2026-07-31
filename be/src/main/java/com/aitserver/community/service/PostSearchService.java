@@ -117,11 +117,9 @@ public class PostSearchService {
         post.increaseViewCount();
 
         List<PostFile> files = postFileRepository.findByPostId(postId);
-        List<String> tags = postTagRepository.findByPostId(postId).stream()
-                .map(pt -> pt.getTag().getName())
-                .toList();
+        List<PostTag> postTags = postTagRepository.findByPostId(postId);
 
-        return new PostDto.Response(post, files, tags);
+        return new PostDto.Response(post, files, postTags);
     }
 
     // --- 동적 쿼리용 private 메서드 ---
