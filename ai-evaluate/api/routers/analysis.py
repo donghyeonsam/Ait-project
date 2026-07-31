@@ -38,7 +38,6 @@ from api.schemas.analysis import (
     VoiceAcceptedResponse,
     VoiceResult,
     VoiceResultResponse,
-    responsestub, # 모델 학습 완료되면 삭제될 예정 41
 )
 from config import settings
 
@@ -73,8 +72,6 @@ _voice_executor = ThreadPoolExecutor(
 
 @router.post("/face", response_model=FaceResult)
 async def analyze_face(payload: FaceAnalyzeRequest):
-    if True: # 모델 학습 완료되면 삭제될 예정 76 ~ 77
-        return responsestub(score=8) 
     """
     표정 분석. 프론트가 보낸 프레임별 숫자 묶음을 받아 점수를 바로 돌려준다.
 

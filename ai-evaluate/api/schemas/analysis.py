@@ -142,6 +142,3 @@ class VoiceResultResponse(BaseModel):
     status: TaskStatus
     voice: Optional[VoiceResult] = None
     error: Optional[str] = Field(None, description="status=failed 일 때 실패 사유")
-
-class responsestub(BaseModel):
-    score: int # 모델 학습 완료되면 삭제될 예정 146-147
