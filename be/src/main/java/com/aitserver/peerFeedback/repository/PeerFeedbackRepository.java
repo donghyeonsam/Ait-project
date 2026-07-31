@@ -16,6 +16,12 @@ public interface PeerFeedbackRepository extends JpaRepository<PeerFeedback, Long
     );
 
     // 받는사람 아이디가 같으면 조회
+    List<PeerFeedback> findAllByStudySessionIdAndEvaluateeId(
+            Long sessionId,
+            Long evaluateeId
+
+    );
+
     List<PeerFeedback> findAllByEvaluateeId(Long evaluateeId);
 
 
