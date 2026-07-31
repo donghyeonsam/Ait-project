@@ -62,10 +62,22 @@ export function PostCard({ post, onToggleBookmark, onToggleLike }: PostCardProps
         </button>
       </div>
 
-      <h3 className="mt-3 text-[18px] font-semibold text-ink-900 transition-colors duration-[180ms] group-hover:text-navy-800">
-        {post.title}
-      </h3>
-      <p className="mt-1.5 line-clamp-1 text-body-2 text-ink-500">{post.excerpt}</p>
+      <div className="mt-3 flex items-start gap-4">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-[18px] font-semibold text-ink-900 transition-colors duration-[180ms] group-hover:text-navy-800">
+            {post.title}
+          </h3>
+          <p className="mt-1.5 line-clamp-1 text-body-2 text-ink-500">{post.excerpt}</p>
+        </div>
+        {post.thumbnail ? (
+          <img
+            src={post.thumbnail}
+            alt=""
+            aria-hidden="true"
+            className="size-16 shrink-0 rounded-ait-s border border-line-soft object-cover"
+          />
+        ) : null}
+      </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-1.5">
