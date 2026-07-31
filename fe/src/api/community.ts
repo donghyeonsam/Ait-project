@@ -14,8 +14,8 @@ import type {
   TrendingKeyword,
 } from '@/types/community'
 
-// 커뮤니티 API 레이어. 게시글 CRUD·검색은 실제 백엔드를 호출하고,
-// 댓글·트렌딩 키워드·자동완성·좋아요는 목업을 300~600ms 지연과 함께 돌려준다.
+// 커뮤니티 API 레이어. 게시글 CRUD·검색·좋아요·저장은 실제 백엔드를 호출하고,
+// 댓글·트렌딩 키워드·자동완성은 목업을 300~600ms 지연과 함께 돌려준다.
 
 const delay = () =>
   new Promise((resolve) => setTimeout(resolve, 300 + Math.random() * 300))
@@ -217,16 +217,27 @@ export async function deletePost(postId: string): Promise<void> {
   })
 }
 
-// 좋아요·저장 토글은 대응하는 백엔드 API가 없어 목업을 유지한다. TODO: 실제 API 연동 필요
-export async function toggleLike(_postId: string, liked: boolean): Promise<boolean> {
-  await delay()
+// 상세 응답에 좋아요·저장 여부가 없어 화면 상태가 실제와 어긋날 수 있다.
+// 이미 등록된 상태의 등록(409)과 이미 취소된 상태의 취소(404)는
+// 목표 상태와 일치하므로 성공으로 간주한다.
+async function setInteraction(path: string, on: boolean) {
+  try {
+    await backendRequest<void>(path, { method: on ? 'POST' : 'DELETE' })
+  } catch (error) {
+    if (error instanceof ApiError && error.status === (on ? 409 : 404)) return
+    throw error
+  }
+}
+
+export async function toggleLike(postId: string, liked: boolean): Promise<boolean> {
+  await setInteraction(`/api/posts/${postId}/likes`, liked)
   return liked
 }
 
 export async function toggleBookmark(
-  _postId: string,
+  postId: string,
   bookmarked: boolean,
 ): Promise<boolean> {
-  await delay()
+  await setInteraction(`/api/posts/${postId}/scraps`, bookmarked)
   return bookmarked
 }
