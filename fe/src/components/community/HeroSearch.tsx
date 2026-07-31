@@ -19,7 +19,7 @@ export function HeroSearch({ value, onSearch }: HeroSearchProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const listboxId = useId()
 
-  // 인기 검색어 클릭 등 바깥에서 검색어가 바뀌면 입력값을 동기화한다(렌더 중 파생 상태 보정).
+  // 인기 태그 클릭 등 바깥에서 검색어가 바뀌면 입력값을 동기화한다(렌더 중 파생 상태 보정).
   const [lastExternalValue, setLastExternalValue] = useState(value)
   if (value !== lastExternalValue) {
     setLastExternalValue(value)
