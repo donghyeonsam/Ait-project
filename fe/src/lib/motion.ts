@@ -76,6 +76,17 @@ export const collapseSection: Variants = {
   },
 }
 
+// 필터·탭 전환 시 좌우로 슬라이드. custom에 1(다음)/-1(이전) 방향을 넘긴다.
+export const filterSlide: Variants = {
+  initial: (direction: number) => ({ x: direction > 0 ? 16 : -16, opacity: 0 }),
+  animate: { x: 0, opacity: 1, transition: { duration: 0.2, ease: EASE_OUT } },
+  exit: (direction: number) => ({
+    x: direction > 0 ? -16 : 16,
+    opacity: 0,
+    transition: { duration: 0.15, ease: EASE_OUT },
+  }),
+}
+
 // 토글·세그먼트 인디케이터용 스프링
 export const segmentSpring: Transition = { type: 'spring', stiffness: 300, damping: 28 }
 export const toggleSpring: Transition = { type: 'spring', stiffness: 500, damping: 32 }
