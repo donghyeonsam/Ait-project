@@ -120,6 +120,7 @@ public class PostDto {
         private String keyword;       // 검색어 (제목, 내용, 태그 완전일치)
         private String category;      // 카테고리 (면접 후기, 질문 답변 등)
         private String sortType;      // LATEST(최신순), POPULAR(인기순)
+        private String tag;
     }
 
     // 목록 조회 응답 (요구사항 모두 반영)
