@@ -79,7 +79,7 @@ describe('CommunityPostPage', () => {
 
     await user.click(screen.getByRole('button', { name: '게시글 삭제' }))
     await waitFor(() => {
-      expect(deletePost).toHaveBeenCalledWith('post-3', '김싸피')
+      expect(deletePost).toHaveBeenCalledWith('post-3')
     })
   })
 
