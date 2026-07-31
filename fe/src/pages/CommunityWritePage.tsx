@@ -349,10 +349,11 @@ export function CommunityWritePage() {
 
     setSubmitting(true)
     try {
+      // 본문에서 지워진 INLINE 이미지는 파싱된 이미지 src 기준으로 걸러낸다.
       const retainedFiles = postFiles.filter(
         (file) =>
           file.usageType === 'ATTACHMENT' ||
-          contentHtml.includes(file.storedFilename),
+          contentImages.some((src) => src.includes(file.storedFilename)),
       )
       const uploadedAttachments = await uploadPostFiles(files, 'ATTACHMENT')
       const requestFiles = [...retainedFiles, ...uploadedAttachments].filter(
