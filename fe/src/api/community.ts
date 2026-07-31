@@ -112,6 +112,21 @@ export interface FetchPostsResult {
   hasMore: boolean
 }
 
+export type MyPostActivity = 'written' | 'scrapped' | 'liked'
+
+const MY_POST_ACTIVITY_QUERY: Record<MyPostActivity, string> = {
+  written: 'WRITTEN',
+  scrapped: 'SCRAPPED',
+  liked: 'LIKED',
+}
+
+const toFetchPostsResult = (
+  page: SpringPage<PostListItemResponse>,
+): FetchPostsResult => ({
+  items: page.content.map(toPostSummary),
+  hasMore: !page.last,
+})
+
 export async function fetchPosts({
   tab,
   category,
@@ -135,7 +150,23 @@ export async function fetchPosts({
   const page = await backendRequest<SpringPage<PostListItemResponse>>(
     `/api/posts?${searchParams}`,
   )
-  return { items: page.content.map(toPostSummary), hasMore: !page.last }
+  return toFetchPostsResult(page)
+}
+
+export async function fetchMyActivityPosts(
+  activity: MyPostActivity,
+  limit = 10,
+): Promise<FetchPostsResult> {
+  const searchParams = new URLSearchParams({
+    activityType: MY_POST_ACTIVITY_QUERY[activity],
+    sortType: 'LATEST',
+    page: '0',
+    size: String(limit),
+  })
+  const page = await backendRequest<SpringPage<PostListItemResponse>>(
+    `/api/posts?${searchParams}`,
+  )
+  return toFetchPostsResult(page)
 }
 
 // 백엔드 게시글 상세 응답 중 화면이 쓰는 필드만 취한다.

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createPost,
   deletePost,
+  fetchMyActivityPosts,
   fetchPost,
   fetchPosts,
   toggleBookmark,
@@ -139,6 +140,31 @@ describe('fetchPosts', () => {
     expect(url.searchParams.has('category')).toBe(false)
     expect(url.searchParams.get('sortType')).toBe('LATEST')
     expect(result.hasMore).toBe(false)
+  })
+})
+
+describe('fetchMyActivityPosts', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it.each([
+    ['written', 'WRITTEN'],
+    ['scrapped', 'SCRAPPED'],
+    ['liked', 'LIKED'],
+  ] as const)('%s 활동을 인증 사용자 필터로 조회한다', async (activity, queryValue) => {
+    const fetchMock = vi.fn().mockResolvedValue(pageResponse({ last: true }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await fetchMyActivityPosts(activity)
+
+    const url = new URL(String(fetchMock.mock.calls[0]?.[0]), 'http://localhost')
+    expect(url.pathname).toBe('/backend/api/posts')
+    expect(url.searchParams.get('activityType')).toBe(queryValue)
+    expect(url.searchParams.get('sortType')).toBe('LATEST')
+    expect(url.searchParams.get('page')).toBe('0')
+    expect(url.searchParams.get('size')).toBe('10')
+    expect(result.items[0]?.id).toBe('11')
   })
 })
 
