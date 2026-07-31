@@ -41,11 +41,18 @@ export function CommunityPostPage() {
   useEffect(() => {
     if (!postId) return
     let cancelled = false
-    fetchPost(postId).then((result) => {
-      if (cancelled) return
-      setPost(result)
-      setLoadedPostId(postId)
-    })
+    fetchPost(postId)
+      .then((result) => {
+        if (cancelled) return
+        setPost(result)
+        setLoadedPostId(postId)
+      })
+      // 조회 실패도 빈 화면 대신 찾을 수 없음 안내로 처리한다.
+      .catch(() => {
+        if (cancelled) return
+        setPost(null)
+        setLoadedPostId(postId)
+      })
     return () => {
       cancelled = true
     }

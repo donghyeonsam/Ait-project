@@ -1,4 +1,4 @@
-import { backendRequest } from '@/api/http'
+import { ApiError, backendRequest } from '@/api/http'
 import { CATEGORY_META } from '@/lib/community-categories'
 import {
   mockComments,
@@ -121,15 +121,51 @@ export async function fetchPosts({
   return { items: page.content.map(toPostSummary), hasMore: !page.last }
 }
 
+// 백엔드 게시글 상세 응답 중 화면이 쓰는 필드만 취한다.
+interface PostDetailResponse {
+  id: number
+  nickname: string
+  category: string
+  title: string
+  content: string
+  allowComments: boolean | null
+  receiveNotifications: boolean | null
+  likeCount: number
+  viewCount: number
+  tags: string[] | null
+  createdAt: string
+}
+
+const htmlToExcerpt = (html: string) =>
+  html.replace(/<[^>]+>/g, ' ').trim().slice(0, 80)
+
 export async function fetchPost(postId: string): Promise<CommunityPost | null> {
-  await delay()
-  if (deletedPostIds.has(postId)) return null
-  return (
-    updatedPosts.get(postId) ??
-    createdPosts.find((post) => post.id === postId) ??
-    mockPosts.find((post) => post.id === postId) ??
-    null
-  )
+  let data: PostDetailResponse
+  try {
+    data = await backendRequest<PostDetailResponse>(`/api/posts/${postId}`)
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null
+    throw error
+  }
+
+  return {
+    id: String(data.id),
+    category: toCategoryValue(data.category),
+    title: data.title,
+    excerpt: htmlToExcerpt(data.content),
+    contentHtml: data.content,
+    author: data.nickname,
+    createdAt: data.createdAt,
+    tags: data.tags ?? [],
+    viewCount: data.viewCount,
+    likeCount: data.likeCount,
+    // 상세 응답에는 댓글 수와 좋아요·저장 여부가 없어 기본값을 쓴다. TODO: 백엔드 보완 후 연동 필요
+    commentCount: 0,
+    liked: false,
+    bookmarked: false,
+    allowComments: data.allowComments ?? true,
+    notify: data.receiveNotifications ?? true,
+  }
 }
 
 export async function fetchComments(

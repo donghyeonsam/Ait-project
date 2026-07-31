@@ -129,8 +129,75 @@ describe('fetchPosts', () => {
   })
 })
 
+describe('fetchPost', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('상세 응답을 화면 모델로 매핑한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 200,
+          message: '게시글 상세 조회 성공',
+          data: {
+            id: 11,
+            userId: 1,
+            nickname: '김싸피',
+            category: '면접 팁',
+            title: '면접 답변 구조화 팁',
+            content: '<p>답변을 STAR 구조로 정리하는 방법을 공유합니다.</p>',
+            allowComments: true,
+            receiveNotifications: false,
+            likeCount: 5,
+            viewCount: 10,
+            tags: ['면접팁'],
+            files: [],
+            createdAt: '2026-07-30T10:00:00',
+            updatedAt: '2026-07-30T10:00:00',
+          },
+          error: null,
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const post = await fetchPost('11')
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/backend/api/posts/11')
+    expect(post).toMatchObject({
+      id: '11',
+      category: 'tip',
+      title: '면접 답변 구조화 팁',
+      contentHtml: '<p>답변을 STAR 구조로 정리하는 방법을 공유합니다.</p>',
+      excerpt: '답변을 STAR 구조로 정리하는 방법을 공유합니다.',
+      author: '김싸피',
+      allowComments: true,
+      notify: false,
+    })
+  })
+
+  it('존재하지 않는 게시글이면 null을 돌려준다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 404,
+          message: '게시글을 찾을 수 없습니다.',
+          data: null,
+          error: { code: 'COMMUNITY_001' },
+        }),
+        { status: 404, headers: { 'content-type': 'application/json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(fetchPost('999')).resolves.toBeNull()
+  })
+})
+
 describe('community mock CRUD', () => {
-  it('로그인 사용자의 게시글을 생성·수정·조회·삭제한다', async () => {
+  it('로그인 사용자의 게시글을 생성·수정·삭제한다', async () => {
     const created = await createPost(draft, '테스트사용자')
 
     const updated = await updatePost(
@@ -144,13 +211,11 @@ describe('community mock CRUD', () => {
     )
 
     expect(updated.title).toBe('수정된 CRUD 테스트 게시글')
-    await expect(fetchPost(created.id)).resolves.toMatchObject({
-      title: '수정된 CRUD 테스트 게시글',
-      author: '테스트사용자',
-    })
 
     await deletePost(created.id, '테스트사용자')
-    await expect(fetchPost(created.id)).resolves.toBeNull()
+    await expect(
+      deletePost(created.id, '테스트사용자'),
+    ).rejects.toThrow('게시글을 찾을 수 없습니다.')
   })
 
   it('작성자가 아닌 사용자의 수정과 삭제를 거부한다', async () => {
