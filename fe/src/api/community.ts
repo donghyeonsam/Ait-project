@@ -18,7 +18,7 @@ import type {
 } from '@/types/community'
 
 // 커뮤니티 API 레이어. 게시글 CRUD·검색·좋아요·저장은 실제 백엔드를 호출하고,
-// 댓글·트렌딩 키워드·자동완성은 목업을 300~600ms 지연과 함께 돌려준다.
+// 댓글·트렌딩 키워드는 목업을 300~600ms 지연과 함께 돌려준다.
 
 const delay = () =>
   new Promise((resolve) => setTimeout(resolve, 300 + Math.random() * 300))
