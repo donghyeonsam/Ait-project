@@ -17,12 +17,20 @@ import {
   useSpeakingParticipants,
   useTracks,
 } from '@livekit/components-react'
-import { DisconnectReason, Room, RoomEvent, Track } from 'livekit-client'
+import {
+  ConnectionError,
+  ConnectionErrorReason,
+  DisconnectReason,
+  Room,
+  RoomEvent,
+  Track,
+} from 'livekit-client'
 import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Loader2,
   Mic,
   MicOff,
   Phone,
@@ -53,6 +61,7 @@ import { toDeviceOptions, type DeviceOption } from '@/components/interview/useMe
 import type { StudyParticipant } from '@/mocks/study'
 import { getMyCoverLetters, type CoverLetterListItem } from '@/api/cover-letters'
 import {
+  createStudySessionConnection,
   endStudySession,
   getStudySessionMembers,
   kickStudySessionParticipant,
@@ -90,6 +99,10 @@ interface ContextMenuState {
 // 웹캠 원본이 대체로 16:9라 이 비율을 쓰면 크롭·레터박스 없이 카메라 화면이 꽉 찬다.
 const CAMERA_ASPECT = 16 / 9
 const GRID_GAP = 12
+// LiveKit이 자동 재접속을 이 시간 넘게 시도해도 성공하지 못하면, 자동 재시도만 무한정 믿지 않고
+// 사용자에게 수동 재시도·나가기 선택지를 준다.
+const RECONNECT_GIVE_UP_MS = 15000
+const CONNECTION_TROUBLE_MESSAGE = '연결이 끊어졌습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.'
 /** 한 번에 확대해 볼 수 있는 참가자 수. */
 const MAX_STAGE_PARTICIPANTS = 4
 /** 우측 패널 펼침 폭. 패널 토글 시 그리드 폭 변화를 미리 계산하는 데도 쓴다. */
@@ -201,35 +214,83 @@ export function StudySessionRoom({
   onLeave,
 }: StudySessionRoomProps) {
   const [room, setRoom] = useState(() => new Room())
-  const [connectionError, setConnectionError] = useState<string | null>(null)
+  // 최초 접속 정보로 시작하되, 재접속에 실패해 새 토큰을 발급받으면 이 값을 갱신해 재연결한다.
+  const [activeConnection, setActiveConnection] = useState(connection)
+  // LiveKit이 알아서 재접속을 시도하는 동안(짧게 끊겼다 이어지는 경우) 보여줄 배너 상태.
+  const [reconnecting, setReconnecting] = useState(false)
+  // 자동 재접속을 포기했거나(RECONNECT_GIVE_UP_MS 초과) 최초 접속 자체가 실패했을 때, 사용자가
+  // 직접 재시도·나가기를 고르게 하는 다이얼로그에 띄울 메시지. null이면 다이얼로그를 닫는다.
+  const [connectionIssue, setConnectionIssue] = useState<string | null>(null)
+  const [retrying, setRetrying] = useState(false)
 
   useEffect(() => {
     // 매 이펙트 실행마다 새 Room을 만든다. React StrictMode의 개발 모드 이중 실행(mount→cleanup→mount)에서
     // 첫 시도가 connect 도중 취소되면 그 Room의 내부 엔진(RTCEngine)이 손상된 상태로 남는데,
     // 같은 인스턴스로 재연결을 시도하면 "PC manager is closed" 오류가 난다. 취소된 Room은 버리고
-    // 재시도 때마다 새 인스턴스로 연결해야 안전하다.
+    // 재시도 때마다 새 인스턴스로 연결해야 안전하다. activeConnection이 갱신되면(수동 재시도) 이
+    // 이펙트가 다시 돌며 같은 방식으로 새 Room을 만들어 재연결한다.
     const activeRoom = new Room()
     let cancelled = false
+    let giveUpTimer: number | null = null
+
+    const clearGiveUpTimer = () => {
+      if (giveUpTimer !== null) {
+        window.clearTimeout(giveUpTimer)
+        giveUpTimer = null
+      }
+    }
+
+    // LiveKit이 연결 끊김을 감지하고 자체적으로 재접속을 시도하는 동안 발생한다. 짧게 끊겼다 바로
+    // 이어지면(Reconnected) 사용자가 느끼지 못하지만, RECONNECT_GIVE_UP_MS를 넘기면 자동 재시도만
+    // 계속 믿지 않고 수동 재시도 다이얼로그로 전환한다.
+    const handleReconnecting = () => {
+      if (cancelled) return
+      setReconnecting(true)
+      clearGiveUpTimer()
+      giveUpTimer = window.setTimeout(() => {
+        if (cancelled) return
+        setReconnecting(false)
+        setConnectionIssue(CONNECTION_TROUBLE_MESSAGE)
+      }, RECONNECT_GIVE_UP_MS)
+    }
+
+    const handleReconnected = () => {
+      if (cancelled) return
+      clearGiveUpTimer()
+      setReconnecting(false)
+      setConnectionIssue(null)
+    }
 
     // 강퇴되거나 방장이 세션을 종료하면 서버가 이 클라이언트를 강제로 끊는다. 자발적으로 나갈 때는
     // cleanup에서 cancelled를 먼저 true로 만든 뒤 disconnect를 호출하므로 여기서 걸러진다.
     //
-    // DisconnectReason에는 그 외에도 여러 사유가 있는데(DUPLICATE_IDENTITY, SIGNAL_CLOSE 등),
-    // 특히 개발 모드 StrictMode의 이중 mount로 같은 identity의 연결이 두 개 생겼다가 뒤늦게
-    // 도착한 연결이 정리되며 지금 연결이 DUPLICATE_IDENTITY로 끊기는 경우가 있다. 그런 사유까지
-    // 나가기로 처리하면 아무 조작 없이도 몇 초 뒤 튕기므로, 실제로 강퇴/세션 종료인 경우에만 나간다.
+    // DisconnectReason에는 그 외에도 여러 사유가 있는데, 특히 개발 모드 StrictMode의 이중 mount로
+    // 같은 identity의 연결이 두 개 생겼다가 뒤늦게 도착한 연결이 정리되며 지금 연결이
+    // DUPLICATE_IDENTITY로 끊기는 경우가 있다. 이 경우까지 반응하면 아무 조작 없이도 몇 초 뒤
+    // 튕기므로 무시한다. 그 외 사유(SIGNAL_CLOSE, CONNECTION_TIMEOUT 등 순수 연결 문제로 LiveKit이
+    // 재접속을 포기한 경우)는 수동 재시도 다이얼로그로 안내한다.
     const handleDisconnected = (reason?: DisconnectReason) => {
       if (cancelled) return
-      if (reason !== DisconnectReason.PARTICIPANT_REMOVED && reason !== DisconnectReason.ROOM_DELETED) return
-      onLeave()
+      clearGiveUpTimer()
+      setReconnecting(false)
+      if (reason === DisconnectReason.PARTICIPANT_REMOVED || reason === DisconnectReason.ROOM_DELETED) {
+        onLeave()
+        return
+      }
+      if (reason === DisconnectReason.DUPLICATE_IDENTITY) return
+      setConnectionIssue(CONNECTION_TROUBLE_MESSAGE)
     }
+
+    activeRoom.on(RoomEvent.Reconnecting, handleReconnecting)
+    activeRoom.on(RoomEvent.Reconnected, handleReconnected)
     activeRoom.on(RoomEvent.Disconnected, handleDisconnected)
 
     const connectToRoom = async () => {
       setRoom(activeRoom)
       try {
-        await activeRoom.connect(connection.serverUrl, connection.participantToken)
+        await activeRoom.connect(activeConnection.serverUrl, activeConnection.participantToken)
         if (cancelled) return
+        setConnectionIssue(null)
 
         await Promise.all([
           activeRoom.localParticipant.setCameraEnabled(
@@ -243,9 +304,16 @@ export function StudySessionRoom({
         ])
       } catch (error) {
         console.error('LiveKit 세션 연결 실패', error)
-        if (!cancelled) {
-          setConnectionError('세션 연결에 실패했습니다. 네트워크 상태를 확인해 주세요.')
-        }
+        if (cancelled) return
+        // 토큰이 만료·무효화된 경우 LiveKit이 ConnectionErrorReason.NotAllowed로 구분해준다.
+        // 순수 네트워크 문제와 구분해 다른 안내를 보여준다.
+        const isPermissionError =
+          error instanceof ConnectionError && error.reason === ConnectionErrorReason.NotAllowed
+        setConnectionIssue(
+          isPermissionError
+            ? '이 세션에 참여할 권한이 없습니다. 다시 로그인하거나 관리자에게 문의해 주세요.'
+            : '세션 연결에 실패했습니다. 네트워크 상태를 확인해 주세요.',
+        )
       }
     }
 
@@ -253,12 +321,30 @@ export function StudySessionRoom({
 
     return () => {
       cancelled = true
+      clearGiveUpTimer()
+      activeRoom.off(RoomEvent.Reconnecting, handleReconnecting)
+      activeRoom.off(RoomEvent.Reconnected, handleReconnected)
       activeRoom.off(RoomEvent.Disconnected, handleDisconnected)
       void activeRoom.disconnect()
     }
-    // 최초 접속 정보로 한 번만 연결한다. 재연결이 필요한 경우는 이 화면을 다시 마운트해서 처리한다.
+    // activeConnection이 바뀔 때만(최초 접속 또는 수동 재시도로 새 토큰을 받았을 때) 재연결한다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connection.serverUrl, connection.participantToken])
+  }, [activeConnection.serverUrl, activeConnection.participantToken])
+
+  // 수동 재시도: 현재 토큰이 만료됐을 수 있으니 새 토큰을 발급받아 activeConnection을 갱신한다.
+  // 그러면 위 이펙트가 새 Room으로 다시 연결을 시도한다.
+  const handleManualRetry = async () => {
+    setRetrying(true)
+    try {
+      const fresh = await createStudySessionConnection(activeConnection.sessionId)
+      setConnectionIssue(null)
+      setActiveConnection(fresh)
+    } catch (error) {
+      setConnectionIssue(toErrorMessage(error))
+    } finally {
+      setRetrying(false)
+    }
+  }
 
   return (
     <RoomContext.Provider value={room}>
@@ -266,8 +352,11 @@ export function StudySessionRoom({
       <StudySessionRoomStage
         initialDevices={initialDevices}
         selfCoverLetterId={selfCoverLetterId}
-        connection={connection}
-        connectionError={connectionError}
+        connection={activeConnection}
+        reconnecting={reconnecting}
+        connectionIssue={connectionIssue}
+        retrying={retrying}
+        onManualRetry={handleManualRetry}
         onLeave={onLeave}
       />
     </RoomContext.Provider>
@@ -278,7 +367,10 @@ interface StudySessionRoomStageProps {
   initialDevices: StudySessionRoomDeviceSelection
   selfCoverLetterId: number | null
   connection: StudySessionConnection
-  connectionError: string | null
+  reconnecting: boolean
+  connectionIssue: string | null
+  retrying: boolean
+  onManualRetry: () => void
   onLeave: () => void
 }
 
@@ -286,7 +378,10 @@ function StudySessionRoomStage({
   initialDevices,
   selfCoverLetterId,
   connection,
-  connectionError,
+  reconnecting,
+  connectionIssue,
+  retrying,
+  onManualRetry,
   onLeave,
 }: StudySessionRoomStageProps) {
   const room = useRoomContext()
@@ -840,9 +935,10 @@ function StudySessionRoomStage({
         {/* 영상 영역 + 장치설정바를 한 열로 묶어, 패널이 열리면 이 열 전체가 함께 밀리게 한다. */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div ref={videoAreaRef} className="relative min-h-0 flex-1 overflow-hidden p-4">
-            {connectionError ? (
-              <div className="absolute inset-x-4 top-4 z-30 rounded-ait-s bg-status-error px-4 py-2 text-center text-body-2 text-white shadow-elevation-2">
-                {connectionError}
+            {reconnecting ? (
+              <div className="absolute inset-x-4 top-4 z-30 flex items-center justify-center gap-2 rounded-ait-s bg-status-warning px-4 py-2 text-center text-body-2 text-white shadow-elevation-2">
+                <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden="true" />
+                재접속 중입니다...
               </div>
             ) : null}
 
@@ -1304,6 +1400,24 @@ function StudySessionRoomStage({
             </Button>
             <Button type="button" variant="destructive" disabled={kicking} onClick={() => void handleConfirmKick()}>
               {kicking ? '강퇴 중…' : '강퇴'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 재접속을 포기했거나 최초 접속 자체가 실패했을 때: 자동으로 나가지 않고 재시도·나가기를 사용자가 고르게 한다. */}
+      <Dialog open={connectionIssue !== null} onOpenChange={() => {}}>
+        <DialogContent className="w-[min(26rem,calc(100vw-2rem))] p-6" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>연결에 문제가 발생했습니다</DialogTitle>
+            <DialogDescription>{connectionIssue}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="text" disabled={retrying} onClick={onLeave}>
+              나가기
+            </Button>
+            <Button type="button" disabled={retrying} onClick={() => void onManualRetry()}>
+              {retrying ? '다시 시도 중…' : '다시 시도'}
             </Button>
           </DialogFooter>
         </DialogContent>
