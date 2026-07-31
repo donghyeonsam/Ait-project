@@ -1,10 +1,7 @@
 package com.aitserver.community.service;
 
 import com.aitserver.community.dto.PostDto;
-import com.aitserver.community.entity.Post;
-import com.aitserver.community.entity.PostFile;
-import com.aitserver.community.entity.PostLikeScrap;
-import com.aitserver.community.entity.PostTag;
+import com.aitserver.community.entity.*;
 import com.aitserver.community.repository.PostFileRepository;
 import com.aitserver.community.repository.PostLikeScrapRepository;
 import com.aitserver.community.repository.PostRepository;
@@ -13,6 +10,7 @@ import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
@@ -51,7 +49,8 @@ public class PostSearchService {
                 .join(post.user, user).fetchJoin() // 작성자 닉네임 한 번에 조인
                 .where(
                         categoryEq(condition.getCategory()),
-                        keywordContains(condition.getKeyword())
+                        keywordContains(condition.getKeyword()),
+                        tagEq(condition.getTag())
                 )
                 .orderBy(createOrderSpecifier(condition.getSortType()))
                 .offset(pageable.getOffset())
@@ -63,7 +62,8 @@ public class PostSearchService {
                 .from(post)
                 .where(
                         categoryEq(condition.getCategory()),
-                        keywordContains(condition.getKeyword())
+                        keywordContains(condition.getKeyword()),
+                        tagEq(condition.getTag())
                 );
 
         Page<Post> postPage = PageableExecutionUtils.getPage(posts, pageable, countQuery::fetchOne);
@@ -136,6 +136,24 @@ public class PostSearchService {
             return null;
         }
         return post.title.containsIgnoreCase(keyword).or(post.content.containsIgnoreCase(keyword));
+    }
+
+    private BooleanExpression tagEq(String tagName) {
+        if (!StringUtils.hasText(tagName)) {
+            return null;
+        }
+
+        QPostTag postTag = QPostTag.postTag;
+        QTag tag = QTag.tag;
+
+        // "해당 이름(tagName)을 가진 태그가 연결된 게시글 ID 목록"을 찾아서 IN 절로 필터링
+        return post.id.in(
+                JPAExpressions
+                        .select(postTag.post.id)
+                        .from(postTag)
+                        .join(postTag.tag, tag)
+                        .where(tag.name.eq(tagName))
+        );
     }
 
     private OrderSpecifier<?>[] createOrderSpecifier(String sortType) {
