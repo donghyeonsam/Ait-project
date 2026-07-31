@@ -41,6 +41,7 @@ const draft: CommunityPostDraft = {
   title: 'CRUD 테스트 게시글',
   contentHtml: '<p>게시글 수정과 삭제 동작을 확인합니다.</p>',
   tags: ['테스트'],
+  thumbnail: null,
   allowComments: true,
   notify: true,
 }
@@ -227,6 +228,7 @@ describe('createPost', () => {
       category: '면접 팁',
       title: 'CRUD 테스트 게시글',
       content: '<p>게시글 수정과 삭제 동작을 확인합니다.</p>',
+      thumbnail: null,
       allowComments: true,
       receiveNotifications: true,
       tags: ['테스트'],

@@ -60,6 +60,7 @@ const post: CommunityPost = {
   likeCount: 2,
   liked: false,
   bookmarked: false,
+  thumbnail: null,
   allowComments: true,
   notify: true,
 }

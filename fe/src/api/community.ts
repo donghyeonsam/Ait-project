@@ -51,6 +51,7 @@ interface PostListItemResponse {
   likeCount: number
   bookmarked: boolean
   liked: boolean
+  thumbnail: string | null
   createdAt: string
 }
 
@@ -69,6 +70,7 @@ const toPostSummary = (item: PostListItemResponse): CommunityPost => ({
   likeCount: item.likeCount,
   liked: item.liked ?? false,
   bookmarked: item.bookmarked ?? false,
+  thumbnail: item.thumbnail ?? null,
 })
 
 export interface FetchPostsParams {
@@ -117,6 +119,7 @@ interface PostDetailResponse {
   category: string
   title: string
   content: string
+  thumbnail: string | null
   allowComments: boolean | null
   receiveNotifications: boolean | null
   likeCount: number
@@ -152,6 +155,7 @@ export async function fetchPost(postId: string): Promise<CommunityPost | null> {
     commentCount: 0,
     liked: false,
     bookmarked: false,
+    thumbnail: data.thumbnail ?? null,
     allowComments: data.allowComments ?? true,
     notify: data.receiveNotifications ?? true,
   }
@@ -179,11 +183,13 @@ export async function fetchSearchSuggestions(query: string): Promise<string[]> {
     .slice(0, 6)
 }
 
-// TODO: 파일 업로드 API 연동 필요
+// 대표 사진(thumbnail)은 아직 대응하는 백엔드 필드가 없어 서버에 저장되지 않는다.
+// TODO: 백엔드 thumbnail 필드 추가 후 연동 필요 / 파일 업로드 API 연동 필요
 const toPostRequestBody = (draft: CommunityPostDraft) => ({
   category: draft.category ? CATEGORY_META[draft.category].label : '',
   title: draft.title,
   content: draft.contentHtml,
+  thumbnail: draft.thumbnail,
   allowComments: draft.allowComments,
   receiveNotifications: draft.notify,
   tags: draft.tags,

@@ -18,6 +18,8 @@ export interface CommunityPost {
   likeCount: number
   liked: boolean
   bookmarked: boolean
+  // 본문 이미지 중 카드 썸네일로 쓸 대표 사진 URL.
+  thumbnail?: string | null
   allowComments?: boolean
   notify?: boolean
 }
@@ -46,6 +48,7 @@ export interface CommunityPostDraft {
   title: string
   contentHtml: string
   tags: string[]
+  thumbnail: string | null
   allowComments: boolean
   notify: boolean
 }
