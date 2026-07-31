@@ -2,6 +2,7 @@ package com.aitserver.aiInterview.service;
 
 import com.aitserver.aiInterview.client.FastApiClient;
 import com.aitserver.aiInterview.dto.VoiceResult;
+import com.aitserver.aiInterview.repository.AiInterviewsRepository;
 import com.aitserver.aiInterview.requestDto.FastApiFaceAnalyzeRequest;
 import com.aitserver.aiInterview.requestDto.FollowUpQuestionRequest;
 import com.aitserver.aiInterview.requestDto.NonVerbalDataRequest;
@@ -32,6 +33,7 @@ public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RedisTemplate<String, String> redisTemplate;
     private final FastApiClient fastApiClient;
+    private final AiInterviewsRepository aiInterviewsRepository;
 
     @Override
     @Async
@@ -184,7 +186,7 @@ public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
             saveScoreInRedis(eyeRedisKey, String.valueOf(gazeScore)); // redis에 사용자 시선 점수 저장
 
             FastScoreResponse response = fastApiClient.sendToFastApi( // FastAPI로 표정 좌표 넘겨서 점수 하나만 리턴 받기
-                    "", // uri가 정해지면 넣자
+                    "/analyses/face", // uri가 정해지면 넣자
                     fastApiFrames,
                     FastScoreResponse.class
             );
@@ -195,6 +197,27 @@ public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
             log.info(">> Redis 비언어적 점수 누적 완료! (시선: {}점 [패널티 {}회])", gazeScore, totalPenaltyCount);
         } catch (Exception e) {
             log.error("[===Async=== AiInterviewAsyncServiceImpl] 비언어적 데이터 분석 중 에러 발생, userId: {}, aiInterviewId: {}",
+                    userId, aiInterviewId, e);
+        }
+    }
+
+    @Override
+    @Transactional
+    @Async
+    public void interviewComplete(Long userId, Long aiInterviewId) {
+        log.info("[===Async=== AiInterviewAsyncServiceImpl] AI 모의 면접 완료!!!");
+
+        try {
+            // 1. DB의 aiIntervewsRepository를 통해 면접 "doing"에서 "done"으로 변경
+            // 2. redis에서 기존 점수들을 각각 가져와서 평균 계산.
+            // 3. DB의 aiComprehensiveReport 엔티티 참고해서 각각의 평균점수 계산해서 넣기
+            // 4. 전체 내용 분석해서 개선하면 좋을 점을 도출하기....
+            // 4-1. 점수에 관한 내용과 답변에 관한 내용을 도출???
+
+
+
+        } catch (Exception e) {
+            log.error("[===Async=== AiInterviewAsyncServiceImpl] 모의 면접 AI 레포트 발행 중 에러 발생, userId: {}, aiInterviewId: {}",
                     userId, aiInterviewId, e);
         }
     }
