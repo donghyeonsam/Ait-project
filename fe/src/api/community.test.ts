@@ -266,17 +266,30 @@ describe('updatePost', () => {
   })
 })
 
-describe('community mock CRUD', () => {
-  it('작성자는 목업 게시글을 삭제한다', async () => {
-    await deletePost('post-1', '김싸피')
-    await expect(
-      deletePost('post-1', '김싸피'),
-    ).rejects.toThrow('게시글을 찾을 수 없습니다.')
+describe('deletePost', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals()
   })
 
-  it('작성자가 아닌 사용자의 삭제를 거부한다', async () => {
-    await expect(
-      deletePost('post-2', '김싸피'),
-    ).rejects.toThrow('삭제할 권한이 없습니다.')
+  it('삭제 엔드포인트를 DELETE 메서드로 호출한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 200,
+          message: '게시글 삭제 성공',
+          data: null,
+          error: null,
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await deletePost('11')
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/backend/api/posts/11')
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit
+    expect(init.method).toBe('DELETE')
   })
 })

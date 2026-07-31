@@ -95,7 +95,7 @@ export function CommunityPostPage() {
     if (!post || !user || isDeleting) return
     setDeleting(true)
     try {
-      await deletePost(post.id, user.nickname)
+      await deletePost(post.id)
       setDeleteOpen(false)
       showToast('게시글을 삭제했어요.')
       setTimeout(() => navigate('/community', { replace: true }), 700)

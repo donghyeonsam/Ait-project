@@ -2,7 +2,6 @@ import { ApiError, backendRequest } from '@/api/http'
 import { CATEGORY_META } from '@/lib/community-categories'
 import {
   mockComments,
-  mockPosts,
   mockSearchSuggestions,
   mockTrendingKeywords,
 } from '@/mocks/community'
@@ -15,9 +14,8 @@ import type {
   TrendingKeyword,
 } from '@/types/community'
 
-// 커뮤니티 API 레이어. 게시글 목록 조회는 실제 백엔드를 호출하고,
-// 나머지는 목업 데이터를 300~600ms 지연과 함께 돌려준다.
-// TODO: 실제 API 연동 필요
+// 커뮤니티 API 레이어. 게시글 CRUD·검색은 실제 백엔드를 호출하고,
+// 댓글·트렌딩 키워드·자동완성·좋아요는 목업을 300~600ms 지연과 함께 돌려준다.
 
 const delay = () =>
   new Promise((resolve) => setTimeout(resolve, 300 + Math.random() * 300))
@@ -72,15 +70,6 @@ const toPostSummary = (item: PostListItemResponse): CommunityPost => ({
   liked: item.liked ?? false,
   bookmarked: item.bookmarked ?? false,
 })
-
-// 세션 동안 작성한 글을 목록·상세에서 함께 보여주기 위한 인메모리 저장소.
-const createdPosts: CommunityPost[] = []
-const updatedPosts = new Map<string, CommunityPost>()
-const deletedPostIds = new Set<string>()
-
-// API 함수를 인증 화면 밖에서 단독 확인할 때 사용하는 목업 사용자 이름.
-// TODO: 실제 API 연동 필요
-const CURRENT_USER = '김싸피'
 
 export interface FetchPostsParams {
   tab: CommunityTab
@@ -221,29 +210,14 @@ export async function updatePost(
   })
 }
 
-export async function deletePost(
-  postId: string,
-  currentUserNickname = CURRENT_USER,
-): Promise<void> {
-  await delay()
-  const post =
-    updatedPosts.get(postId) ??
-    createdPosts.find((item) => item.id === postId) ??
-    mockPosts.find((item) => item.id === postId)
-
-  if (!post || deletedPostIds.has(postId)) {
-    throw new Error('게시글을 찾을 수 없습니다.')
-  }
-  if (post.author !== currentUserNickname) {
-    throw new Error('게시글을 삭제할 권한이 없습니다.')
-  }
-
-  const createdIndex = createdPosts.findIndex((item) => item.id === postId)
-  if (createdIndex >= 0) createdPosts.splice(createdIndex, 1)
-  updatedPosts.delete(postId)
-  deletedPostIds.add(postId)
+// 작성자 검증은 토큰 기반으로 백엔드가 수행한다.
+export async function deletePost(postId: string): Promise<void> {
+  await backendRequest<void>(`/api/posts/${postId}`, {
+    method: 'DELETE',
+  })
 }
 
+// 좋아요·저장 토글은 대응하는 백엔드 API가 없어 목업을 유지한다. TODO: 실제 API 연동 필요
 export async function toggleLike(_postId: string, liked: boolean): Promise<boolean> {
   await delay()
   return liked
