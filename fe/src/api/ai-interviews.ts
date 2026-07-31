@@ -224,6 +224,65 @@ const formatRecordDuration = (createdAt: string, endedAt: string | null) => {
   return `${Math.floor(totalSeconds / 60)}분 ${String(totalSeconds % 60).padStart(2, '0')}초`
 }
 
+export interface InterviewReportQuestion {
+  questionId: number
+  question: string
+  userAnswer: string
+  aiAnswer: string
+  feedback: string
+}
+
+export interface InterviewReportContent {
+  strengths: string[]
+  weaknesses: string[]
+}
+
+export interface InterviewReportDetail {
+  aiInterviewId: number
+  interviewType: string
+  difficulty: string
+  createdAt: string
+  content: InterviewReportContent
+  // 이하 점수는 10점 만점. 비언어 데이터가 수집되지 않은 면접은 시선·표정이 0으로 내려온다.
+  eyeContactScore: number
+  faceScore: number
+  voiceScore: number
+  qnaScore: number
+  sentenceScore: number
+  questions: InterviewReportQuestion[]
+}
+
+// content는 @JsonRawValue로 중첩 객체로 내려오지만, 이중 인코딩된 문자열이 와도 견디도록 정규화한다.
+const toReportContent = (content: unknown): InterviewReportContent => {
+  let value = content
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value)
+    } catch {
+      value = null
+    }
+  }
+  const record = (value ?? {}) as Partial<InterviewReportContent>
+  return {
+    strengths: Array.isArray(record.strengths) ? record.strengths : [],
+    weaknesses: Array.isArray(record.weaknesses) ? record.weaknesses : [],
+  }
+}
+
+// 면접 한 건의 리포트 상세(역량 점수·종합 피드백·질문별 내역)를 조회한다.
+export async function getInterviewReportDetail(
+  aiInterviewId: number,
+): Promise<InterviewReportDetail> {
+  const detail = await backendRequest<
+    Omit<InterviewReportDetail, 'content'> & { content: unknown }
+  >(`/api/ai-interviews/${aiInterviewId}/result`)
+  return {
+    ...detail,
+    content: toReportContent(detail.content),
+    questions: detail.questions ?? [],
+  }
+}
+
 // 리포트 목록을 화면 기록 모델로 바꿔 최신순으로 돌려준다.
 // 점수 증감은 응답에 없어 직전 면접과의 점수 차이로 계산한다.
 export async function getInterviewReports(): Promise<InterviewRecord[]> {
