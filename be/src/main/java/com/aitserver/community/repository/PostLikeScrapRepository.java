@@ -18,4 +18,6 @@ public interface PostLikeScrapRepository extends JpaRepository<PostLikeScrap, Lo
 
     // 특정 유저가 '여러 게시글(IN)'에 대해 남긴 액션(좋아요/스크랩)을 한 번에 조회
     List<PostLikeScrap> findByUserIdAndPostIdIn(Long userId, List<Long> postIds);
+
+
 }
