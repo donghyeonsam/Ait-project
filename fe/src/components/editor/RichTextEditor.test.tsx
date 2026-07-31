@@ -92,4 +92,42 @@ describe('RichTextEditor', () => {
       )
     })
   })
+
+  it('이미지 크기와 드래그 위치를 본문 HTML에 유지한다', async () => {
+    let editor: Editor | null = null
+    render(
+      <RichTextEditor
+        placeholderKey="default"
+        placeholderLines={['내용을 입력해주세요.']}
+        onReady={(instance) => {
+          editor = instance
+        }}
+      />,
+    )
+
+    await waitFor(() => expect(editor).not.toBeNull())
+    act(() => {
+      editor?.commands.insertContent({
+        type: 'image',
+        attrs: {
+          src: 'data:image/png;base64,aW1hZ2U=',
+          alt: '위치 저장 테스트',
+          width: '50%',
+          align: 'center',
+          offsetX: 36,
+          offsetY: 24,
+        },
+      })
+    })
+
+    const document = new DOMParser().parseFromString(
+      (editor as Editor | null)?.getHTML() ?? '',
+      'text/html',
+    )
+    const image = document.querySelector('img')
+    expect(image?.style.width).toBe('50%')
+    expect(image?.style.transform).toBe('translate3d(36px, 24px, 0)')
+    expect(image?.getAttribute('data-offset-x')).toBe('36')
+    expect(image?.getAttribute('data-offset-y')).toBe('24')
+  })
 })
