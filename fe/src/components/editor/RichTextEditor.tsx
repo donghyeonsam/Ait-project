@@ -1,4 +1,3 @@
-import Image from '@tiptap/extension-image'
 import { FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-style'
 import { CharacterCount } from '@tiptap/extensions'
 import type { Editor } from '@tiptap/react'
@@ -7,6 +6,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
 import { EditorToolbar } from '@/components/editor/EditorToolbar'
+import { ResizableImage } from '@/components/editor/ResizableImage'
 import { cn } from '@/lib/utils'
 
 interface RichTextEditorProps {
@@ -44,7 +44,7 @@ export function RichTextEditor({
       TextStyle,
       FontFamily,
       FontSize,
-      Image,
+      ResizableImage,
       CharacterCount,
     ],
     editorProps: {
