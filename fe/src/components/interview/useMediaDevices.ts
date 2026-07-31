@@ -15,7 +15,7 @@ interface DeviceLists {
 
 const emptyDevices: DeviceLists = { camera: [], mic: [], speaker: [] }
 
-function toDeviceOptions(devices: MediaDeviceInfo[], kind: MediaDeviceKind, fallbackLabel: string): DeviceOption[] {
+export function toDeviceOptions(devices: MediaDeviceInfo[], kind: MediaDeviceKind, fallbackLabel: string): DeviceOption[] {
   return devices
     .filter((device) => device.kind === kind)
     .map((device, index) => ({
