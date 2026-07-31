@@ -38,15 +38,13 @@ describe('community mock CRUD', () => {
       author: '테스트사용자',
     })
 
-    const mine = await fetchPosts({
-      tab: 'mine',
+    const list = await fetchPosts({
+      tab: 'latest',
       category: 'all',
-      sort: null,
       offset: 0,
       limit: 20,
-      currentUserNickname: '테스트사용자',
     })
-    expect(mine.items.map((post) => post.id)).toContain(created.id)
+    expect(list.items.map((post) => post.id)).toContain(created.id)
 
     await deletePost(created.id, '테스트사용자')
     await expect(fetchPost(created.id)).resolves.toBeNull()

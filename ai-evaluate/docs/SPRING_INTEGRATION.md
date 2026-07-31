@@ -231,17 +231,46 @@ Content-Type: application/json
 응답:
 
 ```json
-{
-  "status": "succeeded",
-  "face": {
-    "tension_score": 0.63,
-    "confidence_score": 0.37,
-    "blink_per_minute": 24.1,
-    "gaze_off_ratio": 0.22,
-    "analyzed_frames": 462
-  }
-}
+{ "score": 7.3 }
 ```
 
-`confidence_score` 는 `1 - tension_score` 다. 음성 쪽과 마찬가지로 BE 가 매번
-1-x 계산을 하지 않도록 편의상 함께 내려준다.
+**[2026-07-31] 음성(`/analyses/voice`)과 완전히 동일한 형태로 통일했다.** 따라서 BE 는
+두 모달리티를 같은 DTO 하나로 받을 수 있다:
+
+```java
+public record FastScoreResponse(double score) {}
+```
+
+`score` 는 0~10 실수다. `tension_score`/`confidence_score`/`blink_per_minute`/
+`gaze_off_ratio`/`analyzed_frames` 는 서버 내부에서 여전히 계산되지만 응답 스키마에서
+제외했다(근거 표시가 필요해지면 `api/schemas/analysis.py` 의 `FaceResult` 에 다시
+선언만 하면 되고, 재학습은 불필요하다).
+
+### ⚠️ baseUrl 을 음성/질문생성 서버와 분리해야 한다
+
+현재 `RestClientConfig.fastApiRestClient` 는 `fastapi.url`(`FASTAPI_URL`) 하나만
+baseUrl 로 쓰는데, 이 값은 원래 **질문 생성용 `ai/` 서버(8000)** 를 가리키는 설정이다.
+표정·음성 요청은 **ai-evaluate(8100)** 로 가야 하므로, 같은 빈을 재사용하면 요청이
+엉뚱한 서버로 간다(404 가 뜨거나, 더 나쁘게는 조용히 다른 응답을 받는다).
+
+ai-evaluate 전용 프로퍼티와 `RestClient` 빈을 따로 두는 것을 권장한다:
+
+```yaml
+# application.yml
+fastapi:
+  url: ${FASTAPI_URL}            # 질문 생성 (ai/, 8000)
+ai-evaluate:
+  url: ${AI_EVALUATE_URL}        # 표정·음성 (ai-evaluate, 8100)
+```
+
+`AI_EVALUATE_URL` 값은 배포 형태에 따라 달라진다:
+
+| 환경 | 값 |
+|---|---|
+| 로컬 단일 PC | `http://localhost:8100` |
+| 같은 EC2 인스턴스 (BE 가 호스트에서 직접 구동) | `http://localhost:8100` |
+| 같은 docker compose 네트워크 | `http://ai-evaluate:8100` |
+| 다른 인스턴스로 분리 | `http://<사설IP>:8100` |
+
+`localhost` 를 코드에 하드코딩하지 말고 환경변수로 빼두면, 배포 형태가 바뀌어도
+값만 교체하면 된다(기존 `FASTAPI_URL` 과 동일한 패턴).

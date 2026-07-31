@@ -13,6 +13,7 @@ import {
   isTrackReference,
   useLocalParticipant,
   useRemoteParticipants,
+  useRoomContext,
   useSpeakingParticipants,
   useTracks,
 } from '@livekit/components-react'
@@ -26,6 +27,7 @@ import {
   MicOff,
   Phone,
   ScreenShare,
+  Settings,
   Video,
   VideoOff,
   Volume2,
@@ -46,12 +48,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Dropdown } from '@/components/ui/dropdown'
+import { toDeviceOptions, type DeviceOption } from '@/components/interview/useMediaDevices'
 import type { StudyParticipant } from '@/mocks/study'
 import { getMyCoverLetters, type CoverLetterListItem } from '@/api/cover-letters'
 import {
   endStudySession,
+  getStudySessionMembers,
   kickStudySessionParticipant,
   type StudySessionConnection,
+  type StudySessionMember,
 } from '@/api/study-sessions'
 import { toErrorMessage } from '@/api/http'
 import { cn } from '@/lib/utils'
@@ -90,6 +96,11 @@ const MAX_STAGE_PARTICIPANTS = 4
 const PANEL_WIDTH = 320
 // 패널 폭 전환(--duration-base)과 같은 값. 전환이 끝날 때까지 실측 리사이즈 대신 예측값을 쓴다.
 const PANEL_TRANSITION_MS = 250
+
+// 네이티브 select는 옵션 목록이 브라우저가 그리는 팝업이라 다크 패널과 무관하게 흰 배경으로 렌더링된다.
+// 공용 Dropdown(커스텀 listbox)을 쓰면 목록도 우리 스타일로 그려지므로, 장치설정바(bg-theater-backdrop)에
+// 맞춰 밝은 배경의 버튼 부분만 덮어쓴다.
+const deviceDropdownButtonClass = 'border-white/20 bg-white/10 text-white hover:border-white/40'
 
 interface ElementSize {
   width: number
@@ -278,6 +289,7 @@ function StudySessionRoomStage({
   connectionError,
   onLeave,
 }: StudySessionRoomStageProps) {
+  const room = useRoomContext()
   const remoteParticipants = useRemoteParticipants()
   const { localParticipant, isCameraEnabled, isMicrophoneEnabled, isScreenShareEnabled } = useLocalParticipant()
   const cameraTracks = useTracks([Track.Source.Camera]).filter(isTrackReference)
@@ -297,6 +309,10 @@ function StudySessionRoomStage({
   const [knownIdentities, setKnownIdentities] = useState<string[]>([])
   // 본인 카드에 선택한 자소서 제목을 보여주기 위해 서류함 목록을 조회한다. 실패해도 세션 진행은 막지 않는다.
   const [myCoverLetters, setMyCoverLetters] = useState<CoverLetterListItem[]>([])
+  // 서버가 확인한 참가자 정보(닉네임·역할·제출 서류)를 userId로 찾을 수 있게 담아 둔다.
+  const [membersByUserId, setMembersByUserId] = useState<
+    Map<number, StudySessionMember>
+  >(new Map())
   const currentIdentities = remoteParticipants.map((participant) => participant.identity)
   const identitiesChanged =
     currentIdentities.length !== knownIdentities.length ||
@@ -337,15 +353,42 @@ function StudySessionRoomStage({
     }
   }, [])
 
+  // 참가자가 드나들 때마다 서버 목록을 다시 맞춘다. identity 문자열을 이어 붙인 값이 바뀔 때만 조회한다.
+  const remoteIdentityKey = currentIdentities.join(',')
+
+  useEffect(() => {
+    let isActive = true
+
+    getStudySessionMembers(connection.sessionId)
+      .then((members) => {
+        if (!isActive) return
+        setMembersByUserId(
+          new Map(members.map((member) => [member.userId, member])),
+        )
+      })
+      // 참가자 정보는 보조 표시라, 실패하면 LiveKit이 주는 값만으로 계속 진행한다.
+      .catch(() => {})
+
+    return () => {
+      isActive = false
+    }
+  }, [connection.sessionId, remoteIdentityKey])
+
   const participants = useMemo<StudyParticipant[]>(() => {
     const selectedCoverLetter = myCoverLetters.find(
       (coverLetter) => coverLetter.coverLetterId === selfCoverLetterId,
     )
 
+    const selfUserId = parseUserIdFromIdentity(connection.participantIdentity)
+    const selfMember =
+      selfUserId === null ? undefined : membersByUserId.get(selfUserId)
+
     const selfEntry: StudyParticipant = {
       participantId: 0,
-      name: connection.participantName || '나',
+      userId: selfMember?.userId ?? selfUserId,
+      name: selfMember?.nickname || connection.participantName || '나',
       isSelf: true,
+      role: selfMember?.role ?? connection.role,
       resumeSummary: '내가 선택한 이력서가 여기에 표시됩니다.',
       coverLetterTitle: selectedCoverLetter?.title ?? '선택한 자소서',
       coverLetterSummary: selectedCoverLetter
@@ -353,22 +396,42 @@ function StudySessionRoomStage({
         : '내가 선택한 자소서가 여기에 표시됩니다.',
     }
 
-    // TODO: 실제 API 연동 필요 — 참가자별 이력서/자소서 조회 API가 생기면 placeholder 대신 실제 데이터로 채운다.
-    const remoteEntries: StudyParticipant[] = remoteParticipants.map((participant) => ({
-      participantId: resolveParticipantId(participant.identity, false),
-      name: participant.name || participant.identity,
-      isSelf: false,
-      resumeSummary: '정보 없음',
-      coverLetterTitle: '정보 없음',
-      coverLetterSummary: '상대방의 이력서·자소서 정보는 아직 제공되지 않습니다.',
-    }))
+    const remoteEntries: StudyParticipant[] = remoteParticipants.map(
+      (participant) => {
+        const userId = parseUserIdFromIdentity(participant.identity)
+        const member = userId === null ? undefined : membersByUserId.get(userId)
+
+        return {
+          participantId: resolveParticipantId(participant.identity, false),
+          userId: member?.userId ?? userId,
+          // 서버 닉네임을 우선 쓰고, 없을 때만 LiveKit 값으로 내려간다. identity 문자열 노출은 마지막 수단이다.
+          name: member?.nickname || participant.name || participant.identity,
+          isSelf: false,
+          role: member?.role ?? null,
+          // TODO: 실제 API 연동 필요 — 참가자별 이력서·자소서 열람 API가 생기면 제출 여부 대신 실제 내용을 채운다.
+          resumeSummary:
+            member?.resumeId != null
+              ? '이력서를 제출했습니다. 내용 열람은 아직 제공되지 않습니다.'
+              : '제출한 이력서가 없습니다.',
+          coverLetterTitle:
+            member?.coverLetterId != null ? '제출한 자소서' : '제출 안 함',
+          coverLetterSummary:
+            member?.coverLetterId != null
+              ? '자소서를 제출했습니다. 내용 열람은 아직 제공되지 않습니다.'
+              : '제출한 자소서가 없습니다.',
+        }
+      },
+    )
 
     return [selfEntry, ...remoteEntries]
   }, [
     remoteParticipants,
     selfCoverLetterId,
     myCoverLetters,
+    membersByUserId,
     connection.participantName,
+    connection.participantIdentity,
+    connection.role,
     resolveParticipantId,
   ])
 
@@ -447,8 +510,19 @@ function StudySessionRoomStage({
   const [order, setOrder] = useState<number[]>([0])
   const [lockedIds, setLockedIds] = useState<Set<number>>(new Set())
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [deviceSettingsOpen, setDeviceSettingsOpen] = useState(false)
+  const [deviceOptions, setDeviceOptions] = useState<{
+    camera: DeviceOption[]
+    mic: DeviceOption[]
+    speaker: DeviceOption[]
+  }>({ camera: [], mic: [], speaker: [] })
+  const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null)
+  const [selectedMicId, setSelectedMicId] = useState<string | null>(null)
+  const [selectedSpeakerId, setSelectedSpeakerId] = useState<string | null>(null)
+  const [deviceSwitchError, setDeviceSwitchError] = useState<string | null>(null)
   const dragIdRef = useRef<number | null>(null)
   const videoAreaRef = useRef<HTMLDivElement>(null)
+  const deviceSettingsRef = useRef<HTMLDivElement>(null)
   const [gridRef, gridSize, predictGridWidthChange] = useElementSize<HTMLDivElement>(PANEL_TRANSITION_MS)
   const [stageRef, stageSize, predictStageWidthChange] = useElementSize<HTMLDivElement>(PANEL_TRANSITION_MS)
 
@@ -495,6 +569,53 @@ function StudySessionRoomStage({
       ? (screenShareTracks.find((trackRef) => trackRef.publication.trackSid === stageMode.sid) ?? null)
       : null
 
+  // 세션 접속 시 이미 카메라·마이크 권한을 받은 상태라 별도 getUserMedia 없이 목록만 조회한다.
+  useEffect(() => {
+    let isActive = true
+    const refreshDeviceOptions = () => {
+      navigator.mediaDevices
+        .enumerateDevices()
+        .then((list) => {
+          if (!isActive) return
+          setDeviceOptions({
+            camera: toDeviceOptions(list, 'videoinput', '카메라'),
+            mic: toDeviceOptions(list, 'audioinput', '마이크'),
+            speaker: toDeviceOptions(list, 'audiooutput', '스피커'),
+          })
+        })
+        .catch(() => {})
+    }
+
+    refreshDeviceOptions()
+    navigator.mediaDevices.addEventListener('devicechange', refreshDeviceOptions)
+    return () => {
+      isActive = false
+      navigator.mediaDevices.removeEventListener('devicechange', refreshDeviceOptions)
+    }
+  }, [])
+
+  const cameraDeviceId = selectedCameraId ?? room.getActiveDevice('videoinput') ?? null
+  const micDeviceId = selectedMicId ?? room.getActiveDevice('audioinput') ?? null
+  const speakerDeviceId = selectedSpeakerId ?? room.getActiveDevice('audiooutput') ?? null
+
+  const handleChangeCamera = (id: string) => {
+    setSelectedCameraId(id)
+    setDeviceSwitchError(null)
+    void room.switchActiveDevice('videoinput', id).catch(() => setDeviceSwitchError('카메라를 변경하지 못했습니다.'))
+  }
+
+  const handleChangeMic = (id: string) => {
+    setSelectedMicId(id)
+    setDeviceSwitchError(null)
+    void room.switchActiveDevice('audioinput', id).catch(() => setDeviceSwitchError('마이크를 변경하지 못했습니다.'))
+  }
+
+  const handleChangeSpeaker = (id: string) => {
+    setSelectedSpeakerId(id)
+    setDeviceSwitchError(null)
+    void room.switchActiveDevice('audiooutput', id).catch(() => setDeviceSwitchError('스피커를 변경하지 못했습니다.'))
+  }
+
   useEffect(() => {
     if (!contextMenu) return
     const closeMenu = () => setContextMenu(null)
@@ -508,6 +629,23 @@ function StudySessionRoomStage({
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [contextMenu])
+
+  useEffect(() => {
+    if (!deviceSettingsOpen) return
+    const handleClickOutside = (event: MouseEvent) => {
+      if (deviceSettingsRef.current?.contains(event.target as Node)) return
+      setDeviceSettingsOpen(false)
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDeviceSettingsOpen(false)
+    }
+    window.addEventListener('click', handleClickOutside)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('click', handleClickOutside)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [deviceSettingsOpen])
 
   const orderedParticipants = useMemo(
     () =>
@@ -667,8 +805,13 @@ function StudySessionRoomStage({
 
   const handleConfirmKick = async () => {
     if (!kickTarget) return
+    // 세션 참가자 목록으로 확인한 userId를 우선 쓰고, 아직 조회되지 않았으면 identity에서 뽑아낸다.
+    const target = participants.find(
+      (entry) => entry.participantId === kickTarget.participantId,
+    )
     const identity = identityByParticipantId.get(kickTarget.participantId)
-    const targetUserId = identity ? parseUserIdFromIdentity(identity) : null
+    const targetUserId =
+      target?.userId ?? (identity ? parseUserIdFromIdentity(identity) : null)
     if (targetUserId === null) {
       setKickError('참가자 정보를 확인할 수 없습니다.')
       return
@@ -966,6 +1109,81 @@ function StudySessionRoomStage({
 
           {/* 장치설정바: 영상 위에 떠 있지 않고 하단에 항상 고정된 자리를 차지하며, 패널이 열리면 이 열과 함께 밀린다. */}
           <div className="flex shrink-0 items-center justify-center gap-4 px-4 py-3">
+            <div
+              ref={deviceSettingsRef}
+              className="relative flex items-center justify-center rounded-ait-pill bg-action-primary px-3 py-2 shadow-elevation-2"
+            >
+              {deviceSettingsOpen ? (
+                <div className="absolute bottom-full left-0 pb-3">
+                  <div className="flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-4 rounded-ait-s bg-theater-backdrop p-4 shadow-elevation-2">
+                    <div>
+                      <span className="flex items-center gap-2 text-caption font-medium text-white">
+                        <Video className="size-3.5" aria-hidden="true" />
+                        카메라
+                      </span>
+                      <Dropdown
+                        className="mt-1"
+                        buttonClassName={deviceDropdownButtonClass}
+                        ariaLabel="카메라 선택"
+                        placeholder="사용 가능한 카메라가 없습니다"
+                        options={deviceOptions.camera.map((device) => ({ value: device.id, label: device.label }))}
+                        value={cameraDeviceId}
+                        onChange={handleChangeCamera}
+                      />
+                    </div>
+
+                    <div>
+                      <span className="flex items-center gap-2 text-caption font-medium text-white">
+                        <Mic className="size-3.5" aria-hidden="true" />
+                        마이크
+                      </span>
+                      <Dropdown
+                        className="mt-1"
+                        buttonClassName={deviceDropdownButtonClass}
+                        ariaLabel="마이크 선택"
+                        placeholder="사용 가능한 마이크가 없습니다"
+                        options={deviceOptions.mic.map((device) => ({ value: device.id, label: device.label }))}
+                        value={micDeviceId}
+                        onChange={handleChangeMic}
+                      />
+                    </div>
+
+                    <div>
+                      <span className="flex items-center gap-2 text-caption font-medium text-white">
+                        <Volume2 className="size-3.5" aria-hidden="true" />
+                        스피커
+                      </span>
+                      <Dropdown
+                        className="mt-1"
+                        buttonClassName={deviceDropdownButtonClass}
+                        ariaLabel="스피커 선택"
+                        placeholder="사용 가능한 스피커가 없습니다"
+                        options={deviceOptions.speaker.map((device) => ({ value: device.id, label: device.label }))}
+                        value={speakerDeviceId}
+                        onChange={handleChangeSpeaker}
+                        openUpward
+                      />
+                    </div>
+
+                    {deviceSwitchError ? <p className="text-caption text-theater-live">{deviceSwitchError}</p> : null}
+                  </div>
+                </div>
+              ) : null}
+
+              <button
+                type="button"
+                aria-pressed={deviceSettingsOpen}
+                aria-label={deviceSettingsOpen ? '장치 설정 접기' : '장치 설정 펼치기'}
+                onClick={() => setDeviceSettingsOpen((value) => !value)}
+                className={cn(
+                  'flex size-10 items-center justify-center rounded-ait-s text-white transition-colors hover:bg-white/15',
+                  deviceSettingsOpen && 'bg-white/20',
+                )}
+              >
+                <Settings className="size-5" aria-hidden="true" />
+              </button>
+            </div>
+
             <div className="flex items-center gap-1.5 rounded-ait-pill bg-action-primary px-3 py-2 shadow-elevation-2">
               <button
                 type="button"

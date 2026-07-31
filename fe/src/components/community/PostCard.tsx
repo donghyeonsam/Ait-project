@@ -28,7 +28,15 @@ export function PostCard({ post, onToggleBookmark, onToggleLike }: PostCardProps
       />
 
       <div className="flex items-start justify-between gap-4">
-        <CategoryBadge category={post.category} />
+        <div className="flex min-w-0 items-center gap-2">
+          <CategoryBadge category={post.category} />
+          <span aria-hidden="true" className="text-body-2 text-ink-400">
+            ·
+          </span>
+          <span className="truncate text-body-2 font-medium text-ink-500">
+            {post.author}
+          </span>
+        </div>
         <button
           type="button"
           onClick={(event) => {
@@ -115,7 +123,10 @@ export function PostCardSkeleton() {
   return (
     <div className="rounded-ait-m border border-line bg-surface-default p-6">
       <div className="flex items-start justify-between">
-        <div className="analyzing-shimmer h-6 w-16 rounded-ait-pill" />
+        <div className="flex items-center gap-2">
+          <div className="analyzing-shimmer h-6 w-16 rounded-ait-pill" />
+          <div className="analyzing-shimmer h-4 w-14 rounded-ait-s" />
+        </div>
         <div className="analyzing-shimmer size-5 rounded-ait-s" />
       </div>
       <div className="analyzing-shimmer mt-4 h-5 w-2/3 rounded-ait-s" />

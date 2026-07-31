@@ -9,7 +9,6 @@ import type {
   CommunityComment,
   CommunityPost,
   CommunityPostDraft,
-  CommunitySort,
   CommunityTab,
   TrendingKeyword,
 } from '@/types/community'
@@ -33,11 +32,9 @@ const CURRENT_USER = '김싸피'
 export interface FetchPostsParams {
   tab: CommunityTab
   category: CommunityCategory | 'all'
-  sort: CommunitySort | null
   offset: number
   limit: number
   query?: string
-  currentUserNickname?: string
 }
 
 export interface FetchPostsResult {
@@ -48,11 +45,9 @@ export interface FetchPostsResult {
 export async function fetchPosts({
   tab,
   category,
-  sort,
   offset,
   limit,
   query,
-  currentUserNickname = CURRENT_USER,
 }: FetchPostsParams): Promise<FetchPostsResult> {
   await delay()
 
@@ -60,9 +55,6 @@ export async function fetchPosts({
     .filter((post) => !deletedPostIds.has(post.id))
     .map((post) => updatedPosts.get(post.id) ?? post)
 
-  if (tab === 'mine') {
-    items = items.filter((post) => post.author === currentUserNickname)
-  }
   if (category !== 'all') {
     items = items.filter((post) => post.category === category)
   }
@@ -76,21 +68,14 @@ export async function fetchPosts({
     )
   }
 
-  // 탭이 정렬 성격을 겸하므로 탭을 먼저 적용하고, 정렬 드롭다운이 최신순이 아니면 덮어쓴다.
+  // 인기와 최신 탭은 각각 반응 수와 작성 시각을 기준으로 정렬한다.
   const byLatest = (a: CommunityPost, b: CommunityPost) =>
     b.createdAt.localeCompare(a.createdAt)
   const byPopular = (a: CommunityPost, b: CommunityPost) =>
     b.likeCount - a.likeCount
-  const byComments = (a: CommunityPost, b: CommunityPost) =>
-    b.commentCount - a.commentCount
 
-  // 내 게시글 탭은 정렬 성격이 없으므로 최신순을 기본으로 둔다.
-  if (tab === 'latest' || tab === 'mine') items.sort(byLatest)
+  if (tab === 'latest') items.sort(byLatest)
   else if (tab === 'popular') items.sort(byPopular)
-
-  if (sort === 'latest') items.sort(byLatest)
-  else if (sort === 'popular') items.sort(byPopular)
-  else if (sort === 'comments') items.sort(byComments)
 
   const paged = items.slice(offset, offset + limit)
   return { items: paged, hasMore: offset + limit < items.length }

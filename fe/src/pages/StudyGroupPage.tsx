@@ -1,4 +1,4 @@
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, LogOut } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { PageLayout } from '@/components/layout/PageLayout'
@@ -28,6 +28,7 @@ import {
   getStudyGroupApplications,
   getStudyGroupDetail,
   kickStudyGroupMember,
+  leaveStudyGroup,
   updateStudyGroupStatus,
   type StudyGroupDetail,
 } from '@/api/study-groups'
@@ -78,6 +79,9 @@ export function StudyGroupPage() {
   )
   const [isDeletingGroup, setIsDeletingGroup] = useState(false)
   const [groupDeleteError, setGroupDeleteError] = useState<string | null>(null)
+  const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false)
+  const [isLeavingGroup, setIsLeavingGroup] = useState(false)
+  const [leaveError, setLeaveError] = useState<string | null>(null)
   const { ref: headerRef, isInView: isHeaderInView } =
     useInView<HTMLDivElement>({ threshold: 0.1 })
   const { ref: panelsRef, isInView: isPanelsInView } =
@@ -310,6 +314,19 @@ export function StudyGroupPage() {
     }
   }
 
+  // 나간 뒤에는 그룹 상세 접근 권한이 사라지므로 이 경로에 되돌아오지 못하게 라운지로 교체 이동한다.
+  const confirmGroupLeave = async () => {
+    setIsLeavingGroup(true)
+    setLeaveError(null)
+    try {
+      await leaveStudyGroup(groupId)
+      navigate('/study', { replace: true })
+    } catch (error) {
+      setLeaveError(toErrorMessage(error))
+      setIsLeavingGroup(false)
+    }
+  }
+
   const transferLeadership = (memberId: number) => {
     const nextLeader = members.find((member) => member.id === memberId)
     if (!nextLeader || nextLeader.isSelf || nextLeader.role === '초대 대기') {
@@ -394,6 +411,21 @@ export function StudyGroupPage() {
                 </Button>
               ) : null}
             </div>
+
+            {/* 그룹장은 혼자 남았을 때만 나갈 수 있고 그룹까지 삭제되므로, 나가기는 그룹원에게만 노출하고 그룹장은 관리 패널의 그룹 삭제를 쓴다. */}
+            {isLeader ? null : (
+              <div className="mt-4 flex justify-end">
+                <Button
+                  type="button"
+                  variant="text"
+                  className="text-status-error"
+                  onClick={() => setIsLeaveDialogOpen(true)}
+                >
+                  <LogOut aria-hidden="true" />
+                  그룹 나가기
+                </Button>
+              </div>
+            )}
           </div>
 
           {isLeader ? (
@@ -511,6 +543,56 @@ export function StudyGroupPage() {
               onClick={() => void confirmGroupDeletion()}
             >
               {isDeletingGroup ? '삭제하는 중' : '그룹 삭제'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isLeaveDialogOpen}
+        onOpenChange={(open) => {
+          // 나가기 요청이 진행되는 동안에는 대화상자를 닫지 않는다.
+          if (!open && isLeavingGroup) return
+          setIsLeaveDialogOpen(open)
+          if (!open) setLeaveError(null)
+        }}
+      >
+        <DialogContent
+          className="w-[min(28rem,calc(100vw-2rem))] border border-border-default p-6"
+          showCloseButton={false}
+        >
+          <DialogHeader>
+            <DialogTitle>스터디 그룹에서 나갈까요?</DialogTitle>
+            <DialogDescription>
+              나가면 이 그룹의 일정과 그룹톡에 더 이상 접근할 수 없습니다. 다시
+              참여하려면 그룹장의 승인이 필요합니다.
+            </DialogDescription>
+          </DialogHeader>
+          {leaveError ? (
+            <p className="mt-4 text-body-2 text-status-error" role="alert">
+              {leaveError}
+            </p>
+          ) : null}
+          <DialogFooter className="mt-6">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={isLeavingGroup}
+              onClick={() => {
+                setIsLeaveDialogOpen(false)
+                setLeaveError(null)
+              }}
+            >
+              취소
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isLeavingGroup}
+              aria-busy={isLeavingGroup}
+              onClick={() => void confirmGroupLeave()}
+            >
+              {isLeavingGroup ? '나가는 중' : '나가기'}
             </Button>
           </DialogFooter>
         </DialogContent>

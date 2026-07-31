@@ -30,6 +30,22 @@ export interface StudyGroupActiveSession {
   sessionId: number | null
 }
 
+// 세션에 참가 등록된 사람과 각자 입장 시 제출한 서류 번호. LiveKit 참가자 목록과 달리
+// 아직 화상 연결 전인 사람도 포함되고, identity 문자열 대신 서버가 확인한 userId를 준다.
+export interface StudySessionMember {
+  userId: number
+  nickname: string
+  role: StudySessionParticipantRole
+  resumeId: number | null
+  coverLetterId: number | null
+}
+
+export function getStudySessionMembers(sessionId: number) {
+  return backendRequest<StudySessionMember[]>(
+    `/api/study-sessions/${sessionId}/members`,
+  )
+}
+
 export function createStudySession(groupId: number) {
   return backendRequest<StudySessionCreateResult>(
     `/api/study-groups/${groupId}/sessions`,

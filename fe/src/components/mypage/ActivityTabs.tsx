@@ -1,17 +1,52 @@
-import { useState } from 'react'
+import { Bookmark, FileText, Heart } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 
 type ActivityTabId = 'written' | 'scrapped' | 'liked'
 
-const activityTabs: Array<{ id: ActivityTabId; label: string }> = [
-  { id: 'written', label: '작성한 게시글' },
-  { id: 'scrapped', label: '저장한 게시글' },
-  { id: 'liked', label: '좋아요한 게시글' },
+interface ActivityTabConfig {
+  id: ActivityTabId
+  label: string
+  icon: typeof FileText
+  emptyMessage: string
+  ctaLabel: string
+  ctaTo: string
+}
+
+const activityTabs: ActivityTabConfig[] = [
+  {
+    id: 'written',
+    label: '작성한 게시글',
+    icon: FileText,
+    emptyMessage: '아직 작성한 게시글이 없어요.',
+    ctaLabel: '글쓰기',
+    ctaTo: '/community/write',
+  },
+  {
+    id: 'scrapped',
+    label: '저장한 게시글',
+    icon: Bookmark,
+    emptyMessage: '아직 저장한 게시글이 없어요.',
+    ctaLabel: '커뮤니티 둘러보기',
+    ctaTo: '/community',
+  },
+  {
+    id: 'liked',
+    label: '좋아요한 게시글',
+    icon: Heart,
+    emptyMessage: '아직 좋아요한 게시글이 없어요.',
+    ctaLabel: '커뮤니티 둘러보기',
+    ctaTo: '/community',
+  },
 ]
 
-// 마이페이지의 활동 탭(작성/저장/좋아요). 탭 전환 UI만 구현하고 목록은 API 연동 전 빈 상태다.
+// 마이페이지의 활동 탭(작성/저장/좋아요). 탭을 전환할 때마다 목록을 다시 불러오는 로딩 상태를 보여준다.
 export function ActivityTabs() {
   const [activeTab, setActiveTab] = useState<ActivityTabId>('written')
   const activeIndex = activityTabs.findIndex((tab) => tab.id === activeTab)
+  const current = activityTabs[activeIndex]
 
   return (
     <section
@@ -31,7 +66,7 @@ export function ActivityTabs() {
               aria-selected={activeTab === tab.id}
               aria-controls="activity-tab-panel"
               onClick={() => setActiveTab(tab.id)}
-              className={`rounded-t-ait-s px-2 py-3 text-body-2 transition-colors [transition-duration:var(--duration-fast)] [transition-timing-function:var(--easing-standard)] ${
+              className={`rounded-t-ait-s px-2 py-3 text-body-2 transition-colors duration-(--duration-fast) [transition-timing-function:var(--easing-standard)] ${
                 activeTab === tab.id
                   ? 'font-semibold text-action-primary'
                   : 'text-text-secondary hover:bg-status-neutral-surface hover:text-action-primary'
@@ -48,16 +83,42 @@ export function ActivityTabs() {
         />
       </div>
 
-      <div
-        id="activity-tab-panel"
-        key={activeTab}
-        role="tabpanel"
-        className="activity-tab-panel flex min-h-72 items-center justify-center"
-      >
-        <p className="text-body-2 text-text-secondary">
-          활동 데이터 API가 연결되면 이곳에 표시됩니다.
-        </p>
+      <div id="activity-tab-panel" role="tabpanel" className="activity-tab-panel min-h-72">
+        <ActivityTabPanel key={activeTab} tab={current} />
       </div>
     </section>
+  )
+}
+
+// TODO: 실제 API 연동 필요 - 활동 목록 API가 아직 없어 탭을 전환하면 잠시 로딩한 뒤 항상 빈 상태를 보여준다.
+function ActivityTabPanel({ tab }: { tab: ActivityTabConfig }) {
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 500)
+    return () => clearTimeout(timer)
+  }, [])
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3 py-6" role="status" aria-label={`${tab.label} 불러오는 중`}>
+        {Array.from({ length: 3 }, (_, index) => (
+          <div key={index} className="flex items-center gap-3 rounded-ait-s bg-status-neutral-surface p-3">
+            <Skeleton className="h-4 flex-1" />
+            <Skeleton className="h-4 w-16 shrink-0" />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-72 flex-col items-center justify-center gap-3 text-center">
+      <tab.icon className="size-8 text-text-secondary" aria-hidden="true" />
+      <p className="text-body-2 text-text-secondary">{tab.emptyMessage}</p>
+      <Button asChild variant="secondary" className="mt-1">
+        <Link to={tab.ctaTo}>{tab.ctaLabel}</Link>
+      </Button>
+    </div>
   )
 }

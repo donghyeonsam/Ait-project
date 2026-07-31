@@ -8,6 +8,7 @@ import { PageLayout } from '@/components/layout/PageLayout'
 import { ActivityTabs } from '@/components/mypage/ActivityTabs'
 import { ProfileSection } from '@/components/mypage/ProfileSection'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/lib/useAuth'
 import type { ProfileData } from '@/types/profile'
 
@@ -134,10 +135,21 @@ export function MyPage() {
       </section>
 
       {isLoading ? (
-        <section className="mypage-panel py-16 text-center" role="status">
-          <p className="text-body-1 text-text-secondary">
-            {user?.nickname ?? '사용자'}님의 정보를 불러오는 중입니다.
-          </p>
+        <section
+          className="mypage-panel profile-layout grid gap-8"
+          role="status"
+          aria-label={`${user?.nickname ?? '사용자'}님의 정보를 불러오는 중`}
+        >
+          <div className="flex flex-col items-center gap-4">
+            <Skeleton className="aspect-square w-full" />
+            <Skeleton className="h-5 w-2/3" />
+          </div>
+          <div className="min-w-0 flex-1 space-y-3">
+            <Skeleton className="h-5 w-1/3" />
+            <Skeleton className="h-5 w-1/2" />
+            <Skeleton className="h-5 w-2/5" />
+            <Skeleton className="mt-4 h-24 w-full" />
+          </div>
         </section>
       ) : error ? (
         <section className="mypage-panel py-16 text-center" role="alert">

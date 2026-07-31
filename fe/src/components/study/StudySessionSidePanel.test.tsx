@@ -1,22 +1,36 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { StudySessionSidePanel } from '@/components/study/StudySessionSidePanel'
 import { studyEvaluationCategories, type StudyParticipant } from '@/mocks/study'
+
+vi.mock('@/components/reactbits/CountUp', () => ({
+  CountUp: ({
+    to,
+    decimals = 0,
+  }: {
+    to: number
+    decimals?: number
+  }) => <>{to.toFixed(decimals)}</>,
+}))
 
 const participants: StudyParticipant[] = [
   {
     participantId: 1,
+    userId: 11,
     name: '나',
     isSelf: true,
+    role: 'HOST',
     resumeSummary: '내 이력서',
     coverLetterTitle: '내 자소서',
     coverLetterSummary: '내 자소서 내용',
   },
   {
     participantId: 2,
+    userId: 12,
     name: '김지원',
     isSelf: false,
+    role: 'MEMBER',
     resumeSummary: '지원 이력서',
     coverLetterTitle: '지원 자소서',
     coverLetterSummary: '지원 자소서 내용',
@@ -24,39 +38,57 @@ const participants: StudyParticipant[] = [
 ]
 
 describe('StudySessionSidePanel evaluation', () => {
-  it('0~10 정수 선택지만 제공하고 모든 항목을 선택해야 제출할 수 있다', async () => {
+  it('모든 평가 항목을 5점으로 시작하고 휠로 0~10 사이에서 조절한다', async () => {
     const user = userEvent.setup()
     render(<StudySessionSidePanel participants={participants} />)
 
     await user.click(screen.getByRole('tab', { name: '평가' }))
 
-    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
-    const submitButton = screen.getByRole('button', {
-      name: '5개 항목을 선택해 주세요',
-    })
-    expect(submitButton).toBeDisabled()
+    const scoreInputs = screen.getAllByRole('spinbutton')
+    expect(scoreInputs).toHaveLength(studyEvaluationCategories.length)
+    scoreInputs.forEach((input) => expect(input).toHaveValue(5))
+    expect(screen.getByLabelText('5개 항목 평균 5.0점')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '평가 제출' })).toBeEnabled()
 
+    const logicScore = screen.getByRole('spinbutton', { name: '논리력' })
+    fireEvent.wheel(logicScore, { deltaY: -100 })
+    expect(logicScore).toHaveValue(6)
+    expect(screen.getByLabelText('5개 항목 평균 5.2점')).toBeInTheDocument()
+
+    fireEvent.wheel(logicScore, { deltaY: 100 })
+    expect(logicScore).toHaveValue(5)
     for (const category of studyEvaluationCategories) {
-      await user.click(
-        screen.getByRole('button', { name: `${category} 10점` }),
+      expect(screen.getByRole('spinbutton', { name: category })).toHaveAttribute(
+        'min',
+        '0',
+      )
+      expect(screen.getByRole('spinbutton', { name: category })).toHaveAttribute(
+        'max',
+        '10',
       )
     }
-
-    expect(screen.getByRole('button', { name: '평가 제출' })).toBeEnabled()
-    expect(screen.getByText('5/5 완료')).toBeInTheDocument()
   })
 
-  it('0점도 유효한 평가 점수로 선택한다', async () => {
+  it('정수 점수와 평균 및 방사형 그래프를 실시간으로 갱신한다', async () => {
     const user = userEvent.setup()
     render(<StudySessionSidePanel participants={participants} />)
 
     await user.click(screen.getByRole('tab', { name: '평가' }))
-    const zeroScore = screen.getByRole('button', { name: '논리력 0점' })
-    await user.click(zeroScore)
+    const logicScore = screen.getByRole('spinbutton', { name: '논리력' })
+    const radar = screen.getByRole('img', {
+      name: /^팀원 평가 방사형 그래프/,
+    })
 
-    expect(zeroScore).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByLabelText('논리력 선택 점수 0점')).toHaveTextContent(
-      '0/10',
-    )
+    fireEvent.change(logicScore, { target: { value: '10' } })
+
+    expect(logicScore).toHaveValue(10)
+    expect(screen.getByLabelText('5개 항목 평균 6.0점')).toBeInTheDocument()
+    expect(radar).toHaveTextContent('논리력 10점')
+
+    fireEvent.change(logicScore, { target: { value: '-2' } })
+    expect(logicScore).toHaveValue(0)
+
+    fireEvent.change(logicScore, { target: { value: '8.7' } })
+    expect(logicScore).toHaveValue(9)
   })
 })

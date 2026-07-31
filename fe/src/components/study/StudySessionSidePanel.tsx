@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import {
   CheckCircle2,
-  ClipboardCheck,
   FilePenLine,
   FileText,
   Search,
   UserRound,
 } from 'lucide-react'
+import { CountUp } from '@/components/reactbits/CountUp'
+import {
+  StudyEvaluationRadar,
+  type StudyEvaluationScores,
+} from '@/components/study/StudyEvaluationRadar'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -35,19 +39,16 @@ const tabs: Array<{ id: SidePanelTab; label: string }> = [
 ]
 
 const commentMaxLength = 100
-const evaluationScoreValues = Array.from({ length: 11 }, (_, index) => index)
-const evaluationCategoryDescriptions: Record<
-  StudyEvaluationCategory,
-  string
-> = {
-  논리력: '근거와 결론이 명확하게 이어지는지 평가해 주세요.',
-  표현력: '의견을 이해하기 쉽게 전달하는지 평가해 주세요.',
-  태도: '경청과 상호 존중의 태도를 평가해 주세요.',
-  '직무 전문성': '직무 지식과 답변의 구체성을 평가해 주세요.',
-  자신감: '안정감 있고 주도적으로 답변하는지 평가해 주세요.',
-}
 
-type EvaluationScores = Partial<Record<StudyEvaluationCategory, number>>
+function createDefaultEvaluationScores(): StudyEvaluationScores {
+  return studyEvaluationCategories.reduce<StudyEvaluationScores>(
+    (result, category) => {
+      result[category] = 5
+      return result
+    },
+    {} as StudyEvaluationScores,
+  )
+}
 
 // 세션 우측 패널: 참가자 이력서·자소서 열람과 참가자 평가 입력을 탭으로 전환한다.
 export function StudySessionSidePanel({ participants }: StudySessionSidePanelProps) {
@@ -56,39 +57,36 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
   const [documentTargetId, setDocumentTargetId] = useState(otherParticipants[0]?.participantId ?? null)
   const [openDocumentType, setOpenDocumentType] = useState<DocumentType | null>(null)
   const [evaluationTargetId, setEvaluationTargetId] = useState(otherParticipants[0]?.participantId ?? null)
-  const [scores, setScores] = useState<EvaluationScores>({})
+  const [scores, setScores] = useState<StudyEvaluationScores>(
+    createDefaultEvaluationScores,
+  )
   const [comment, setComment] = useState('')
-  const [evaluationError, setEvaluationError] = useState<string | null>(null)
 
   const documentTarget = participants.find((participant) => participant.participantId === documentTargetId) ?? null
 
-  const completedScoreCount = studyEvaluationCategories.filter(
-    (category) => scores[category] !== undefined,
-  ).length
-  const isEvaluationComplete =
-    evaluationTargetId !== null &&
-    completedScoreCount === studyEvaluationCategories.length
+  const isEvaluationComplete = evaluationTargetId !== null
+  const averageScore =
+    studyEvaluationCategories.reduce(
+      (total, category) => total + scores[category],
+      0,
+    ) / studyEvaluationCategories.length
 
   const handleScoreChange = (
     category: StudyEvaluationCategory,
     value: number,
   ) => {
-    if (!Number.isInteger(value) || value < 0 || value > 10) return
-    setScores((prev) => ({ ...prev, [category]: value }))
-    setEvaluationError(null)
+    if (!Number.isFinite(value)) return
+    const normalizedScore = Math.min(Math.max(Math.round(value), 0), 10)
+    setScores((prev) => ({ ...prev, [category]: normalizedScore }))
   }
 
   const handleSubmitEvaluation = () => {
-    if (!isEvaluationComplete) {
-      setEvaluationError('모든 평가 항목에 0~10점의 정수를 선택해 주세요.')
-      return
-    }
+    if (!isEvaluationComplete) return
 
     // TODO: 실제 API 연동 필요 — 평가 제출 API로 교체. 지금은 입력값만 확인한다.
     console.log('스터디 세션 평가 제출', { targetId: evaluationTargetId, scores, comment })
-    setScores({})
+    setScores(createDefaultEvaluationScores())
     setComment('')
-    setEvaluationError(null)
   }
 
   // TODO: 실제 API 연동 필요 — 서류함의 이력서/자소서 상세 조회로 교체. 지금은 참가자별 mock 요약을 보여준다.
@@ -182,23 +180,6 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            <div className="rounded-ait-m border border-status-achievement-border bg-status-achievement-surface p-4">
-              <div className="flex items-start gap-3">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-ait-s bg-action-primary text-surface-default">
-                  <ClipboardCheck className="size-5" aria-hidden="true" />
-                </span>
-                <div>
-                  <h2 className="text-body-1 font-semibold text-action-primary">
-                    동료 평가
-                  </h2>
-                  <p className="mt-1 text-caption leading-relaxed text-text-secondary">
-                    실제 관찰한 내용을 기준으로 각 항목에 0~10점의 정수를
-                    선택해 주세요.
-                  </p>
-                </div>
-              </div>
-            </div>
-
             <div className="rounded-ait-m border border-border-default bg-surface-default p-4 shadow-elevation-1">
               <label
                 htmlFor="evaluation-target-select"
@@ -213,9 +194,8 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
                 value={evaluationTargetId ?? ''}
                 onChange={(event) => {
                   setEvaluationTargetId(Number(event.target.value))
-                  setScores({})
+                  setScores(createDefaultEvaluationScores())
                   setComment('')
-                  setEvaluationError(null)
                 }}
                 disabled={otherParticipants.length === 0}
               >
@@ -230,93 +210,104 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
               </select>
             </div>
 
-            <div>
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-body-2 font-semibold text-text-primary">
+            <StudyEvaluationRadar scores={scores} />
+
+            <section className="rounded-ait-m border border-border-default bg-surface-default p-4 shadow-elevation-1">
+              <div className="mb-2 flex items-end justify-between gap-3">
+                <h2 className="text-body-2 font-semibold text-text-primary">
                   항목별 점수
+                </h2>
+                <p
+                  id="evaluation-score-help"
+                  className="text-[11px] text-text-secondary"
+                >
+                  휠 또는 ↑↓로 조절
                 </p>
-                <span className="text-caption tabular-nums text-text-secondary">
-                  {completedScoreCount}/{studyEvaluationCategories.length} 완료
-                </span>
               </div>
-              <div
-                className="h-1.5 overflow-hidden rounded-ait-pill bg-status-neutral-surface"
-                aria-hidden="true"
-              >
-                <span
-                  className="block h-full rounded-ait-pill bg-status-success transition-[width] duration-250 ease-standard motion-reduce:transition-none"
-                  style={{
-                    width: `${(completedScoreCount / studyEvaluationCategories.length) * 100}%`,
-                  }}
-                />
-              </div>
-            </div>
 
-            <div className="flex flex-col gap-3">
-              {studyEvaluationCategories.map((category, categoryIndex) => {
-                const selectedScore = scores[category]
-
-                return (
-                  <fieldset
+              <div className="divide-y divide-border-default">
+                {studyEvaluationCategories.map((category) => (
+                  <div
                     key={category}
-                    className="rounded-ait-m border border-border-default bg-surface-default p-3 shadow-elevation-1"
+                    className="flex min-h-16 items-center justify-between gap-4 py-2.5"
                   >
-                    <legend className="sr-only">{category} 점수</legend>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-body-2 font-semibold text-text-primary">
-                          <span className="mr-1.5 text-caption text-text-secondary">
-                            {categoryIndex + 1}.
-                          </span>
-                          {category}
-                        </p>
-                        <p className="mt-1 text-caption leading-relaxed text-text-secondary">
-                          {evaluationCategoryDescriptions[category]}
-                        </p>
-                      </div>
-                      <output
-                        className={cn(
-                          'flex h-8 min-w-12 shrink-0 items-center justify-center rounded-ait-s px-2 text-body-2 font-bold tabular-nums',
-                          selectedScore === undefined
-                            ? 'bg-status-neutral-surface text-text-secondary'
-                            : 'bg-action-primary text-surface-default',
-                        )}
-                        aria-label={
-                          selectedScore === undefined
-                            ? `${category} 점수 미선택`
-                            : `${category} 선택 점수 ${selectedScore}점`
-                        }
-                      >
-                        {selectedScore === undefined ? '—' : `${selectedScore}/10`}
-                      </output>
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-[repeat(11,minmax(0,1fr))] gap-1">
-                      {evaluationScoreValues.map((score) => (
-                        <button
-                          key={score}
-                          type="button"
-                          onClick={() => handleScoreChange(category, score)}
-                          aria-pressed={selectedScore === score}
-                          aria-label={`${category} ${score}점`}
-                          className={cn(
-                            'flex h-7 min-w-0 items-center justify-center rounded-ait-s text-[11px] font-semibold tabular-nums transition-[background-color,color,transform] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action-primary/30 motion-reduce:transform-none',
-                            selectedScore === score
-                              ? 'bg-action-primary text-surface-default shadow-elevation-1'
-                              : 'bg-status-neutral-surface text-text-secondary hover:bg-status-achievement-surface hover:text-action-primary',
-                          )}
+                    <label
+                      htmlFor={`score-${category}`}
+                      className="text-body-1 font-medium text-text-primary"
+                    >
+                      {category}
+                    </label>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <div className="relative h-11 w-20 overflow-hidden rounded-ait-s border-2 border-action-primary bg-surface-default transition-[border-color,box-shadow] focus-within:ring-3 focus-within:ring-action-primary/20">
+                        <input
+                          id={`score-${category}`}
+                          type="number"
+                          min={0}
+                          max={10}
+                          step={1}
+                          inputMode="numeric"
+                          value={scores[category]}
+                          onChange={(event) =>
+                            handleScoreChange(
+                              category,
+                              event.currentTarget.valueAsNumber,
+                            )
+                          }
+                          onWheel={(event) => {
+                            event.preventDefault()
+                            const delta = event.deltaY < 0 ? 1 : -1
+                            handleScoreChange(
+                              category,
+                              scores[category] + delta,
+                            )
+                          }}
+                          onFocus={(event) => event.currentTarget.select()}
+                          aria-describedby="evaluation-score-help"
+                          className="absolute inset-0 z-10 size-full bg-transparent px-2 text-center text-transparent caret-transparent focus:outline-none"
+                        />
+                        <span
+                          className="pointer-events-none absolute inset-y-0 left-0 right-5 flex items-center justify-center text-body-1 font-bold tabular-nums text-action-primary"
+                          aria-hidden="true"
                         >
-                          {score}
-                        </button>
-                      ))}
+                          <CountUp
+                            from={5}
+                            to={scores[category]}
+                            duration={0.28}
+                          />
+                        </span>
+                      </div>
+                      <span className="w-7 text-caption tabular-nums text-text-secondary">
+                        /10
+                      </span>
                     </div>
-                    <div className="mt-1.5 flex justify-between text-[10px] text-text-secondary">
-                      <span>보완 필요</span>
-                      <span>매우 우수</span>
-                    </div>
-                  </fieldset>
-                )
-              })}
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <div
+              className="flex items-center justify-between rounded-ait-m border border-status-achievement-border bg-status-achievement-surface px-4 py-3"
+              aria-label={`5개 항목 평균 ${averageScore.toFixed(1)}점`}
+            >
+              <div>
+                <p className="text-body-2 font-semibold text-action-primary">
+                  5개 항목 평균
+                </p>
+                <p className="mt-0.5 text-caption text-text-secondary">
+                  입력한 점수에 따라 실시간으로 계산됩니다.
+                </p>
+              </div>
+              <strong className="flex items-baseline gap-1 text-h2 tabular-nums text-action-primary">
+                <CountUp
+                  from={5}
+                  to={averageScore}
+                  duration={0.38}
+                  decimals={1}
+                />
+                <span className="text-caption font-medium text-text-secondary">
+                  /10
+                </span>
+              </strong>
             </div>
 
             <div className="rounded-ait-m border border-border-default bg-surface-default p-4 shadow-elevation-1">
@@ -341,15 +332,6 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
               />
             </div>
 
-            {evaluationError ? (
-              <p
-                className="rounded-ait-s bg-status-error-surface px-3 py-2 text-caption text-status-error"
-                role="alert"
-              >
-                {evaluationError}
-              </p>
-            ) : null}
-
             <Button
               type="button"
               className="w-full"
@@ -361,7 +343,7 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
               ) : null}
               {isEvaluationComplete
                 ? '평가 제출'
-                : `${studyEvaluationCategories.length - completedScoreCount}개 항목을 선택해 주세요`}
+                : '평가할 참가자가 없습니다'}
             </Button>
           </div>
         )}

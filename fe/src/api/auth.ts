@@ -38,3 +38,10 @@ export function logout() {
     method: 'POST',
   })
 }
+
+// TODO: 실제 API 연동 필요 - 백엔드에 회원 탈퇴 엔드포인트가 아직 없다.
+export function deleteAccount() {
+  return backendRequest<void>('/api/auth/withdraw', {
+    method: 'DELETE',
+  })
+}

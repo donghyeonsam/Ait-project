@@ -11,8 +11,8 @@ interface TrendingKeywordTickerProps {
   onSelect: (keyword: string) => void
 }
 
-// 인기 검색어 한 줄이 아래→위로 밀려 올라가며 3초마다 교체되는 롤링 pill.
-// hover·focus 중에는 롤링을 멈추고, 클릭하면 해당 키워드로 검색한다.
+// 인기 태그 한 줄이 아래→위로 밀려 올라가며 3초마다 교체되는 롤링 pill.
+// hover·focus 중에는 롤링을 멈추고, 클릭하면 해당 태그로 검색한다.
 export function TrendingKeywordTicker({
   keywords,
   onSelect,
@@ -34,7 +34,7 @@ export function TrendingKeywordTicker({
   return (
     <div className="flex items-center gap-3">
       <span className="shrink-0 text-body-2 font-semibold text-ink-700">
-        인기 검색어
+        인기 태그
       </span>
       <button
         type="button"
@@ -43,7 +43,7 @@ export function TrendingKeywordTicker({
         onMouseLeave={() => setPaused(false)}
         onFocus={() => setPaused(true)}
         onBlur={() => setPaused(false)}
-        aria-label={`인기 검색어 ${current.rank}위 ${current.keyword}로 검색`}
+        aria-label={`인기 태그 ${current.rank}위 ${current.keyword}로 검색`}
         className="relative h-9 min-w-0 flex-1 overflow-hidden rounded-ait-pill border border-line bg-surface-default text-left transition-colors hover:border-ink-400"
       >
         <AnimatePresence mode="popLayout" initial={false}>

@@ -63,28 +63,35 @@ class FaceAnalyzeRequest(BaseModel):
 
 class FaceResult(BaseModel):
     """
-    표정 MLP 출력.
+    표정 분석 결과. BE 로 내려가는 응답 본문 그 자체다.
 
     [teacher 확정] EMO-AffectNet(ResNet50 백본 + LSTM, Neutral/Happiness/Sadness/
     Surprise/Fear/Disgust/Anger 7클래스)을 오프라인 teacher 로 삼아 distillation 한다
     - training/face/make_pseudo_labels.py 참고. 서빙에 올라가는 건 여전히 이 경량
     MLP 뿐이고 EMO-AffectNet 자체는 학습 스크립트에서만 쓰인다.
-    confidence_score 는 tension_score 의 보수(1 - tension_score)로 정의되어 있어
-    둘 다 노출하는 이유는 BE 가 매번 1-x 계산을 하지 않도록 편의상 제공하는 것뿐이다.
+
+    ⚠️ [2026-07-31] 음성(VoiceResult)과 동일하게 응답 스펙을 score 단일 필드로 좁혔다.
+    아래 필드들은 core/face/predictor.py 에서 여전히 계산되지만(score 산출과 로깅에
+    필요), 이 스키마에 선언돼 있지 않으면 pydantic 이 응답 직렬화 시 자동으로
+    걸러내므로 BE 에는 노출되지 않는다. 근거를 다시 보여줘야 하면 재학습 없이 아래를
+    다시 선언하기만 하면 된다:
+      tension_score: float = Field(..., ge=0.0, le=1.0, description="긴장도 (0=침착, 1=긴장)")
+      confidence_score: float = Field(..., ge=0.0, le=1.0, description="자신감 (1 - tension_score)")
+      blink_per_minute: float
+      gaze_off_ratio: float = Field(..., ge=0.0, le=1.0)
+      analyzed_frames: int
+
+    ⚠️ 응답 구조도 음성과 맞추기 위해 평탄화했다. 이전에는 status/face 로 한 겹 감싼
+    FaceAnalyzeResponse 였으나, BE 가 두 모달리티를 같은 DTO(FastScoreResponse)로
+    받을 수 있도록 {"score": ...} 형태로 통일했다(git 히스토리에서 복원 가능).
     """
-    tension_score: float = Field(..., ge=0.0, le=1.0, description="긴장도 (0=침착, 1=긴장)")
-    confidence_score: float = Field(..., ge=0.0, le=1.0, description="자신감 (1 - tension_score)")
-    # 아래 셋은 MLP 출력이 아니라 규칙기반 계산값이다.
-    # 사용자에게 "왜 이 점수인지" 근거를 보여줄 때 쓴다.
-    blink_per_minute: float
-    gaze_off_ratio: float = Field(..., ge=0.0, le=1.0)
-    analyzed_frames: int
-
-
-class FaceAnalyzeResponse(BaseModel):
-    """표정은 동기 처리라 요청 한 번에 결과가 바로 담겨 돌아온다."""
-    status: TaskStatus = TaskStatus.SUCCEEDED
-    face: FaceResult
+    score: float = Field(
+        ..., ge=0.0, le=10.0,
+        description=(
+            "답변 종합 점수(10점 만점). confidence 를 그대로 스케일한 값이 아니라, "
+            "적당히 긴장한 상태(face_ideal_tension)를 정점으로 하는 종형 곡선으로 계산한다 "
+            "- 너무 편안하거나 너무 긴장하면 둘 다 감점된다(core/face/predictor.py 참고)."
+        ))
 
 
 # ─────────────────────────── 음성 ───────────────────────────

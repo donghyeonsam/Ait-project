@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { deleteGithubRepo, updateGithubRepoNickname } from '@/api/github'
 import { toErrorMessage } from '@/api/http'
+import { AccountDeletionSection } from '@/components/mypage/AccountDeletionSection'
 import { ProfileCard } from '@/components/mypage/ProfileCard'
 import { ProfileInfo } from '@/components/mypage/ProfileInfo'
 import type { ProfileData } from '@/types/profile'
@@ -137,15 +138,22 @@ export function ProfileSection({
 
   return (
     <div className="profile-layout grid gap-8">
-      <ProfileCard
-        profile={displayed}
-        isEditing={isEditing}
-        rolesText={rolesText}
-        onChangeRolesText={setRolesText}
-        avatarSrc={isEditing ? editingAvatarSrc : (savedProfile.avatarUrl ?? null)}
-        onSelectAvatarFile={selectAvatarFile}
-        onRemoveAvatar={removeAvatar}
-      />
+      <div className="flex flex-col">
+        <ProfileCard
+          profile={displayed}
+          isEditing={isEditing}
+          rolesText={rolesText}
+          onChangeRolesText={setRolesText}
+          avatarSrc={isEditing ? editingAvatarSrc : (savedProfile.avatarUrl ?? null)}
+          onSelectAvatarFile={selectAvatarFile}
+          onRemoveAvatar={removeAvatar}
+        />
+        {isEditing ? (
+          <div className="mt-auto flex justify-start pt-4">
+            <AccountDeletionSection />
+          </div>
+        ) : null}
+      </div>
       <ProfileInfo
         profile={displayed}
         isEditing={isEditing}

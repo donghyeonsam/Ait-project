@@ -48,6 +48,15 @@ public enum ErrorCode {
     NOT_GROUP_MEMBER(HttpStatus.BAD_REQUEST, "G005", "해당 그룹의 멤버가 아닙니다."),
     OWNER_CANNOT_LEAVE_WITH_MEMBERS(HttpStatus.BAD_REQUEST, "G006", "다른 멤버가 존재할 경우 방장은 그룹을 탈퇴할 수 없습니다."),
 
+    // Community (Post, Comment)
+    POST_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMUNITY_001", "게시글을 찾을 수 없습니다."),
+    COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMUNITY_002", "댓글을 찾을 수 없습니다."),
+    UNAUTHORIZED_POST_ACTION(HttpStatus.FORBIDDEN, "COMMUNITY_003", "해당 게시글에 대한 권한이 없습니다."),
+    UNAUTHORIZED_COMMENT_ACTION(HttpStatus.FORBIDDEN, "COMMUNITY_004", "해당 댓글에 대한 권한이 없습니다."),
+    ALREADY_LIKED_POST(HttpStatus.CONFLICT, "COMMUNITY_005", "이미 좋아요를 누른 게시글입니다."),
+    ALREADY_SCRAPPED_POST(HttpStatus.CONFLICT, "COMMUNITY_006", "이미 스크랩한 게시글입니다."),
+    LIKE_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMUNITY_007", "좋아요 내역을 찾을 수 없습니다."),
+    SCRAP_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMUNITY_008", "스크랩 내역을 찾을 수 없습니다."),
 
     // Study Group
     STUDY_GROUP_NOT_FOUND(HttpStatus.NOT_FOUND, "STUDY_GROUP_001", "스터디 그룹을 찾을 수 없습니다."),
@@ -85,7 +94,13 @@ public enum ErrorCode {
     // Livekit
     LIVEKIT_TOKEN_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "LIVEKIT_002", "화상 스터디 접속 토큰 생성에 실패했습니다."),
     LIVEKIT_WEBHOOK_AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "LIVEKIT_003", "LiveKit Webhook 인증에 실패했습니다."),
-    LIVEKIT_WEBHOOK_INVALID_PARTICIPANT(HttpStatus.BAD_REQUEST, "LIVEKIT_004", "LiveKit 참가자 정보를 확인할 수 없습니다.");
+    LIVEKIT_WEBHOOK_INVALID_PARTICIPANT(HttpStatus.BAD_REQUEST, "LIVEKIT_004", "LiveKit 참가자 정보를 확인할 수 없습니다."),
+
+    // PeerFeedback
+    PEER_FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "PEER_FEEDBACK_001", "해당 id의 상호 평가를 찾을 수 없습니다.");
+
+
+
 
     private final HttpStatus status;
     private final String code;

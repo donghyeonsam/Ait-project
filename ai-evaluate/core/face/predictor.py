@@ -81,8 +81,43 @@ def _load() -> None:
                     ckpt["in_dim"], ckpt["loss_name"])
 
 
+def _tension_to_interview_score_10(tension: float) -> float:
+    """
+    tension_score(0~1) -> score(0~10).
+
+    음성 쪽 core/voice/predictor.py 의 같은 이름 함수와 완전히 동일한 계산이다.
+    "긴장이 적을수록 좋다"(단조 증가)가 아니라 "적당히 긴장한 상태가 제일 좋다"는
+    종형(가우시안) 곡선을 쓴다 - 여키스-도슨 법칙과 같은 결의 발상이며, 너무 편안해
+    보이는 것(준비 안 된 인상)도 감점 대상이다.
+
+        score = 10 * exp( -(tension - ideal)^2 / (2 * width^2) )
+
+    [왜 함수를 공유하지 않고 복제했나]
+    계산식은 같지만 참조하는 설정값이 다르다(face_* vs voice_*). 표정과 음성의
+    tension 분포가 같으리라는 보장이 없어 두 모달리티를 독립적으로 튜닝할 수 있게
+    두었다. 만약 두 값이 끝까지 같은 것으로 확정되면 그때 core/ 로 합치면 된다.
+
+    ⚠️ face_ideal_tension/face_tension_score_width(config.py)는 음성 값을 그대로
+       가져온 잠정값이다. 표정 학습 데이터가 생기면 실제 영상을 보며 "이 정도 긴장이
+       딱 좋다" 지점으로 조정할 것 - 재학습 없이 이 두 숫자만 바꾸면 바로 반영된다.
+    """
+    ideal = settings.face_ideal_tension
+    width = settings.face_tension_score_width
+    score = 10.0 * np.exp(-((tension - ideal) ** 2) / (2 * width ** 2))
+    return round(float(score), 1)
+
+
 def predict_face(agg: FaceAggregate) -> dict:
-    """집계 결과 -> {"tension_score": 점수, 부가지표...}"""
+    """집계 결과 -> {"score": 0~10, 내부 계산값...}
+
+    ⚠️ 키 이름이 api/schemas/analysis.py 의 FaceResult 필드명과 정확히 같아야 한다.
+       api/routers/analysis.py 가 FaceResult(**result) 로 그대로 언패킹한다.
+
+    [2026-07-31] BE 응답 스펙을 음성과 동일하게 score 단일 필드로 통일했다.
+    tension_score/confidence_score/blink_per_minute/gaze_off_ratio/analyzed_frames 는
+    여기서 계속 계산하지만(로그·디버깅·score 산출에 필요), FaceResult 스키마에
+    선언돼 있지 않아 pydantic 이 응답 직렬화 시 자동으로 걸러낸다.
+    """
     _load()
 
     # 학습할 때 계산해둔 평균/퍼짐으로 값을 보정한다.
@@ -108,9 +143,11 @@ def predict_face(agg: FaceAggregate) -> dict:
         score = float(np.clip(out.squeeze().item(), 0.0, 1.0))
 
     return {
+        # BE 로 실제 내려가는 유일한 필드.
+        "score": _tension_to_interview_score_10(score),
+        # 아래는 전부 내부용(스키마에 없어 응답에서 자동으로 빠진다).
+        # 나중에 "왜 이 점수인지" 근거를 노출해야 하면 FaceResult 에 다시 선언만 하면 된다.
         "tension_score": score,
-        # FaceResult 스키마에 confidence_score 가 추가되면서(음성 쪽과 축을
-        # 통일하기 위해) 여기서도 보수(1-score)를 함께 내려준다.
         "confidence_score": float(np.clip(1.0 - score, 0.0, 1.0)),
         "blink_per_minute": agg.blink_per_minute,
         "gaze_off_ratio": agg.gaze_off_ratio,
