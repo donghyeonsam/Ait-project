@@ -139,37 +139,42 @@ export function CommunityWritePage() {
     if (!isEditMode || !postId) return
     let cancelled = false
 
-    fetchPost(postId).then((post) => {
-      if (cancelled) return
-      if (!post) {
-        setEditLoadState('not-found')
-        return
-      }
-      if (!currentUserNickname || post.author !== currentUserNickname) {
-        setEditLoadState('forbidden')
-        return
-      }
+    fetchPost(postId)
+      .then((post) => {
+        if (cancelled) return
+        if (!post) {
+          setEditLoadState('not-found')
+          return
+        }
+        if (!currentUserNickname || post.author !== currentUserNickname) {
+          setEditLoadState('forbidden')
+          return
+        }
 
-      const nextForm = {
-        category: post.category,
-        title: post.title,
-        contentHtml: post.contentHtml,
-        tags: post.tags,
-        visibility: post.visibility ?? ('public' as const),
-        allowComments: post.allowComments ?? true,
-        notify: post.notify ?? true,
-      }
-      setCategory(nextForm.category)
-      setTitle(nextForm.title)
-      setContentHtml(nextForm.contentHtml)
-      setContentText(htmlToPlainText(nextForm.contentHtml))
-      setTags(nextForm.tags)
-      setVisibility(nextForm.visibility)
-      setAllowComments(nextForm.allowComments)
-      setNotify(nextForm.notify)
-      setEditBaseline(JSON.stringify(nextForm))
-      setEditLoadState('ready')
-    })
+        const nextForm = {
+          category: post.category,
+          title: post.title,
+          contentHtml: post.contentHtml,
+          tags: post.tags,
+          visibility: post.visibility ?? ('public' as const),
+          allowComments: post.allowComments ?? true,
+          notify: post.notify ?? true,
+        }
+        setCategory(nextForm.category)
+        setTitle(nextForm.title)
+        setContentHtml(nextForm.contentHtml)
+        setContentText(htmlToPlainText(nextForm.contentHtml))
+        setTags(nextForm.tags)
+        setVisibility(nextForm.visibility)
+        setAllowComments(nextForm.allowComments)
+        setNotify(nextForm.notify)
+        setEditBaseline(JSON.stringify(nextForm))
+        setEditLoadState('ready')
+      })
+      // 조회 실패도 무한 로딩 대신 찾을 수 없음 안내로 처리한다.
+      .catch(() => {
+        if (!cancelled) setEditLoadState('not-found')
+      })
 
     return () => {
       cancelled = true
