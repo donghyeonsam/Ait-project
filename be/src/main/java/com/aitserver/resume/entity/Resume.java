@@ -19,15 +19,11 @@ import java.util.List;
 @Table(name = "resumes")
 public class Resume {
 
-
-
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-//    @Column(name = "user_id", nullable = false)
-//    private Long userId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
@@ -64,16 +60,6 @@ public class Resume {
     @UpdateTimestamp // UPDATE 시 자동으로 현재 시간 갱신 (ON UPDATE CURRENT_TIMESTAMP 대응)
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-//    @Column(name = "deleted_at")
-//    private LocalDateTime deletedAt;
-
-
-
-//    public Resume(Long userId) {
-//        this.userId = userId;
-//    }
-
 
     // 교체
     public void addTraining(ResumeTraining training) {
