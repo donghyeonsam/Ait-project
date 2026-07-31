@@ -8,56 +8,61 @@
 #   worker + redis 가 추가로 뜬다. BE 가 2~3초를 기다릴 수 없는 상황에서만 쓴다.
 
 services:
-  api:
-    build: .
-    container_name: ai-evaluate-api
-    restart: unless-stopped
-    # ⚠️ --workers 를 늘리지 말 것.
-    #    동시 실행 제한(VOICE_CONCURRENCY)이 프로세스 하나 기준이라,
-    #    워커를 2개로 늘리면 실제 동시 분석 개수도 2배가 된다.
-    command: uvicorn api.main:app --host 0.0.0.0 --port 8100
-    ports:
-      # 기존 ai/ 서버가 8000 을 쓰므로 겹치지 않게 8100 을 쓴다.
-      - "8100:8100"
-    env_file:
-      - .env
-    volumes:
-      # 대기열 방식을 쓸 때만 의미가 있다(api 가 저장한 파일을 worker 가 읽어야 함).
-      # 기본 동기 방식에서는 임시 파일을 쓰므로 이 볼륨이 필요 없다.
-      - media_data:/app/media
+    api:
+        build: .
+        # 모든 환경을 amd64 로 통일한다.
+        #   윈도우/EC2(x86_64) → 네이티브, 애플 실리콘(ARM) → 에뮬레이션.
+        #   ARM 전용 휠이 없는 praat-parselmouth 소스 빌드 실패를 막는다.
+        platform: linux/amd64
+        container_name: ai-evaluate-api
+        restart: unless-stopped
+        # ⚠️ --workers 를 늘리지 말 것.
+        #    동시 실행 제한(VOICE_CONCURRENCY)이 프로세스 하나 기준이라,
+        #    워커를 2개로 늘리면 실제 동시 분석 개수도 2배가 된다.
+        command: uvicorn api.main:app --host 0.0.0.0 --port 8100
+        ports:
+            # 기존 ai/ 서버가 8000 을 쓰므로 겹치지 않게 8100 을 쓴다.
+            - '8100:8100'
+        env_file:
+            - .env
+        volumes:
+            # 대기열 방식을 쓸 때만 의미가 있다(api 가 저장한 파일을 worker 가 읽어야 함).
+            # 기본 동기 방식에서는 임시 파일을 쓰므로 이 볼륨이 필요 없다.
+            - media_data:/app/media
 
-  # ── 아래 두 개는 --profile queue 를 줘야 실행된다 ──
+    # ── 아래 두 개는 --profile queue 를 줘야 실행된다 ──
 
-  worker:
-    build: .
-    container_name: ai-evaluate-worker
-    restart: unless-stopped
-    profiles: ["queue"]
-    command: celery -A worker.celery_app worker --loglevel=info --concurrency=2
-    env_file:
-      - .env
-    volumes:
-      - media_data:/app/media
-    depends_on:
-      redis:
-        condition: service_healthy
+    worker:
+        build: .
+        platform: linux/amd64
+        container_name: ai-evaluate-worker
+        restart: unless-stopped
+        profiles: ['queue']
+        command: celery -A worker.celery_app worker --loglevel=info --concurrency=2
+        env_file:
+            - .env
+        volumes:
+            - media_data:/app/media
+        depends_on:
+            redis:
+                condition: service_healthy
 
-  redis:
-    image: redis:7-alpine
-    container_name: ai-evaluate-redis
-    restart: unless-stopped
-    profiles: ["queue"]
-    # 포트를 밖으로 열지 않는다. 도커 안에서만 쓰면 되고,
-    # 기존 be/infra 의 redis(6379), livekit-redis 와 충돌도 피할 수 있다.
-    command: redis-server --appendonly yes
-    volumes:
-      - media_redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
+    redis:
+        image: redis:7-alpine
+        container_name: ai-evaluate-redis
+        restart: unless-stopped
+        profiles: ['queue']
+        # 포트를 밖으로 열지 않는다. 도커 안에서만 쓰면 되고,
+        # 기존 be/infra 의 redis(6379), livekit-redis 와 충돌도 피할 수 있다.
+        command: redis-server --appendonly yes
+        volumes:
+            - media_redis_data:/data
+        healthcheck:
+            test: ['CMD', 'redis-cli', 'ping']
+            interval: 5s
+            timeout: 3s
+            retries: 10
 
 volumes:
-  media_data:
-  media_redis_data:
+    media_data:
+    media_redis_data:

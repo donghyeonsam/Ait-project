@@ -10,10 +10,7 @@ import com.aitserver.aiInterview.requestDto.AiInterviewQuestionRequest;
 import com.aitserver.aiInterview.requestDto.FastFollowUpRequest;
 import com.aitserver.aiInterview.requestDto.FastQuestionGenerateRequest;
 import com.aitserver.aiInterview.requestDto.FollowUpQuestionRequest;
-import com.aitserver.aiInterview.responseDto.AiInterviewPreparationResponse;
-import com.aitserver.aiInterview.responseDto.AiInterviewQuestionResponse;
-import com.aitserver.aiInterview.responseDto.FastQuestionGenerateResponse;
-import com.aitserver.aiInterview.responseDto.FollowUpQuestionResponse;
+import com.aitserver.aiInterview.responseDto.*;
 import com.aitserver.user.repository.UserSkillRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -143,5 +140,16 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         }
 
         return followUpResponse;
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<ReportListResponse> getList(Long userId) {
+        log.info("[AiInterviewServiceImpl] 사용자 AI 면접 결과 리스트 조회 userId: {}", userId);
+
+        List<ReportListResponse> response = aiInterviewsRepository.findReportListByUserId(userId);
+
+        log.info("[AiInterviewServiceImpl] AI 면접 결과 {}건 조회 성공", response.size());
+        return response;
     }
 }
