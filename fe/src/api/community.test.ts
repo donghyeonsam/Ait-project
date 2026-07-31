@@ -4,6 +4,8 @@ import {
   deletePost,
   fetchPost,
   fetchPosts,
+  toggleBookmark,
+  toggleLike,
   updatePost,
 } from '@/api/community'
 import type { CommunityPostDraft } from '@/types/community'
@@ -291,5 +293,70 @@ describe('deletePost', () => {
 
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit
     expect(init.method).toBe('DELETE')
+  })
+})
+
+const interactionResponse = (status: number, message: string) =>
+  new Response(
+    JSON.stringify({
+      statusCode: status,
+      message,
+      data: null,
+      error: status >= 400 ? { code: 'COMMUNITY_XXX' } : null,
+    }),
+    { status, headers: { 'content-type': 'application/json' } },
+  )
+
+describe('toggleLike / toggleBookmark', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('좋아요 등록은 POST, 취소는 DELETE로 호출한다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() =>
+        Promise.resolve(interactionResponse(200, '좋아요 등록 성공')),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(toggleLike('11', true)).resolves.toBe(true)
+    await expect(toggleLike('11', false)).resolves.toBe(false)
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/backend/api/posts/11/likes')
+    expect((fetchMock.mock.calls[0]?.[1] as RequestInit).method).toBe('POST')
+    expect((fetchMock.mock.calls[1]?.[1] as RequestInit).method).toBe('DELETE')
+  })
+
+  it('저장 등록·취소는 scraps 엔드포인트를 호출한다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(interactionResponse(200, '스크랩 등록 성공'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await toggleBookmark('11', true)
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/backend/api/posts/11/scraps')
+    expect((fetchMock.mock.calls[0]?.[1] as RequestInit).method).toBe('POST')
+  })
+
+  it('이미 등록(409)·이미 취소(404)된 상태는 성공으로 간주한다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(interactionResponse(409, '이미 좋아요를 누른 게시글입니다.'))
+      .mockResolvedValueOnce(interactionResponse(404, '스크랩 내역을 찾을 수 없습니다.'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(toggleLike('11', true)).resolves.toBe(true)
+    await expect(toggleBookmark('11', false)).resolves.toBe(false)
+  })
+
+  it('그 밖의 오류는 그대로 던진다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(interactionResponse(500, '서버 오류'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(toggleLike('11', true)).rejects.toThrow('서버 오류')
   })
 })
