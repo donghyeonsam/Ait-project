@@ -91,4 +91,14 @@ describe('CommunityPostPage', () => {
     expect(screen.queryByRole('link', { name: '수정' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '삭제' })).not.toBeInTheDocument()
   })
+
+  it('헤더와 푸터를 제외한 상세 콘텐츠를 90%로 축소한다', async () => {
+    renderPage()
+
+    await screen.findByText('면접 답변 팁')
+
+    expect(screen.getByRole('main').firstElementChild).toHaveClass(
+      'page-content-zoom-90',
+    )
+  })
 })

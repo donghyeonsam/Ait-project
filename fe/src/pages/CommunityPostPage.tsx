@@ -107,7 +107,7 @@ export function CommunityPostPage() {
   }
 
   return (
-    <PageLayout contentClassName="max-w-dashboard">
+    <PageLayout contentClassName="page-content-zoom-90 max-w-dashboard">
       <PageTransition>
         <nav aria-label="현재 위치" className="pt-6 text-caption text-ink-500">
           <Link to="/community" className="transition-colors hover:text-navy-800">
