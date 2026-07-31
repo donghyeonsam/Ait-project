@@ -24,7 +24,7 @@ export function SurveyStepper({ currentStep }: SurveyStepperProps) {
                   'flex size-10 shrink-0 items-center justify-center rounded-ait-pill border-2 text-body-2 font-semibold transition-all ease-standard duration-(--duration-base)',
                   isComplete && 'border-action-primary bg-action-primary text-surface-default',
                   isCurrent &&
-                    'scale-110 border-action-primary bg-surface-default text-action-primary shadow-elevation-2 ring-4 ring-action-primary/20',
+                    'survey-stepper-current scale-110 border-action-primary bg-surface-default text-action-primary shadow-elevation-2 ring-4 ring-action-primary/20',
                   !isComplete && !isCurrent && 'border-status-neutral-border bg-surface-default text-text-secondary',
                 )}
               >
