@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { fetchComments } from '@/api/community'
+import { useEffect, useState } from 'react'
+import { createComment, fetchComments } from '@/api/community'
 import { CommentComposer } from '@/components/community/CommentComposer'
 import { CommentItem } from '@/components/community/CommentItem'
 import { SegmentedControl } from '@/components/form/SegmentedControl'
@@ -12,15 +12,19 @@ type CommentSort = 'registered' | 'likes'
 interface CommentSectionProps {
   postId: string
   commentCount: number
+  // 요청 실패 안내를 페이지 토스트로 전달한다.
+  onNotify?: (message: string) => void
 }
 
-// 게시글 하단 댓글 영역. 목록 조회는 실제 API를 쓰고 작성·답글은 로컬 상태로 처리한다.
-// TODO: 실제 API 연동 필요 - 댓글 작성
-export function CommentSection({ postId, commentCount }: CommentSectionProps) {
+// 게시글 하단 댓글 영역. 목록 조회·작성·답글을 백엔드 API로 처리한다.
+export function CommentSection({
+  postId,
+  commentCount,
+  onNotify,
+}: CommentSectionProps) {
   const [comments, setComments] = useState<CommunityComment[]>([])
   const [sort, setSort] = useState<CommentSort>('registered')
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
-  const nextId = useRef(0)
 
   // 마지막으로 댓글을 불러온 글과 현재 글이 다르면 로딩 중으로 본다.
   const [loadedPostId, setLoadedPostId] = useState<string | null>(null)
@@ -46,49 +50,22 @@ export function CommentSection({ postId, commentCount }: CommentSectionProps) {
     }, 1200)
   }
 
-  const submitComment = async (content: string) => {
-    await new Promise((resolve) => setTimeout(resolve, 400))
-    const id = `local-comment-${nextId.current++}`
-    const comment: CommunityComment = {
-      id,
-      authorId: null,
-      author: '김싸피',
-      createdAt: new Date().toISOString(),
-      content,
-      likeCount: 0,
-      deleted: false,
-      replies: [],
+  // 작성 성공 후 목록을 다시 불러와 서버가 만든 작성자·시각 정보로 맞춘다.
+  const submitNew = async (parentId: string | null, content: string) => {
+    try {
+      const id = await createComment(postId, parentId, content)
+      setComments(await fetchComments(postId))
+      highlight(id)
+    } catch (error) {
+      onNotify?.('댓글 등록에 실패했습니다. 잠시 후 다시 시도해주세요.')
+      throw error
     }
-    setComments((prev) => [comment, ...prev])
-    highlight(id)
   }
 
-  const submitReply = async (commentId: string, content: string) => {
-    await new Promise((resolve) => setTimeout(resolve, 400))
-    const id = `local-reply-${nextId.current++}`
-    setComments((prev) =>
-      prev.map((comment) =>
-        comment.id === commentId
-          ? {
-              ...comment,
-              replies: [
-                ...comment.replies,
-                {
-                  id,
-                  authorId: null,
-                  author: '김싸피',
-                  createdAt: new Date().toISOString(),
-                  content,
-                  likeCount: 0,
-                  deleted: false,
-                },
-              ],
-            }
-          : comment,
-      ),
-    )
-    highlight(id)
-  }
+  const submitComment = (content: string) => submitNew(null, content)
+
+  const submitReply = (commentId: string, content: string) =>
+    submitNew(commentId, content)
 
   const sortedComments = [...comments].sort((a, b) =>
     sort === 'likes'

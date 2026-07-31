@@ -263,6 +263,25 @@ export async function fetchComments(
   return comments.map(toComment)
 }
 
+// 작성된 댓글의 id를 문자열로 돌려준다. parentId를 주면 해당 원댓글의 답글로 등록된다.
+export async function createComment(
+  postId: string,
+  parentId: string | null,
+  content: string,
+): Promise<string> {
+  const commentId = await backendRequest<number>(
+    `/api/posts/${postId}/comments`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        parentId: parentId ? Number(parentId) : null,
+        content,
+      }),
+    },
+  )
+  return String(commentId)
+}
+
 export async function fetchTrendingKeywords(): Promise<TrendingKeyword[]> {
   await delay()
   return mockTrendingKeywords

@@ -250,7 +250,11 @@ export function CommunityPostPage() {
               </Link>
             </div>
 
-            <CommentSection postId={post.id} commentCount={post.commentCount} />
+            <CommentSection
+              postId={post.id}
+              commentCount={post.commentCount}
+              onNotify={showToast}
+            />
           </div>
         )}
       </PageTransition>
