@@ -1393,6 +1393,19 @@ button:not(:disabled) {
   border-radius: var(--radius-s);
 }
 
+/* 에디터에서 지정한 이미지 정렬(data-align)을 상세 화면 렌더링에서도 유지한다. */
+.community-prose img[data-align] {
+  display: block;
+}
+
+.community-prose img[data-align='center'] {
+  margin-inline: auto;
+}
+
+.community-prose img[data-align='right'] {
+  margin-left: auto;
+}
+
 /* 게시글 작성 폼 유효성 실패 시 해당 필드를 짧게 흔든다. */
 .field-shake {
   animation: field-shake 300ms var(--easing-standard);
