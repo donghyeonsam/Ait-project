@@ -2,16 +2,14 @@ package com.aitserver.aiInterview.service;
 
 import com.aitserver.aiInterview.client.FastApiClient;
 import com.aitserver.aiInterview.dto.VoiceResult;
+import com.aitserver.aiInterview.repository.AiInterviewsRepository;
 import com.aitserver.aiInterview.requestDto.FastApiFaceAnalyzeRequest;
-import com.aitserver.aiInterview.requestDto.FastVoiceAnalysisRequest;
 import com.aitserver.aiInterview.requestDto.FollowUpQuestionRequest;
 import com.aitserver.aiInterview.requestDto.NonVerbalDataRequest;
 import com.aitserver.aiInterview.responseDto.FastScoreResponse;
 import com.aitserver.aiInterview.responseDto.GmsAnalysisResponse;
 import com.aitserver.aiInterview.entity.AiInterviewQuestion;
 import com.aitserver.aiInterview.repository.AiInterviewQuestionRepository;
-import com.aitserver.aiInterview.responseDto.VoiceAcceptedResponse;
-import com.aitserver.aiInterview.responseDto.VoiceResultResponse;
 import com.aitserver.global.gms.client.GmsClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -29,12 +27,13 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @RequiredArgsConstructor
 public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
-
+    // 이 서비스 로직에서 5개의 점수가 다 저장된다.
     private final AiInterviewQuestionRepository aiInterviewQuestionRepository;
     private final GmsClient gmsClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RedisTemplate<String, String> redisTemplate;
     private final FastApiClient fastApiClient;
+    private final AiInterviewsRepository aiInterviewsRepository;
 
     @Override
     @Async
@@ -105,39 +104,12 @@ public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
         }
     }
 
-//    @Override
-//    @Async
-//    public void sendAudioToFastApiAsync(Long userId, Long aiInterviewId, byte[] audioBytes, String filename, String contentType) {
-//        log.info("[===Async=== AiInterviewAsyncServiceImpl] FastAPI로 음성 분석을 위한 바이트 전달, userId: {}, aiInterviewId, {}", userId, aiInterviewId);
-//
-//        try {
-//            // 1. FastAPI로 음성 바이트 전송하기 위해 객체에 담기
-//            FastVoiceAnalysisRequest request = new FastVoiceAnalysisRequest();
-//            request.setAudioData(audioBytes);
-//            // 2. 점수 리턴
-//            FastScoreResponse response = fastApiClient.sendAudioToFastApi(
-//                    "/analyses/voice", // 여기에는 uri가 정해지면 넣자
-//                    audioBytes,
-//                    filename,
-//                    FastScoreResponse.class
-//            );
-//
-//            // 3. 레디스에 userId + aiInterviewId + 점수를 키로 하고, value에는 리스트 형식으로 점수를 하나씩 추가하기
-//            String voiceRedisKey = "voice_score:" + userId + ":" + aiInterviewId;
-//            saveScoreInRedis(voiceRedisKey, String.valueOf(response.getScore()));
-//
-//        } catch (Exception e) {
-//            log.error("[===Async=== AiInterviewAsyncServiceImpl] FastAPI 음성 분석 로직 중 에러 발생, userId: {}, aiInterviewId,{}",
-//                    userId, aiInterviewId, e);
-//        }
-//    }
     @Override
     @Async
     public void sendAudioToFastApiAsync(Long userId, Long aiInterviewId, byte[] audioBytes, String filename, String contentType) {
         log.info("[===Async===] FastAPI 음성 분석 요청 시작...");
 
         try {
-            // 💡 폴링 없이 바로 기다립니다. (FastAPI가 분석 후 VoiceResult를 바로 리턴해 줍니다)
             VoiceResult finalResult = fastApiClient.sendAudioToFastApi(
                     "/analyses/voice",
                     audioBytes,
@@ -214,7 +186,7 @@ public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
             saveScoreInRedis(eyeRedisKey, String.valueOf(gazeScore)); // redis에 사용자 시선 점수 저장
 
             FastScoreResponse response = fastApiClient.sendToFastApi( // FastAPI로 표정 좌표 넘겨서 점수 하나만 리턴 받기
-                    "", // uri가 정해지면 넣자
+                    "/analyses/face", // uri가 정해지면 넣자
                     fastApiFrames,
                     FastScoreResponse.class
             );
@@ -225,6 +197,28 @@ public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
             log.info(">> Redis 비언어적 점수 누적 완료! (시선: {}점 [패널티 {}회])", gazeScore, totalPenaltyCount);
         } catch (Exception e) {
             log.error("[===Async=== AiInterviewAsyncServiceImpl] 비언어적 데이터 분석 중 에러 발생, userId: {}, aiInterviewId: {}",
+                    userId, aiInterviewId, e);
+        }
+    }
+
+    @Override
+    @Transactional
+    @Async
+    public void interviewComplete(Long userId, Long aiInterviewId) {
+        log.info("[===Async=== AiInterviewAsyncServiceImpl] AI 모의 면접 완료!!!");
+
+        try {
+            // 1. DB의 aiIntervewsRepository를 통해 면접 "doing"에서 "done"으로 변경
+            // 2. redis에서 기존 점수들을 각각 가져와서 평균 계산.
+            // 3. DB의 aiComprehensiveReport 엔티티 참고해서 각각의 평균점수 계산해서 넣기
+            // 4. 전체 내용 분석해서 개선하면 좋을 점을 도출하기....
+            // 4-1. 점수에 관한 내용과 답변에 관한 내용을 도출???
+            // 4-2. 이때 분석 내용에는 잘한점들과 개선할 점이 있어야 한다.
+
+
+
+        } catch (Exception e) {
+            log.error("[===Async=== AiInterviewAsyncServiceImpl] 모의 면접 AI 레포트 발행 중 에러 발생, userId: {}, aiInterviewId: {}",
                     userId, aiInterviewId, e);
         }
     }

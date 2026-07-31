@@ -100,5 +100,16 @@ public class AiInterviewController {
 
 
 //    이 요청은 나중에 MediaPipe랑 WebGazer 되면 만들자
-//    @PostMapping("{aiInterviewId}/complete")
+    @PostMapping("{aiInterviewId}/complete")
+    public ResponseEntity<ApiResponse<Void>> complete(
+            HttpServletRequest request,
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long aiInterviewId) {
+
+        asyncService.interviewComplete(userId, aiInterviewId);
+
+        return ResponseEntity.ok( // 전달 받은 요청만 처리하는 거라서 data는 없다.
+                ApiResponse.success(
+                        HttpStatus.OK, "면접 종료 후 AI 리포트 발행 요청 완료", null, request));
+    }
 }
