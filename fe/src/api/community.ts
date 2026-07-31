@@ -190,31 +190,24 @@ export async function fetchSearchSuggestions(query: string): Promise<string[]> {
     .slice(0, 6)
 }
 
-export async function createPost(
-  draft: CommunityPostDraft,
-  author = CURRENT_USER,
-): Promise<CommunityPost> {
-  await delay()
-  const post: CommunityPost = {
-    id: `local-${Date.now()}`,
-    category: draft.category ?? 'tip',
-    title: draft.title,
-    excerpt: draft.contentHtml.replace(/<[^>]+>/g, ' ').trim().slice(0, 80),
-    contentHtml: draft.contentHtml,
-    author,
-    createdAt: new Date().toISOString(),
-    tags: draft.tags,
-    viewCount: 0,
-    commentCount: 0,
-    likeCount: 0,
-    liked: false,
-    bookmarked: false,
-    visibility: draft.visibility,
-    allowComments: draft.allowComments,
-    notify: draft.notify,
-  }
-  createdPosts.unshift(post)
-  return post
+// 공개 범위(visibility)는 대응하는 백엔드 필드가 없어 전송하지 않는다.
+// TODO: 파일 업로드 API 연동 필요
+const toPostRequestBody = (draft: CommunityPostDraft) => ({
+  category: draft.category ? CATEGORY_META[draft.category].label : '',
+  title: draft.title,
+  content: draft.contentHtml,
+  allowComments: draft.allowComments,
+  receiveNotifications: draft.notify,
+  tags: draft.tags,
+})
+
+// 생성된 게시글의 id를 문자열로 돌려준다.
+export async function createPost(draft: CommunityPostDraft): Promise<string> {
+  const postId = await backendRequest<number>('/api/posts', {
+    method: 'POST',
+    body: JSON.stringify(toPostRequestBody(draft)),
+  })
+  return String(postId)
 }
 
 export async function updatePost(
