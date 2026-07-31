@@ -10,6 +10,7 @@ import {
   uploadPostFiles,
 } from '@/api/community'
 import { toErrorMessage } from '@/api/http'
+import { AuthenticatedImage } from '@/components/common/AuthenticatedImage'
 import { PageTransition } from '@/components/common/PageTransition'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
 import { FileDropzone } from '@/components/form/FileDropzone'
@@ -602,7 +603,7 @@ export function CommunityWritePage() {
                               : 'border-line hover:border-ink-400',
                           )}
                         >
-                          <img
+                          <AuthenticatedImage
                             src={src}
                             alt=""
                             className="block size-24 object-cover"

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { Bookmark, Eye, Heart, MessageCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { AuthenticatedImage } from '@/components/common/AuthenticatedImage'
 import { CategoryBadge, TagChip } from '@/components/community/badges'
 import { RollingCounter } from '@/components/community/RollingCounter'
 import { formatCompactCount } from '@/lib/format'
@@ -70,7 +71,7 @@ export function PostCard({ post, onToggleBookmark, onToggleLike }: PostCardProps
           <p className="mt-1.5 line-clamp-1 text-body-2 text-ink-500">{post.excerpt}</p>
         </div>
         {post.thumbnail ? (
-          <img
+          <AuthenticatedImage
             src={post.thumbnail}
             alt=""
             aria-hidden="true"

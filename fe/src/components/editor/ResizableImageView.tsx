@@ -2,6 +2,7 @@ import type { NodeViewProps } from '@tiptap/react'
 import { NodeViewWrapper } from '@tiptap/react'
 import { AlignCenter, AlignLeft, AlignRight } from 'lucide-react'
 import { useRef, useState } from 'react'
+import { AuthenticatedImage } from '@/components/common/AuthenticatedImage'
 import { cn } from '@/lib/utils'
 
 export type ImageAlign = 'left' | 'center' | 'right'
@@ -74,7 +75,7 @@ export function ResizableImageView({ node, updateAttributes, selected, editor }:
         )}
         style={{ width }}
       >
-        <img
+        <AuthenticatedImage
           src={node.attrs.src as string}
           alt={(node.attrs.alt as string | null) ?? ''}
           draggable={false}

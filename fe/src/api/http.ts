@@ -15,6 +15,28 @@ export function getBackendAssetUrl(path: string) {
   return `${backendBaseUrl}/${path.replace(/^\/+/, '')}`
 }
 
+const resolveBackendUrl = (pathOrUrl: string) => {
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl
+  if (
+    pathOrUrl === backendBaseUrl ||
+    pathOrUrl.startsWith(`${backendBaseUrl}/`) ||
+    pathOrUrl.startsWith('/backend/')
+  ) {
+    return pathOrUrl
+  }
+  return getBackendAssetUrl(pathOrUrl)
+}
+
+export function isBackendAssetUrl(source: string) {
+  if (!source || source.startsWith('blob:') || source.startsWith('data:')) {
+    return false
+  }
+  return (
+    source.startsWith(getBackendAssetUrl('/images/')) ||
+    source.startsWith('/backend/images/')
+  )
+}
+
 export const unauthorizedEvent = 'ait:unauthorized'
 
 interface ReissueResponse {
@@ -151,6 +173,47 @@ export async function backendRequest<T>(
     true,
   )
   return response.data
+}
+
+async function requestBackendAsset(
+  source: string,
+  hasRetried = false,
+): Promise<Blob> {
+  const headers = new Headers()
+  const accessToken = getStoredAccessToken()
+  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
+
+  const response = await fetch(resolveBackendUrl(source), {
+    headers,
+    credentials: 'include',
+  })
+
+  if (
+    response.status === 401 &&
+    !hasRetried &&
+    (await reissueAccessToken())
+  ) {
+    return requestBackendAsset(source, true)
+  }
+
+  if (!response.ok) {
+    const payload = await parseBody(response)
+    if (response.status === 401) {
+      window.dispatchEvent(new Event(unauthorizedEvent))
+    }
+    throw new ApiError(
+      extractErrorMessage(payload, '이미지를 불러오지 못했습니다.'),
+      response.status,
+      payload,
+    )
+  }
+
+  return response.blob()
+}
+
+// <img> 태그가 붙일 수 없는 Bearer 토큰을 fetch에 담아 보호된 이미지 원본을 읽는다.
+export function fetchBackendAssetBlob(source: string) {
+  return requestBackendAsset(source)
 }
 
 // 다양한 예외를 사용자에게 보여줄 한국어 메시지로 변환한다. TypeError는 네트워크 연결 실패로 간주한다.
