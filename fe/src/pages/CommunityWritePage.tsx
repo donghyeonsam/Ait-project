@@ -22,13 +22,13 @@ import { Dropdown } from '@/components/ui/dropdown'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToastStack } from '@/components/ui/toast'
 import { CATEGORY_OPTIONS } from '@/lib/community-categories'
+import { COMMUNITY_TAG_SUGGESTIONS } from '@/lib/community-suggestions'
 import { formatRelativeTime } from '@/lib/format'
 import { collapseSection } from '@/lib/motion'
 import { useAuth } from '@/lib/useAuth'
 import { useToasts } from '@/lib/useToasts'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
 import { cn } from '@/lib/utils'
-import { mockTagSuggestions } from '@/mocks/community'
 import type {
   CommunityCategory,
   CommunityPostDraft,
@@ -574,7 +574,11 @@ export function CommunityWritePage() {
 
               {/* 태그 */}
               <FormSection label="태그" labelId="write-tags">
-                <TagInput tags={tags} onChange={setTags} suggestions={mockTagSuggestions} />
+                <TagInput
+                  tags={tags}
+                  onChange={setTags}
+                  suggestions={COMMUNITY_TAG_SUGGESTIONS}
+                />
               </FormSection>
 
               {/* 게시 설정 */}
