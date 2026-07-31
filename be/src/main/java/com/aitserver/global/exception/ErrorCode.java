@@ -31,6 +31,8 @@ public enum ErrorCode {
 
     // AI 모의 면접 관련 에러
     FASTAPI_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "AI_INTERVIEW_001", "AI 질문 생성 중 서버 에러 발생"),
+    INTERVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_INTERVIEW_002", "해당 면접 기록을 찾을 수 없거나 접근 권한이 없습니다."),
+    REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_INTERVIEW_003", "해당 면접의 종합 평가 리포트가 아직 생성되지 않았거나 존재하지 않습니다."),
 
     //GITHUB 관련 에러
     GITHUB_APP_NOT_FOUND(HttpStatus.NOT_FOUND, "GITHUB_001", "깃허브 연동 정보가 존재하지 않습니다."),
