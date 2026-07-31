@@ -233,30 +233,48 @@ describe('createPost', () => {
   })
 })
 
-describe('community mock CRUD', () => {
-  it('작성자는 목업 게시글을 수정하고 삭제한다', async () => {
-    const updated = await updatePost(
-      'post-1',
-      {
-        ...draft,
-        title: '수정된 CRUD 테스트 게시글',
-        contentHtml: '<p>수정된 게시글 내용입니다.</p>',
-      },
-      '김싸피',
+describe('updatePost', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('수정 폼 값을 요청 본문으로 변환해 수정 엔드포인트를 호출한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 200,
+          message: '게시글 수정 성공',
+          data: null,
+          error: null,
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
     )
+    vi.stubGlobal('fetch', fetchMock)
 
-    expect(updated.title).toBe('수정된 CRUD 테스트 게시글')
+    await updatePost('11', { ...draft, title: '수정된 제목' })
 
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/backend/api/posts/11')
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit
+    expect(init.method).toBe('PUT')
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      category: '면접 팁',
+      title: '수정된 제목',
+      content: '<p>게시글 수정과 삭제 동작을 확인합니다.</p>',
+    })
+  })
+})
+
+describe('community mock CRUD', () => {
+  it('작성자는 목업 게시글을 삭제한다', async () => {
     await deletePost('post-1', '김싸피')
     await expect(
       deletePost('post-1', '김싸피'),
     ).rejects.toThrow('게시글을 찾을 수 없습니다.')
   })
 
-  it('작성자가 아닌 사용자의 수정과 삭제를 거부한다', async () => {
-    await expect(
-      updatePost('post-2', draft, '김싸피'),
-    ).rejects.toThrow('수정할 권한이 없습니다.')
+  it('작성자가 아닌 사용자의 삭제를 거부한다', async () => {
     await expect(
       deletePost('post-2', '김싸피'),
     ).rejects.toThrow('삭제할 권한이 없습니다.')
