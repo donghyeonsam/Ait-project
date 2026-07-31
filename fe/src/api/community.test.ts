@@ -79,6 +79,38 @@ describe('fetchPosts', () => {
     })
   })
 
+  it('검색어를 다듬어 keyword 파라미터로 전달한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(pageResponse())
+    vi.stubGlobal('fetch', fetchMock)
+
+    await fetchPosts({
+      tab: 'latest',
+      category: 'all',
+      offset: 0,
+      limit: 3,
+      query: '  카카오 면접  ',
+    })
+
+    const url = new URL(String(fetchMock.mock.calls[0]?.[0]), 'http://localhost')
+    expect(url.searchParams.get('keyword')).toBe('카카오 면접')
+  })
+
+  it('빈 검색어는 keyword 파라미터를 보내지 않는다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(pageResponse())
+    vi.stubGlobal('fetch', fetchMock)
+
+    await fetchPosts({
+      tab: 'latest',
+      category: 'all',
+      offset: 0,
+      limit: 3,
+      query: '   ',
+    })
+
+    const url = new URL(String(fetchMock.mock.calls[0]?.[0]), 'http://localhost')
+    expect(url.searchParams.has('keyword')).toBe(false)
+  })
+
   it('전체 카테고리·최신 탭이면 category 없이 LATEST로 조회한다', async () => {
     const fetchMock = vi.fn().mockResolvedValue(pageResponse({ last: true }))
     vi.stubGlobal('fetch', fetchMock)

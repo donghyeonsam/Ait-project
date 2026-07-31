@@ -100,8 +100,12 @@ export async function fetchPosts({
   category,
   offset,
   limit,
+  query,
 }: FetchPostsParams): Promise<FetchPostsResult> {
   const searchParams = new URLSearchParams()
+  if (query?.trim()) {
+    searchParams.set('keyword', query.trim())
+  }
   if (category !== 'all') {
     searchParams.set('category', CATEGORY_META[category].label)
   }
@@ -140,6 +144,7 @@ export async function fetchTrendingKeywords(): Promise<TrendingKeyword[]> {
   return mockTrendingKeywords
 }
 
+// 검색어 자동완성은 대응하는 백엔드 API가 없어 목업을 유지한다. TODO: 실제 API 연동 필요
 export async function fetchSearchSuggestions(query: string): Promise<string[]> {
   await delay()
   const keyword = query.trim().toLowerCase()
