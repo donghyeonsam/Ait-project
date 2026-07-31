@@ -7,6 +7,7 @@ import {
 import { toErrorMessage } from '@/api/http'
 import { getMyResume } from '@/api/resume'
 import { PageLayout } from '@/components/layout/PageLayout'
+import { ScreenFadeCurtain } from '@/components/common/ScreenFadeCurtain'
 import { Step1InterviewType } from '@/components/interview/Step1InterviewType'
 import { Step2ApplyInfo } from '@/components/interview/Step2ApplyInfo'
 import { Step2CsTopics } from '@/components/interview/Step2CsTopics'
@@ -27,6 +28,7 @@ export function InterviewsPage() {
   const [resumeId, setResumeId] = useState<number | null>(null)
   const [preparationError, setPreparationError] = useState<string | null>(null)
   const [isPreparationLoading, setIsPreparationLoading] = useState(true)
+  const [isLeavingToSession, setIsLeavingToSession] = useState(false)
   const { currentStep, state, showApplyInfo, showCsTopics } = survey
   const isLastStep = currentStep === SURVEY_STEP_COUNT
   const showStepIntro = currentStep < 4
@@ -63,11 +65,10 @@ export function InterviewsPage() {
     void prefetchInterviewQuestions(createInterviewInputContract(state, resumeId))
   }, [currentStep, state, resumeId])
 
+  // 마지막 단계에서는 화면이 검게 덮인 뒤에 세션으로 이동해 블랙 페이드 전환을 만든다.
   const handleNext = () => {
     if (isLastStep) {
-      navigate('/interviews/session', {
-        state: createInterviewSessionNavigationState(state, resumeId),
-      })
+      setIsLeavingToSession(true)
       return
     }
     survey.goNext()
@@ -159,6 +160,17 @@ export function InterviewsPage() {
           </div>
         </div>
       </div>
+
+      {isLeavingToSession ? (
+        <ScreenFadeCurtain
+          covered
+          onCoverComplete={() =>
+            navigate('/interviews/session', {
+              state: createInterviewSessionNavigationState(state, resumeId),
+            })
+          }
+        />
+      ) : null}
     </PageLayout>
   )
 }

@@ -524,6 +524,14 @@ button:not(:disabled) {
   animation: screen-fade-in var(--duration-slow) var(--easing-standard) both;
 }
 
+/* 화면 전환용 검은 장막. 면접 화면 배경색과 같은 색으로 덮어 전환을 잇는다. */
+.screen-fade-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-index-toast);
+  background: var(--color-theater-backdrop);
+}
+
 /* React Bits의 경계광 패턴을 발화 상태에 맞게 단순화했다.
    두꺼운 외곽 그림자 대신 얇은 기본 링 위로 작은 하이라이트가 천천히 이동한다. */
 .study-participant-speaking {
