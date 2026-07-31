@@ -6,6 +6,7 @@ import type {
   InterviewGoalType,
   InterviewStyle,
 } from '@/mocks/interview'
+import type { InterviewRecord, InterviewType } from '@/types/dashboard'
 
 export interface InterviewCoverLetter {
   id: number
@@ -181,4 +182,71 @@ export function completeInterview(aiInterviewId: number) {
   return backendRequest<void>(`/api/ai-interviews/${aiInterviewId}/complete`, {
     method: 'POST',
   })
+}
+
+// BE 리포트 목록 항목. 리포트가 생성된 면접만 내려오고 분석 중인 면접은 목록에 없다.
+interface ReportListItemResponse {
+  aiInterviewId: number
+  interviewType: string
+  difficulty: string
+  aiAttitudeStyle: string
+  status: string
+  score: number
+  createdAt: string
+  endedAt: string | null
+}
+
+const interviewTypeLabelMap: Record<string, InterviewType> = {
+  job: '직무',
+  cs: 'CS',
+  tech: '기술',
+  portfolio: '포폴',
+  comprehensive: '종합',
+}
+
+const difficultyLabelMap: Record<string, InterviewRecord['difficulty']> = {
+  easy: '쉬움',
+  normal: '보통',
+  hard: '어려움',
+}
+
+const formatRecordDate = (iso: string) => {
+  const date = new Date(iso)
+  return `${date.getFullYear()}. ${String(date.getMonth() + 1).padStart(2, '0')}. ${String(date.getDate()).padStart(2, '0')}`
+}
+
+const formatRecordDuration = (createdAt: string, endedAt: string | null) => {
+  if (!endedAt) return '-'
+  const totalSeconds = Math.max(
+    0,
+    Math.round((new Date(endedAt).getTime() - new Date(createdAt).getTime()) / 1000),
+  )
+  return `${Math.floor(totalSeconds / 60)}분 ${String(totalSeconds % 60).padStart(2, '0')}초`
+}
+
+// 리포트 목록을 화면 기록 모델로 바꿔 최신순으로 돌려준다.
+// 점수 증감은 응답에 없어 직전 면접과의 점수 차이로 계산한다.
+export async function getInterviewReports(): Promise<InterviewRecord[]> {
+  const items = await backendRequest<ReportListItemResponse[]>(
+    '/api/ai-interviews/result',
+  )
+  const ascending = [...items].sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt),
+  )
+  return ascending
+    .map((item, index): InterviewRecord => {
+      const type = interviewTypeLabelMap[item.interviewType] ?? '종합'
+      return {
+        id: item.aiInterviewId,
+        date: formatRecordDate(item.createdAt),
+        type,
+        difficulty: difficultyLabelMap[item.difficulty] ?? '보통',
+        title: `${type} 면접`,
+        score: item.score,
+        delta: index > 0 ? item.score - ascending[index - 1].score : 0,
+        duration: formatRecordDuration(item.createdAt, item.endedAt),
+        status: item.status === 'done' ? 'completed' : 'analyzing',
+      }
+    })
+    .reverse()
 }

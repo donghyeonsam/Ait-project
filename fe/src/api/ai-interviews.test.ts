@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   completeInterview,
   generateInterviewQuestions,
+  getInterviewReports,
   submitInterviewAnswer,
 } from '@/api/ai-interviews'
 import type { InterviewInputContract } from '@/lib/interview-session'
@@ -194,5 +195,82 @@ describe('completeInterview', () => {
       '/backend/api/ai-interviews/101/complete',
     )
     expect((fetchMock.mock.calls[0]?.[1] as RequestInit).method).toBe('POST')
+  })
+})
+
+describe('getInterviewReports', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('리포트 목록을 화면 기록 모델로 바꾸고 직전 면접 대비 증감을 계산한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 200,
+          timestamp: '2026-08-01T00:00:00Z',
+          path: '/api/ai-interviews/result',
+          message: '모의 면접 결과 목록을 조회했습니다.',
+          data: [
+            {
+              aiInterviewId: 12,
+              interviewType: 'cs',
+              difficulty: 'hard',
+              aiAttitudeStyle: 'pressure',
+              status: 'done',
+              score: 7.5,
+              createdAt: '2026-07-31T10:00:00',
+              endedAt: '2026-07-31T10:12:30',
+            },
+            {
+              aiInterviewId: 11,
+              interviewType: 'job',
+              difficulty: 'normal',
+              aiAttitudeStyle: 'realistic',
+              status: 'done',
+              score: 6.0,
+              createdAt: '2026-07-29T09:00:00',
+              endedAt: '2026-07-29T09:08:00',
+            },
+          ],
+          error: null,
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const records = await getInterviewReports()
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/backend/api/ai-interviews/result',
+    )
+    expect(records).toEqual([
+      {
+        id: 12,
+        date: '2026. 07. 31',
+        type: 'CS',
+        difficulty: '어려움',
+        title: 'CS 면접',
+        score: 7.5,
+        delta: 1.5,
+        duration: '12분 30초',
+        status: 'completed',
+      },
+      {
+        id: 11,
+        date: '2026. 07. 29',
+        type: '직무',
+        difficulty: '보통',
+        title: '직무 면접',
+        score: 6.0,
+        delta: 0,
+        duration: '8분 00초',
+        status: 'completed',
+      },
+    ])
   })
 })
