@@ -84,4 +84,18 @@ public class FastApiClient {
             throw new BusinessException(ErrorCode.FASTAPI_SERVER_ERROR);
         }
     }
+
+    public <R> R sendFaceDataToFastApi(String uri, Object body, Class<R> responseType) {
+        try {
+            log.info("[FastAPI 표정 데이터 전송] URI: {}", uri);
+            return audioApiRestClient.post()
+                    .uri(uri)
+                    .body(body)
+                    .retrieve()
+                    .body(responseType);
+        } catch (Exception e) {
+            log.error("[FastAPI 표정 데이터 전송 시스템 에러] URI: " + uri, e);
+            throw new BusinessException(ErrorCode.FASTAPI_SERVER_ERROR);
+        }
+    }
 }

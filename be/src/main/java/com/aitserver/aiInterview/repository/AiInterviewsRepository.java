@@ -8,9 +8,11 @@ import org.springframework.data.repository.query.Param;
 
 public interface AiInterviewsRepository extends JpaRepository<AiInterview, Long> {
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE AiInterview " +
-            "SET status = 'doing' " +
+            "SET status = :status " +
             "WHERE id = :aiInterviewId AND userId = :userId")
-    void updateStatus(@Param("userId") Long userId, @Param("aiInterviewId") Long aiInterviewId);
+    void updateStatus(@Param("userId") Long userId,
+                      @Param("aiInterviewId") Long aiInterviewId,
+                      @Param("status") String status);
 }

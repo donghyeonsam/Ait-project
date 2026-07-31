@@ -107,7 +107,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
         // 질문의 order 번호를 확인해서 1번일 때만 진행 상황을 ready에서 doing으로 변경
         if(questionRequest.getQuestion().getOrder() == 1) {
-            aiInterviewsRepository.updateStatus(userId, aiInterviewId);
+            aiInterviewsRepository.updateStatus(userId, aiInterviewId, "doing");
         }
 
         // interviewType을 바로 소문자로 변경
