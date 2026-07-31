@@ -28,6 +28,13 @@ DROP TABLE IF EXISTS `resumes`;
 DROP TABLE IF EXISTS `user_skills`;
 DROP TABLE IF EXISTS `users`;
 DROP TABLE IF EXISTS `study_session_participants`;
+DROP TABLE IF EXISTS `comment_likes`;
+DROP TABLE IF EXISTS `posts_comments`;
+DROP TABLE IF EXISTS `post_like_and_scrap`;
+DROP TABLE IF EXISTS `post_files`;
+DROP TABLE IF EXISTS `post_tags`;
+DROP TABLE IF EXISTS `tags`;
+DROP TABLE IF EXISTS `posts`;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -743,3 +750,85 @@ CREATE TABLE `peer_feedbacks` (
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci
   COMMENT='상호평가 기록';
+
+-- 1. 게시글 테이블
+CREATE TABLE `posts` (
+                         `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                         `user_id` BIGINT NOT NULL,
+                         `category` VARCHAR(50) NOT NULL,
+                         `title` VARCHAR(50) NOT NULL,
+                         `content` LONGTEXT NOT NULL,
+                         `allow_comments` TINYINT(1) DEFAULT 1,
+                         `receive_notifications` TINYINT(1) DEFAULT 1,
+                         `like_count` INT DEFAULT 0,
+                         `view_count` INT DEFAULT 0,
+                         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                         `updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                         `deleted_at` TIMESTAMP NULL DEFAULT NULL,
+                         CONSTRAINT `fk_posts_user_id` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+);
+
+-- 2. 태그 테이블
+CREATE TABLE `tags` (
+                        `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        `name` VARCHAR(50) NOT NULL UNIQUE, -- 태그명 완전일치 검색 및 중복 방지를 위해 UNIQUE 적용
+                        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. 게시글-태그 매핑 테이블
+CREATE TABLE `post_tags` (
+                             `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                             `post_id` BIGINT NOT NULL,
+                             `tag_id` BIGINT NOT NULL,
+                             CONSTRAINT `fk_post_tags_post_id` FOREIGN KEY (`post_id`) REFERENCES `posts`(`id`) ON DELETE CASCADE,
+                             CONSTRAINT `fk_post_tags_tag_id` FOREIGN KEY (`tag_id`) REFERENCES `tags`(`id`) ON DELETE CASCADE
+);
+
+-- 4. 첨부 파일/이미지 테이블
+CREATE TABLE `post_files` (
+                              `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                              `post_id` BIGINT NOT NULL,
+                              `original_filename` VARCHAR(255) NOT NULL,
+                              `stored_filename` VARCHAR(255) NOT NULL,
+                              `file_type` ENUM('IMAGE', 'PDF', 'OTHER') NOT NULL DEFAULT 'IMAGE', -- 확장자 구분
+                              `usage_type` ENUM('INLINE', 'ATTACHMENT') NOT NULL DEFAULT 'ATTACHMENT', -- 본문 삽입용인지, 단순 첨부용인지 구분
+                              `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                              CONSTRAINT `fk_post_files_post_id` FOREIGN KEY (`post_id`) REFERENCES `posts`(`id`) ON DELETE CASCADE
+);
+
+-- 5. 게시글 좋아요/스크랩 테이블
+CREATE TABLE `post_like_and_scrap` (
+                                       `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                       `post_id` BIGINT NOT NULL,
+                                       `user_id` BIGINT NOT NULL,
+                                       `type` ENUM('LIKE', 'SCRAP') NOT NULL DEFAULT 'LIKE',
+                                       `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                       CONSTRAINT `fk_like_scrap_post_id` FOREIGN KEY (`post_id`) REFERENCES `posts`(`id`) ON DELETE CASCADE,
+                                       CONSTRAINT `fk_like_scrap_user_id` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+);
+
+-- 6. 게시글 댓글 테이블 (
+CREATE TABLE `posts_comments` (
+                                  `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                  `post_id` BIGINT NOT NULL,
+                                  `user_id` BIGINT NOT NULL,
+                                  `parent_id` BIGINT NULL,
+                                  `content` TEXT NOT NULL,
+                                  `like_count` INT DEFAULT 0, -- 댓글 좋아요 정렬용 반정규화 컬럼
+                                  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                  `updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                                  `deleted_at` TIMESTAMP NULL DEFAULT NULL,
+                                  CONSTRAINT `fk_comments_post_id` FOREIGN KEY (`post_id`) REFERENCES `posts`(`id`) ON DELETE CASCADE,
+                                  CONSTRAINT `fk_comments_user_id` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+                                  CONSTRAINT `fk_comments_parent_id` FOREIGN KEY (`parent_id`) REFERENCES `posts_comments`(`id`) ON DELETE CASCADE
+);
+
+-- 7. 댓글 좋아요 테이블
+CREATE TABLE `comment_likes` (
+                                 `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                 `comment_id` BIGINT NOT NULL,
+                                 `user_id` BIGINT NOT NULL,
+                                 `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                 CONSTRAINT `fk_comment_likes_comment_id` FOREIGN KEY (`comment_id`) REFERENCES `posts_comments`(`id`) ON DELETE CASCADE,
+                                 CONSTRAINT `fk_comment_likes_user_id` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+);
