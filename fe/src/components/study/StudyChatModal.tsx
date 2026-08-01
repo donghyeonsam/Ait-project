@@ -3,9 +3,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toErrorMessage } from '@/api/http'
 import {
+  applyStudyGroupChatReactionUpdate,
   connectStudyGroupChat,
   getStudyGroupChats,
   sendStudyGroupChatMessage,
+  setStudyGroupChatReactionForUser,
   toggleStudyGroupChatReaction,
   type StudyGroupChatMessage,
 } from '@/api/study-group-chat'
@@ -194,7 +196,14 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
         setMessages((current) =>
           current.map((message) =>
             message.chatId === payload.chatId
-              ? { ...message, reactions: payload.reactions }
+              ? {
+                  ...message,
+                  reactions: applyStudyGroupChatReactionUpdate(
+                    message.reactions,
+                    payload,
+                    currentUserId,
+                  ),
+                }
               : message,
           ),
         )
@@ -213,7 +222,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
       setIsConnected(false)
       void client.deactivate()
     }
-  }, [open, selectedGroupId])
+  }, [currentUserId, open, selectedGroupId])
 
   useEffect(() => {
     if (!open || headerPopover === null) return
@@ -236,6 +245,30 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
 
   const toggleReaction = (chatId: number, emoji: string) => {
     if (selectedGroupId === null || !clientRef.current?.connected) return
+
+    if (currentUserId !== null) {
+      setMessages((current) =>
+        current.map((message) => {
+          if (message.chatId !== chatId) return message
+
+          const reacted = !message.reactions?.some(
+            (reaction) =>
+              reaction.emoji === emoji &&
+              reaction.userIds.includes(currentUserId),
+          )
+          return {
+            ...message,
+            reactions: setStudyGroupChatReactionForUser(
+              message.reactions,
+              emoji,
+              currentUserId,
+              reacted,
+            ),
+          }
+        }),
+      )
+    }
+
     toggleStudyGroupChatReaction(
       clientRef.current,
       selectedGroupId,

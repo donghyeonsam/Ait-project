@@ -28,11 +28,13 @@ import { studyChatEmojis } from '@/components/study/studyChatEmojis'
 import { cn } from '@/lib/utils'
 import { toErrorMessage } from '@/api/http'
 import {
+  applyStudyGroupChatReactionUpdate,
   connectStudyGroupChat,
   deleteStudyGroupChatNotice,
   getStudyGroupChats,
   sendStudyGroupChatMessage,
   sendStudyGroupChatNotice,
+  setStudyGroupChatReactionForUser,
   toggleStudyGroupChatReaction,
   type StudyGroupChatMessage,
 } from '@/api/study-group-chat'
@@ -155,7 +157,14 @@ export function StudyGroupChatPanel({
         setMessages((current) =>
           current.map((message) =>
             message.chatId === payload.chatId
-              ? { ...message, reactions: payload.reactions }
+              ? {
+                  ...message,
+                  reactions: applyStudyGroupChatReactionUpdate(
+                    message.reactions,
+                    payload,
+                    currentUserId,
+                  ),
+                }
               : message,
           ),
         )
@@ -234,6 +243,30 @@ export function StudyGroupChatPanel({
 
   const toggleReaction = (chatId: number, emoji: string) => {
     if (!clientRef.current?.connected) return
+
+    if (currentUserId !== null) {
+      setMessages((current) =>
+        current.map((message) => {
+          if (message.chatId !== chatId) return message
+
+          const reacted = !message.reactions?.some(
+            (reaction) =>
+              reaction.emoji === emoji &&
+              reaction.userIds.includes(currentUserId),
+          )
+          return {
+            ...message,
+            reactions: setStudyGroupChatReactionForUser(
+              message.reactions,
+              emoji,
+              currentUserId,
+              reacted,
+            ),
+          }
+        }),
+      )
+    }
+
     toggleStudyGroupChatReaction(clientRef.current, groupId, chatId, emoji)
   }
 
