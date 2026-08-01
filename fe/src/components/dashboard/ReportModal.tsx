@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { AlertCircle, ChevronDown, Play, ThumbsUp, TrendingUp } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -154,6 +156,7 @@ type ReportDetailState =
 // 접근성을 위해 열려 있는 동안 포커스를 모달 안에 가두고 Esc로 닫는다.
 export function ReportModal({ open, record, onClose }: ReportModalProps) {
   const navigate = useNavigate()
+  const shouldReduceMotion = useReducedMotion()
   const dialogRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
@@ -268,36 +271,57 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
     }
   }, [onClose, open])
 
-  return (
-    <div
-      className={cn('report-overlay', open && 'is-open')}
-      aria-hidden={!open}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose()
-        }
-      }}
-    >
-      <div
-        ref={dialogRef}
-        className={cn('report-dialog', open && 'is-open')}
-        role="dialog"
-        aria-modal={open ? 'true' : undefined}
-        aria-labelledby="report-title"
-      >
-        <div className="min-h-0 flex-1 overflow-y-auto px-10 pb-6 pt-10">
-          <header>
-            <h2 id="report-title" className="text-h2">
-              {record.title}
-            </h2>
-            <p className="mt-3 flex flex-wrap items-center gap-3 text-body-2 text-text-secondary">
-              <time>{record.date}</time>
-              <span aria-hidden="true">·</span>
-              <span>{record.type} 면접</span>
-              <span aria-hidden="true">·</span>
-              <span>{record.duration}</span>
-            </p>
-          </header>
+  return createPortal(
+    <AnimatePresence>
+      {open ? (
+        <motion.div
+          className="report-overlay"
+          initial={shouldReduceMotion ? false : { opacity: 0, backdropFilter: 'blur(0px)' }}
+          animate={{ opacity: 1, backdropFilter: 'blur(2px)' }}
+          exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.22 }}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              onClose()
+            }
+          }}
+        >
+          <motion.div
+            ref={dialogRef}
+            layoutId={
+              shouldReduceMotion ? undefined : `interview-report-${record.id}`
+            }
+            transition={
+              shouldReduceMotion
+                ? { duration: 0 }
+                : {
+                    layout: {
+                      type: 'spring',
+                      stiffness: 280,
+                      damping: 30,
+                      mass: 0.85,
+                    },
+                  }
+            }
+            className="report-dialog"
+            data-report-dialog={record.id}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="report-title"
+          >
+            <div className="report-dialog__body min-h-0 flex-1 overflow-y-auto px-10 pb-6 pt-10">
+              <header>
+                <h2 id="report-title" className="text-h2">
+                  {record.title}
+                </h2>
+                <p className="mt-3 flex flex-wrap items-center gap-3 text-body-2 text-text-secondary">
+                  <time>{record.date}</time>
+                  <span aria-hidden="true">·</span>
+                  <span>{record.type} 면접</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{record.duration}</span>
+                </p>
+              </header>
 
           {detailError ? (
             <section className="mt-6 flex min-h-72 flex-col items-center justify-center rounded-ait-s border border-border-default p-6 text-center" aria-label="리포트 조회 오류">
@@ -318,8 +342,8 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
             </section>
           ) : (
             <>
-              <section className="mt-6 grid grid-cols-[0.9fr_2.1fr] rounded-ait-s border border-border-default p-6" aria-label="면접 종합 분석">
-                <div className="flex min-h-56 flex-col items-center justify-start border-r border-chart-axis pr-6 text-center">
+              <section className="report-summary mt-6 grid grid-cols-[0.9fr_2.1fr] rounded-ait-s border border-border-default p-6" aria-label="면접 종합 분석">
+                <div className="report-score-panel flex min-h-56 flex-col items-center justify-start border-r border-chart-axis pr-6 text-center">
                   <h3 className="text-body-1 font-medium">종합 점수</h3>
                   <p className="mt-8 flex items-baseline gap-3 tabular-nums">
                     <strong className="text-report-score text-status-achievement">
@@ -343,7 +367,7 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
                     )}
                   </p>
                 </div>
-                <div className="pl-6">
+                <div className="report-radar-panel pl-6">
                   <h3 className="text-body-1 font-medium">역량 분석</h3>
                   {detail ? (
                     <RadarChart axes={toRadarAxes(detail)} active={open} />
@@ -355,7 +379,7 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
                 </div>
               </section>
 
-              <section className="mt-4 grid grid-cols-2 gap-8" aria-label="종합 피드백">
+              <section className="report-feedback-grid mt-4 grid grid-cols-2 gap-8" aria-label="종합 피드백">
                 <article className="rounded-ait-s border border-status-success bg-feedback-success p-4">
                   <h3 className="flex items-center gap-3 text-body-1 font-medium">
                     <ThumbsUp className="size-8 text-status-success" aria-hidden="true" />
@@ -418,20 +442,20 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
                         defaultOpen={index === 0}
                         title={`Q${index + 1}. ${question.question}`}
                       >
-                        <div className="grid grid-cols-3 divide-x divide-chart-axis">
-                          <div className="pr-6">
+                        <div className="report-question-grid grid grid-cols-3 divide-x divide-chart-axis">
+                          <div className="report-question-column pr-6">
                             <h4 className="text-body-2 font-medium">내 답변</h4>
                             <p className="mt-3 whitespace-pre-line text-body-2 leading-7 text-text-secondary">
                               {question.userAnswer}
                             </p>
                           </div>
-                          <div className="px-6">
+                          <div className="report-question-column px-6">
                             <h4 className="text-body-2 font-medium">AI 예시 답변</h4>
                             <p className="mt-3 whitespace-pre-line text-body-2 leading-7 text-text-secondary">
                               {question.aiAnswer}
                             </p>
                           </div>
-                          <div className="pl-6">
+                          <div className="report-question-column pl-6">
                             <h4 className="text-body-2 font-medium">피드백</h4>
                             <p className="mt-3 whitespace-pre-line text-body-2 leading-7 text-text-secondary">
                               {question.feedback}
@@ -453,33 +477,36 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
               </p>
             </>
           )}
-        </div>
+            </div>
 
-        <footer className="flex items-center justify-between border-t border-chart-axis bg-surface-default px-10 py-3">
-          <Button type="button" variant="secondary" className="min-w-44 font-medium">
-            <Play className="size-5" aria-hidden="true" />
-            영상 다시보기
-          </Button>
-          <div className="flex items-center gap-4">
-            <Button
-              ref={closeButtonRef}
-              type="button"
-              variant="secondary"
-              className="min-w-32 font-medium"
-              onClick={onClose}
-            >
-              닫기
-            </Button>
-            <Button
-              type="button"
-              className="min-w-40"
-              onClick={() => navigate('/interviews')}
-            >
-              다시 연습하기
-            </Button>
-          </div>
-        </footer>
-      </div>
-    </div>
+            <footer className="report-dialog__footer flex items-center justify-between border-t border-chart-axis bg-surface-default px-10 py-3">
+              <Button type="button" variant="secondary" className="min-w-44 font-medium">
+                <Play className="size-5" aria-hidden="true" />
+                영상 다시보기
+              </Button>
+              <div className="report-dialog__actions flex items-center gap-4">
+                <Button
+                  ref={closeButtonRef}
+                  type="button"
+                  variant="secondary"
+                  className="min-w-32 font-medium"
+                  onClick={onClose}
+                >
+                  닫기
+                </Button>
+                <Button
+                  type="button"
+                  className="min-w-40"
+                  onClick={() => navigate('/interviews')}
+                >
+                  다시 연습하기
+                </Button>
+              </div>
+            </footer>
+          </motion.div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>,
+    document.body,
   )
 }
