@@ -78,3 +78,8 @@ spring:
 file:
   upload:
     dir: C:/aitserver/uploads/
+
+google:
+  client:
+    id: ${GOOGLE_CLIENT_ID}
+    secret: ${GOOGLE_CLIENT_SECRET}

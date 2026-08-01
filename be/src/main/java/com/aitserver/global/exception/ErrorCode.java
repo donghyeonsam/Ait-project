@@ -19,6 +19,12 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "AUTH_003", "아이디 혹은 비밀번호가 일치하지 않습니다."),
     INVALID_PASSWORD(HttpStatus.BAD_REQUEST, "AUTH_004", "아이디 혹은 비밀번호가 일치하지 않습니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "AUTH_005", "토큰이 존재하지 않습니다."),
+    // OAUTH 관련
+    UNSUPPORTED_OAUTH_PROVIDER(HttpStatus.BAD_REQUEST, "OAUTH_001", "지원하지 않는 소셜 로그인입니다."),
+    INVALID_REDIRECT_URI(HttpStatus.BAD_REQUEST, "OAUTH_002", "허용되지 않은 redirect_uri 입니다."),
+    OAUTH_TOKEN_FAILED(HttpStatus.UNAUTHORIZED, "OAUTH_003", "소셜 토큰 발급에 실패했습니다."),
+    OAUTH_USERINFO_FAILED(HttpStatus.UNAUTHORIZED, "OAUTH_004", "소셜 사용자 정보 조회에 실패했습니다."),
+    OAUTH_EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "OAUTH_005", "소셜 계정 이메일이 확인되지 않았습니다."),
 
     // resume
     RESUME_NOT_FOUND(HttpStatus.NOT_FOUND, "RESUME_001", "이력서를 찾을 수 없습니다."),
