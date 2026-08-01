@@ -33,6 +33,19 @@ const interviewTypes: Array<'전체' | InterviewType> = [
 const RECORD_PAGE_SIZE = 4
 const TREND_POINT_COUNT = 7
 const DAY_MS = 24 * 60 * 60 * 1000
+const REPORT_POLL_INTERVAL_MS = 3_000
+
+// 아직 목록에 없는 분석 중 기록은 유지하고, 리포트가 생성된 기록은 서버 응답으로 교체한다.
+const mergeInterviewReports = (
+  previous: InterviewRecord[],
+  reports: InterviewRecord[],
+) => {
+  const reportIds = new Set(reports.map((report) => report.id))
+  const pending = previous.filter(
+    (record) => record.status === 'analyzing' && !reportIds.has(record.id),
+  )
+  return [...pending, ...reports]
+}
 
 // 'YYYY. MM. DD' 형식의 기록 날짜를 Date로 되돌린다.
 const parseRecordDate = (date: string) => new Date(date.replace(/\. /g, '-'))
@@ -70,15 +83,7 @@ export function DashboardInterviewsPage() {
     getInterviewReports()
       .then((result) => {
         if (cancelled) return
-        // 방금 종료한 분석 중 기록은 목록 응답에 아직 없으므로 화면 상태에 그대로 유지한다.
-        setRecords((previous) => {
-          const analyzing = previous.filter(
-            (record) =>
-              record.status === 'analyzing' &&
-              !result.some((item) => item.id === record.id),
-          )
-          return [...analyzing, ...result]
-        })
+        setRecords((previous) => mergeInterviewReports(previous, result))
         setLoadState('loaded')
       })
       .catch((error: unknown) => {
@@ -93,7 +98,6 @@ export function DashboardInterviewsPage() {
   }, [requestKey])
 
   // 면접 세션에서 넘어온 분석 중 기록을 목록 맨 위에 끼워 넣는다.
-  // TODO: 실제 API 연동 필요 - 분석 완료 폴링으로 완료 상태 전환
   useEffect(() => {
     const incoming = (location.state as DashboardNavState | null)
       ?.newAnalyzingRecord
@@ -108,6 +112,41 @@ export function DashboardInterviewsPage() {
     ])
     navigate(location.pathname, { replace: true, state: null })
   }, [location.pathname, location.state, navigate])
+
+  const hasAnalyzingRecords = records.some(
+    (record) => record.status === 'analyzing',
+  )
+
+  useEffect(() => {
+    if (loadState !== 'loaded' || !hasAnalyzingRecords) return
+
+    let cancelled = false
+    let pollTimer: number | undefined
+
+    const pollReports = async () => {
+      try {
+        const result = await getInterviewReports()
+        if (cancelled) return
+        setRecords((previous) => mergeInterviewReports(previous, result))
+      } catch {
+        // 일시적인 조회 실패는 분석 중 카드를 유지하고 다음 주기에 다시 확인한다.
+      } finally {
+        if (!cancelled) {
+          pollTimer = window.setTimeout(
+            pollReports,
+            REPORT_POLL_INTERVAL_MS,
+          )
+        }
+      }
+    }
+
+    pollTimer = window.setTimeout(pollReports, REPORT_POLL_INTERVAL_MS)
+
+    return () => {
+      cancelled = true
+      if (pollTimer !== undefined) window.clearTimeout(pollTimer)
+    }
+  }, [hasAnalyzingRecords, loadState])
 
   // 요약 지표. 이번 주(월요일 시작) 횟수와 하루 단위 연속 연습 일수를 기록 날짜로 계산한다.
   const stats = useMemo(() => {
