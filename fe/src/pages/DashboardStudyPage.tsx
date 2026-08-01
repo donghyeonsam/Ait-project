@@ -9,6 +9,7 @@ import { getMyStudyGroups, type MyStudyGroup } from '@/api/study-groups'
 import { toErrorMessage } from '@/api/http'
 import { ScoreTrendChart } from '@/components/dashboard/ScoreTrendChart'
 import { StudyRecordItem } from '@/components/dashboard/StudyRecordItem'
+import { StudySessionReportModal } from '@/components/dashboard/StudySessionReportModal'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -94,8 +95,8 @@ function SimpleStatCard({ icon, label, value }: { icon: ReactNode; label: string
   )
 }
 
-// 대시보드의 스터디 화면. 세션에서 받은 상호평가를 세션별 점수 추이·기록 리스트로 보여준다.
-// 세션 상세 리포트(AI 요약·팀원별 코멘트)는 별도 브랜치에서 진행 중이라 "리포트 보기"는 아직 자리만 잡아둔다.
+// 대시보드의 스터디 화면. 세션에서 받은 상호평가를 세션별 점수 추이·기록 리스트로 보여주고,
+// 리포트 보기를 누르면 세션 상세(종합 점수·역량 레이더·AI 총평·팀원별 평가) 모달을 띄운다.
 export function DashboardStudyPage() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -109,6 +110,8 @@ export function DashboardStudyPage() {
   >(null)
   const [groupFilter, setGroupFilter] = useState<number | 'all'>('all')
   const [sortOrder, setSortOrder] = useState<'latest' | 'oldest'>('latest')
+  const [selectedRecord, setSelectedRecord] = useState<StudyRecord | null>(null)
+  const [reportOpen, setReportOpen] = useState(false)
   const consumedNavState = useRef(false)
 
   useEffect(() => {
@@ -208,9 +211,11 @@ export function DashboardStudyPage() {
   }, [records, groupFilter, sortOrder, myGroups])
 
   const handleOpenReport = useCallback((record: StudyRecord) => {
-    // TODO: 실제 API 연동 필요 — 세션 상세 리포트 화면이 별도 브랜치에서 준비되면 그 경로로 이동한다.
-    console.log('스터디 세션 리포트 보기', record.sessionId)
+    setSelectedRecord(record)
+    setReportOpen(true)
   }, [])
+
+  const handleCloseReport = useCallback(() => setReportOpen(false), [])
 
   const isEmpty =
     loadState === 'loaded' && records.length === 0 && !pendingSession
@@ -376,6 +381,14 @@ export function DashboardStudyPage() {
           </section>
         </>
       )}
+
+      {selectedRecord ? (
+        <StudySessionReportModal
+          open={reportOpen}
+          record={selectedRecord}
+          onClose={handleCloseReport}
+        />
+      ) : null}
     </PageLayout>
   )
 }

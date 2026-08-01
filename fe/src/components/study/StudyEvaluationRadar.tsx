@@ -4,6 +4,7 @@ import {
   studyEvaluationCategories,
   type StudyEvaluationCategory,
 } from '@/mocks/study'
+import { cn } from '@/lib/utils'
 
 export type StudyEvaluationScores = Record<StudyEvaluationCategory, number>
 
@@ -13,6 +14,8 @@ interface StudyEvaluationRadarProps {
   caption?: string
   /** 지정하면 그래프 우측 상단에 평균 점수 배지를 띄운다. */
   averageScore?: number
+  /** 다른 카드 안에 이미 들어가 있을 때(예: 리포트 모달) 카드 테두리·배경과 설명 문구를 뺀다. */
+  bare?: boolean
 }
 
 const center = { x: 130, y: 112 }
@@ -43,6 +46,7 @@ export function StudyEvaluationRadar({
   scores,
   caption = '실시간 역량 그래프',
   averageScore,
+  bare = false,
 }: StudyEvaluationRadarProps) {
   const reduceMotion = useReducedMotion()
   const scorePoints = studyEvaluationCategories.map((category, index) =>
@@ -56,7 +60,12 @@ export function StudyEvaluationRadar({
     : { type: 'spring' as const, stiffness: 170, damping: 24 }
 
   return (
-    <figure className="relative rounded-ait-m border border-border-default bg-surface-default px-3 py-4 shadow-elevation-1">
+    <figure
+      className={cn(
+        'relative',
+        !bare && 'rounded-ait-m border border-border-default bg-surface-default px-3 py-4 shadow-elevation-1',
+      )}
+    >
       {typeof averageScore === 'number' ? (
         <div
           className="absolute bottom-3 right-3 flex items-baseline"
@@ -70,9 +79,11 @@ export function StudyEvaluationRadar({
         </div>
       ) : null}
 
-      <figcaption className="text-center text-body-2 font-semibold text-text-primary">
-        {caption}
-      </figcaption>
+      {bare ? null : (
+        <figcaption className="text-center text-body-2 font-semibold text-text-primary">
+          {caption}
+        </figcaption>
+      )}
       <svg
         viewBox="0 0 260 230"
         className="mx-auto mt-2 block h-auto w-full max-w-72 overflow-visible"

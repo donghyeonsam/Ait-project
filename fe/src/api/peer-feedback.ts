@@ -21,6 +21,21 @@ export function getMyPeerFeedbacksInSession(sessionId: number) {
   return backendRequest<PeerFeedback[]>(`/api/peer-feedback/${sessionId}/me`)
 }
 
+// 이 세션에서 내가 받은 평가 전체. 평가자별로 나뉘어 오고, 평가자 신원은 화면에서 밝히지 않는다.
+export function getReceivedPeerFeedbacksInSession(sessionId: number) {
+  return backendRequest<PeerFeedback[]>(`/api/peer-feedback/me/${sessionId}/received`)
+}
+
+export interface PeerSummary {
+  content: string
+}
+
+// TODO: 실제 API 연동 필요 — 세션 종료 시점에 코멘트를 모아 AI가 요약하는 백엔드 파이프라인이
+// 아직 없다. 요약이 없으면(404) 아직 생성 전으로 보고 "생성 중" 상태로 표시한다.
+export function getPeerSummary(sessionId: number) {
+  return backendRequest<PeerSummary>(`/api/peer-feedback/me/${sessionId}/summary`)
+}
+
 export interface PeerFeedbackCreateRequest {
   evaluateeId: number
   logicalScore: number
