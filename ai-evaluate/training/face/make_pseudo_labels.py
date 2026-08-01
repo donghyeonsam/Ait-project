@@ -5,7 +5,7 @@
 라벨링하지 않고 무거운 사전학습 모델의 출력을 정답(label_final)으로 삼는다.
 
 ⚠️ 이 스크립트만 ResNet50(VGGFace2->AffectNet 파인튜닝) + LSTM 을 로드한다.
-   서빙 서버에는 절대 올라가지 않는다 - core/face/ 의 116차원 집계벡터 + 경량 MLP
+   서빙 서버에는 절대 올라가지 않는다 - core/face/ 의 115차원 집계벡터 + 경량 MLP
    가 서빙을 담당하고, 이 스크립트가 만든 값은 그 MLP 를 학습시키는 라벨로만 쓰인다.
 
 [모델 출처]
@@ -39,6 +39,12 @@
      빨라지는 건 ResNet50 임베딩 추출 구간뿐이고, 전체 시간은 얼굴 검출이 지배할 수
      있다. 어느 쪽이 병목인지는 소량으로 먼저 재보는 것을 권한다.
 
+[person_id]
+  파일명에서 자동으로 추정한다(infer_person_id 참고). FI-V2 는
+  "{유튜브ID}.{클립번호}.mp4" 형식이라 유튜브ID 를, 팀 자체 촬영본은
+  "{본인번호}_{그룹}_{순번}.mp4" 형식이라 본인번호를 person_id 로 쓴다.
+  train_mlp.py 의 --group-split 이 이 값을 기준으로 사람 단위 분리를 한다.
+
 실행:
   pip install -r requirements.txt -r requirements-train.txt
 
@@ -56,6 +62,17 @@
 
 ⚠️ sanity check 필수: 아래에서 나온 label_final 중 몇 개를 실제 영상과 비교해보고
    납득 가능한지 확인할 것. 이 teacher 는 한국인 면접 영상으로 검증된 적이 없다.
+
+[2026-08-01 sanity check 결과 - FACE_TENSION_WEIGHTS Fear 1.0 -> 0.5 로 조정]
+  Fear top 클립(전체 2,000개 중 87개, 4.4%) 5개를 실제 영상으로 확인한 결과,
+  대부분 실제로 불안해 보이지 않고 "그냥 눈을 크게 뜨고 말하는" 표현 스타일이었다.
+  실제 EAR(눈 개폐 비율) 평균도 이 5개 클립이 0.53~0.71로 전체 200개 샘플 평균(0.48)
+  보다 뚜렷이 높아, teacher 가 진짜 공포가 아니라 "눈 크기"라는 얕은 시각 단서에
+  반응했다는 정황이 수치로도 확인됨. Fear/Surprise 는 눈 크게 뜨기 Action Unit을
+  공유해 FER 모델이 흔히 혼동하는 조합이기도 하다. Fear 가 87개뿐인데 가중치가
+  제일 높아(1.0) tension 분포의 "높은 쪽 꼬리"를 사실상 이 오분류가 만들고 있었다.
+  Disgust(0.5)와 같은 수준으로 낮춰 재실험한다 - 근본 해결(teacher 교체/실라벨
+  확보)은 아니지만, 지금 확인된 가장 값싼 개선점이다.
 """
 from __future__ import annotations
 
@@ -81,16 +98,20 @@ DICT_EMO = {0: "Neutral", 1: "Happiness", 2: "Sadness", 3: "Surprise",
 
 # 7클래스를 "자신감/긴장도" 스칼라로 재조합하는 가중치.
 # jungjongho(음성) 쪽 TENSION_WEIGHTS 와 같은 성격의 순수 휴리스틱이다.
-# Fear 를 가장 크게, Sadness/Disgust 를 중간, Surprise/Anger 를 약하게 잡았다 -
-# 면접 맥락에서 "놀람"은 어려운 질문에 대한 자연스러운 반응일 수 있고 "분노"는
-# 표정 오검출(찡그림 등)과 헷갈리기 쉬워 가중치를 낮췄다.
-# ⚠️ 반드시 우리 실제 면접 녹화로 재조정할 값이다.
+# Sadness/Disgust 를 중간, Surprise/Anger 를 약하게 잡았다 - 면접 맥락에서 "놀람"은
+# 어려운 질문에 대한 자연스러운 반응일 수 있고 "분노"는 표정 오검출(찡그림 등)과
+# 헷갈리기 쉬워 가중치를 낮췄다.
+# [2026-08-01] Fear 를 1.0 -> 0.5 로 낮춤. sanity check 결과 Fear top 클립들이
+# 실제로는 "눈을 크게 뜬" 표현 스타일이었고 EAR 수치도 뒷받침함(위 docstring 참고).
+# Fear/Surprise 가 눈 크게 뜨기 Action Unit을 공유해 혼동하기 쉬운 걸 감안해
+# Disgust 와 같은 수준으로 낮췄다.
+# ⚠️ 반드시 우리 실제 면접 녹화로 재조정할 값이다 - 이 조정도 여전히 휴리스틱이다.
 FACE_TENSION_WEIGHTS = {
     "Neutral": 0.0,
     "Happiness": 0.0,
     "Sadness": 0.6,
     "Surprise": 0.3,
-    "Fear": 1.0,
+    "Fear": 0.5,
     "Disgust": 0.5,
     "Anger": 0.4,
 }
@@ -355,6 +376,27 @@ def predict_clip_emotion_probs(features: np.ndarray, lstm_model, device) -> np.n
     return probs.cpu().numpy().mean(axis=0)
 
 
+def infer_person_id(stem: str) -> str:
+    """파일명(확장자 제외) -> person_id 추정.
+
+    train/val 을 사람 단위로 분리(--group-split)하려면 person_id 가 필요한데,
+    지금까지는 전부 "unknown" 으로 채워 데이터 누수(같은 사람이 train/val 양쪽에
+    섞임) 위험이 있었다. 두 가지 파일명 규칙을 지원한다.
+
+    - FI-V2: "{유튜브ID}.{클립번호}.mp4" -> stem 에 '.' 이 남아 있으므로
+      마지막 '.' 앞부분(유튜브ID)을 person_id 로 쓴다.
+    - 팀 자체 촬영본: "{본인번호}_{그룹}_{순번}.mp4" -> stem 에 '.' 이 없고
+      '_' 로 구분되므로 첫 '_' 앞부분(본인번호)을 person_id 로 쓴다.
+    - 둘 다 아니면 stem 전체를 person_id 로 쓴다(그룹 분리는 못 하지만
+      전부 "unknown"으로 뭉쳐 누수가 나는 것보다는 낫다).
+    """
+    if "." in stem:
+        return stem.rsplit(".", 1)[0]
+    if "_" in stem:
+        return stem.split("_", 1)[0]
+    return stem
+
+
 def load_models(lstm_corpus: str, device):
     """가중치를 받아 두 모델을 복원하고 지정한 device 로 올린다.
 
@@ -433,7 +475,7 @@ def main():
             rows.append({
                 "clip_id": path.stem,
                 "file_name": path.name,
-                "person_id": "unknown",   # 알고 있다면 나중에 CSV 에서 직접 채워 넣을 것
+                "person_id": infer_person_id(path.stem),
                 "labeler_a": "",
                 "labeler_b": "",
                 "label_final": confidence,
@@ -441,7 +483,8 @@ def main():
                         f"top={top} {label_probs[top]:.2f}, tension={tension:.3f}) - 사람 검수 전",
             })
             print(f"[ok] {path.name} top={top}({label_probs[top]:.2f}) "
-                  f"confidence={confidence:.3f} tension={tension:.3f}")
+                  f"confidence={confidence:.3f} tension={tension:.3f} "
+                  f"person_id={rows[-1]['person_id']}")
 
     if not rows:
         raise SystemExit("생성된 라벨이 없습니다(모든 영상에서 얼굴 검출 실패).")
@@ -460,9 +503,7 @@ def main():
         " 확인하세요.\n   이 teacher(EMO-AffectNet)는 연기 발화 코퍼스(RAVDESS 등)와"
         " 유튜브 반응 영상(Aff-Wild2)으로 학습됐고,\n   한국인 면접 영상으로는 검증된 적이"
         " 없습니다. FACE_TENSION_WEIGHTS 매핑도 순수 휴리스틱이라 이 스크립트 상단"
-        " 가중치를\n   우리 데이터로 직접 검증/조정해야 합니다. person_id 는 'unknown'"
-        "으로 채워지므로, 사람 단위 train/val 분리(group-split)가 필요하면\n   출력된"
-        " CSV 에서 직접 채워 넣으세요."
+        " 가중치를\n   우리 데이터로 직접 검증/조정해야 합니다."
     )
 
 
