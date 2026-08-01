@@ -50,6 +50,8 @@ export interface CenterFlowProps {
   glowColorLight?: string;
   /** Maximum glow intensity */
   maxGlowIntensity?: number;
+  /** Base glow intensity while idle */
+  baseGlow?: number;
   /** Glow decay speed (higher = faster decay) */
   glowDecay?: number;
   /** Border radius for center square */
@@ -58,6 +60,8 @@ export interface CenterFlowProps {
   nodeDistance?: number;
   /** Disable glow intensification when pulses arrive */
   disableBlinking?: boolean;
+  /** Spawn pulses on all paths simultaneously so they arrive together */
+  syncPulses?: boolean;
   className?: string;
 }
 
@@ -123,10 +127,12 @@ const CenterFlow: React.FC<CenterFlowProps> = ({
   glowColor = "#e724eb",
   glowColorLight = "#e724eb",
   maxGlowIntensity = 25,
+  baseGlow = BASE_GLOW,
   glowDecay = 0.95,
   borderRadius = 35,
   nodeDistance = 0.7,
   disableBlinking = false,
+  syncPulses = false,
   className,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -205,7 +211,7 @@ const CenterFlow: React.FC<CenterFlowProps> = ({
     const updateGlow = () => {
       if (glowRef.current) {
         const dynamicIntensity = glowIntensityRef.current;
-        const totalIntensity = BASE_GLOW + dynamicIntensity;
+        const totalIntensity = baseGlow + dynamicIntensity;
         const spread = totalIntensity * 0.8;
         const blur = totalIntensity * 1.5;
         const alpha = Math.min(255, Math.floor(totalIntensity * 4))
@@ -222,9 +228,27 @@ const CenterFlow: React.FC<CenterFlowProps> = ({
     };
     frameId = requestAnimationFrame(updateGlow);
     return () => cancelAnimationFrame(frameId);
-  }, [activeGlowColor, glowDecay]);
+  }, [activeGlowColor, glowDecay, baseGlow]);
 
   useEffect(() => {
+    // 진행률이 시간 기반이라 출발 시각만 맞추면 경로 길이와 무관하게 도착도 동시가 된다.
+    if (syncPulses) {
+      const spawnAll = () => {
+        const now = Date.now();
+        setPulses((prev) => [
+          ...prev,
+          ...nodePositions.map((_, pathIndex) => ({
+            id: `${pathIndex}-${now}-${Math.random().toString(36).substr(2, 9)}`,
+            pathIndex,
+            startTime: now,
+          })),
+        ]);
+      };
+      spawnAll();
+      const interval = setInterval(spawnAll, pulseInterval * 1000);
+      return () => clearInterval(interval);
+    }
+
     const timeouts: ReturnType<typeof setTimeout>[] = [];
 
     const spawnPulseForPath = (pathIndex: number) => {
@@ -252,7 +276,7 @@ const CenterFlow: React.FC<CenterFlowProps> = ({
     });
 
     return () => timeouts.forEach(clearTimeout);
-  }, [nodePositions, pulseInterval]);
+  }, [nodePositions, pulseInterval, syncPulses]);
 
   useEffect(() => {
     let frameId: number;
