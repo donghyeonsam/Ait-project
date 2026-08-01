@@ -34,6 +34,27 @@ export function toEvaluationScores(feedback: PeerFeedback) {
   )
 }
 
+// 서버가 세션 단위 항목별 집계를 내려주지 않아, 받은 평가를 프론트에서 항목별로 평균 낸다.
+// 소수 한 자리까지만 남겨 축 라벨과 그래프가 흔들리지 않게 한다.
+export function averageEvaluationScores(feedbacks: PeerFeedback[]) {
+  return studyEvaluationCategories.reduce<StudyEvaluationScores>(
+    (result, category) => {
+      if (feedbacks.length === 0) {
+        result[category] = 0
+        return result
+      }
+
+      const total = feedbacks.reduce(
+        (sum, feedback) => sum + feedback[scoreFieldByCategory[category]],
+        0,
+      )
+      result[category] = Math.round((total / feedbacks.length) * 10) / 10
+      return result
+    },
+    {} as StudyEvaluationScores,
+  )
+}
+
 export function toPeerFeedbackCreateRequest(
   evaluateeId: number,
   scores: StudyEvaluationScores,
