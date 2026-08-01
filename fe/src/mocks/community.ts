@@ -1,7 +1,4 @@
-import type {
-  CommunityPost,
-  TrendingKeyword,
-} from '@/types/community'
+import type { CommunityPost } from '@/types/community'
 
 // 커뮤니티 화면 확인용 목업 데이터. 스크린샷의 실제 콘텐츠를 우선 반영한다.
 // TODO: 실제 API 연동 필요
@@ -127,18 +124,4 @@ export const mockPosts: CommunityPost[] = [
       bookmarked: false,
     }
   }),
-]
-
-// 인기 태그 롤링용 10개. 등락은 ▲/▼/−/NEW 케이스를 모두 포함한다.
-export const mockTrendingKeywords: TrendingKeyword[] = [
-  { rank: 1, keyword: '삼성전자', change: 0 },
-  { rank: 2, keyword: 'SK 하이닉스', change: 2 },
-  { rank: 3, keyword: '카카오', change: -1 },
-  { rank: 4, keyword: '네이버', change: 1 },
-  { rank: 5, keyword: '기술면접', change: 0 },
-  { rank: 6, keyword: '토스', change: 'new' },
-  { rank: 7, keyword: '현대자동차', change: -2 },
-  { rank: 8, keyword: 'LG CNS', change: 1 },
-  { rank: 9, keyword: '자기소개', change: 0 },
-  { rank: 10, keyword: '쿠팡', change: 'new' },
 ]

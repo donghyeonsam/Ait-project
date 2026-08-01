@@ -57,8 +57,9 @@ export interface CommunityComment extends CommunityReply {
 export interface TrendingKeyword {
   rank: number
   keyword: string
+  // 백엔드 인기 태그 API는 등락 정보를 제공하지 않는다.
   // 양수 = 상승 폭, 음수 = 하락 폭, 0 = 변동 없음, 'new' = 신규 진입
-  change: number | 'new'
+  change?: number | 'new'
 }
 
 export interface CommunityPostDraft {
