@@ -68,4 +68,28 @@ public class CommentController {
         commentService.deleteComment(userId, commentId);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "댓글 삭제 성공", null, request));
     }
+
+    // ==========================================
+    // 3. 댓글 좋아요
+    // ==========================================
+
+    @PostMapping("/comments/{commentId}/likes")
+    public ResponseEntity<ApiResponse<Void>> addLike(
+            @PathVariable("commentId") Long commentId,
+            @AuthenticationPrincipal Long userId,
+            HttpServletRequest request) {
+
+        commentService.addLike(userId, commentId);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "댓글 좋아요 등록 성공", null, request));
+    }
+
+    @DeleteMapping("/comments/{commentId}/likes")
+    public ResponseEntity<ApiResponse<Void>> removeLike(
+            @PathVariable("commentId") Long commentId,
+            @AuthenticationPrincipal Long userId,
+            HttpServletRequest request) {
+
+        commentService.removeLike(userId, commentId);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "댓글 좋아요 취소 성공", null, request));
+    }
 }

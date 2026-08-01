@@ -144,4 +144,52 @@ public class CommentService {
 
         comment.softDelete();
     }
+
+    /**
+     * 5. 댓글 좋아요 등록
+     */
+    @Transactional
+    public void addLike(Long userId, Long commentId) {
+        PostComment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+
+        // 삭제된 댓글에는 좋아요 불가
+        if (comment.getDeletedAt() != null) {
+            throw new BusinessException(ErrorCode.COMMENT_ALREADY_DELETED);
+        }
+
+        // 중복 좋아요 방지
+        if (commentLikeRepository.existsByUserIdAndCommentId(userId, commentId)) {
+            throw new BusinessException(ErrorCode.ALREADY_LIKED_COMMENT);
+        }
+
+        User user = userRepository.getReferenceById(userId);
+
+        // 좋아요 엔티티 저장
+        commentLikeRepository.save(CommentLike.builder()
+                .comment(comment)
+                .user(user)
+                .build());
+
+        // 댓글 엔티티의 좋아요 수 증가 (Dirty Checking)
+        comment.increaseLikeCount();
+    }
+
+    /**
+     * 6. 댓글 좋아요 취소
+     */
+    @Transactional
+    public void removeLike(Long userId, Long commentId) {
+        PostComment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+
+        CommentLike commentLike = commentLikeRepository.findByUserIdAndCommentId(userId, commentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.LIKE_NOT_FOUND));
+
+        // 좋아요 엔티티 삭제
+        commentLikeRepository.delete(commentLike);
+
+        // 댓글 엔티티의 좋아요 수 감소 (Dirty Checking)
+        comment.decreaseLikeCount();
+    }
 }
