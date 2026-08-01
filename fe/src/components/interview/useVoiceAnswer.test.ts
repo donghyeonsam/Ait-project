@@ -1,14 +1,9 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { transcribeAnswer } from '@/api/speech'
 import {
   getSupportedAudioMimeType,
   useVoiceAnswer,
 } from '@/components/interview/useVoiceAnswer'
-
-vi.mock('@/api/speech', () => ({
-  transcribeAnswer: vi.fn(),
-}))
 
 class MockMediaStream {
   private readonly audioTracks: MediaStreamTrack[]
@@ -53,6 +48,54 @@ class MockMediaRecorder {
   }
 }
 
+interface MockRecognitionResult extends Array<{
+  transcript: string
+  confidence: number
+}> {
+  isFinal: boolean
+}
+
+interface MockRecognitionEvent extends Event {
+  resultIndex: number
+  results: MockRecognitionResult[]
+}
+
+interface MockRecognitionErrorEvent extends Event {
+  error: string
+}
+
+class MockSpeechRecognition {
+  static instances: MockSpeechRecognition[] = []
+
+  lang = ''
+  continuous = false
+  interimResults = false
+  maxAlternatives = 0
+  onresult: ((event: MockRecognitionEvent) => void) | null = null
+  onerror: ((event: MockRecognitionErrorEvent) => void) | null = null
+  onend: (() => void) | null = null
+  start = vi.fn()
+  stop = vi.fn(() => this.onend?.())
+  abort = vi.fn()
+
+  constructor() {
+    MockSpeechRecognition.instances.push(this)
+  }
+
+  emitResult(transcript: string, isFinal: boolean) {
+    const result = [{ transcript, confidence: 0.9 }] as MockRecognitionResult
+    result.isFinal = isFinal
+    this.onresult?.({
+      resultIndex: 0,
+      results: [result],
+    } as MockRecognitionEvent)
+  }
+
+  emitEnd() {
+    this.onend?.()
+  }
+}
+
 function createStreamWithTrack() {
   return new MockMediaStream([
     {} as MediaStreamTrack,
@@ -61,105 +104,83 @@ function createStreamWithTrack() {
 
 describe('useVoiceAnswer', () => {
   beforeEach(() => {
-    vi.mocked(transcribeAnswer).mockReset()
+    MockSpeechRecognition.instances = []
     vi.stubGlobal('MediaStream', MockMediaStream)
     vi.stubGlobal('MediaRecorder', MockMediaRecorder)
+    vi.stubGlobal('SpeechRecognition', MockSpeechRecognition)
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
-  it('녹음 종료 후 STT 전사 결과를 검토 상태로 만든다', async () => {
-    let resolveTranscription: (value: { text: string }) => void = () => {}
-    vi.mocked(transcribeAnswer).mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveTranscription = resolve
-        }),
-    )
+  it('브라우저 음성 인식의 중간 결과와 최종 결과를 답변에 반영한다', () => {
+    const { result } = renderHook(() => useVoiceAnswer(createStreamWithTrack()))
 
+    act(() => result.current.startRecording())
+
+    const recognition = MockSpeechRecognition.instances[0]
+    expect(result.current.status).toBe('recording')
+    expect(getSupportedAudioMimeType()).toBe('audio/webm;codecs=opus')
+    expect(recognition.lang).toBe('ko-KR')
+    expect(recognition.continuous).toBe(true)
+    expect(recognition.interimResults).toBe(true)
+    expect(recognition.maxAlternatives).toBe(1)
+
+    act(() => recognition.emitResult('테스트', false))
+    expect(result.current.transcript).toBe('테스트')
+
+    act(() => recognition.emitResult('테스트 답변입니다', true))
+    expect(result.current.transcript).toBe('테스트 답변입니다')
+
+    act(() => result.current.stopRecording())
+    expect(result.current.status).toBe('review')
+    expect(result.current.audioBlob?.size).toBeGreaterThan(0)
+    expect(result.current.error).toBeNull()
+  })
+
+  it('녹음 중 인식기가 종료되면 기본 API로 자동 재시작한다', () => {
+    vi.useFakeTimers()
+    const { result } = renderHook(() => useVoiceAnswer(createStreamWithTrack()))
+
+    act(() => result.current.startRecording())
+    const recognition = MockSpeechRecognition.instances[0]
+    expect(recognition.start).toHaveBeenCalledTimes(1)
+
+    act(() => recognition.emitEnd())
+    act(() => vi.advanceTimersByTime(150))
+
+    expect(recognition.start).toHaveBeenCalledTimes(2)
+    expect(result.current.status).toBe('recording')
+  })
+
+  it('음성 인식 미지원 브라우저에서도 녹음 후 직접 입력할 수 있다', () => {
+    vi.stubGlobal('SpeechRecognition', undefined)
+    vi.stubGlobal('webkitSpeechRecognition', undefined)
     const { result } = renderHook(() => useVoiceAnswer(createStreamWithTrack()))
 
     act(() => result.current.startRecording())
     expect(result.current.status).toBe('recording')
-    expect(getSupportedAudioMimeType()).toBe('audio/webm;codecs=opus')
-
-    act(() => result.current.stopRecording())
-    expect(result.current.status).toBe('processing')
-    expect(transcribeAnswer).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(transcribeAnswer).mock.calls[0]?.[0]?.size).toBeGreaterThan(0)
-
-    await act(async () => {
-      resolveTranscription({ text: '테스트 답변입니다' })
-    })
-
-    expect(result.current.status).toBe('review')
-    expect(result.current.transcript).toBe('테스트 답변입니다')
-    expect(result.current.audioBlob?.size).toBeGreaterThan(0)
-    expect(result.current.error).toBeNull()
-  })
-
-  it('전사가 실패해도 review로 진입해 수동 입력 경로를 남긴다', async () => {
-    vi.mocked(transcribeAnswer).mockRejectedValue(new Error('stt failed'))
-
-    const { result } = renderHook(() => useVoiceAnswer(createStreamWithTrack()))
-
-    act(() => result.current.startRecording())
-    await act(async () => result.current.stopRecording())
-
-    expect(result.current.status).toBe('review')
-    expect(result.current.transcript).toBe('')
-    expect(result.current.audioBlob?.size).toBeGreaterThan(0)
     expect(result.current.error).toContain('직접 입력')
-  })
 
-  it('retryTranscription은 보관된 Blob으로 전사를 다시 시도한다', async () => {
-    vi.mocked(transcribeAnswer).mockRejectedValueOnce(new Error('stt failed'))
-    vi.mocked(transcribeAnswer).mockResolvedValueOnce({ text: '재시도 성공' })
-
-    const { result } = renderHook(() => useVoiceAnswer(createStreamWithTrack()))
-
-    act(() => result.current.startRecording())
-    await act(async () => result.current.stopRecording())
-    expect(result.current.error).not.toBeNull()
-
-    const recordedBlob = result.current.audioBlob
-    await act(async () => result.current.retryTranscription())
-
-    expect(transcribeAnswer).toHaveBeenCalledTimes(2)
-    expect(vi.mocked(transcribeAnswer).mock.calls[1]?.[0]).toBe(recordedBlob)
-    expect(result.current.status).toBe('review')
-    expect(result.current.transcript).toBe('재시도 성공')
-    expect(result.current.error).toBeNull()
-  })
-
-  it('전사 대기 중 reset하면 요청을 중단하고 idle을 유지한다', async () => {
-    let resolveTranscription: (value: { text: string }) => void = () => {}
-    let receivedSignal: AbortSignal | undefined
-    vi.mocked(transcribeAnswer).mockImplementation(
-      (_blob, options) =>
-        new Promise((resolve) => {
-          receivedSignal = options?.signal
-          resolveTranscription = resolve
-        }),
-    )
-
-    const { result } = renderHook(() => useVoiceAnswer(createStreamWithTrack()))
-
-    act(() => result.current.startRecording())
     act(() => result.current.stopRecording())
-    expect(result.current.status).toBe('processing')
+    expect(result.current.status).toBe('review')
+    expect(result.current.audioBlob?.size).toBeGreaterThan(0)
+  })
+
+  it('reset하면 진행 중인 인식을 중단하고 초기 상태로 돌아간다', () => {
+    const { result } = renderHook(() => useVoiceAnswer(createStreamWithTrack()))
+
+    act(() => result.current.startRecording())
+    const recognition = MockSpeechRecognition.instances[0]
 
     act(() => result.current.reset())
-    expect(receivedSignal?.aborted).toBe(true)
 
-    await act(async () => {
-      resolveTranscription({ text: '늦게 도착한 응답' })
-    })
-
+    expect(recognition.abort).toHaveBeenCalledTimes(1)
     expect(result.current.status).toBe('idle')
     expect(result.current.transcript).toBe('')
+    expect(result.current.audioBlob).toBeNull()
   })
 
   it('마이크 트랙이 없으면 사용자가 해결할 수 있는 오류를 표시한다', () => {

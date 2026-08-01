@@ -36,8 +36,6 @@ interface SessionTheaterProps {
   onChangeTranscript: (value: string) => void
   voiceError: string | null
   speechError: string | null
-  canRetryTranscription: boolean
-  onRetryTranscription: () => void
   mediaPermission: MediaPermissionState
   onRetryMediaAccess: () => void
   primaryActionLabel: string
@@ -169,8 +167,6 @@ export function SessionTheater({
   onChangeTranscript,
   voiceError,
   speechError,
-  canRetryTranscription,
-  onRetryTranscription,
   mediaPermission,
   onRetryMediaAccess,
   primaryActionLabel,
@@ -341,16 +337,6 @@ export function SessionTheater({
                       {message}
                     </p>
                   ))}
-                  {canRetryTranscription ? (
-                    <button
-                      type="button"
-                      className="session-theater-ghost-button mt-3"
-                      onClick={onRetryTranscription}
-                    >
-                      <RotateCcw className="size-3.5" aria-hidden="true" />
-                      변환 다시 시도
-                    </button>
-                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -398,10 +384,10 @@ export function SessionTheater({
           />
           <span
             className="session-theater-privacy"
-            title="녹음이 끝나면 음성 인식 처리를 위해 녹음 파일이 서버로 전송되며, 답변 텍스트는 이 면접 화면의 메모리에만 보관되고 화면을 나가면 폐기됩니다."
+            title="음성 텍스트 변환은 브라우저에서 처리합니다. 제출한 녹음 파일은 기존 답변 음성 분석을 위해 서버로 전송됩니다."
           >
             <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />
-            녹음 파일은 음성 인식 처리에만 사용되고 저장되지 않습니다
+            음성 텍스트 변환은 브라우저에서 처리됩니다
           </span>
         </div>
       </div>

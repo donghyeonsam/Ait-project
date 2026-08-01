@@ -486,11 +486,6 @@ function ActiveInterviewSession({
         onChangeTranscript={voiceAnswer.setTranscript}
         voiceError={voiceAnswer.error}
         speechError={questionSpeech.error}
-        canRetryTranscription={
-          voiceAnswer.status === 'review' &&
-          Boolean(voiceAnswer.error && voiceAnswer.audioBlob)
-        }
-        onRetryTranscription={voiceAnswer.retryTranscription}
         mediaPermission={permission}
         onRetryMediaAccess={() => {
           void requestAccess(
