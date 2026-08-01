@@ -46,6 +46,7 @@ export interface CommunityReply {
   createdAt: string
   content: string
   likeCount: number
+  liked: boolean
   deleted: boolean
 }
 

@@ -6,6 +6,7 @@ import {
   fetchPost,
   fetchPosts,
   toggleBookmark,
+  toggleCommentLike,
   toggleLike,
   updatePost,
   uploadPostFile,
@@ -511,5 +512,22 @@ describe('toggleLike / toggleBookmark', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(toggleLike('11', true)).rejects.toThrow('서버 오류')
+  })
+
+  it('댓글 좋아요는 comments 경로로 호출하고 409/404는 성공으로 본다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(interactionResponse(200, '댓글 좋아요 등록 성공'))
+      .mockResolvedValueOnce(interactionResponse(409, '이미 좋아요를 누른 댓글입니다.'))
+      .mockResolvedValueOnce(interactionResponse(404, '좋아요 내역을 찾을 수 없습니다.'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(toggleCommentLike('7', true)).resolves.toBe(true)
+    await expect(toggleCommentLike('7', true)).resolves.toBe(true)
+    await expect(toggleCommentLike('7', false)).resolves.toBe(false)
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/backend/api/comments/7/likes')
+    expect((fetchMock.mock.calls[0]?.[1] as RequestInit).method).toBe('POST')
+    expect((fetchMock.mock.calls[2]?.[1] as RequestInit).method).toBe('DELETE')
   })
 })

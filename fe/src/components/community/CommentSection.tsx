@@ -3,6 +3,7 @@ import {
   createComment,
   deleteComment,
   fetchComments,
+  toggleCommentLike,
   updateComment,
 } from '@/api/community'
 import { CommentComposer } from '@/components/community/CommentComposer'
@@ -12,7 +13,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatNumber } from '@/lib/format'
 import { useAuth } from '@/lib/useAuth'
-import type { CommunityComment } from '@/types/community'
+import type { CommunityComment, CommunityReply } from '@/types/community'
 
 type CommentSort = 'registered' | 'likes'
 
@@ -86,6 +87,31 @@ export function CommentSection({
       onNotify?.('댓글 수정에 실패했습니다. 잠시 후 다시 시도해주세요.')
       throw error
     }
+  }
+
+  // 좋아요는 화면을 먼저 바꾸고 서버에 반영한다. 실패하면 목록을 다시 불러와 되돌린다.
+  const toggleLike = (commentId: string) => {
+    const target =
+      comments.find((comment) => comment.id === commentId) ??
+      comments.flatMap((comment) => comment.replies).find((reply) => reply.id === commentId)
+    if (!target) return
+
+    const liked = !target.liked
+    const apply = <T extends CommunityReply>(item: T): T =>
+      item.id === commentId
+        ? { ...item, liked, likeCount: item.likeCount + (liked ? 1 : -1) }
+        : item
+    setComments((prev) =>
+      prev.map((comment) => ({
+        ...apply(comment),
+        replies: comment.replies.map(apply),
+      })),
+    )
+
+    toggleCommentLike(commentId, liked).catch(async () => {
+      onNotify?.('좋아요 처리에 실패했습니다. 잠시 후 다시 시도해주세요.')
+      setComments(await fetchComments(postId))
+    })
   }
 
   const confirmDelete = async () => {
@@ -169,6 +195,7 @@ export function CommentSection({
               onSubmitReply={submitReply}
               onEdit={editComment}
               onRequestDelete={setDeleteTargetId}
+              onToggleLike={toggleLike}
             />
           ))}
         </ul>
