@@ -5,6 +5,7 @@ import {
   fetchMyActivityPosts,
   fetchPost,
   fetchPosts,
+  fetchTrendingKeywords,
   toggleBookmark,
   toggleLike,
   updatePost,
@@ -163,6 +164,37 @@ describe('fetchPosts', () => {
     })
 
     expect(result.items[0]?.excerpt).toBe('게시글 테스트입니다. 수정합니다')
+  })
+})
+
+describe('fetchTrendingKeywords', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('주간 인기 태그를 조회하고 응답 순서대로 순위를 만든다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 200,
+          message: '주간 인기 태그 Top 10 조회 성공',
+          data: ['기술면접', '모의면접', '취업준비'],
+          error: null,
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(fetchTrendingKeywords()).resolves.toEqual([
+      { rank: 1, keyword: '기술면접' },
+      { rank: 2, keyword: '모의면접' },
+      { rank: 3, keyword: '취업준비' },
+    ])
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/backend/api/tags/trending',
+      expect.objectContaining({ credentials: 'include' }),
+    )
   })
 })
 

@@ -1,7 +1,6 @@
 import { ApiError, backendRequest, getBackendAssetUrl } from '@/api/http'
 import { CATEGORY_META } from '@/lib/community-categories'
 import { COMMUNITY_SEARCH_SUGGESTIONS } from '@/lib/community-suggestions'
-import { mockTrendingKeywords } from '@/mocks/community'
 import type {
   CommunityCategory,
   CommunityComment,
@@ -15,11 +14,7 @@ import type {
   TrendingKeyword,
 } from '@/types/community'
 
-// 커뮤니티 API 레이어. 게시글·댓글 CRUD·검색·좋아요·저장은 실제 백엔드를 호출하고,
-// 트렌딩 키워드는 목업을 300~600ms 지연과 함께 돌려준다.
-
-const delay = () =>
-  new Promise((resolve) => setTimeout(resolve, 300 + Math.random() * 300))
+// 커뮤니티 API 레이어. 게시글·댓글 CRUD·검색·좋아요·저장·인기 태그 조회를 담당한다.
 
 // 백엔드는 카테고리를 한글 라벨 문자열로 저장하므로 FE 값과 상호 변환한다.
 const CATEGORY_LABEL_TO_VALUE = new Map(
@@ -301,8 +296,11 @@ export async function deleteComment(commentId: string): Promise<void> {
 }
 
 export async function fetchTrendingKeywords(): Promise<TrendingKeyword[]> {
-  await delay()
-  return mockTrendingKeywords
+  const keywords = await backendRequest<string[]>('/api/tags/trending')
+  return keywords.map((keyword, index) => ({
+    rank: index + 1,
+    keyword,
+  }))
 }
 
 // 서버 API가 없는 자동완성은 FE 후보군에서 대소문자 구분 없이 검색한다.

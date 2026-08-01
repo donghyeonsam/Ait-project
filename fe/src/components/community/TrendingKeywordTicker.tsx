@@ -70,6 +70,8 @@ export function TrendingKeywordTicker({
 }
 
 function KeywordChange({ change }: { change: TrendingKeyword['change'] }) {
+  if (change === undefined) return null
+
   if (change === 'new') {
     return (
       <span className="shrink-0 rounded-ait-pill bg-badge-review-surface px-1.5 py-0.5 text-[10px] font-bold text-badge-review">

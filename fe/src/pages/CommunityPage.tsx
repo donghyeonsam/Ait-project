@@ -51,7 +51,18 @@ export function CommunityPage() {
   const isLoadingList = loadedKey !== listKey
 
   useEffect(() => {
-    fetchTrendingKeywords().then(setKeywords)
+    let active = true
+    fetchTrendingKeywords().then(
+      (items) => {
+        if (active) setKeywords(items)
+      },
+      () => {
+        if (active) setKeywords([])
+      },
+    )
+    return () => {
+      active = false
+    }
   }, [])
 
   useEffect(() => {
