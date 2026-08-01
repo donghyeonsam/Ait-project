@@ -2,8 +2,10 @@ import { FeatureGrid } from '@/components/landing/FeatureGrid'
 import { FinalCta } from '@/components/landing/FinalCta'
 import { GrowthProcess } from '@/components/landing/GrowthProcess'
 import { HeroSection } from '@/components/landing/HeroSection'
-import { InteractiveDemo } from '@/components/landing/InteractiveDemo'
+import { QuestionShowcase } from '@/components/landing/QuestionShowcase'
+import { ScreenGallery } from '@/components/landing/ScreenGallery'
 import { TrustMarquee } from '@/components/landing/TrustMarquee'
+import { LandingPreloader } from '@/components/landing/LandingPreloader'
 import { Footer } from '@/components/layout/Footer'
 import { LandingHeader } from '@/components/layout/LandingHeader'
 
@@ -11,12 +13,14 @@ import { LandingHeader } from '@/components/layout/LandingHeader'
 export function LandingPage() {
   return (
     <div className="landing-page">
+      <LandingPreloader />
       <LandingHeader />
       <main id="main-content" aria-label="Ait 랜딩 페이지">
         <HeroSection />
         <TrustMarquee />
         <FeatureGrid />
-        <InteractiveDemo />
+        <ScreenGallery />
+        <QuestionShowcase />
         <GrowthProcess />
         <FinalCta />
       </main>

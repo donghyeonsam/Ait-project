@@ -1,5 +1,11 @@
 import { ArrowRight, Play, Sparkles } from 'lucide-react'
-import { motion, useReducedMotion } from 'framer-motion'
+import {
+  motion,
+  useReducedMotion,
+  useScroll,
+  useTransform,
+} from 'framer-motion'
+import { useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { InterviewPreview } from '@/components/landing/InterviewPreview'
 import {
@@ -8,6 +14,8 @@ import {
 } from '@/components/landing/landing.data'
 import { CountUp } from '@/components/reactbits/CountUp'
 import { Magnet } from '@/components/reactbits/Magnet'
+import { ShinyText } from '@/components/reactbits/ShinyText'
+import { TrueFocus } from '@/components/reactbits/TrueFocus'
 
 const lineVariants = {
   hidden: { opacity: 0, y: 24 },
@@ -16,11 +24,25 @@ const lineVariants = {
 
 // 랜딩 첫 화면. 핵심 가치, 진입 행동, 제품 미리보기와 지표를 전달한다.
 export function HeroSection() {
+  const sectionRef = useRef<HTMLElement>(null)
   const reduceMotion = useReducedMotion()
   const initial = reduceMotion ? false : 'hidden'
 
+  // 히어로가 화면 밖으로 밀려나는 동안 미리보기가 살짝 물러나며 다음 섹션에 시선을 넘긴다.
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ['start start', 'end start'],
+  })
+  const previewScale = useTransform(scrollYProgress, [0, 1], [1, 0.94])
+  const previewOpacity = useTransform(scrollYProgress, [0, 1], [1, 0.35])
+  const previewY = useTransform(scrollYProgress, [0, 1], [0, -24])
+
   return (
-    <section className="landing-hero" aria-labelledby="landing-hero-title">
+    <section
+      ref={sectionRef}
+      className="landing-hero"
+      aria-labelledby="landing-hero-title"
+    >
       <div className="landing-shell landing-hero__grid">
         <div className="landing-hero__copy">
           <motion.p
@@ -43,7 +65,11 @@ export function HeroSection() {
           >
             <motion.span variants={lineVariants}>연습할수록,</motion.span>
             <motion.span variants={lineVariants}>
-              면접은 더 <em>선명</em>해집니다
+              면접은 더{' '}
+              <em>
+                <TrueFocus text="선명" delay={0.55} loop />
+              </em>
+              해집니다
             </motion.span>
           </motion.h1>
 
@@ -74,13 +100,13 @@ export function HeroSection() {
           >
             <Magnet disabled={Boolean(reduceMotion)}>
               <Link className="landing-button landing-button--primary" to={landingRoutes.start}>
-                무료로 면접 시작하기
+                <ShinyText text="무료로 면접 시작하기" />
                 <ArrowRight aria-hidden="true" />
               </Link>
             </Magnet>
-            <a className="landing-button landing-button--text" href="#demo">
+            <a className="landing-button landing-button--text" href="#gallery">
               <Play aria-hidden="true" />
-              데모 둘러보기
+              화면 미리보기
             </a>
           </motion.div>
         </div>
@@ -95,7 +121,20 @@ export function HeroSection() {
             ease: [0.2, 0, 0, 1],
           }}
         >
-          <InterviewPreview />
+          {/* 진입 모션(부모)과 transform이 겹치지 않도록 스크롤 후퇴는 별도 레이어에서 처리한다. */}
+          <motion.div
+            style={
+              reduceMotion
+                ? undefined
+                : {
+                    scale: previewScale,
+                    opacity: previewOpacity,
+                    y: previewY,
+                  }
+            }
+          >
+            <InterviewPreview />
+          </motion.div>
         </motion.div>
 
         <motion.ul
