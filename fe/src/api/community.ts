@@ -234,6 +234,7 @@ interface CommentResponse {
   nickname: string
   content: string
   likeCount: number
+  liked: boolean
   createdAt: string
   deletedAt: string | null
   replies: CommentResponse[] | null
@@ -246,6 +247,7 @@ const toReply = (item: CommentResponse): CommunityReply => ({
   createdAt: item.createdAt,
   content: item.content,
   likeCount: item.likeCount,
+  liked: item.liked ?? false,
   deleted: item.deletedAt != null,
 })
 
@@ -439,4 +441,12 @@ export async function toggleBookmark(
 ): Promise<boolean> {
   await setInteraction(`/api/posts/${postId}/scraps`, bookmarked)
   return bookmarked
+}
+
+export async function toggleCommentLike(
+  commentId: string,
+  liked: boolean,
+): Promise<boolean> {
+  await setInteraction(`/api/comments/${commentId}/likes`, liked)
+  return liked
 }

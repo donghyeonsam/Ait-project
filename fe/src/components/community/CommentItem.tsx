@@ -19,6 +19,7 @@ interface CommentItemProps {
   onSubmitReply: (commentId: string, content: string) => Promise<void>
   onEdit: (commentId: string, content: string) => Promise<void>
   onRequestDelete: (commentId: string) => void
+  onToggleLike: (commentId: string) => void
 }
 
 // 최상위 댓글 하나. 긴 본문 축약, 답글 접힘·펼침, 답글 쓰기, 본인 댓글 수정·삭제를 담당한다.
@@ -30,6 +31,7 @@ export function CommentItem({
   onSubmitReply,
   onEdit,
   onRequestDelete,
+  onToggleLike,
 }: CommentItemProps) {
   const [isThreadOpen, setThreadOpen] = useState(false)
   const [showAllReplies, setShowAllReplies] = useState(false)
@@ -86,11 +88,11 @@ export function CommentItem({
 
         <div className="mt-2 flex items-center gap-4 pl-[52px]">
           {!comment.deleted ? (
-            <span className="inline-flex items-center gap-1.5 text-caption text-ink-500">
-              <ThumbsUp aria-hidden="true" className="size-4 text-ink-400" />
-              <span className="sr-only">좋아요</span>
-              {comment.likeCount}
-            </span>
+            <LikeButton
+              liked={comment.liked}
+              likeCount={comment.likeCount}
+              onToggle={() => onToggleLike(comment.id)}
+            />
           ) : null}
           {replyCount > 0 ? (
             <button
@@ -187,6 +189,7 @@ export function CommentItem({
                   isHighlighted={reply.id === highlightedReplyId}
                   onEdit={onEdit}
                   onRequestDelete={onRequestDelete}
+                  onToggleLike={onToggleLike}
                 />
               ))}
             </motion.ul>
@@ -212,12 +215,14 @@ function ReplyItem({
   isHighlighted,
   onEdit,
   onRequestDelete,
+  onToggleLike,
 }: {
   reply: CommunityReply
   currentUserId: number | null
   isHighlighted: boolean
   onEdit: (commentId: string, content: string) => Promise<void>
   onRequestDelete: (commentId: string) => void
+  onToggleLike: (commentId: string) => void
 }) {
   const [isEditing, setEditing] = useState(false)
   const isMine = reply.authorId != null && reply.authorId === currentUserId
@@ -256,11 +261,14 @@ function ReplyItem({
         />
       )}
       <div className="mt-1.5 flex items-center gap-4 pl-[44px]">
-        <span className="inline-flex items-center gap-1.5 text-caption text-ink-500">
-          <ThumbsUp aria-hidden="true" className="size-3.5 text-ink-400" />
-          <span className="sr-only">좋아요</span>
-          {reply.likeCount}
-        </span>
+        {!reply.deleted ? (
+          <LikeButton
+            liked={reply.liked}
+            likeCount={reply.likeCount}
+            onToggle={() => onToggleLike(reply.id)}
+            compact
+          />
+        ) : null}
         {isMine ? (
           <>
             <button
@@ -281,6 +289,49 @@ function ReplyItem({
         ) : null}
       </div>
     </motion.li>
+  )
+}
+
+// 댓글·답글 공용 좋아요 토글. 누른 상태는 채워진 아이콘과 네이비 색으로 구분한다.
+function LikeButton({
+  liked,
+  likeCount,
+  onToggle,
+  compact = false,
+}: {
+  liked: boolean
+  likeCount: number
+  onToggle: () => void
+  compact?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={liked}
+      aria-label={liked ? '좋아요 취소' : '좋아요'}
+      className={cn(
+        'inline-flex items-center gap-1.5 text-caption transition-colors',
+        liked ? 'font-medium text-navy-800' : 'text-ink-500 hover:text-navy-800',
+      )}
+    >
+      <motion.span
+        key={String(liked)}
+        initial={{ scale: 1.25 }}
+        animate={{ scale: 1 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+        className="block"
+      >
+        <ThumbsUp
+          aria-hidden="true"
+          className={cn(
+            compact ? 'size-3.5' : 'size-4',
+            liked ? 'fill-navy-800 text-navy-800' : 'text-ink-400',
+          )}
+        />
+      </motion.span>
+      {likeCount}
+    </button>
   )
 }
 
