@@ -13,20 +13,41 @@
 '집계 방식'은 이 파일 하나로 완전히 동일하게 유지된다. 이 원칙이 깨지면 검증 성능은
 좋은데 실서비스에서만 틀리는, 원인 추적이 극히 어려운 버그가 생긴다.
 
-[출력 벡터 구성 - 총 116차원]
+[출력 벡터 구성 - 총 167차원]
   [0:52]    blendshape 52개의 평균   - 답변 전체에서 각 얼굴 근육이 평균적으로 얼마나 활성됐나
   [52:104]  blendshape 52개의 표준편차 - 표정이 얼마나 변동했나(긴장 시 굳어 변동이 작아지는 경향)
-  [104:106] EAR 평균/표준편차
-  [106:108] MAR 평균/표준편차
-  [108:110] 정면이탈 평균/표준편차
-  [110]     분당 깜빡임 횟수
-  [111]     시선이탈 프레임 비율
-  [112]     EAR 후반-전반 차이   ┐ 평균만 쓰면 사라지는 '시간에 따른 변화'를
-  [113]     이탈 후반-전반 차이  ├ 라벨링 방식을 바꾸지 않고 되살리는 피처.
-  [114]     이탈 추세 기울기     ┘ (앞부분에 긴장했다 풀린 사람과 그 반대를 구분)
-  [115]     답변 길이(초)        - 짧게 끝냄 = 할 말이 없었음. 그 자체로 신호다.
+  [104:156] blendshape 52개의 후반-전반 차이 (2026-08-01 추가, 아래 참고)
+  [156:158] EAR 평균/표준편차
+  [158:160] MAR 평균/표준편차
+  [160:162] 정면이탈 평균/표준편차
+  [162]     분당 깜빡임 횟수
+  [163]     시선이탈 프레임 비율
+  [164]     EAR 후반-전반 차이   ┐ 평균만 쓰면 사라지는 '시간에 따른 변화'를
+  [165]     이탈 후반-전반 차이  ├ 라벨링 방식을 바꾸지 않고 되살리는 피처.
+  [166]     이탈 추세 기울기     ┘ (앞부분에 긴장했다 풀린 사람과 그 반대를 구분)
+
+[2026-08-01] blendshape 후반-전반 차이 52차원 추가 (115 -> 167)
+   student MLP 가 teacher(EMO-AffectNet) 라벨을 따라가는 정도가 Pearson r=0.55 수준에
+   머물러, "teacher 는 봤지만 이 요약벡터엔 안 담기는 정보"를 보강했다. 기존에는
+   blendshape 52개를 전체 평균/표준편차 2개로만 뭉개서, 예컨대 눈썹이 클립 내내
+   일정하게 올라가 있는 사람과 후반부에 갑자기 올라간 사람이 거의 같은 벡터가 됐다.
+   teacher 는 LSTM 이라 시간 순서를 그대로 보므로 이 둘을 구분하는데 student 는 못 했다.
+   EAR/deviation 에만 있던 delta 개념(ear_delta/dev_delta)을 정보량이 가장 많은
+   blendshape 축에도 동일하게 적용한 것이다. 음성 쪽(core/voice/feature_extractor.py)
+   에서 같은 접근으로 f0_delta/f0_slope 를 추가해 r 을 끌어올린 전례를 따랐다.
+   ⚠️ 이 52차원이 실제로 기여하는지는 재학습 후 r 로 확인할 것 - 기여가 없으면
+      음성 쪽 주석의 원칙대로 미련 없이 되돌린다.
+
+⚠️ 답변 길이(초)는 벡터에 포함하지 않는다(2026-07-31 제거).
+   학습에 쓰는 First Impressions V2 데이터셋이 전부 15초 고정이라 이 값이
+   사실상 상수(분산≈0)로 학습되어, 정규화 스케일러가 실제 서비스 입력(30~90초)에
+   대해 극단적인 z-score를 뱉는 문제가 있었다. duration_sec 자체(분당 깜빡임 정규화,
+   프레임수-길이 정합성 검증)는 여전히 파라미터로 받아 그대로 사용한다 - 벡터에
+   원값을 실어 보내는 부분만 제거했다.
 
 ⚠️ 이 구성이나 순서를 바꾸면 기존 학습 모델은 전부 무효가 되므로 반드시 재학습할 것.
+   (API 요청/응답 스키마는 이 변경의 영향을 받지 않는다 - 프론트/BE 는 여전히
+    프레임별 원본 값만 보내고, 벡터 조립은 전적으로 이 서버가 한다)
 """
 from __future__ import annotations
 
@@ -40,7 +61,9 @@ from config import settings
 BLENDSHAPE_COUNT = 52
 
 # 집계벡터의 총 차원. MLP 의 in_dim 과 반드시 일치해야 한다.
-FEATURE_DIM = BLENDSHAPE_COUNT * 2 + 2 + 2 + 2 + 2 + 3 + 1  # = 116
+# blendshape: 평균 52 + 표준편차 52 + 후반-전반차이 52 = 156
+# 그 외: EAR 2 + MAR 2 + 이탈 2 + (깜빡임,시선이탈) 2 + (ear_delta,dev_delta,dev_slope) 3 = 11
+FEATURE_DIM = BLENDSHAPE_COUNT * 3 + 2 + 2 + 2 + 2 + 3  # = 167
 
 # 집계에 최소한 필요한 프레임 수. 너무 적으면 통계가 의미를 갖지 못한다.
 MIN_FRAMES = 5
@@ -61,7 +84,7 @@ def aggregate_from_frames(
     mar: np.ndarray,           # (F,)   입 개폐 비율
     deviation: np.ndarray,     # (F,)   코끝의 화면중앙 이탈 거리
     *,
-    duration_sec: float,       # 답변 전체 길이(초)
+    duration_sec: float,       # 답변 전체 길이(초) - 정규화/검증에만 쓰고 벡터엔 안 넣는다
 ) -> FaceAggregate:
     """프레임별 값들을 클립 하나의 고정 길이 벡터로 요약한다."""
     n = len(ear)
@@ -105,15 +128,21 @@ def aggregate_from_frames(
     # 1차 다항 회귀의 기울기. 양수면 후반으로 갈수록 이탈이 증가한다는 뜻.
     dev_slope = float(np.polyfit(np.arange(n), deviation, 1)[0])
 
+    # [2026-08-01 추가] blendshape 52개 각각의 후반-전반 차이.
+    # 위 ear_delta/dev_delta 와 정확히 같은 개념을 blendshape 축 전체에 적용한 것이다
+    # (axis=0 으로 프레임 축만 접으므로 결과는 52차원 그대로 남는다).
+    # 얼굴 근육별로 "답변 후반에 더 활성됐는가 / 잦아들었는가"를 담는다.
+    bs_delta = blendshapes[-third:].mean(axis=0) - blendshapes[:third].mean(axis=0)
+
     vector = np.concatenate([
         bs_mean,                                    # 52
         bs_std,                                     # 52
+        bs_delta,                                   # 52
         [float(ear.mean()), float(ear.std())],      # 2
         [float(mar.mean()), float(mar.std())],      # 2
         [float(deviation.mean()), float(deviation.std())],  # 2
         [blink_per_min, gaze_off_ratio],            # 2
         [ear_delta, dev_delta, dev_slope],          # 3
-        [float(duration_sec)],                      # 1
     ]).astype(np.float32)
 
     # 방어적 검증: 조립 실수를 조용히 넘기지 않고 즉시 드러낸다.
@@ -139,6 +168,8 @@ def aggregate_from_request(payload) -> FaceAggregate:
     집계 방식(평균/표준편차/시간변화 피처)은 학습 코드와 반드시 일치해야 하는
     부분이다. 프론트가 미리 집계해서 보내면 집계 방식을 바꿀 때마다 프론트를
     재배포해야 하지만, 서버가 쥐고 있으면 모델 재학습과 함께 한쪽만 고치면 된다.
+    (2026-08-01 의 167차원 확장이 정확히 이 장점을 활용한 사례다 - 벡터 차원이
+     52 늘었지만 프론트/BE 가 보내는 요청 형식은 한 글자도 바뀌지 않았다)
     """
     frames = payload.frames
 
