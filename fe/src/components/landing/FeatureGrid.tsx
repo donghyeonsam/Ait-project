@@ -4,10 +4,14 @@ import {
   ThumbsUp,
 } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
+import { ThemeProvider } from 'next-themes'
+import type { CSSProperties } from 'react'
+import CenterFlow from '@/components/center-flow'
 import {
   features,
   LANDING_ASSET_ROOT,
 } from '@/components/landing/landing.data'
+import { ScrollReveal } from '@/components/reactbits/ScrollReveal'
 import { SpotlightCard } from '@/components/reactbits/SpotlightCard'
 
 const featureWaveform = [
@@ -109,11 +113,15 @@ function AnalysisVisual() {
           <i
             key={index}
             className={`landing-face-dot landing-face-dot--${index + 1}`}
+            style={{ animationDelay: `${((index * 0.37) % 2.6).toFixed(2)}s` }}
             aria-hidden="true"
           />
         ))}
       </div>
-      <div className="landing-analysis-score">
+      <div
+        className="landing-analysis-score"
+        style={{ '--score': 89 } as CSSProperties}
+      >
         <span>종합 점수</span>
         <strong>89</strong>
         <small>/ 100</small>
@@ -129,6 +137,8 @@ function AnalysisVisual() {
 }
 
 function ReportVisual() {
+  const reduceMotion = useReducedMotion()
+
   return (
     <div className="landing-feature-visual landing-feature-visual--report">
       <div className="landing-report-heading">
@@ -139,17 +149,40 @@ function ReportVisual() {
         <g className="landing-report-grid" aria-hidden="true">
           <path d="M34 25H304M34 58H304M34 91H304M34 124H304" />
         </g>
-        <path
+        <motion.path
           className="landing-report-area"
           d="M38 115 L98 91 L158 70 L218 52 L296 20 L296 126 L38 126 Z"
+          initial={reduceMotion ? false : { opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.6, delay: 1.3 }}
         />
-        <path
+        <motion.path
           className="landing-report-line"
           d="M38 115 L98 91 L158 70 L218 52 L296 20"
+          initial={reduceMotion ? false : { pathLength: 0 }}
+          whileInView={{ pathLength: 1 }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 1.5, ease: [0.2, 0, 0.2, 1] }}
         />
         {[['38','115'],['98','91'],['158','70'],['218','52'],['296','20']].map(
-          ([cx, cy]) => (
-            <circle key={cx} cx={cx} cy={cy} r="5" aria-hidden="true" />
+          ([cx, cy], index) => (
+            <motion.circle
+              key={cx}
+              cx={cx}
+              cy={cy}
+              r="5"
+              aria-hidden="true"
+              initial={reduceMotion ? false : { opacity: 0, scale: 0 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true, amount: 0.5 }}
+              transition={{
+                duration: 0.3,
+                delay: 0.1 + index * 0.34,
+                ease: 'easeOut',
+              }}
+              style={{ transformOrigin: `${cx}px ${cy}px` }}
+            />
           ),
         )}
       </svg>
@@ -182,8 +215,49 @@ export function FeatureGrid() {
             <Sparkles aria-hidden="true" />
             모든 기능을 하나의 플랫폼에서
           </p>
-          <h2 id="features-title">면접 준비, Ait 하나로 끝내세요</h2>
+          <h2 id="features-title">
+            <ScrollReveal text="면접 준비, Ait 하나로 끝내세요" />
+          </h2>
           <span>연습부터 분석과 성장 기록까지 자연스럽게 이어집니다.</span>
+        </div>
+
+        {/* OS 다크 모드가 감지되면 다크 분기로 그려지므로 시스템 테마를 끄고 라이트로 고정한다. */}
+        <div className="landing-features__hub" aria-hidden="true">
+          <ThemeProvider
+            defaultTheme="light"
+            enableSystem={false}
+            forcedTheme="light"
+            storageKey="ait-landing-theme"
+          >
+            <CenterFlow
+              nodeItems={features.map(({ id, title, icon: Icon }) => ({
+                content: (
+                  <span key={id} className="landing-features__hub-node">
+                    <Icon aria-hidden="true" />
+                    {title}
+                  </span>
+                ),
+              }))}
+              centerContent={
+                <strong className="landing-features__hub-center">Ait</strong>
+              }
+              centerSize={92}
+              nodeSize={88}
+              nodeDistance={0.75}
+              pulseDuration={2.2}
+              pulseInterval={4}
+              pulseLength={0.35}
+              lineWidth={1.5}
+              pulseWidth={1.5}
+              lineColor="#e3e6ed"
+              lineColorLight="#e3e6ed"
+              pulseColor="#c9a96e"
+              pulseColorLight="#c9a96e"
+              glowColor="#c9a96e"
+              glowColorLight="#c9a96e"
+              borderRadius={22}
+            />
+          </ThemeProvider>
         </div>
 
         <motion.div

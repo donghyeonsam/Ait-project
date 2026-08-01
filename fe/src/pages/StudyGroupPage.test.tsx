@@ -14,6 +14,7 @@ import {
 import { getStudyGroupActiveSession } from '@/api/study-sessions'
 import {
   createStudyCalendar,
+  getDailyStudyCalendars,
   getMonthlyStudyCalendars,
 } from '@/api/study-calendars'
 import {
@@ -46,6 +47,7 @@ vi.mock('@/api/study-sessions', () => ({
 
 vi.mock('@/api/study-calendars', () => ({
   getMonthlyStudyCalendars: vi.fn(),
+  getDailyStudyCalendars: vi.fn(),
   createStudyCalendar: vi.fn(),
   updateStudyCalendar: vi.fn(),
   deleteStudyCalendar: vi.fn(),
@@ -171,6 +173,12 @@ describe('StudyGroupPage', () => {
     })
     vi.mocked(kickStudyGroupMember).mockResolvedValue(undefined)
     vi.mocked(getMonthlyStudyCalendars).mockResolvedValue(studyCalendars)
+    // 날짜를 열면 그 날짜만 다시 조회하므로, 해당 날짜 일정을 그대로 돌려준다.
+    vi.mocked(getDailyStudyCalendars).mockImplementation((_, date) =>
+      Promise.resolve(
+        studyCalendars.filter((calendar) => calendar.startTime.startsWith(date)),
+      ),
+    )
     vi.mocked(createStudyCalendar).mockResolvedValue(undefined)
 
     vi.mocked(getStudyGroupChats).mockResolvedValue({
@@ -332,6 +340,8 @@ describe('StudyGroupPage', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('개인별 질문 2개 준비')).toBeInTheDocument()
     expect(screen.getByText('모의 면접 회고')).toBeInTheDocument()
+    // 상세를 열면 그 날짜만 다시 조회해 월별 조회 이후의 변경을 반영한다.
+    expect(getDailyStudyCalendars).toHaveBeenCalledWith(101, scheduledDateKey)
 
     const messageInput = screen.getByRole('textbox', {
       name: '그룹톡 메시지 입력',

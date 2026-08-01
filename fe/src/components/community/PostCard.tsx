@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { Bookmark, Eye, Heart, MessageCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { AuthenticatedImage } from '@/components/common/AuthenticatedImage'
 import { CategoryBadge, TagChip } from '@/components/community/badges'
 import { RollingCounter } from '@/components/community/RollingCounter'
 import { formatCompactCount } from '@/lib/format'
@@ -28,7 +29,15 @@ export function PostCard({ post, onToggleBookmark, onToggleLike }: PostCardProps
       />
 
       <div className="flex items-start justify-between gap-4">
-        <CategoryBadge category={post.category} />
+        <div className="flex min-w-0 items-center gap-2">
+          <CategoryBadge category={post.category} />
+          <span aria-hidden="true" className="text-body-2 text-ink-400">
+            ·
+          </span>
+          <span className="truncate text-body-2 font-medium text-ink-500">
+            {post.author}
+          </span>
+        </div>
         <button
           type="button"
           onClick={(event) => {
@@ -54,10 +63,22 @@ export function PostCard({ post, onToggleBookmark, onToggleLike }: PostCardProps
         </button>
       </div>
 
-      <h3 className="mt-3 text-[18px] font-semibold text-ink-900 transition-colors duration-[180ms] group-hover:text-navy-800">
-        {post.title}
-      </h3>
-      <p className="mt-1.5 line-clamp-1 text-body-2 text-ink-500">{post.excerpt}</p>
+      <div className="mt-3 flex items-start gap-4">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-[18px] font-semibold text-ink-900 transition-colors duration-[180ms] group-hover:text-navy-800">
+            {post.title}
+          </h3>
+          <p className="mt-1.5 line-clamp-1 text-body-2 text-ink-500">{post.excerpt}</p>
+        </div>
+        {post.thumbnail ? (
+          <AuthenticatedImage
+            src={post.thumbnail}
+            alt=""
+            aria-hidden="true"
+            className="size-16 shrink-0 rounded-ait-s border border-line-soft object-cover"
+          />
+        ) : null}
+      </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-1.5">
@@ -115,7 +136,10 @@ export function PostCardSkeleton() {
   return (
     <div className="rounded-ait-m border border-line bg-surface-default p-6">
       <div className="flex items-start justify-between">
-        <div className="analyzing-shimmer h-6 w-16 rounded-ait-pill" />
+        <div className="flex items-center gap-2">
+          <div className="analyzing-shimmer h-6 w-16 rounded-ait-pill" />
+          <div className="analyzing-shimmer h-4 w-14 rounded-ait-s" />
+        </div>
         <div className="analyzing-shimmer size-5 rounded-ait-s" />
       </div>
       <div className="analyzing-shimmer mt-4 h-5 w-2/3 rounded-ait-s" />

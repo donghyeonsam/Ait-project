@@ -17,11 +17,9 @@ import { PageLayout } from '@/components/layout/PageLayout'
 import { Dropdown } from '@/components/ui/dropdown'
 import { CATEGORY_OPTIONS } from '@/lib/community-categories'
 import { EASE_OUT, listContainer } from '@/lib/motion'
-import { useAuth } from '@/lib/useAuth'
 import type {
   CommunityCategory,
   CommunityPost,
-  CommunitySort,
   CommunityTab,
   TrendingKeyword,
 } from '@/types/community'
@@ -33,19 +31,11 @@ const CATEGORY_FILTER_OPTIONS = [
   ...CATEGORY_OPTIONS,
 ]
 
-const SORT_OPTIONS: { value: CommunitySort; label: string }[] = [
-  { value: 'latest', label: '최신순' },
-  { value: 'popular', label: '인기순' },
-  { value: 'comments', label: '댓글많은순' },
-]
-
-// 커뮤니티 목록 화면. 검색·인기 검색어 롤링·탭·필터·게시글 카드·더보기를 담당한다.
+// 커뮤니티 목록 화면. 검색·인기 태그 롤링·탭·필터·게시글 카드·더보기를 담당한다.
 export function CommunityPage() {
-  const { user } = useAuth()
   const [query, setQuery] = useState('')
   const [tab, setTab] = useState<CommunityTab>('recommend')
   const [category, setCategory] = useState<CommunityCategory | 'all'>('all')
-  const [sort, setSort] = useState<CommunitySort | null>(null)
 
   const [posts, setPosts] = useState<CommunityPost[]>([])
   const [hasMore, setHasMore] = useState(false)
@@ -56,7 +46,7 @@ export function CommunityPage() {
   const requestId = useRef(0)
 
   // 현재 필터 조합과 마지막으로 로딩을 마친 조합이 다르면 로딩 중으로 본다.
-  const listKey = `${tab}-${category}-${sort ?? 'none'}-${query}`
+  const listKey = `${tab}-${category}-${query}`
   const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const isLoadingList = loadedKey !== listKey
 
@@ -69,11 +59,9 @@ export function CommunityPage() {
     fetchPosts({
       tab,
       category,
-      sort,
       offset: 0,
       limit: PAGE_SIZE,
       query,
-      currentUserNickname: user?.nickname,
     }).then(
       ({ items, hasMore: more }) => {
         if (id !== requestId.current) return
@@ -82,7 +70,7 @@ export function CommunityPage() {
         setLoadedKey(listKey)
       },
     )
-  }, [tab, category, sort, query, listKey, user?.nickname])
+  }, [tab, category, query, listKey])
 
   const loadMore = async () => {
     if (isLoadingMore) return
@@ -90,11 +78,9 @@ export function CommunityPage() {
     const { items, hasMore: more } = await fetchPosts({
       tab,
       category,
-      sort,
       offset: posts.length,
       limit: PAGE_SIZE,
       query,
-      currentUserNickname: user?.nickname,
     })
     setPosts((prev) => [...prev, ...items])
     setHasMore(more)
@@ -166,23 +152,13 @@ export function CommunityPage() {
 
             <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <PostTabs value={tab} onChange={setTab} />
-              <div className="flex items-center gap-3">
-                <Dropdown
-                  options={CATEGORY_FILTER_OPTIONS}
-                  value={category}
-                  onChange={setCategory}
-                  ariaLabel="카테고리 필터"
-                  className="w-32"
-                />
-                <Dropdown
-                  options={SORT_OPTIONS}
-                  value={sort}
-                  onChange={setSort}
-                  ariaLabel="정렬 기준"
-                  placeholder="정렬 순"
-                  className="w-36"
-                />
-              </div>
+              <Dropdown
+                options={CATEGORY_FILTER_OPTIONS}
+                value={category}
+                onChange={setCategory}
+                ariaLabel="카테고리 필터"
+                className="w-32"
+              />
             </div>
 
             <AnimatePresence mode="wait" initial={false}>

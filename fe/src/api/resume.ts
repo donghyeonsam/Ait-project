@@ -49,6 +49,11 @@ export function getMyResume() {
   return backendRequest<Resume>('/api/resumes/me')
 }
 
+// 소유자 제한이 없어 스터디 세션 등에서 다른 참가자의 이력서를 열람하는 데도 쓴다.
+export function getResume(resumeId: number) {
+  return backendRequest<Resume>(`/api/resumes/${resumeId}`)
+}
+
 export function updateResume(resumeId: number, request: ResumeUpdateRequest) {
   return backendRequest<Resume>(`/api/resumes/${resumeId}`, {
     method: 'PUT',

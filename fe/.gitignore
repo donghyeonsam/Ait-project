@@ -31,3 +31,5 @@ docs/prompt.md
 .vercel
 prompt
 *.csv
+AGENTS.md
+CLAUDE.md

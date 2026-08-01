@@ -14,7 +14,8 @@ AI 모의 면접 - FastAPI 엔트리포인트
      → services/rag_service.py 로 1)에서 저장한 문서를 검색(RAG) →
        services/question_service.py 가 GMS LLM 으로 질문 5개 + rubric(채점 기준) 생성
   4) 사용자가 답변 제출 → routers/interview.py `/followup` (동기, rubric 채점 + 꼬리질문)
-     그리고 routers/interview.py `/answers/supplement` (비동기, 답변 보완 ai_answer 생성)
+     답변 분석/보완/평가는 Spring Boot(BE)가 담당한다(2026-07-31,
+     docs/AI_개발일지_0731.md 참고).
 
 즉 이 서비스는 "①문서를 미리 벡터DB에 넣어두고 → ②면접 중 그 문서를 검색 근거로
 삼아 LLM 을 호출"하는 RAG 파이프라인이며, main.py 는 그 파이프라인이 쓸 Chroma
@@ -73,5 +74,5 @@ app = FastAPI(
 # 라우터 등록 - 각 라우터의 책임 범위는 위 "전체 서비스 흐름" 주석 참고.
 app.include_router(health.router)      # 헬스체크 (인프라/로드밸런서용)
 app.include_router(embedding.router)   # 개인 문서 임베딩 저장/삭제
-app.include_router(interview.router)   # 질문 생성 / 꼬리질문 채점 / 답변 보완
+app.include_router(interview.router)   # 질문 생성 / 꼬리질문 채점
 app.include_router(cs_knowledge.router)  # CS 지식 임베딩 관리(전량 재구축용)

@@ -13,19 +13,29 @@ import {
   isTrackReference,
   useLocalParticipant,
   useRemoteParticipants,
+  useRoomContext,
   useSpeakingParticipants,
   useTracks,
 } from '@livekit/components-react'
-import { DisconnectReason, Room, RoomEvent, Track } from 'livekit-client'
+import {
+  ConnectionError,
+  ConnectionErrorReason,
+  DisconnectReason,
+  Room,
+  RoomEvent,
+  Track,
+} from 'livekit-client'
 import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Loader2,
   Mic,
   MicOff,
   Phone,
   ScreenShare,
+  Settings,
   Video,
   VideoOff,
   Volume2,
@@ -46,12 +56,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Dropdown } from '@/components/ui/dropdown'
+import { toDeviceOptions, type DeviceOption } from '@/components/interview/useMediaDevices'
 import type { StudyParticipant } from '@/mocks/study'
 import { getMyCoverLetters, type CoverLetterListItem } from '@/api/cover-letters'
 import {
+  createStudySessionConnection,
   endStudySession,
+  getStudySessionMembers,
   kickStudySessionParticipant,
   type StudySessionConnection,
+  type StudySessionMember,
 } from '@/api/study-sessions'
 import { toErrorMessage } from '@/api/http'
 import { cn } from '@/lib/utils'
@@ -84,12 +99,21 @@ interface ContextMenuState {
 // 웹캠 원본이 대체로 16:9라 이 비율을 쓰면 크롭·레터박스 없이 카메라 화면이 꽉 찬다.
 const CAMERA_ASPECT = 16 / 9
 const GRID_GAP = 12
+// LiveKit이 자동 재접속을 이 시간 넘게 시도해도 성공하지 못하면, 자동 재시도만 무한정 믿지 않고
+// 사용자에게 수동 재시도·나가기 선택지를 준다.
+const RECONNECT_GIVE_UP_MS = 15000
+const CONNECTION_TROUBLE_MESSAGE = '연결이 끊어졌습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.'
 /** 한 번에 확대해 볼 수 있는 참가자 수. */
 const MAX_STAGE_PARTICIPANTS = 4
 /** 우측 패널 펼침 폭. 패널 토글 시 그리드 폭 변화를 미리 계산하는 데도 쓴다. */
 const PANEL_WIDTH = 320
 // 패널 폭 전환(--duration-base)과 같은 값. 전환이 끝날 때까지 실측 리사이즈 대신 예측값을 쓴다.
 const PANEL_TRANSITION_MS = 250
+
+// 네이티브 select는 옵션 목록이 브라우저가 그리는 팝업이라 다크 패널과 무관하게 흰 배경으로 렌더링된다.
+// 공용 Dropdown(커스텀 listbox)을 쓰면 목록도 우리 스타일로 그려지므로, 장치설정바(bg-theater-backdrop)에
+// 맞춰 밝은 배경의 버튼 부분만 덮어쓴다.
+const deviceDropdownButtonClass = 'border-white/20 bg-white/10 text-white hover:border-white/40'
 
 interface ElementSize {
   width: number
@@ -190,35 +214,83 @@ export function StudySessionRoom({
   onLeave,
 }: StudySessionRoomProps) {
   const [room, setRoom] = useState(() => new Room())
-  const [connectionError, setConnectionError] = useState<string | null>(null)
+  // 최초 접속 정보로 시작하되, 재접속에 실패해 새 토큰을 발급받으면 이 값을 갱신해 재연결한다.
+  const [activeConnection, setActiveConnection] = useState(connection)
+  // LiveKit이 알아서 재접속을 시도하는 동안(짧게 끊겼다 이어지는 경우) 보여줄 배너 상태.
+  const [reconnecting, setReconnecting] = useState(false)
+  // 자동 재접속을 포기했거나(RECONNECT_GIVE_UP_MS 초과) 최초 접속 자체가 실패했을 때, 사용자가
+  // 직접 재시도·나가기를 고르게 하는 다이얼로그에 띄울 메시지. null이면 다이얼로그를 닫는다.
+  const [connectionIssue, setConnectionIssue] = useState<string | null>(null)
+  const [retrying, setRetrying] = useState(false)
 
   useEffect(() => {
     // 매 이펙트 실행마다 새 Room을 만든다. React StrictMode의 개발 모드 이중 실행(mount→cleanup→mount)에서
     // 첫 시도가 connect 도중 취소되면 그 Room의 내부 엔진(RTCEngine)이 손상된 상태로 남는데,
     // 같은 인스턴스로 재연결을 시도하면 "PC manager is closed" 오류가 난다. 취소된 Room은 버리고
-    // 재시도 때마다 새 인스턴스로 연결해야 안전하다.
+    // 재시도 때마다 새 인스턴스로 연결해야 안전하다. activeConnection이 갱신되면(수동 재시도) 이
+    // 이펙트가 다시 돌며 같은 방식으로 새 Room을 만들어 재연결한다.
     const activeRoom = new Room()
     let cancelled = false
+    let giveUpTimer: number | null = null
+
+    const clearGiveUpTimer = () => {
+      if (giveUpTimer !== null) {
+        window.clearTimeout(giveUpTimer)
+        giveUpTimer = null
+      }
+    }
+
+    // LiveKit이 연결 끊김을 감지하고 자체적으로 재접속을 시도하는 동안 발생한다. 짧게 끊겼다 바로
+    // 이어지면(Reconnected) 사용자가 느끼지 못하지만, RECONNECT_GIVE_UP_MS를 넘기면 자동 재시도만
+    // 계속 믿지 않고 수동 재시도 다이얼로그로 전환한다.
+    const handleReconnecting = () => {
+      if (cancelled) return
+      setReconnecting(true)
+      clearGiveUpTimer()
+      giveUpTimer = window.setTimeout(() => {
+        if (cancelled) return
+        setReconnecting(false)
+        setConnectionIssue(CONNECTION_TROUBLE_MESSAGE)
+      }, RECONNECT_GIVE_UP_MS)
+    }
+
+    const handleReconnected = () => {
+      if (cancelled) return
+      clearGiveUpTimer()
+      setReconnecting(false)
+      setConnectionIssue(null)
+    }
 
     // 강퇴되거나 방장이 세션을 종료하면 서버가 이 클라이언트를 강제로 끊는다. 자발적으로 나갈 때는
     // cleanup에서 cancelled를 먼저 true로 만든 뒤 disconnect를 호출하므로 여기서 걸러진다.
     //
-    // DisconnectReason에는 그 외에도 여러 사유가 있는데(DUPLICATE_IDENTITY, SIGNAL_CLOSE 등),
-    // 특히 개발 모드 StrictMode의 이중 mount로 같은 identity의 연결이 두 개 생겼다가 뒤늦게
-    // 도착한 연결이 정리되며 지금 연결이 DUPLICATE_IDENTITY로 끊기는 경우가 있다. 그런 사유까지
-    // 나가기로 처리하면 아무 조작 없이도 몇 초 뒤 튕기므로, 실제로 강퇴/세션 종료인 경우에만 나간다.
+    // DisconnectReason에는 그 외에도 여러 사유가 있는데, 특히 개발 모드 StrictMode의 이중 mount로
+    // 같은 identity의 연결이 두 개 생겼다가 뒤늦게 도착한 연결이 정리되며 지금 연결이
+    // DUPLICATE_IDENTITY로 끊기는 경우가 있다. 이 경우까지 반응하면 아무 조작 없이도 몇 초 뒤
+    // 튕기므로 무시한다. 그 외 사유(SIGNAL_CLOSE, CONNECTION_TIMEOUT 등 순수 연결 문제로 LiveKit이
+    // 재접속을 포기한 경우)는 수동 재시도 다이얼로그로 안내한다.
     const handleDisconnected = (reason?: DisconnectReason) => {
       if (cancelled) return
-      if (reason !== DisconnectReason.PARTICIPANT_REMOVED && reason !== DisconnectReason.ROOM_DELETED) return
-      onLeave()
+      clearGiveUpTimer()
+      setReconnecting(false)
+      if (reason === DisconnectReason.PARTICIPANT_REMOVED || reason === DisconnectReason.ROOM_DELETED) {
+        onLeave()
+        return
+      }
+      if (reason === DisconnectReason.DUPLICATE_IDENTITY) return
+      setConnectionIssue(CONNECTION_TROUBLE_MESSAGE)
     }
+
+    activeRoom.on(RoomEvent.Reconnecting, handleReconnecting)
+    activeRoom.on(RoomEvent.Reconnected, handleReconnected)
     activeRoom.on(RoomEvent.Disconnected, handleDisconnected)
 
     const connectToRoom = async () => {
       setRoom(activeRoom)
       try {
-        await activeRoom.connect(connection.serverUrl, connection.participantToken)
+        await activeRoom.connect(activeConnection.serverUrl, activeConnection.participantToken)
         if (cancelled) return
+        setConnectionIssue(null)
 
         await Promise.all([
           activeRoom.localParticipant.setCameraEnabled(
@@ -232,9 +304,16 @@ export function StudySessionRoom({
         ])
       } catch (error) {
         console.error('LiveKit 세션 연결 실패', error)
-        if (!cancelled) {
-          setConnectionError('세션 연결에 실패했습니다. 네트워크 상태를 확인해 주세요.')
-        }
+        if (cancelled) return
+        // 토큰이 만료·무효화된 경우 LiveKit이 ConnectionErrorReason.NotAllowed로 구분해준다.
+        // 순수 네트워크 문제와 구분해 다른 안내를 보여준다.
+        const isPermissionError =
+          error instanceof ConnectionError && error.reason === ConnectionErrorReason.NotAllowed
+        setConnectionIssue(
+          isPermissionError
+            ? '이 세션에 참여할 권한이 없습니다. 다시 로그인하거나 관리자에게 문의해 주세요.'
+            : '세션 연결에 실패했습니다. 네트워크 상태를 확인해 주세요.',
+        )
       }
     }
 
@@ -242,12 +321,30 @@ export function StudySessionRoom({
 
     return () => {
       cancelled = true
+      clearGiveUpTimer()
+      activeRoom.off(RoomEvent.Reconnecting, handleReconnecting)
+      activeRoom.off(RoomEvent.Reconnected, handleReconnected)
       activeRoom.off(RoomEvent.Disconnected, handleDisconnected)
       void activeRoom.disconnect()
     }
-    // 최초 접속 정보로 한 번만 연결한다. 재연결이 필요한 경우는 이 화면을 다시 마운트해서 처리한다.
+    // activeConnection이 바뀔 때만(최초 접속 또는 수동 재시도로 새 토큰을 받았을 때) 재연결한다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connection.serverUrl, connection.participantToken])
+  }, [activeConnection.serverUrl, activeConnection.participantToken])
+
+  // 수동 재시도: 현재 토큰이 만료됐을 수 있으니 새 토큰을 발급받아 activeConnection을 갱신한다.
+  // 그러면 위 이펙트가 새 Room으로 다시 연결을 시도한다.
+  const handleManualRetry = async () => {
+    setRetrying(true)
+    try {
+      const fresh = await createStudySessionConnection(activeConnection.sessionId)
+      setConnectionIssue(null)
+      setActiveConnection(fresh)
+    } catch (error) {
+      setConnectionIssue(toErrorMessage(error))
+    } finally {
+      setRetrying(false)
+    }
+  }
 
   return (
     <RoomContext.Provider value={room}>
@@ -255,8 +352,11 @@ export function StudySessionRoom({
       <StudySessionRoomStage
         initialDevices={initialDevices}
         selfCoverLetterId={selfCoverLetterId}
-        connection={connection}
-        connectionError={connectionError}
+        connection={activeConnection}
+        reconnecting={reconnecting}
+        connectionIssue={connectionIssue}
+        retrying={retrying}
+        onManualRetry={handleManualRetry}
         onLeave={onLeave}
       />
     </RoomContext.Provider>
@@ -267,7 +367,10 @@ interface StudySessionRoomStageProps {
   initialDevices: StudySessionRoomDeviceSelection
   selfCoverLetterId: number | null
   connection: StudySessionConnection
-  connectionError: string | null
+  reconnecting: boolean
+  connectionIssue: string | null
+  retrying: boolean
+  onManualRetry: () => void
   onLeave: () => void
 }
 
@@ -275,9 +378,13 @@ function StudySessionRoomStage({
   initialDevices,
   selfCoverLetterId,
   connection,
-  connectionError,
+  reconnecting,
+  connectionIssue,
+  retrying,
+  onManualRetry,
   onLeave,
 }: StudySessionRoomStageProps) {
+  const room = useRoomContext()
   const remoteParticipants = useRemoteParticipants()
   const { localParticipant, isCameraEnabled, isMicrophoneEnabled, isScreenShareEnabled } = useLocalParticipant()
   const cameraTracks = useTracks([Track.Source.Camera]).filter(isTrackReference)
@@ -297,6 +404,10 @@ function StudySessionRoomStage({
   const [knownIdentities, setKnownIdentities] = useState<string[]>([])
   // 본인 카드에 선택한 자소서 제목을 보여주기 위해 서류함 목록을 조회한다. 실패해도 세션 진행은 막지 않는다.
   const [myCoverLetters, setMyCoverLetters] = useState<CoverLetterListItem[]>([])
+  // 서버가 확인한 참가자 정보(닉네임·역할·제출 서류)를 userId로 찾을 수 있게 담아 둔다.
+  const [membersByUserId, setMembersByUserId] = useState<
+    Map<number, StudySessionMember>
+  >(new Map())
   const currentIdentities = remoteParticipants.map((participant) => participant.identity)
   const identitiesChanged =
     currentIdentities.length !== knownIdentities.length ||
@@ -337,38 +448,76 @@ function StudySessionRoomStage({
     }
   }, [])
 
+  // 참가자가 드나들 때마다 서버 목록을 다시 맞춘다. identity 문자열을 이어 붙인 값이 바뀔 때만 조회한다.
+  const remoteIdentityKey = currentIdentities.join(',')
+
+  useEffect(() => {
+    let isActive = true
+
+    getStudySessionMembers(connection.sessionId)
+      .then((members) => {
+        if (!isActive) return
+        setMembersByUserId(
+          new Map(members.map((member) => [member.userId, member])),
+        )
+      })
+      // 참가자 정보는 보조 표시라, 실패하면 LiveKit이 주는 값만으로 계속 진행한다.
+      .catch(() => {})
+
+    return () => {
+      isActive = false
+    }
+  }, [connection.sessionId, remoteIdentityKey])
+
   const participants = useMemo<StudyParticipant[]>(() => {
     const selectedCoverLetter = myCoverLetters.find(
       (coverLetter) => coverLetter.coverLetterId === selfCoverLetterId,
     )
 
+    const selfUserId = parseUserIdFromIdentity(connection.participantIdentity)
+    const selfMember =
+      selfUserId === null ? undefined : membersByUserId.get(selfUserId)
+
     const selfEntry: StudyParticipant = {
       participantId: 0,
-      name: connection.participantName || '나',
+      userId: selfMember?.userId ?? selfUserId,
+      name: selfMember?.nickname || connection.participantName || '나',
       isSelf: true,
-      resumeSummary: '내가 선택한 이력서가 여기에 표시됩니다.',
+      role: selfMember?.role ?? connection.role,
+      resumeId: selfMember?.resumeId ?? null,
       coverLetterTitle: selectedCoverLetter?.title ?? '선택한 자소서',
-      coverLetterSummary: selectedCoverLetter
-        ? `${selectedCoverLetter.title} (${selectedCoverLetter.companyName} · ${selectedCoverLetter.role})`
-        : '내가 선택한 자소서가 여기에 표시됩니다.',
+      coverLetterId: selfMember?.coverLetterId ?? selfCoverLetterId,
     }
 
-    // TODO: 실제 API 연동 필요 — 참가자별 이력서/자소서 조회 API가 생기면 placeholder 대신 실제 데이터로 채운다.
-    const remoteEntries: StudyParticipant[] = remoteParticipants.map((participant) => ({
-      participantId: resolveParticipantId(participant.identity, false),
-      name: participant.name || participant.identity,
-      isSelf: false,
-      resumeSummary: '정보 없음',
-      coverLetterTitle: '정보 없음',
-      coverLetterSummary: '상대방의 이력서·자소서 정보는 아직 제공되지 않습니다.',
-    }))
+    const remoteEntries: StudyParticipant[] = remoteParticipants.map(
+      (participant) => {
+        const userId = parseUserIdFromIdentity(participant.identity)
+        const member = userId === null ? undefined : membersByUserId.get(userId)
+
+        return {
+          participantId: resolveParticipantId(participant.identity, false),
+          userId: member?.userId ?? userId,
+          // 서버 닉네임을 우선 쓰고, 없을 때만 LiveKit 값으로 내려간다. identity 문자열 노출은 마지막 수단이다.
+          name: member?.nickname || participant.name || participant.identity,
+          isSelf: false,
+          role: member?.role ?? null,
+          resumeId: member?.resumeId ?? null,
+          coverLetterTitle:
+            member?.coverLetterId != null ? '제출한 자소서' : '제출 안 함',
+          coverLetterId: member?.coverLetterId ?? null,
+        }
+      },
+    )
 
     return [selfEntry, ...remoteEntries]
   }, [
     remoteParticipants,
     selfCoverLetterId,
     myCoverLetters,
+    membersByUserId,
     connection.participantName,
+    connection.participantIdentity,
+    connection.role,
     resolveParticipantId,
   ])
 
@@ -447,8 +596,19 @@ function StudySessionRoomStage({
   const [order, setOrder] = useState<number[]>([0])
   const [lockedIds, setLockedIds] = useState<Set<number>>(new Set())
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [deviceSettingsOpen, setDeviceSettingsOpen] = useState(false)
+  const [deviceOptions, setDeviceOptions] = useState<{
+    camera: DeviceOption[]
+    mic: DeviceOption[]
+    speaker: DeviceOption[]
+  }>({ camera: [], mic: [], speaker: [] })
+  const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null)
+  const [selectedMicId, setSelectedMicId] = useState<string | null>(null)
+  const [selectedSpeakerId, setSelectedSpeakerId] = useState<string | null>(null)
+  const [deviceSwitchError, setDeviceSwitchError] = useState<string | null>(null)
   const dragIdRef = useRef<number | null>(null)
   const videoAreaRef = useRef<HTMLDivElement>(null)
+  const deviceSettingsRef = useRef<HTMLDivElement>(null)
   const [gridRef, gridSize, predictGridWidthChange] = useElementSize<HTMLDivElement>(PANEL_TRANSITION_MS)
   const [stageRef, stageSize, predictStageWidthChange] = useElementSize<HTMLDivElement>(PANEL_TRANSITION_MS)
 
@@ -495,6 +655,53 @@ function StudySessionRoomStage({
       ? (screenShareTracks.find((trackRef) => trackRef.publication.trackSid === stageMode.sid) ?? null)
       : null
 
+  // 세션 접속 시 이미 카메라·마이크 권한을 받은 상태라 별도 getUserMedia 없이 목록만 조회한다.
+  useEffect(() => {
+    let isActive = true
+    const refreshDeviceOptions = () => {
+      navigator.mediaDevices
+        .enumerateDevices()
+        .then((list) => {
+          if (!isActive) return
+          setDeviceOptions({
+            camera: toDeviceOptions(list, 'videoinput', '카메라'),
+            mic: toDeviceOptions(list, 'audioinput', '마이크'),
+            speaker: toDeviceOptions(list, 'audiooutput', '스피커'),
+          })
+        })
+        .catch(() => {})
+    }
+
+    refreshDeviceOptions()
+    navigator.mediaDevices.addEventListener('devicechange', refreshDeviceOptions)
+    return () => {
+      isActive = false
+      navigator.mediaDevices.removeEventListener('devicechange', refreshDeviceOptions)
+    }
+  }, [])
+
+  const cameraDeviceId = selectedCameraId ?? room.getActiveDevice('videoinput') ?? null
+  const micDeviceId = selectedMicId ?? room.getActiveDevice('audioinput') ?? null
+  const speakerDeviceId = selectedSpeakerId ?? room.getActiveDevice('audiooutput') ?? null
+
+  const handleChangeCamera = (id: string) => {
+    setSelectedCameraId(id)
+    setDeviceSwitchError(null)
+    void room.switchActiveDevice('videoinput', id).catch(() => setDeviceSwitchError('카메라를 변경하지 못했습니다.'))
+  }
+
+  const handleChangeMic = (id: string) => {
+    setSelectedMicId(id)
+    setDeviceSwitchError(null)
+    void room.switchActiveDevice('audioinput', id).catch(() => setDeviceSwitchError('마이크를 변경하지 못했습니다.'))
+  }
+
+  const handleChangeSpeaker = (id: string) => {
+    setSelectedSpeakerId(id)
+    setDeviceSwitchError(null)
+    void room.switchActiveDevice('audiooutput', id).catch(() => setDeviceSwitchError('스피커를 변경하지 못했습니다.'))
+  }
+
   useEffect(() => {
     if (!contextMenu) return
     const closeMenu = () => setContextMenu(null)
@@ -508,6 +715,23 @@ function StudySessionRoomStage({
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [contextMenu])
+
+  useEffect(() => {
+    if (!deviceSettingsOpen) return
+    const handleClickOutside = (event: MouseEvent) => {
+      if (deviceSettingsRef.current?.contains(event.target as Node)) return
+      setDeviceSettingsOpen(false)
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDeviceSettingsOpen(false)
+    }
+    window.addEventListener('click', handleClickOutside)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('click', handleClickOutside)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [deviceSettingsOpen])
 
   const orderedParticipants = useMemo(
     () =>
@@ -667,8 +891,13 @@ function StudySessionRoomStage({
 
   const handleConfirmKick = async () => {
     if (!kickTarget) return
+    // 세션 참가자 목록으로 확인한 userId를 우선 쓰고, 아직 조회되지 않았으면 identity에서 뽑아낸다.
+    const target = participants.find(
+      (entry) => entry.participantId === kickTarget.participantId,
+    )
     const identity = identityByParticipantId.get(kickTarget.participantId)
-    const targetUserId = identity ? parseUserIdFromIdentity(identity) : null
+    const targetUserId =
+      target?.userId ?? (identity ? parseUserIdFromIdentity(identity) : null)
     if (targetUserId === null) {
       setKickError('참가자 정보를 확인할 수 없습니다.')
       return
@@ -706,9 +935,10 @@ function StudySessionRoomStage({
         {/* 영상 영역 + 장치설정바를 한 열로 묶어, 패널이 열리면 이 열 전체가 함께 밀리게 한다. */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div ref={videoAreaRef} className="relative min-h-0 flex-1 overflow-hidden p-4">
-            {connectionError ? (
-              <div className="absolute inset-x-4 top-4 z-30 rounded-ait-s bg-status-error px-4 py-2 text-center text-body-2 text-white shadow-elevation-2">
-                {connectionError}
+            {reconnecting ? (
+              <div className="absolute inset-x-4 top-4 z-30 flex items-center justify-center gap-2 rounded-ait-s bg-status-warning px-4 py-2 text-center text-body-2 text-white shadow-elevation-2">
+                <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden="true" />
+                재접속 중입니다...
               </div>
             ) : null}
 
@@ -966,6 +1196,81 @@ function StudySessionRoomStage({
 
           {/* 장치설정바: 영상 위에 떠 있지 않고 하단에 항상 고정된 자리를 차지하며, 패널이 열리면 이 열과 함께 밀린다. */}
           <div className="flex shrink-0 items-center justify-center gap-4 px-4 py-3">
+            <div
+              ref={deviceSettingsRef}
+              className="relative flex items-center justify-center rounded-ait-pill bg-action-primary px-3 py-2 shadow-elevation-2"
+            >
+              {deviceSettingsOpen ? (
+                <div className="absolute bottom-full left-0 pb-3">
+                  <div className="flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-4 rounded-ait-s bg-theater-backdrop p-4 shadow-elevation-2">
+                    <div>
+                      <span className="flex items-center gap-2 text-caption font-medium text-white">
+                        <Video className="size-3.5" aria-hidden="true" />
+                        카메라
+                      </span>
+                      <Dropdown
+                        className="mt-1"
+                        buttonClassName={deviceDropdownButtonClass}
+                        ariaLabel="카메라 선택"
+                        placeholder="사용 가능한 카메라가 없습니다"
+                        options={deviceOptions.camera.map((device) => ({ value: device.id, label: device.label }))}
+                        value={cameraDeviceId}
+                        onChange={handleChangeCamera}
+                      />
+                    </div>
+
+                    <div>
+                      <span className="flex items-center gap-2 text-caption font-medium text-white">
+                        <Mic className="size-3.5" aria-hidden="true" />
+                        마이크
+                      </span>
+                      <Dropdown
+                        className="mt-1"
+                        buttonClassName={deviceDropdownButtonClass}
+                        ariaLabel="마이크 선택"
+                        placeholder="사용 가능한 마이크가 없습니다"
+                        options={deviceOptions.mic.map((device) => ({ value: device.id, label: device.label }))}
+                        value={micDeviceId}
+                        onChange={handleChangeMic}
+                      />
+                    </div>
+
+                    <div>
+                      <span className="flex items-center gap-2 text-caption font-medium text-white">
+                        <Volume2 className="size-3.5" aria-hidden="true" />
+                        스피커
+                      </span>
+                      <Dropdown
+                        className="mt-1"
+                        buttonClassName={deviceDropdownButtonClass}
+                        ariaLabel="스피커 선택"
+                        placeholder="사용 가능한 스피커가 없습니다"
+                        options={deviceOptions.speaker.map((device) => ({ value: device.id, label: device.label }))}
+                        value={speakerDeviceId}
+                        onChange={handleChangeSpeaker}
+                        openUpward
+                      />
+                    </div>
+
+                    {deviceSwitchError ? <p className="text-caption text-theater-live">{deviceSwitchError}</p> : null}
+                  </div>
+                </div>
+              ) : null}
+
+              <button
+                type="button"
+                aria-pressed={deviceSettingsOpen}
+                aria-label={deviceSettingsOpen ? '장치 설정 접기' : '장치 설정 펼치기'}
+                onClick={() => setDeviceSettingsOpen((value) => !value)}
+                className={cn(
+                  'flex size-10 items-center justify-center rounded-ait-s text-white transition-colors hover:bg-white/15',
+                  deviceSettingsOpen && 'bg-white/20',
+                )}
+              >
+                <Settings className="size-5" aria-hidden="true" />
+              </button>
+            </div>
+
             <div className="flex items-center gap-1.5 rounded-ait-pill bg-action-primary px-3 py-2 shadow-elevation-2">
               <button
                 type="button"
@@ -1095,6 +1400,24 @@ function StudySessionRoomStage({
             </Button>
             <Button type="button" variant="destructive" disabled={kicking} onClick={() => void handleConfirmKick()}>
               {kicking ? '강퇴 중…' : '강퇴'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 재접속을 포기했거나 최초 접속 자체가 실패했을 때: 자동으로 나가지 않고 재시도·나가기를 사용자가 고르게 한다. */}
+      <Dialog open={connectionIssue !== null} onOpenChange={() => {}}>
+        <DialogContent className="w-[min(26rem,calc(100vw-2rem))] p-6" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>연결에 문제가 발생했습니다</DialogTitle>
+            <DialogDescription>{connectionIssue}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="text" disabled={retrying} onClick={onLeave}>
+              나가기
+            </Button>
+            <Button type="button" disabled={retrying} onClick={() => void onManualRetry()}>
+              {retrying ? '다시 시도 중…' : '다시 시도'}
             </Button>
           </DialogFooter>
         </DialogContent>

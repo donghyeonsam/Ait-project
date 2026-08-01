@@ -1,4 +1,3 @@
-import Image from '@tiptap/extension-image'
 import { FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-style'
 import { CharacterCount } from '@tiptap/extensions'
 import type { Editor } from '@tiptap/react'
@@ -6,8 +5,11 @@ import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
+import { uploadPostFile } from '@/api/community'
 import { EditorToolbar } from '@/components/editor/EditorToolbar'
+import { ResizableImage } from '@/components/editor/ResizableImage'
 import { cn } from '@/lib/utils'
+import type { CommunityPostFile } from '@/types/community'
 
 interface RichTextEditorProps {
   placeholderLines: string[]
@@ -17,6 +19,7 @@ interface RichTextEditorProps {
   invalid?: boolean
   onReady?: (editor: Editor) => void
   onUpdate?: (payload: { html: string; text: string }) => void
+  onImageUploaded?: (file: CommunityPostFile) => void
 }
 
 // Tiptap 기반 리치 텍스트 에디터. 툴바·이미지 업로드(선택/붙여넣기/드래그)·글자수를 담당한다.
@@ -27,9 +30,11 @@ export function RichTextEditor({
   invalid = false,
   onReady,
   onUpdate,
+  onImageUploaded,
 }: RichTextEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   // editorProps 핸들러는 에디터 생성 시점에 고정되므로 최신 업로드 함수를 ref로 참조한다.
   const uploadImageRef = useRef<(file: File) => void>(() => {})
@@ -44,7 +49,7 @@ export function RichTextEditor({
       TextStyle,
       FontFamily,
       FontSize,
-      Image,
+      ResizableImage,
       CharacterCount,
     ],
     editorProps: {
@@ -88,35 +93,30 @@ export function RichTextEditor({
     }),
   })
 
-  // 실제 업로드 서버가 없어 진행률을 흉내내고 data URL로 본문에 삽입한다.
-  // TODO: 실제 API 연동 필요
   useEffect(() => {
-    uploadImageRef.current = (file: File) => {
+    uploadImageRef.current = async (file: File) => {
       if (!editor || uploadProgress !== null) return
       setUploadProgress(0)
-      const timer = setInterval(() => {
-        setUploadProgress((current) => {
-          if (current === null) return null
-          return Math.min(90, current + 15)
-        })
-      }, 90)
+      setUploadError(null)
 
-      const reader = new FileReader()
-      reader.onload = () => {
-        setTimeout(() => {
-          clearInterval(timer)
-          setUploadProgress(100)
-          editor
-            .chain()
-            .focus()
-            .setImage({ src: String(reader.result), alt: file.name })
-            .run()
-          setTimeout(() => setUploadProgress(null), 300)
-        }, 500)
+      try {
+        const uploadedFile = await uploadPostFile(file, 'INLINE')
+        setUploadProgress(100)
+        editor
+          .chain()
+          .focus()
+          .setImage({ src: uploadedFile.url, alt: file.name })
+          .run()
+        onImageUploaded?.(uploadedFile)
+      } catch {
+        setUploadError(
+          '이미지를 업로드하지 못했어요. 파일을 확인하고 다시 시도해주세요.',
+        )
+      } finally {
+        setUploadProgress(null)
       }
-      reader.readAsDataURL(file)
     }
-  }, [editor, uploadProgress])
+  }, [editor, onImageUploaded, uploadProgress])
 
   return (
     <div
@@ -141,6 +141,11 @@ export function RichTextEditor({
             style={{ width: `${uploadProgress}%` }}
           />
         </div>
+      ) : null}
+      {uploadError ? (
+        <p role="alert" className="px-4 py-2 text-caption text-danger">
+          {uploadError}
+        </p>
       ) : null}
 
       <div className="relative">

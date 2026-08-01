@@ -13,21 +13,31 @@ const REPLY_PREVIEW_THRESHOLD = 5
 
 interface CommentItemProps {
   comment: CommunityComment
+  currentUserId: number | null
   isHighlighted: boolean
   highlightedReplyId: string | null
   onSubmitReply: (commentId: string, content: string) => Promise<void>
+  onEdit: (commentId: string, content: string) => Promise<void>
+  onRequestDelete: (commentId: string) => void
 }
 
-// 최상위 댓글 하나. 긴 본문 축약, 답글 접힘·펼침, 답글 쓰기를 담당한다.
+// 최상위 댓글 하나. 긴 본문 축약, 답글 접힘·펼침, 답글 쓰기, 본인 댓글 수정·삭제를 담당한다.
 export function CommentItem({
   comment,
+  currentUserId,
   isHighlighted,
   highlightedReplyId,
   onSubmitReply,
+  onEdit,
+  onRequestDelete,
 }: CommentItemProps) {
   const [isThreadOpen, setThreadOpen] = useState(false)
   const [showAllReplies, setShowAllReplies] = useState(false)
   const [isReplyOpen, setReplyOpen] = useState(false)
+  const [isEditing, setEditing] = useState(false)
+
+  const isMine =
+    comment.authorId != null && comment.authorId === currentUserId
 
   const replyCount = comment.replies.length
   const shouldPreview = replyCount > REPLY_PREVIEW_THRESHOLD
@@ -51,18 +61,37 @@ export function CommentItem({
           isHighlighted && 'bg-brand-blue/[0.06]',
         )}
       >
-        <CommentBody
-          author={comment.author}
-          createdAt={comment.createdAt}
-          content={comment.content}
-        />
+        {isEditing ? (
+          <div className="pl-[52px] pt-1">
+            <CommentComposer
+              onSubmit={async (content) => {
+                await onEdit(comment.id, content)
+                setEditing(false)
+              }}
+              initialValue={comment.content}
+              autoFocus
+              compact
+              placeholder="댓글을 수정해주세요."
+              submitLabel="수정 완료"
+            />
+          </div>
+        ) : (
+          <CommentBody
+            author={comment.author}
+            createdAt={comment.createdAt}
+            content={comment.content}
+            muted={comment.deleted}
+          />
+        )}
 
         <div className="mt-2 flex items-center gap-4 pl-[52px]">
-          <span className="inline-flex items-center gap-1.5 text-caption text-ink-500">
-            <ThumbsUp aria-hidden="true" className="size-4 text-ink-400" />
-            <span className="sr-only">좋아요</span>
-            {comment.likeCount}
-          </span>
+          {!comment.deleted ? (
+            <span className="inline-flex items-center gap-1.5 text-caption text-ink-500">
+              <ThumbsUp aria-hidden="true" className="size-4 text-ink-400" />
+              <span className="sr-only">좋아요</span>
+              {comment.likeCount}
+            </span>
+          ) : null}
           {replyCount > 0 ? (
             <button
               type="button"
@@ -80,13 +109,33 @@ export function CommentItem({
               {isThreadOpen ? '답글 접기' : `답글 ${replyCount}개`}
             </button>
           ) : null}
-          <button
-            type="button"
-            onClick={() => setReplyOpen((open) => !open)}
-            className="text-caption font-medium text-ink-500 transition-colors hover:text-navy-800"
-          >
-            답글 쓰기
-          </button>
+          {!comment.deleted ? (
+            <button
+              type="button"
+              onClick={() => setReplyOpen((open) => !open)}
+              className="text-caption font-medium text-ink-500 transition-colors hover:text-navy-800"
+            >
+              답글 쓰기
+            </button>
+          ) : null}
+          {isMine && !comment.deleted ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setEditing((editing) => !editing)}
+                className="text-caption font-medium text-ink-500 transition-colors hover:text-navy-800"
+              >
+                {isEditing ? '수정 취소' : '수정'}
+              </button>
+              <button
+                type="button"
+                onClick={() => onRequestDelete(comment.id)}
+                className="text-caption font-medium text-ink-500 transition-colors hover:text-danger"
+              >
+                삭제
+              </button>
+            </>
+          ) : null}
         </div>
       </div>
 
@@ -134,7 +183,10 @@ export function CommentItem({
                 <ReplyItem
                   key={reply.id}
                   reply={reply}
+                  currentUserId={currentUserId}
                   isHighlighted={reply.id === highlightedReplyId}
+                  onEdit={onEdit}
+                  onRequestDelete={onRequestDelete}
                 />
               ))}
             </motion.ul>
@@ -156,11 +208,20 @@ export function CommentItem({
 
 function ReplyItem({
   reply,
+  currentUserId,
   isHighlighted,
+  onEdit,
+  onRequestDelete,
 }: {
   reply: CommunityReply
+  currentUserId: number | null
   isHighlighted: boolean
+  onEdit: (commentId: string, content: string) => Promise<void>
+  onRequestDelete: (commentId: string) => void
 }) {
+  const [isEditing, setEditing] = useState(false)
+  const isMine = reply.authorId != null && reply.authorId === currentUserId
+
   return (
     <motion.li
       variants={{
@@ -172,17 +233,53 @@ function ReplyItem({
         isHighlighted && 'bg-brand-blue/[0.06]',
       )}
     >
-      <CommentBody
-        author={reply.author}
-        createdAt={reply.createdAt}
-        content={reply.content}
-        compact
-      />
-      <span className="mt-1.5 inline-flex items-center gap-1.5 pl-[44px] text-caption text-ink-500">
-        <ThumbsUp aria-hidden="true" className="size-3.5 text-ink-400" />
-        <span className="sr-only">좋아요</span>
-        {reply.likeCount}
-      </span>
+      {isEditing ? (
+        <div className="pl-[44px] pt-1">
+          <CommentComposer
+            onSubmit={async (content) => {
+              await onEdit(reply.id, content)
+              setEditing(false)
+            }}
+            initialValue={reply.content}
+            autoFocus
+            compact
+            placeholder="답글을 수정해주세요."
+            submitLabel="수정 완료"
+          />
+        </div>
+      ) : (
+        <CommentBody
+          author={reply.author}
+          createdAt={reply.createdAt}
+          content={reply.content}
+          compact
+        />
+      )}
+      <div className="mt-1.5 flex items-center gap-4 pl-[44px]">
+        <span className="inline-flex items-center gap-1.5 text-caption text-ink-500">
+          <ThumbsUp aria-hidden="true" className="size-3.5 text-ink-400" />
+          <span className="sr-only">좋아요</span>
+          {reply.likeCount}
+        </span>
+        {isMine ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setEditing((editing) => !editing)}
+              className="text-caption font-medium text-ink-500 transition-colors hover:text-navy-800"
+            >
+              {isEditing ? '수정 취소' : '수정'}
+            </button>
+            <button
+              type="button"
+              onClick={() => onRequestDelete(reply.id)}
+              className="text-caption font-medium text-ink-500 transition-colors hover:text-danger"
+            >
+              삭제
+            </button>
+          </>
+        ) : null}
+      </div>
     </motion.li>
   )
 }
@@ -193,11 +290,14 @@ function CommentBody({
   createdAt,
   content,
   compact = false,
+  muted = false,
 }: {
   author: string
   createdAt: string
   content: string
   compact?: boolean
+  // 삭제된 댓글 안내 문구를 본문보다 흐리게 보여준다.
+  muted?: boolean
 }) {
   const [isExpanded, setExpanded] = useState(false)
   const [needsClamp, setNeedsClamp] = useState(false)
@@ -228,7 +328,8 @@ function CommentBody({
           <p
             ref={contentRef}
             className={cn(
-              'mt-1 whitespace-pre-line text-body-2 leading-relaxed text-ink-700',
+              'mt-1 whitespace-pre-line text-body-2 leading-relaxed',
+              muted ? 'text-ink-400' : 'text-ink-700',
               !isExpanded && 'line-clamp-3',
             )}
           >

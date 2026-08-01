@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import {
+  completeInterview,
   generateInterviewQuestions,
   submitInterviewAnswer,
   type GeneratedInterviewQuestion,
@@ -9,6 +10,7 @@ import {
 } from '@/api/ai-interviews'
 import { toErrorMessage } from '@/api/http'
 import { PageLayout } from '@/components/layout/PageLayout'
+import { ScreenFadeCurtain } from '@/components/common/ScreenFadeCurtain'
 import { QuestionGenerationStage } from '@/components/interview/QuestionGenerationStage'
 import { SessionTheater } from '@/components/interview/SessionTheater'
 import { useAnswerCountdown } from '@/components/interview/useAnswerCountdown'
@@ -56,8 +58,6 @@ const difficultyMap: Record<Difficulty, InterviewRecord['difficulty']> = {
   어려움: '어려움',
 }
 
-// 대기 화면 페이드아웃(--duration-slow)과 같은 값. 전환 시 두 시간이 함께 움직여야 한다.
-const STAGE_EXIT_FADE_MS = 400
 const ANSWER_DURATION_SECONDS = 90
 
 function isTypingTarget(target: EventTarget | null) {
@@ -130,16 +130,6 @@ function InterviewSessionContent({
   const [questionError, setQuestionError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
 
-  // 질문이 준비돼도 대기 화면 페이드아웃이 끝난 뒤에 면접 화면으로 전환한다.
-  useEffect(() => {
-    if (!generatedSession) return
-    const timer = window.setTimeout(
-      () => setStageExited(true),
-      STAGE_EXIT_FADE_MS,
-    )
-    return () => window.clearTimeout(timer)
-  }, [generatedSession])
-
   useEffect(() => {
     let active = true
 
@@ -182,11 +172,15 @@ function InterviewSessionContent({
 
   if (generatedSession && stageExited) {
     return (
-      <ActiveInterviewSession
-        config={config}
-        aiInterviewId={generatedSession.aiInterviewId}
-        questions={generatedSession.questions}
-      />
+      <>
+        <ActiveInterviewSession
+          config={config}
+          aiInterviewId={generatedSession.aiInterviewId}
+          questions={generatedSession.questions}
+        />
+        {/* 검게 덮인 상태로 시작해 장막을 걷으며 면접 화면을 드러낸다. */}
+        <ScreenFadeCurtain covered={false} initialCovered />
+      </>
     )
   }
 
@@ -240,6 +234,13 @@ function InterviewSessionContent({
           />
         )}
       </section>
+
+      {/* 진입 시 검은 화면에서 장막을 걷고, 질문이 준비되면 다시 덮은 뒤 면접 화면으로 전환한다. */}
+      <ScreenFadeCurtain
+        covered={Boolean(generatedSession)}
+        initialCovered
+        onCoverComplete={() => setStageExited(true)}
+      />
     </PageLayout>
   )
 }
@@ -314,6 +315,11 @@ function ActiveInterviewSession({
   }, [stream, micMuted])
 
   const handleViewResults = useCallback(() => {
+    // 종료를 알려야 서버가 리포트 생성을 시작한다. 실패해도 결과 화면 이동은 막지 않는다.
+    if (aiInterviewId !== null) {
+      void completeInterview(aiInterviewId).catch(() => {})
+    }
+
     const interviewType = input.interviewType
     const difficulty = input.difficulty
     const position = input.position ?? ''
@@ -480,11 +486,6 @@ function ActiveInterviewSession({
         onChangeTranscript={voiceAnswer.setTranscript}
         voiceError={voiceAnswer.error}
         speechError={questionSpeech.error}
-        canRetryTranscription={
-          voiceAnswer.status === 'review' &&
-          Boolean(voiceAnswer.error && voiceAnswer.audioBlob)
-        }
-        onRetryTranscription={voiceAnswer.retryTranscription}
         mediaPermission={permission}
         onRetryMediaAccess={() => {
           void requestAccess(

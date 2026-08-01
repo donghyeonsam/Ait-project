@@ -1,5 +1,6 @@
 // 스터디 세션 생성·조회와 LiveKit 접속 정보(토큰·서버 URL 등) 발급을 담당하는 API 모듈.
 import { backendRequest } from '@/api/http'
+import type { CoverLetterDetail } from '@/api/cover-letters'
 
 export type StudySessionParticipantRole = 'HOST' | 'MEMBER'
 
@@ -28,6 +29,30 @@ export interface StudySessionConnection {
 export interface StudyGroupActiveSession {
   hasActiveSession: boolean
   sessionId: number | null
+}
+
+// 세션에 참가 등록된 사람과 각자 입장 시 제출한 서류 번호. LiveKit 참가자 목록과 달리
+// 아직 화상 연결 전인 사람도 포함되고, identity 문자열 대신 서버가 확인한 userId를 준다.
+export interface StudySessionMember {
+  userId: number
+  nickname: string
+  role: StudySessionParticipantRole
+  resumeId: number | null
+  coverLetterId: number | null
+}
+
+export function getStudySessionMembers(sessionId: number) {
+  return backendRequest<StudySessionMember[]>(
+    `/api/study-sessions/${sessionId}/members`,
+  )
+}
+
+// TODO: 백엔드 미배포 — 세션 참가자의 자소서는 본인 소유가 아니면 /api/cover-letters/{id}에서
+// 404로 걸러지므로, 세션 소속 여부로 대신 검증하는 이 엔드포인트가 별도로 필요하다. 배포 전까지는 404가 난다.
+export function getStudySessionCoverLetter(coverLetterId: number) {
+  return backendRequest<CoverLetterDetail>(
+    `/api/study-sessions/${coverLetterId}`,
+  )
 }
 
 export function createStudySession(groupId: number) {

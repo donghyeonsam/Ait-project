@@ -9,6 +9,7 @@ import {
   toggleBookmark,
   toggleLike,
 } from '@/api/community'
+import { AuthenticatedHtml } from '@/components/common/AuthenticatedHtml'
 import { PageTransition } from '@/components/common/PageTransition'
 import { CommentSection } from '@/components/community/CommentSection'
 import { RollingCounter } from '@/components/community/RollingCounter'
@@ -41,11 +42,18 @@ export function CommunityPostPage() {
   useEffect(() => {
     if (!postId) return
     let cancelled = false
-    fetchPost(postId).then((result) => {
-      if (cancelled) return
-      setPost(result)
-      setLoadedPostId(postId)
-    })
+    fetchPost(postId)
+      .then((result) => {
+        if (cancelled) return
+        setPost(result)
+        setLoadedPostId(postId)
+      })
+      // 조회 실패도 빈 화면 대신 찾을 수 없음 안내로 처리한다.
+      .catch(() => {
+        if (cancelled) return
+        setPost(null)
+        setLoadedPostId(postId)
+      })
     return () => {
       cancelled = true
     }
@@ -88,7 +96,7 @@ export function CommunityPostPage() {
     if (!post || !user || isDeleting) return
     setDeleting(true)
     try {
-      await deletePost(post.id, user.nickname)
+      await deletePost(post.id)
       setDeleteOpen(false)
       showToast('게시글을 삭제했어요.')
       setTimeout(() => navigate('/community', { replace: true }), 700)
@@ -99,7 +107,7 @@ export function CommunityPostPage() {
   }
 
   return (
-    <PageLayout contentClassName="max-w-dashboard">
+    <PageLayout contentClassName="page-content-zoom-90 max-w-dashboard">
       <PageTransition>
         <nav aria-label="현재 위치" className="pt-6 text-caption text-ink-500">
           <Link to="/community" className="transition-colors hover:text-navy-800">
@@ -171,10 +179,9 @@ export function CommunityPostPage() {
 
               <hr className="mt-5 border-0 border-t border-gold-500" />
 
-              <div
+              <AuthenticatedHtml
+                html={safeContent}
                 className="community-prose mt-6"
-                // sanitize를 거친 에디터 HTML만 주입한다.
-                dangerouslySetInnerHTML={{ __html: safeContent }}
               />
 
               <div className="mt-6 flex flex-wrap gap-1.5">
@@ -243,7 +250,11 @@ export function CommunityPostPage() {
               </Link>
             </div>
 
-            <CommentSection postId={post.id} commentCount={post.commentCount} />
+            <CommentSection
+              postId={post.id}
+              commentCount={post.commentCount}
+              onNotify={showToast}
+            />
           </div>
         )}
       </PageTransition>

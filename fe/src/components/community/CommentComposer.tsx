@@ -41,6 +41,8 @@ export function CommentComposer({
     try {
       await onSubmit(trimmed)
       setContent('')
+    } catch {
+      // 실패 시 입력 내용을 유지해 바로 다시 시도할 수 있게 한다.
     } finally {
       setSubmitting(false)
     }

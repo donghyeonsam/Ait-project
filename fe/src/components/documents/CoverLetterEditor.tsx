@@ -2,6 +2,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  deleteCoverLetter,
   updateCoverLetter,
   type CoverLetterDetail,
 } from '@/api/cover-letters'
@@ -16,6 +17,14 @@ import {
 } from '@/components/documents/DocumentFormParts'
 import { UnsavedChangesDialog } from '@/components/documents/UnsavedChangesDialog'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useUnsavedChangesGuard } from '@/lib/useUnsavedChangesGuard'
@@ -41,6 +50,9 @@ export function CoverLetterEditor({
   const [saved, setSaved] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
   const [documentBoxOpen, setDocumentBoxOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const guard = useUnsavedChangesGuard(isDirty)
 
   const updateDraft = (update: Partial<CoverLetterDetail>) => {
@@ -93,6 +105,19 @@ export function CoverLetterEditor({
     void save()
   }
 
+  // 삭제 후에는 이 자소서 경로가 404가 되므로 편집 화면에 남기지 않고 마이페이지로 되돌린다.
+  const confirmDeletion = async () => {
+    setIsDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteCoverLetter(draft.coverLetterId)
+      navigate('/mypage', { replace: true })
+    } catch (requestError) {
+      setDeleteError(toErrorMessage(requestError))
+      setIsDeleting(false)
+    }
+  }
+
   return (
     <DocumentEditorShell
       title="자기소개서 작성"
@@ -102,6 +127,17 @@ export function CoverLetterEditor({
       isSaving={isSaving}
       onSubmit={handleSubmit}
       onNavigateHome={() => guard.guardNavigation(() => navigate('/mypage'))}
+      destructiveAction={(
+        <Button
+          type="button"
+          variant="text"
+          className="text-status-error"
+          onClick={() => setIsDeleteDialogOpen(true)}
+        >
+          <Trash2 aria-hidden="true" />
+          자기소개서 삭제
+        </Button>
+      )}
     >
       <DocumentSection title="기본 정보">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -224,6 +260,57 @@ export function CoverLetterEditor({
         }}
         isSaving={isSaving}
       />
+
+      <Dialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          // 삭제 요청이 진행되는 동안에는 대화상자를 닫지 않는다.
+          if (!open && isDeleting) return
+          setIsDeleteDialogOpen(open)
+          if (!open) setDeleteError(null)
+        }}
+      >
+        <DialogContent
+          className="w-[min(28rem,calc(100vw-2rem))] border border-border-default p-6"
+          showCloseButton={false}
+        >
+          <DialogHeader>
+            <DialogTitle>자기소개서를 삭제할까요?</DialogTitle>
+            <DialogDescription>
+              {draft.title.trim()
+                ? `‘${draft.title.trim()}’과 작성한 문항을 다시 볼 수 없습니다.`
+                : '작성한 문항을 다시 볼 수 없습니다.'}
+            </DialogDescription>
+          </DialogHeader>
+          {deleteError ? (
+            <p className="mt-4 text-body-2 text-status-error" role="alert">
+              {deleteError}
+            </p>
+          ) : null}
+          <DialogFooter className="mt-6">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={isDeleting}
+              onClick={() => {
+                setIsDeleteDialogOpen(false)
+                setDeleteError(null)
+              }}
+            >
+              취소
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isDeleting}
+              aria-busy={isDeleting}
+              onClick={() => void confirmDeletion()}
+            >
+              {isDeleting ? '삭제하는 중' : '삭제'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <DocumentBoxDialog open={documentBoxOpen} onOpenChange={setDocumentBoxOpen} />
 

@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 
 const MAX_TAGS = 5
 const MAX_TAG_LENGTH = 12
@@ -8,13 +8,16 @@ const MAX_TAG_LENGTH = 12
 interface TagInputProps {
   tags: string[]
   onChange: (tags: string[]) => void
-  suggestions?: string[]
+  suggestions?: readonly string[]
 }
 
 // Enter/쉼표로 칩을 만드는 태그 입력. 중복·개수·길이 제한과 추천 태그를 지원한다.
 export function TagInput({ tags, onChange, suggestions = [] }: TagInputProps) {
   const [input, setInput] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [isSuggestionOpen, setSuggestionOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(-1)
+  const listboxId = useId()
 
   const filteredSuggestions = useMemo(() => {
     const keyword = input.trim().replace(/^#/, '').toLowerCase()
@@ -38,6 +41,8 @@ export function TagInput({ tags, onChange, suggestions = [] }: TagInputProps) {
     setError(null)
     onChange([...tags, tag])
     setInput('')
+    setSuggestionOpen(false)
+    setActiveIndex(-1)
   }
 
   const removeTag = (tag: string) => {
@@ -47,7 +52,35 @@ export function TagInput({ tags, onChange, suggestions = [] }: TagInputProps) {
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.nativeEvent.isComposing) return
-    if (event.key === 'Enter' || event.key === ',') {
+    if (event.key === 'Escape') {
+      setSuggestionOpen(false)
+      setActiveIndex(-1)
+      return
+    }
+    if (event.key === 'ArrowDown' && filteredSuggestions.length > 0) {
+      event.preventDefault()
+      setSuggestionOpen(true)
+      setActiveIndex((index) => (index + 1) % filteredSuggestions.length)
+      return
+    }
+    if (event.key === 'ArrowUp' && filteredSuggestions.length > 0) {
+      event.preventDefault()
+      setSuggestionOpen(true)
+      setActiveIndex((index) =>
+        index <= 0 ? filteredSuggestions.length - 1 : index - 1,
+      )
+      return
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      const activeSuggestion =
+        isSuggestionOpen && activeIndex >= 0
+          ? filteredSuggestions[activeIndex]
+          : null
+      addTag(activeSuggestion ?? input)
+      return
+    }
+    if (event.key === ',') {
       event.preventDefault()
       addTag(input)
       return
@@ -88,10 +121,28 @@ export function TagInput({ tags, onChange, suggestions = [] }: TagInputProps) {
         </AnimatePresence>
         <input
           type="text"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={isSuggestionOpen && filteredSuggestions.length > 0}
+          aria-controls={
+            isSuggestionOpen && filteredSuggestions.length > 0
+              ? listboxId
+              : undefined
+          }
+          aria-activedescendant={
+            isSuggestionOpen && activeIndex >= 0
+              ? `${listboxId}-${activeIndex}`
+              : undefined
+          }
           value={input}
           onChange={(event) => {
             setInput(event.target.value)
             setError(null)
+            setSuggestionOpen(true)
+            setActiveIndex(-1)
+          }}
+          onFocus={() => {
+            if (filteredSuggestions.length > 0) setSuggestionOpen(true)
           }}
           onKeyDown={handleKeyDown}
           placeholder={tags.length === 0 ? '태그를 입력하고 Enter를 눌러주세요.' : ''}
@@ -113,19 +164,38 @@ export function TagInput({ tags, onChange, suggestions = [] }: TagInputProps) {
         ) : null}
       </AnimatePresence>
 
-      {filteredSuggestions.length > 0 ? (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className="text-caption text-ink-400">추천 태그</span>
-          {filteredSuggestions.map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              onClick={() => addTag(tag)}
-              className="rounded-ait-pill border border-line px-2.5 py-0.5 text-caption text-ink-500 transition-colors hover:border-brand-blue hover:text-brand-blue"
-            >
-              #{tag}
-            </button>
-          ))}
+      {isSuggestionOpen && filteredSuggestions.length > 0 ? (
+        <div className="mt-2 flex items-start gap-1.5">
+          <span className="pt-1 text-caption text-ink-400">추천 태그</span>
+          <ul
+            id={listboxId}
+            role="listbox"
+            aria-label="태그 자동완성"
+            className="flex flex-wrap gap-1.5"
+          >
+            {filteredSuggestions.map((tag, index) => (
+              <li
+                key={tag}
+                id={`${listboxId}-${index}`}
+                role="option"
+                aria-selected={index === activeIndex}
+              >
+                <button
+                  type="button"
+                  onPointerEnter={() => setActiveIndex(index)}
+                  onPointerDown={(event) => event.preventDefault()}
+                  onClick={() => addTag(tag)}
+                  className={`rounded-ait-pill border px-2.5 py-0.5 text-caption transition-colors ${
+                    index === activeIndex
+                      ? 'border-brand-blue text-brand-blue'
+                      : 'border-line text-ink-500 hover:border-brand-blue hover:text-brand-blue'
+                  }`}
+                >
+                  #{tag}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
     </div>

@@ -1,10 +1,16 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { GradientBlob } from '@/components/reactbits/GradientBlob'
 import type { InterviewInputContract } from '@/lib/interview-session'
 
 const STAGE_VISIBILITY_DELAY_MS = 300
 const STATUS_ROTATION_MS = 2600
 const TIP_ROTATION_MS = 7000
 const SLOW_REQUEST_NOTICE_MS = 15000
+const MagicRings = lazy(() =>
+  import('@/components/reactbits/MagicRings').then((module) => ({
+    default: module.MagicRings,
+  })),
+)
 
 interface QuestionGenerationStageProps {
   input: InterviewInputContract
@@ -134,10 +140,40 @@ export function QuestionGenerationStage({
       </div>
 
       <div className="relative flex flex-1 flex-col items-center justify-center py-8 text-center">
-        <div className="question-generation-ring" aria-hidden="true">
-          <span className="question-generation-ring-conic" />
-          <span className="question-generation-ring-core" />
-          <span className="question-generation-ring-label">Ait</span>
+        <div className="question-generation-visual" aria-hidden="true">
+          <Suspense fallback={null}>
+            <MagicRings
+              className="question-generation-magic-rings"
+              color="#2E4A72"
+              colorTwo="#C19B55"
+              speed={0.34}
+              ringCount={5}
+              attenuation={10.5}
+              lineThickness={1.55}
+              baseRadius={0.4}
+              radiusStep={0.02}
+              scaleRate={0.045}
+              opacity={0.52}
+              noiseAmount={0}
+              rotation={-8}
+              ringGap={1.12}
+              fadeIn={0.55}
+              fadeOut={0.72}
+            />
+          </Suspense>
+          <GradientBlob
+            className="question-generation-blob"
+            speed={0.72}
+            primaryColor="#1A2A4A"
+            secondaryColor="#5A7BA6"
+            accentColor="#C9A96E"
+            baseColor="#DCE6F5"
+            morphIntensity={0.72}
+            breatheDuration={5.2}
+            rotationSpeed={0.55}
+          >
+            <span className="question-generation-blob-label">Ait</span>
+          </GradientBlob>
         </div>
 
         <h1

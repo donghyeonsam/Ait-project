@@ -52,12 +52,19 @@
 
 .landing-header__inner {
   box-sizing: border-box;
+  position: relative;
   display: flex;
   width: 100%;
   align-items: center;
   justify-content: space-between;
   height: 100%;
   padding-inline: 10rem;
+}
+
+.landing-header__nav {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .landing-header__logo {
@@ -103,6 +110,13 @@
   width: 1px;
   height: 2rem;
   background: var(--color-border-default);
+}
+
+/* 스티키 헤더에 가려지지 않도록 앵커 이동 지점을 내린다. */
+.landing-features,
+.landing-gallery,
+.landing-process {
+  scroll-margin-top: 6rem;
 }
 
 .landing-hero {
@@ -811,6 +825,38 @@
   word-break: keep-all;
 }
 
+.landing-features__hub {
+  width: min(100%, 46rem);
+  height: 22rem;
+  margin: 2.4rem auto 0;
+}
+
+.landing-features__hub-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding-inline: 0.4rem;
+  color: var(--color-action-primary);
+  font-size: 0.625rem;
+  font-weight: 650;
+  line-height: 1.25;
+  text-align: center;
+  word-break: keep-all;
+}
+
+.landing-features__hub-node svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.landing-features__hub-center {
+  color: var(--color-action-primary);
+  font-size: 1.25rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
 .landing-feature-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1094,6 +1140,22 @@
   border-radius: var(--radius-pill);
   background: var(--color-status-achievement-surface);
   box-shadow: 0 0 0 2px rgba(201, 169, 110, 0.25);
+  animation: landing-face-scan 2.6s ease-in-out infinite;
+}
+
+/* 랜드마크 점이 저마다 다른 박자로 나타났다 사라지며 분석 중인 인상을 준다. */
+@keyframes landing-face-scan {
+  0%,
+  100% {
+    opacity: 0.1;
+    box-shadow: 0 0 0 0 rgba(201, 169, 110, 0);
+  }
+
+  45%,
+  60% {
+    opacity: 1;
+    box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.3);
+  }
 }
 
 .landing-face-dot--1 { top: 28%; left: 28%; }
@@ -1119,10 +1181,29 @@
   place-items: center;
   width: 5.3rem;
   height: 5.3rem;
-  border: 0.22rem solid rgba(201, 169, 110, 0.35);
-  border-top-color: var(--color-status-achievement);
-  border-right-color: var(--color-status-achievement);
   border-radius: var(--radius-pill);
+}
+
+/* --score(0~100) 비율만큼 12시 방향부터 차오르는 점수 링. */
+.landing-analysis-score::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(
+    var(--color-status-achievement) calc(var(--score, 0) * 1%),
+    rgba(201, 169, 110, 0.28) 0
+  );
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 0.26rem),
+    black calc(100% - 0.22rem)
+  );
+  mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 0.26rem),
+    black calc(100% - 0.22rem)
+  );
 }
 
 .landing-analysis-score span {
@@ -1229,411 +1310,85 @@
   font-size: 0.58rem;
 }
 
-.landing-demo {
+.landing-gallery {
   position: relative;
-  padding-block: 4rem;
   color: var(--color-surface-default);
   background:
-    radial-gradient(circle at 48% 45%, rgba(201, 169, 110, 0.09), transparent 28%),
+    radial-gradient(
+      circle at 50% 18%,
+      rgba(201, 169, 110, 0.08),
+      transparent 34%
+    ),
     var(--color-action-primary);
 }
 
-.landing-demo::before {
+.landing-gallery__aurora {
   position: absolute;
   inset: 0;
-  opacity: 0.12;
-  background-image: url("/Ait_landing_package/public/assets/landing/decor/dot-grid.svg");
-  background-repeat: no-repeat;
-  background-position: 48% 50%;
-  background-size: 28rem;
-  content: "";
+  overflow: hidden;
   pointer-events: none;
 }
 
-.landing-demo__grid {
+.landing-gallery > .landing-shell {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(12.5rem, 0.82fr) minmax(25rem, 1.5fr) minmax(14rem, 0.9fr);
-  gap: 1rem;
-  align-items: stretch;
+  z-index: 1;
 }
 
-.landing-demo__intro {
-  padding: 1.25rem 0.5rem 1.25rem 0;
-}
-
-.landing-demo__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: var(--radius-pill);
-  padding: 0.42rem 0.65rem;
-  color: rgba(255, 255, 255, 0.75);
-  background: rgba(255, 255, 255, 0.06);
-  font-size: 0.7rem;
-}
-
-.landing-demo__eyebrow svg {
-  width: 0.8rem;
-  height: 0.8rem;
-  color: var(--color-status-achievement);
-}
-
-.landing-demo__intro h2 {
-  margin-top: 1.25rem;
-  font-size: clamp(1.75rem, 2.6vw, 2.25rem);
-  font-weight: 720;
-  line-height: 1.32;
-  letter-spacing: -0.035em;
-  word-break: keep-all;
-}
-
-.landing-demo__intro > p:not(.landing-demo__eyebrow) {
-  margin-top: 1rem;
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 0.8125rem;
-  line-height: 1.7;
-  word-break: keep-all;
-}
-
-.landing-demo__intro ul {
-  display: grid;
-  gap: 0.55rem;
-  margin-top: 1.25rem;
-}
-
-.landing-demo__intro li {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.75rem;
-}
-
-.landing-demo__intro li svg {
-  width: 0.9rem;
-  height: 0.9rem;
-  color: var(--color-status-achievement);
-}
-
-.landing-demo__start {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  min-height: 2.75rem;
-  margin-top: 1.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: var(--radius-s);
-  padding: 0.7rem 0.85rem;
+.landing-gallery .landing-section-heading h2 {
   color: var(--color-surface-default);
-  background: rgba(255, 255, 255, 0.1);
-  font-size: 0.75rem;
-  font-weight: 650;
-  transition:
-    color 200ms var(--easing-standard),
-    background-color 200ms var(--easing-standard);
 }
 
-.landing-demo__start:hover:not(:disabled) {
-  color: var(--color-action-primary);
-  background: var(--color-surface-default);
+.landing-gallery .landing-section-heading > span {
+  color: rgba(255, 255, 255, 0.64);
 }
 
-.landing-demo__start:disabled {
-  cursor: default;
-  opacity: 0.58;
+.landing-gallery__carousel {
+  height: 26rem;
+  margin-top: 2.6rem;
 }
 
-.landing-demo__start svg {
-  width: 0.9rem;
-  height: 0.9rem;
-}
-
-.landing-demo__stage,
-.landing-demo__feedback {
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: var(--radius-m);
-  background: rgba(255, 255, 255, 0.055);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.04);
-}
-
-.landing-demo__stage {
-  display: flex;
-  min-height: 27.5rem;
-  flex-direction: column;
-  align-items: center;
-  padding: 1rem;
-}
-
-.landing-demo__stage-top {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 0.65rem;
-}
-
-.landing-demo__stage-top span:first-child {
-  color: var(--color-surface-default);
-  font-weight: 650;
-}
-
-.landing-demo__question {
-  align-self: flex-start;
-  margin-top: 0.65rem;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.75rem;
-  line-height: 1.5;
-}
-
-.landing-demo__voice {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 14rem;
-  height: 14rem;
-  margin-block: auto 1rem;
-  border: 1px solid rgba(248, 243, 232, 0.58);
-  border-radius: var(--radius-pill);
-  color: var(--color-surface-default);
-  background: rgba(255, 255, 255, 0.025);
-  box-shadow:
-    0 0 0 0.45rem rgba(201, 169, 110, 0.07),
-    inset 0 0 2rem rgba(201, 169, 110, 0.04);
-  transition:
-    border-color 220ms var(--easing-standard),
-    box-shadow 220ms var(--easing-standard),
-    transform 220ms var(--easing-standard);
-}
-
-.landing-demo__voice:hover {
-  border-color: var(--color-status-achievement);
-  transform: scale(1.015);
-}
-
-.landing-demo__voice-ring {
-  position: absolute;
-  inset: -0.55rem;
-  border: 1px solid rgba(201, 169, 110, 0.18);
-  border-radius: inherit;
-}
-
-.landing-demo__voice.is-active .landing-demo__voice-ring {
-  animation: landing-demo-ring 1.8s ease-out infinite;
-}
-
-@keyframes landing-demo-ring {
-  70%,
-  100% {
-    opacity: 0;
-    transform: scale(1.1);
-  }
-}
-
-.landing-demo__voice > svg {
-  width: 1.35rem;
-  height: 1.35rem;
-  color: var(--color-status-achievement);
-}
-
-.landing-demo__voice strong {
-  margin-top: 0.55rem;
-  font-size: 0.75rem;
-}
-
-.landing-demo__voice-wave {
-  display: flex;
-  align-items: center;
-  gap: 0.1rem;
-  height: 2.5rem;
-  margin-top: 0.6rem;
-}
-
-.landing-demo__voice-wave i {
-  width: 0.1rem;
-  min-height: 0.18rem;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.72);
-  transform-origin: center;
-}
-
-.landing-demo__voice.is-active .landing-demo__voice-wave i {
-  animation: landing-demo-wave 1.1s ease-in-out infinite alternate;
-}
-
-@keyframes landing-demo-wave {
-  from { transform: scaleY(0.48); }
-  to { transform: scaleY(1); }
-}
-
-.landing-demo__voice time {
-  margin-top: 0.3rem;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 1.35rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.landing-demo__pause {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  min-width: 9rem;
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  border-radius: var(--radius-s);
-  padding: 0.62rem 0.8rem;
-  color: rgba(255, 255, 255, 0.74);
-  background: rgba(255, 255, 255, 0.07);
-  font-size: 0.7rem;
-}
-
-.landing-demo__pause svg {
-  width: 0.8rem;
-  height: 0.8rem;
-}
-
-.landing-demo__stage > small {
-  margin-top: 0.65rem;
-  color: rgba(255, 255, 255, 0.48);
-  font-size: 0.56rem;
+.landing-gallery__hint {
+  margin-top: 1.15rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
   text-align: center;
 }
 
-.landing-demo__feedback {
-  padding: 1rem;
+.landing-growth__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(16rem, 0.8fr);
+  gap: 1.5rem;
+  align-items: stretch;
+  margin-top: 2.4rem;
 }
 
-.landing-demo__feedback-title {
+.landing-growth__slider {
+  aspect-ratio: 1240 / 780;
+  min-width: 0;
+}
+
+.landing-growth__trend {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--color-surface-default);
-  font-size: 0.75rem;
-  font-weight: 650;
+  flex-direction: column;
+  gap: 1rem;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-m);
+  padding: 1.5rem;
+  background: var(--color-surface-default);
+  box-shadow: var(--elevation-1);
 }
 
-.landing-demo__feedback-title small {
-  border-radius: var(--radius-pill);
-  padding: 0.3rem 0.45rem;
-  color: rgba(255, 255, 255, 0.58);
-  background: rgba(255, 255, 255, 0.07);
-  font-size: 0.52rem;
-  font-weight: 500;
+.landing-growth__trend strong {
+  color: var(--color-action-primary);
+  font-size: 1rem;
+  font-weight: 700;
 }
 
-.landing-demo__feedback > ul {
-  display: grid;
-  gap: 0.55rem;
-  margin-top: 0.8rem;
-}
-
-.landing-demo__feedback li {
-  display: flex;
-  gap: 0.55rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-s);
-  padding: 0.7rem;
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.landing-demo__feedback li > span {
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 1.7rem;
-  height: 1.7rem;
-  border-radius: var(--radius-s);
-  color: var(--color-status-achievement);
-  background: rgba(201, 169, 110, 0.12);
-}
-
-.landing-demo__feedback li svg {
-  width: 0.85rem;
-  height: 0.85rem;
-}
-
-.landing-demo__feedback li strong {
-  display: block;
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 0.66rem;
-}
-
-.landing-demo__feedback li p {
-  margin-top: 0.25rem;
-  color: rgba(255, 255, 255, 0.52);
-  font-size: 0.56rem;
-  line-height: 1.5;
-  word-break: keep-all;
-}
-
-.landing-demo__score {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.8rem;
-  align-items: center;
-  margin-top: 0.8rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding-top: 0.9rem;
-}
-
-.landing-demo__score > div:first-child {
-  display: grid;
-  place-items: center;
-  width: 5rem;
-  height: 5rem;
-  border: 0.18rem solid rgba(201, 169, 110, 0.28);
-  border-top-color: var(--color-status-achievement);
-  border-radius: var(--radius-pill);
-}
-
-.landing-demo__score > div:first-child span {
-  font-size: 0.52rem;
-  opacity: 0.62;
-}
-
-.landing-demo__score > div:first-child strong {
-  margin-top: -0.55rem;
-  font-size: 1.4rem;
-}
-
-.landing-demo__score > div:first-child small {
-  margin-top: -0.8rem;
-  font-size: 0.48rem;
-  opacity: 0.55;
-}
-
-.landing-demo__score > div:last-child > strong {
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 0.65rem;
-}
-
-.landing-demo__score > div:last-child > span {
-  display: block;
-  height: 0.32rem;
-  margin-block: 0.45rem;
-  overflow: hidden;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.landing-demo__score > div:last-child i {
-  display: block;
-  width: 82%;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--color-status-achievement);
-}
-
-.landing-demo__score > div:last-child small {
-  display: block;
-  color: rgba(255, 255, 255, 0.46);
-  font-size: 0.52rem;
-  line-height: 1.4;
+.landing-growth__trend small {
+  margin-top: auto;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.6;
 }
 
 .landing-process {
@@ -1649,35 +1404,58 @@
 
 .landing-process__list li {
   position: relative;
-  display: grid;
-  grid-template-columns: auto auto 1fr;
-  gap: 0.85rem;
-  align-items: center;
-  min-height: 8.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  align-items: flex-start;
+  min-height: 14.5rem;
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-m);
-  padding: 1.25rem;
+  padding: 1.4rem 1.4rem 1.55rem;
   background: var(--color-background-default);
   box-shadow: var(--elevation-1);
+  transition:
+    border-color 300ms var(--easing-standard),
+    box-shadow 300ms var(--easing-standard);
 }
 
-.landing-process__number {
-  display: grid;
-  place-items: center;
-  width: 2.7rem;
-  height: 2.7rem;
-  border-radius: var(--radius-pill);
-  color: var(--color-surface-default);
-  background: var(--color-action-primary);
-  font-size: 0.78rem;
+/* 펄스가 도착한 뒤 점등되도록 활성 전환에만 지연을 둔다. */
+.landing-process__list li.is-active {
+  border-color: color-mix(
+    in srgb,
+    var(--color-action-primary) 30%,
+    var(--color-border-default)
+  );
+  box-shadow: var(--elevation-2);
+  transition-delay: 350ms;
+}
+
+/* 기능 카드와 같은 헤딩 문법(아이콘 타일 + 아이브로우 + 타이틀)을 쓴다. */
+.landing-process__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.landing-process__heading > div p {
+  color: var(--color-text-secondary);
+  font-size: 0.6875rem;
+}
+
+.landing-process__heading h3 {
+  margin-top: 0.15rem;
+  color: var(--color-action-primary);
+  font-size: 1.1rem;
   font-weight: 700;
+  letter-spacing: -0.025em;
 }
 
 .landing-process__icon {
   display: grid;
+  flex: 0 0 auto;
   place-items: center;
-  width: 2.3rem;
-  height: 2.3rem;
+  width: 2.5rem;
+  height: 2.5rem;
   border: 1px solid var(--color-status-achievement-border);
   border-radius: var(--radius-s);
   color: var(--color-status-achievement);
@@ -1689,17 +1467,10 @@
   height: 1.05rem;
 }
 
-.landing-process__list h3 {
-  color: var(--color-action-primary);
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.landing-process__list p {
-  margin-top: 0.3rem;
+.landing-process__desc {
   color: var(--color-text-secondary);
-  font-size: 0.7rem;
-  line-height: 1.5;
+  font-size: 0.8125rem;
+  line-height: 1.6;
   word-break: keep-all;
 }
 
@@ -1724,9 +1495,231 @@
   height: 0.75rem;
 }
 
+.landing-process__pulse {
+  position: absolute;
+  top: 50%;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-status-achievement);
+  box-shadow: 0 0 8px rgba(201, 169, 110, 0.8);
+  transform: translateY(-50%);
+}
+
+/* 기능 카드의 비주얼 영역과 같은 문법으로 미니 데모를 담는다. */
+.landing-process__demo {
+  display: flex;
+  width: 100%;
+  align-items: flex-end;
+  height: 3.6rem;
+  margin-top: auto;
+  border-radius: var(--radius-m);
+  padding: 0.65rem 0.8rem;
+  background: var(--color-status-neutral-surface);
+  opacity: 0.55;
+  transition: opacity 350ms var(--easing-standard);
+}
+
+.landing-process__list li.is-active .landing-process__demo {
+  opacity: 1;
+  transition-delay: 350ms;
+}
+
+.landing-process__demo--wave {
+  justify-content: space-between;
+}
+
+.landing-process__demo--wave i {
+  flex: 0 0 0.34rem;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-action-primary) 55%, white),
+    var(--color-action-primary)
+  );
+  transform: scaleY(0.35);
+  transform-origin: bottom;
+}
+
+.landing-process__list li.is-active .landing-process__demo--wave i {
+  animation: landing-process-wave 900ms ease-in-out infinite alternate;
+}
+
+@keyframes landing-process-wave {
+  from {
+    transform: scaleY(0.35);
+  }
+
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.landing-process__demo--meters {
+  flex-direction: column;
+  gap: 0.32rem;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.landing-process__demo--meters span {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.landing-process__demo--meters small {
+  flex: 0 0 3.2rem;
+  color: var(--color-text-secondary);
+  font-size: 0.58rem;
+}
+
+.landing-process__demo--meters b {
+  flex: 1;
+  height: 0.3rem;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-status-neutral-surface);
+}
+
+.landing-process__demo--meters i {
+  display: block;
+  width: 10%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-action-primary) 45%, white),
+    var(--color-action-primary)
+  );
+  transition: width 700ms var(--easing-standard);
+}
+
+.landing-process__list li.is-active .landing-process__demo--meters i {
+  width: var(--meter-width, 10%);
+}
+
+.landing-process__demo--spark svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.landing-process__demo--spark path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-action-primary) 78%, white);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 900ms var(--easing-standard);
+}
+
+.landing-process__list li.is-active .landing-process__demo--spark path {
+  stroke-dashoffset: 0;
+  transition-delay: 350ms;
+}
+
+
 .landing-final {
   padding-block: 0 5rem;
   background: var(--color-surface-default);
+}
+
+.landing-questions__rotate {
+  border: 1px solid var(--color-status-achievement-border);
+  border-radius: var(--radius-s);
+  padding: 0.02em 0.26em;
+  color: var(--color-action-primary);
+  background: color-mix(
+    in srgb,
+    var(--color-status-achievement-surface) 85%,
+    white
+  );
+}
+
+/* ClickStack 카드가 위아래로 퍼질 공간을 확보한다. */
+.landing-questions__stack {
+  height: 24rem;
+  margin-top: 2.2rem;
+}
+
+.landing-questions__hint {
+  margin-top: 0.6rem;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.landing-questions__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  overflow: hidden;
+  height: 100%;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-m);
+  padding: 1.4rem 1.5rem;
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--color-action-primary) 4%, white),
+    var(--color-surface-default)
+  );
+  box-shadow: var(--elevation-1);
+}
+
+.landing-questions__index {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.9rem;
+  color: color-mix(in srgb, var(--color-action-primary) 9%, transparent);
+  font-size: 4.6rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  pointer-events: none;
+  user-select: none;
+}
+
+.landing-questions__field {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid var(--color-status-achievement-border);
+  border-radius: var(--radius-pill);
+  padding: 0.3rem 0.7rem;
+  color: var(--color-action-primary);
+  background: color-mix(
+    in srgb,
+    var(--color-status-achievement-surface) 78%,
+    white
+  );
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.landing-questions__card p {
+  color: var(--color-action-primary);
+  font-size: 1.02rem;
+  font-weight: 650;
+  line-height: 1.55;
+  letter-spacing: -0.02em;
+  word-break: keep-all;
+}
+
+.landing-questions__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: auto;
+}
+
+.landing-questions__tags span {
+  border-radius: var(--radius-pill);
+  padding: 0.3rem 0.65rem;
+  color: var(--color-text-secondary);
+  background: var(--color-status-neutral-surface);
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .landing-final__card {
@@ -1834,10 +1827,6 @@
   .landing-feature-visual {
     min-height: 15rem;
   }
-
-  .landing-demo__grid {
-    grid-template-columns: minmax(11rem, 0.72fr) minmax(23rem, 1.4fr) minmax(13rem, 0.88fr);
-  }
 }
 
 @media (max-width: 63.999rem) {
@@ -1847,6 +1836,10 @@
 
   .landing-header__inner {
     padding-inline: 2rem;
+  }
+
+  .landing-header__nav {
+    display: none;
   }
 
   .landing-hero__grid {
@@ -1902,35 +1895,8 @@
     padding-block: 5rem;
   }
 
-  .landing-demo__grid {
-    grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.78fr);
-  }
-
-  .landing-demo__intro {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: 1.2fr 1fr;
-    gap: 0 2rem;
-    padding-right: 0;
-  }
-
-  .landing-demo__intro h2,
-  .landing-demo__intro > p:not(.landing-demo__eyebrow) {
-    grid-column: 1;
-  }
-
-  .landing-demo__intro ul,
-  .landing-demo__start {
-    grid-column: 2;
-  }
-
-  .landing-demo__intro ul {
-    grid-row: 2 / span 2;
-    margin-top: 1.25rem;
-  }
-
-  .landing-demo__start {
-    width: fit-content;
+  .landing-growth__grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .landing-process__list {
@@ -1943,11 +1909,7 @@
   }
 
   .landing-process__list li {
-    grid-template-columns: auto 1fr;
-  }
-
-  .landing-process__icon {
-    display: none;
+    padding: 1.15rem 1.15rem 1.35rem;
   }
 
   .landing-final__main {
@@ -2080,42 +2042,6 @@
     min-height: 17rem;
   }
 
-  .landing-demo {
-    padding-block: 3.5rem;
-  }
-
-  .landing-demo__grid {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .landing-demo__stage {
-    order: 1;
-  }
-
-  .landing-demo__feedback {
-    order: 2;
-  }
-
-  .landing-demo__intro {
-    display: block;
-    order: 3;
-    padding-top: 1.5rem;
-  }
-
-  .landing-demo__intro h2 br {
-    display: none;
-  }
-
-  .landing-demo__start {
-    width: 100%;
-  }
-
-  .landing-demo__voice {
-    width: 12.8rem;
-    height: 12.8rem;
-  }
-
   .landing-process__list {
     grid-template-columns: minmax(0, 1fr);
     width: min(100%, 30rem);
@@ -2123,7 +2049,7 @@
   }
 
   .landing-process__list li {
-    min-height: 7.5rem;
+    min-height: 0;
   }
 
   .landing-process__connector {
@@ -2133,6 +2059,11 @@
     height: 1.35rem;
     flex-direction: column;
     transform: none;
+  }
+
+  /* 세로 연결선에서는 가로로 이동하는 펄스를 숨긴다. */
+  .landing-process__pulse {
+    display: none;
   }
 
   .landing-process__connector i {
@@ -2199,9 +2130,25 @@
 
 @media (prefers-reduced-motion: reduce) {
   .landing-trust__track,
-  .landing-demo__voice.is-active .landing-demo__voice-ring,
-  .landing-demo__voice.is-active .landing-demo__voice-wave i {
+  .landing-face-dot {
     animation: none !important;
+  }
+
+  /* 순환 점등이 없으므로 미니 데모는 완성된 정적 상태로 보여준다. */
+  .landing-process__demo {
+    opacity: 0.85;
+  }
+
+  .landing-process__demo--wave i {
+    transform: none;
+  }
+
+  .landing-process__demo--meters i {
+    width: var(--meter-width, 10%);
+  }
+
+  .landing-process__demo--spark path {
+    stroke-dashoffset: 0;
   }
 
   .landing-trust__track {

@@ -13,6 +13,9 @@ import type { CommunityPost } from '@/types/community'
 vi.mock('@/api/community', () => ({
   fetchPost: vi.fn(),
   fetchComments: vi.fn(),
+  createComment: vi.fn(),
+  updateComment: vi.fn(),
+  deleteComment: vi.fn(),
   deletePost: vi.fn(),
   toggleBookmark: vi.fn(),
   toggleLike: vi.fn(),
@@ -79,7 +82,7 @@ describe('CommunityPostPage', () => {
 
     await user.click(screen.getByRole('button', { name: '게시글 삭제' }))
     await waitFor(() => {
-      expect(deletePost).toHaveBeenCalledWith('post-3', '김싸피')
+      expect(deletePost).toHaveBeenCalledWith('post-3')
     })
   })
 
@@ -90,5 +93,15 @@ describe('CommunityPostPage', () => {
     expect(await screen.findByText('면접 답변 팁')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: '수정' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '삭제' })).not.toBeInTheDocument()
+  })
+
+  it('헤더와 푸터를 제외한 상세 콘텐츠를 90%로 축소한다', async () => {
+    renderPage()
+
+    await screen.findByText('면접 답변 팁')
+
+    expect(screen.getByRole('main').firstElementChild).toHaveClass(
+      'page-content-zoom-90',
+    )
   })
 })

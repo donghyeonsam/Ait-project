@@ -6,7 +6,8 @@ export interface InterviewRecord {
   id: number
   date: string
   type: InterviewType
-  field: JobType
+  // 서버 리포트 목록 응답에는 분야 정보가 없어 화면에서 만든 기록에만 존재한다.
+  field?: JobType
   difficulty: '쉬움' | '보통' | '어려움'
   title: string
   score: number

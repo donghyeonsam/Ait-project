@@ -43,3 +43,29 @@ class DeleteEmbeddingResponse(BaseModel):
     user_id: int
     deleted: bool
     message: str
+
+
+class DeleteDocumentItem(BaseModel):
+    """문서 단위 삭제 요청 1건 (user_id는 상위 DeleteDocumentsRequest 에서 공통 지정)"""
+    doc_type: DocType = Field(..., description="문서 출처: resume/cover_letter/github")
+    target_id: int = Field(..., description="원본 테이블 PK (analyses.target_id)")
+
+
+class DeleteDocumentsRequest(BaseModel):
+    """
+    문서 단위 임베딩 삭제 요청 (자소서/GitHub 레포 삭제 시 BE가 호출).
+
+    [문서 단위 삭제 API 신설 - 신규, 2026-07-31] 기존 DELETE /{user_id}는 사용자
+    전체 임베딩을 지우는 회원 탈퇴 전용이라, 문서 1건만 지울 방법이 없었다. items를
+    배열로 받아 여러 문서를 한 요청에 담을 수 있게 한다(예: 자소서 삭제 시 자소서
+    1건만, 다건 정리가 필요하면 여러 건을 한 번에).
+    """
+    user_id: int = Field(..., description="users.id")
+    items: list[DeleteDocumentItem] = Field(..., min_length=1)
+
+
+class DeleteDocumentsResponse(BaseModel):
+    user_id: int
+    requested_count: int = Field(..., description="요청한 items 개수 (실제 삭제된 청크 수가 아님)")
+    deleted: bool = True
+    message: str = "문서 임베딩 삭제 완료"

@@ -33,7 +33,6 @@ from fastapi import status as http_status
 
 from api.schemas.analysis import (
     FaceAnalyzeRequest,
-    FaceAnalyzeResponse,
     FaceResult,
     TaskStatus,
     VoiceAcceptedResponse,
@@ -71,13 +70,16 @@ _voice_executor = ThreadPoolExecutor(
 
 # ══════════════════════════ 표정 ══════════════════════════
 
-@router.post("/face", response_model=FaceAnalyzeResponse)
+@router.post("/face", response_model=FaceResult)
 async def analyze_face(payload: FaceAnalyzeRequest):
     """
     표정 분석. 프론트가 보낸 프레임별 숫자 묶음을 받아 점수를 바로 돌려준다.
 
     영상 파일은 서버로 올라오지 않는다. 얼굴 인식은 브라우저에서 이미 끝났고,
     여기로 오는 건 그 결과 숫자뿐이다.
+
+    [응답] {"score": 7.3} - 음성(/analyses/voice)과 완전히 같은 형태라 BE 는 두
+    모달리티를 같은 DTO 로 받을 수 있다.
     """
     # 무거운 라이브러리(torch 등)는 서버가 켜질 때가 아니라
     # 첫 요청이 들어올 때 불러온다. 그래야 서버 기동이 빠르다.
@@ -109,7 +111,7 @@ async def analyze_face(payload: FaceAnalyzeRequest):
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="표정 분석 중 오류가 발생했습니다") from e
 
-    return FaceAnalyzeResponse(face=FaceResult(**result))
+    return FaceResult(**result)
 
 
 # ══════════════════════════ 음성 (기본: 그 자리에서 처리) ══════════════════════════

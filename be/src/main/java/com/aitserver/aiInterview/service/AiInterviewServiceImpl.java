@@ -2,18 +2,17 @@ package com.aitserver.aiInterview.service;
 
 import com.aitserver.aiInterview.client.FastApiClient;
 import com.aitserver.aiInterview.dto.*;
+import com.aitserver.aiInterview.entity.AiComprehensiveReport;
 import com.aitserver.aiInterview.entity.AiInterview;
-import com.aitserver.aiInterview.repository.AiInterviewCoverLetterRepository;
-import com.aitserver.aiInterview.repository.AiInterviewGithubRepoRepository;
-import com.aitserver.aiInterview.repository.AiInterviewsRepository;
+import com.aitserver.aiInterview.entity.AiInterviewQuestion;
+import com.aitserver.aiInterview.repository.*;
 import com.aitserver.aiInterview.requestDto.AiInterviewQuestionRequest;
 import com.aitserver.aiInterview.requestDto.FastFollowUpRequest;
 import com.aitserver.aiInterview.requestDto.FastQuestionGenerateRequest;
 import com.aitserver.aiInterview.requestDto.FollowUpQuestionRequest;
-import com.aitserver.aiInterview.responseDto.AiInterviewPreparationResponse;
-import com.aitserver.aiInterview.responseDto.AiInterviewQuestionResponse;
-import com.aitserver.aiInterview.responseDto.FastQuestionGenerateResponse;
-import com.aitserver.aiInterview.responseDto.FollowUpQuestionResponse;
+import com.aitserver.aiInterview.responseDto.*;
+import com.aitserver.global.exception.BusinessException;
+import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.user.repository.UserSkillRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +33,8 @@ public class AiInterviewServiceImpl implements AiInterviewService {
     private final UserSkillRepository userSkillRepository;
     private final FastApiClient fastApiClient;
     private final AiInterviewAsyncService asyncService;
+    private final AiComprehensiveReportRepository aiComprehensiveReportRepository;
+    private final AiInterviewQuestionRepository aiInterviewQuestionRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -107,7 +108,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
         // 질문의 order 번호를 확인해서 1번일 때만 진행 상황을 ready에서 doing으로 변경
         if(questionRequest.getQuestion().getOrder() == 1) {
-            aiInterviewsRepository.updateStatus(userId, aiInterviewId);
+            aiInterviewsRepository.updateStatus(userId, aiInterviewId, "doing");
         }
 
         // interviewType을 바로 소문자로 변경
@@ -143,5 +144,59 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         }
 
         return followUpResponse;
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<ReportListResponse> getList(Long userId) {
+        log.info("[AiInterviewServiceImpl] 사용자 AI 면접 결과 리스트 조회 userId: {}", userId);
+
+        List<ReportListResponse> response = aiInterviewsRepository.findReportListByUserId(userId);
+
+        log.info("[AiInterviewServiceImpl] AI 면접 결과 {}건 조회 성공", response.size());
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AiInterviewDetailResponse getInterviewDetail(Long userId, Long aiInterviewId) {
+        log.info("[상세 조회] userId: {}, aiInterviewId: {}", userId, aiInterviewId);
+
+        // 1. 면접 정보 조회 (타인의 면접 조회 방지: findByIdAndUserId)
+        AiInterview interview = aiInterviewsRepository.findByIdAndUserId(aiInterviewId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INTERVIEW_NOT_FOUND));
+
+        // 2. 종합 평가 리포트 조회
+        AiComprehensiveReport report = aiComprehensiveReportRepository.findByAiInterviewId(aiInterviewId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.REPORT_NOT_FOUND));
+
+        // 3. 질문/답변 목록 조회
+        List<AiInterviewQuestion> questionEntities = aiInterviewQuestionRepository.findAllByAiInterviewId(aiInterviewId);
+
+        // 4. 질문 DTO 변환
+        List<AiInterviewDetailResponse.QuestionDetailDto> questionDtos = questionEntities.stream()
+                .map(q -> AiInterviewDetailResponse.QuestionDetailDto.builder()
+                        .questionId(q.getId())
+                        .question(q.getQuestion())
+                        .userAnswer(q.getUserAnswer())
+                        .aiAnswer(q.getAiAnswer())
+                        .feedback(q.getFeedback())
+                        .build())
+                .toList();
+
+        // 5. 최종 응답 DTO 조립
+        return AiInterviewDetailResponse.builder()
+                .aiInterviewId(interview.getId())
+                .interviewType(interview.getInterviewType())
+                .difficulty(interview.getDifficulty())
+                .createdAt(interview.getCreatedAt()) // ai_interviews의 created_at 사용
+                .content(report.getContent())
+                .eyeContactScore(report.getEyeContactScore())
+                .faceScore(report.getFaceScore())
+                .voiceScore(report.getVoiceScore())
+                .qnaScore(report.getQnaScore())
+                .sentenceScore(report.getSentenceScore())
+                .questions(questionDtos)
+                .build();
     }
 }

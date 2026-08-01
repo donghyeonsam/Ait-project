@@ -224,6 +224,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
       })
   }
 
+  // 세로 독이므로 포인터의 Y 좌표와 아이템 세로 중심 사이 거리로 확대 비율을 계산한다.
   const updateDockMagnification = (
     event: ReactPointerEvent<HTMLDivElement>,
   ) => {
@@ -234,19 +235,19 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
       .querySelectorAll<HTMLElement>('[data-study-chat-dock-item]')
       .forEach((item) => {
         const itemCenter =
-          dockRect.left +
-          item.offsetLeft -
-          dock.scrollLeft +
-          item.offsetWidth / 2
+          dockRect.top +
+          item.offsetTop -
+          dock.scrollTop +
+          item.offsetHeight / 2
         const proximity = Math.max(
           0,
-          1 - Math.abs(event.clientX - itemCenter) / dockInfluenceDistance,
+          1 - Math.abs(event.clientY - itemCenter) / dockInfluenceDistance,
         )
         const easedProximity =
           proximity * proximity * (3 - 2 * proximity)
         const scale =
           1 + (dockMaximumScale - 1) * easedProximity
-        const lift = -dockMaximumLift * easedProximity
+        const lift = dockMaximumLift * easedProximity
 
         item.style.setProperty(
           '--study-chat-dock-scale',
@@ -267,7 +268,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
         className="study-chat-dialog flex flex-col overflow-hidden border border-border-default bg-background-default p-4 sm:p-5"
       >
         <DialogHeader className="shrink-0 text-center">
-          <DialogTitle>그룹톡</DialogTitle>
+          <DialogTitle>💬 그룹톡</DialogTitle>
           <DialogDescription className="sr-only">
             참여 중인 스터디 그룹의 공지와 메시지를 확인하고 대화합니다.
           </DialogDescription>
@@ -293,10 +294,11 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
             보세요.
           </p>
         ) : (
-          <div className="mt-4 flex min-h-0 flex-1 flex-col gap-3">
+          <div className="mt-4 flex min-h-0 flex-1 gap-3">
             <div
-              className="study-chat-dock relative flex min-h-24 shrink-0 items-center gap-7 overflow-visible px-5 py-4"
+              className="study-chat-dock relative flex w-24 shrink-0 flex-col items-center gap-6 overflow-y-auto rounded-ait-m bg-surface-default px-3 py-4"
               role="tablist"
+              aria-orientation="vertical"
               aria-label="스터디 그룹 선택"
               onPointerMove={updateDockMagnification}
               onPointerLeave={(event) =>
@@ -341,7 +343,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
                   ? `study-chat-tab-${selectedGroupId}`
                   : undefined
               }
-              className="flex min-h-0 flex-col rounded-ait-m bg-surface-default p-3 sm:p-4"
+              className="flex min-h-0 min-w-0 flex-1 flex-col rounded-ait-m bg-surface-default p-3 sm:p-4"
             >
               {notice ? (
                 <div className="flex shrink-0 items-center gap-2 rounded-ait-s border border-status-achievement-border bg-status-achievement-surface px-3 py-3 text-body-2 text-action-primary">
@@ -417,22 +419,31 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
                           className={cn(
                             'relative rounded-ait-l px-4 py-3 text-left text-body-1',
                             isSelf
-                              ? 'rounded-br-none bg-action-primary text-surface-default'
-                              : 'rounded-bl-none bg-status-neutral-surface text-action-primary',
+                              ? 'bg-action-primary text-surface-default'
+                              : 'bg-status-neutral-surface text-action-primary',
                           )}
                         >
-                          <p className="whitespace-pre-wrap break-words">
+                          <p className="whitespace-pre-wrap wrap-break-word">
                             {message.message}
                           </p>
                         </div>
-                        {!isSelf ? (
+                        <div
+                          className={cn(
+                            isSelf && 'flex justify-end',
+                            // 받은 반응이 있으면 내 말풍선 왼쪽 아래 모서리에 살짝 겹쳐 보여준다.
+                            isSelf &&
+                              (message.reactions?.length ?? 0) > 0 &&
+                              'relative z-10 -mt-2.5 pr-1',
+                          )}
+                        >
                           <StudyChatMessageReactions
                             messageId={message.chatId}
                             reactions={message.reactions ?? []}
                             currentUserId={currentUserId}
                             onToggle={toggleReaction}
+                            align={isSelf ? 'end' : 'start'}
                           />
-                        ) : null}
+                        </div>
                       </div>
                     </div>
                   )

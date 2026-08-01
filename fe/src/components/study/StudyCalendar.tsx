@@ -25,6 +25,7 @@ import { toErrorMessage } from '@/api/http'
 import {
   createStudyCalendar,
   deleteStudyCalendar,
+  getDailyStudyCalendars,
   getMonthlyStudyCalendars,
   updateStudyCalendar,
   type StudyCalendar as StudyCalendarItem,
@@ -119,6 +120,12 @@ export function StudyCalendar({ groupId }: StudyCalendarProps) {
     null,
   )
   const [deleteTargetKey, setDeleteTargetKey] = useState<string | null>(null)
+  const [isDayRefreshing, setIsDayRefreshing] = useState(false)
+  // 어느 날짜의 실패인지 함께 담아, 다른 날짜를 열었을 때 지난 오류가 남지 않게 한다.
+  const [dayRefreshError, setDayRefreshError] = useState<{
+    dateKey: string
+    message: string
+  } | null>(null)
   const todayKey = toDateKey(new Date())
   const { ref: sectionRef, isInView } = useInView<HTMLElement>({
     threshold: 0.05,
@@ -146,6 +153,35 @@ export function StudyCalendar({ groupId }: StudyCalendarProps) {
   useEffect(() => {
     void loadCalendars()
   }, [loadCalendars])
+
+  // 월별 조회 이후 다른 그룹원이 바꾼 일정이 있을 수 있어, 날짜를 열 때 그 날짜만 다시 확인한다.
+  // 진행 표시는 loadCalendars와 같이 호출부에서 세운다.
+  const refreshSelectedDay = useCallback(
+    (dateKey: string) =>
+      getDailyStudyCalendars(groupId, dateKey)
+        .then((response) => {
+          // 조회한 날짜의 항목만 응답으로 교체해, 월별 조회로 받은 다른 날짜는 건드리지 않는다.
+          setCalendars((current) => [
+            ...current.filter(
+              (calendar) =>
+                toDayKeyAndTime(calendar.startTime).dateKey !== dateKey,
+            ),
+            ...response,
+          ])
+          setDayRefreshError(null)
+        })
+        // 월별 조회로 받은 값이 남아 있으므로 화면을 비우지 않고 상세 패널에서만 알린다.
+        .catch((error: unknown) => {
+          setDayRefreshError({ dateKey, message: toErrorMessage(error) })
+        })
+        .finally(() => setIsDayRefreshing(false)),
+    [groupId],
+  )
+
+  useEffect(() => {
+    if (!selectedDateKey) return
+    void refreshSelectedDay(selectedDateKey)
+  }, [selectedDateKey, refreshSelectedDay])
 
   const calendarDays = useMemo(() => {
     const firstDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1)
@@ -185,7 +221,10 @@ export function StudyCalendar({ groupId }: StudyCalendarProps) {
   }
 
   const selectDate = (date: Date, key: string) => {
-    setSelectedDateKey((currentKey) => (currentKey === key ? null : key))
+    const isOpening = selectedDateKey !== key
+    setSelectedDateKey(isOpening ? key : null)
+    // 날짜가 열릴 때만 일별 조회가 이어진다.
+    if (isOpening) setIsDayRefreshing(true)
     if (date.getMonth() !== viewDate.getMonth()) {
       setIsLoading(true)
       setViewDate(new Date(date.getFullYear(), date.getMonth(), 1))
@@ -425,6 +464,30 @@ export function StudyCalendar({ groupId }: StudyCalendarProps) {
                 <X className="size-4" aria-hidden="true" />
               </button>
             </div>
+
+            {isDayRefreshing ? (
+              <p className="mt-1 text-caption text-text-secondary" role="status">
+                최신 일정을 확인하고 있어요...
+              </p>
+            ) : dayRefreshError?.dateKey === selectedDateKey ? (
+              <div className="mt-1">
+                <p className="text-caption text-status-error" role="alert">
+                  최신 일정을 확인하지 못했습니다. 아래 내용은 이 달을 불러온
+                  시점의 정보입니다.
+                </p>
+                <Button
+                  type="button"
+                  variant="text"
+                  className="mt-1 h-6 px-0 py-0 text-caption"
+                  onClick={() => {
+                    setIsDayRefreshing(true)
+                    void refreshSelectedDay(selectedDateKey)
+                  }}
+                >
+                  다시 확인
+                </Button>
+              </div>
+            ) : null}
 
             {selectedDay ? (
               <>

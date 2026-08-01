@@ -2,9 +2,20 @@
 
 export type CommunityCategory = 'review' | 'qna' | 'tip' | 'study'
 
-export type CommunityTab = 'recommend' | 'latest' | 'popular' | 'mine'
+export type CommunityTab = 'recommend' | 'popular' | 'latest'
 
-export type CommunitySort = 'latest' | 'popular' | 'comments'
+export type CommunityPostFileType = 'IMAGE' | 'PDF' | 'OTHER'
+
+export type CommunityPostFileUsageType = 'INLINE' | 'ATTACHMENT'
+
+export interface CommunityPostFile {
+  id?: number
+  originalFilename: string
+  storedFilename: string
+  fileType: CommunityPostFileType
+  usageType: CommunityPostFileUsageType
+  url: string
+}
 
 export interface CommunityPost {
   id: string
@@ -20,17 +31,22 @@ export interface CommunityPost {
   likeCount: number
   liked: boolean
   bookmarked: boolean
-  visibility?: 'public' | 'members'
+  files?: CommunityPostFile[]
+  // 본문 이미지 중 카드 썸네일로 쓸 대표 사진 URL.
+  thumbnail?: string | null
   allowComments?: boolean
   notify?: boolean
 }
 
 export interface CommunityReply {
   id: string
+  // 삭제된 댓글은 작성자 식별 정보 없이 내려온다.
+  authorId: number | null
   author: string
   createdAt: string
   content: string
   likeCount: number
+  deleted: boolean
 }
 
 export interface CommunityComment extends CommunityReply {
@@ -49,7 +65,8 @@ export interface CommunityPostDraft {
   title: string
   contentHtml: string
   tags: string[]
-  visibility: 'public' | 'members'
+  files: CommunityPostFile[]
+  thumbnail: string | null
   allowComments: boolean
   notify: boolean
 }

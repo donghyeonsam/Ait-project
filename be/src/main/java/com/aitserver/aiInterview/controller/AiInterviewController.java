@@ -3,9 +3,7 @@ package com.aitserver.aiInterview.controller;
 import com.aitserver.aiInterview.requestDto.AiInterviewQuestionRequest;
 import com.aitserver.aiInterview.requestDto.FollowUpQuestionRequest;
 import com.aitserver.aiInterview.requestDto.NonVerbalDataRequest;
-import com.aitserver.aiInterview.responseDto.AiInterviewPreparationResponse;
-import com.aitserver.aiInterview.responseDto.AiInterviewQuestionResponse;
-import com.aitserver.aiInterview.responseDto.FollowUpQuestionResponse;
+import com.aitserver.aiInterview.responseDto.*;
 import com.aitserver.aiInterview.service.AiInterviewAsyncService;
 import com.aitserver.aiInterview.service.AiInterviewService;
 import com.aitserver.global.response.ApiResponse;
@@ -18,6 +16,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/ai-interviews")
@@ -99,6 +99,42 @@ public class AiInterviewController {
     }
 
 
-//    이 요청은 나중에 MediaPipe랑 WebGazer 되면 만들자
-//    @PostMapping("{aiInterviewId}/complete")
+    @PostMapping("{aiInterviewId}/complete")
+    public ResponseEntity<ApiResponse<Void>> complete(
+            HttpServletRequest request,
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long aiInterviewId) {
+
+        asyncService.interviewComplete(userId, aiInterviewId);
+
+        return ResponseEntity.ok( // 전달 받은 요청만 처리하는 거라서 data는 없다.
+                ApiResponse.success(
+                        HttpStatus.OK, "모의 면접이 종료되어 결과를 분석하고 있습니다.", null, request));
+    }
+
+    @GetMapping("/result")
+    public ResponseEntity<ApiResponse<List<ReportListResponse>>> getList(
+            HttpServletRequest request,
+            @AuthenticationPrincipal Long userId) {
+
+        List<ReportListResponse> response = aiInterviewService.getList(userId);
+
+        return ResponseEntity.ok( // 리스트 반환
+                ApiResponse.success(
+                        HttpStatus.OK, "모의 면접 결과 목록을 조회했습니다.", response, request));
+    }
+
+    @GetMapping("/{aiInterviewId}/result")
+    public ResponseEntity<ApiResponse<AiInterviewDetailResponse>> getInterviewDetail(
+            HttpServletRequest request,
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long aiInterviewId) {
+
+        AiInterviewDetailResponse response = aiInterviewService.getInterviewDetail(userId, aiInterviewId);
+
+        return ResponseEntity.ok( // 상세정보 반환
+                ApiResponse.success(
+                        HttpStatus.OK, "모의 면접 결과 목록을 조회했습니다.", response, request));
+    }
+
 }

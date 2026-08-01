@@ -1,7 +1,8 @@
-import { Bell, LogOut, Menu } from 'lucide-react'
+import { LogOut, Menu } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { logout } from '@/api/auth'
+import { NotificationBell } from '@/components/layout/NotificationBell'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -84,9 +85,7 @@ export function Header() {
               >
                 <Menu aria-hidden="true" />
               </Button>
-              <Button type="button" variant="text" size="icon" aria-label="알림">
-                <Bell aria-hidden="true" />
-              </Button>
+              <NotificationBell />
               <Link to="/mypage" className="rounded-ait-pill" aria-label="마이페이지로 이동">
                 <Avatar className="size-10">
                   <AvatarFallback className="border-0 bg-profile-avatar">

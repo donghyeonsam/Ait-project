@@ -35,8 +35,6 @@ const defaultProps: ComponentProps<typeof SessionTheater> = {
   onChangeTranscript: vi.fn(),
   voiceError: null,
   speechError: null,
-  canRetryTranscription: false,
-  onRetryTranscription: vi.fn(),
   mediaPermission: 'granted',
   onRetryMediaAccess: vi.fn(),
   primaryActionLabel: '답변 제출',

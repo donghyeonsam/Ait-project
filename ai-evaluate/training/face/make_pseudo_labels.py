@@ -32,12 +32,24 @@
   제한적이고 CPU 에서 가볍다). 원본과 동일하게 얼굴 랜드마크의 min/max 좌표를 그대로
   바운딩박스로 쓴다(패딩 없음 - 원본 get_box() 그대로).
 
+[GPU 사용 - CUDA / MPS 둘 다 지원]
+  음성 쪽(training/voice/make_pseudo_labels.py)과 같은 --device 패턴이다. 생략하면
+  CUDA(NVIDIA) -> MPS(애플 실리콘) -> CPU 순으로 자동 선택한다.
+  ⚠️ MediaPipe 얼굴 검출은 GPU 와 무관하게 항상 CPU 에서 돈다. 따라서 --device 로
+     빨라지는 건 ResNet50 임베딩 추출 구간뿐이고, 전체 시간은 얼굴 검출이 지배할 수
+     있다. 어느 쪽이 병목인지는 소량으로 먼저 재보는 것을 권한다.
+
 실행:
   pip install -r requirements.txt -r requirements-train.txt
 
   python -m training.face.make_pseudo_labels \
       --video data/raw/video --out training/face/labels_pseudo.csv \
       --lstm-corpus Aff-Wild2
+
+  # GPU 를 명시하거나(자동 감지가 잘못 골랐을 때), 배치 크기를 조절하려면:
+  python -m training.face.make_pseudo_labels \
+      --video data/raw/video --out training/face/labels_pseudo.csv \
+      --device cuda --batch-size 64
 
   # 사람이 이미 매긴 labels.csv 와 합쳐 쓰려면 파일을 분리해서 관리하고,
   # build_dataset.py 는 --labels 로 원하는 CSV 를 골라 실행하면 된다.
@@ -85,6 +97,27 @@ FACE_TENSION_WEIGHTS = {
 
 WINDOW = 10   # LSTM 입력 시퀀스 길이. 원 저장소 run.py 의 win=10 을 그대로 따른다.
 STEP = 5      # 슬라이딩 스텝. 마찬가지로 원 저장소 값을 따른다.
+
+# ResNet50 에 한 번에 넣을 프레임 수. CPU 에서는 큰 의미가 없지만 GPU 에서는
+# 한 장씩 보내면 커널 실행 오버헤드가 연산보다 커져 GPU 를 거의 못 쓴다.
+DEFAULT_BATCH_SIZE = 32
+
+
+def resolve_device(explicit: str | None) -> "torch.device":
+    """--device 인자 -> torch.device. 생략 시 CUDA -> MPS -> CPU 순으로 고른다.
+
+    MPS(애플 실리콘)를 CUDA 다음에 두는 이유는 단순히 우선순위이며, 두 환경이
+    동시에 존재하는 경우는 없다. torch.backends.mps 는 구버전 torch 에 없을 수
+    있어 getattr 로 방어한다.
+    """
+    if explicit:
+        return torch.device(explicit)
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    mps = getattr(torch.backends, "mps", None)
+    if mps is not None and mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
 
 
 # ────────────────────────── 모델 정의 (원 저장소 run_webcam.ipynb 그대로) ──────────────────────────
@@ -237,13 +270,32 @@ def face_bbox_from_landmarks(landmarks, w: int, h: int):
     return x_min, y_min, x_max, y_max
 
 
-def extract_clip_features(video_path: str, backbone, face_mesh, target_fps: float = 5.0):
+def _embed_batch(tensors: list[torch.Tensor], backbone, device) -> list[np.ndarray]:
+    """전처리된 얼굴 텐서 묶음 -> 512차원 임베딩 리스트.
+
+    한 장씩 처리하지 않고 묶어서 보내는 이유: GPU 는 커널 하나를 띄우는 고정 비용이
+    있어서, 224x224 한 장씩 보내면 그 오버헤드가 실제 연산보다 커진다. CPU 에서는
+    큰 차이가 없지만 손해도 없다.
+    """
+    if not tensors:
+        return []
+    batch = torch.cat(tensors, dim=0).to(device)
+    with torch.no_grad():
+        feats = F.relu(backbone.extract_features(batch))
+    # .cpu() 필수: device 가 cuda/mps 면 numpy() 를 바로 호출할 수 없다.
+    return list(feats.cpu().numpy())
+
+
+def extract_clip_features(video_path: str, backbone, face_mesh, device,
+                          target_fps: float = 5.0,
+                          batch_size: int = DEFAULT_BATCH_SIZE):
     """영상 1개 -> (n_frames, 512) backbone 임베딩 시퀀스."""
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
     step = max(1, round(fps / target_fps))
 
-    features = []
+    features: list[np.ndarray] = []
+    pending: list[torch.Tensor] = []   # 아직 모델에 안 넣은 얼굴 텐서 버퍼
     idx = 0
     while True:
         ok, frame_bgr = cap.read()
@@ -255,6 +307,7 @@ def extract_clip_features(video_path: str, backbone, face_mesh, target_fps: floa
 
         h, w = frame_bgr.shape[:2]
         frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+        # ⚠️ MediaPipe 는 GPU 와 무관하게 CPU 에서 돈다(--device 의 영향을 받지 않음).
         result = face_mesh.process(frame_rgb)
         if not result.multi_face_landmarks:
             continue
@@ -264,16 +317,19 @@ def extract_clip_features(video_path: str, backbone, face_mesh, target_fps: floa
             continue
         face_crop = frame_rgb[y0:y1, x0:x1]
 
-        tensor = preprocess_face(face_crop)
-        with torch.no_grad():
-            feat = F.relu(backbone.extract_features(tensor)).squeeze(0).numpy()
-        features.append(feat)
+        pending.append(preprocess_face(face_crop))
+        if len(pending) >= batch_size:
+            features.extend(_embed_batch(pending, backbone, device))
+            pending.clear()
+
+    # 마지막 자투리 배치. 이걸 빠뜨리면 클립 끝부분 프레임이 조용히 사라진다.
+    features.extend(_embed_batch(pending, backbone, device))
 
     cap.release()
     return np.stack(features) if features else np.empty((0, 512), dtype=np.float32)
 
 
-def predict_clip_emotion_probs(features: np.ndarray, lstm_model) -> np.ndarray:
+def predict_clip_emotion_probs(features: np.ndarray, lstm_model, device) -> np.ndarray:
     """(n_frames, 512) -> 클립 전체를 대표하는 7클래스 평균 확률.
 
     run.py(원 저장소)의 win=10/step=5 슬라이딩 윈도우 방식을 그대로 따르되,
@@ -289,18 +345,23 @@ def predict_clip_emotion_probs(features: np.ndarray, lstm_model) -> np.ndarray:
         features = np.concatenate([features, pad], axis=0)
         n = WINDOW
 
-    window_probs = []
-    for start in range(0, n - WINDOW + 1, STEP):
-        chunk = features[start:start + WINDOW]
-        x = torch.from_numpy(chunk).float().unsqueeze(0)
-        with torch.no_grad():
-            probs = lstm_model(x).squeeze(0).numpy()
-        window_probs.append(probs)
+    # 윈도우들을 한꺼번에 쌓아 LSTM 에 한 번만 통과시킨다.
+    # (윈도우 하나하나가 (10, 512) 로 작아서, 개별 호출하면 오버헤드가 지배적이다)
+    chunks = [features[s:s + WINDOW] for s in range(0, n - WINDOW + 1, STEP)]
+    x = torch.from_numpy(np.stack(chunks)).float().to(device)
+    with torch.no_grad():
+        probs = lstm_model(x)          # (윈도우 수, 7)
 
-    return np.mean(window_probs, axis=0)
+    return probs.cpu().numpy().mean(axis=0)
 
 
-def load_models(lstm_corpus: str):
+def load_models(lstm_corpus: str, device):
+    """가중치를 받아 두 모델을 복원하고 지정한 device 로 올린다.
+
+    가중치 파일 자체는 항상 CPU 로 읽는다(map_location="cpu"). 저장 당시의 device
+    정보가 체크포인트에 남아 있을 수 있어, 이를 무시하고 우리가 원하는 device 로
+    .to() 하는 편이 안전하다.
+    """
     from huggingface_hub import hf_hub_download
 
     backbone_path = hf_hub_download(REPO_ID, BACKBONE_FILE)
@@ -308,11 +369,11 @@ def load_models(lstm_corpus: str):
 
     backbone = resnet50(7, channels=3)
     backbone.load_state_dict(torch.load(backbone_path, map_location="cpu", weights_only=True))
-    backbone.eval()
+    backbone.eval().to(device)
 
     lstm_model = LSTMPyTorch()
     lstm_model.load_state_dict(torch.load(lstm_path, map_location="cpu", weights_only=True))
-    lstm_model.eval()
+    lstm_model.eval().to(device)
 
     return backbone, lstm_model
 
@@ -327,9 +388,19 @@ def main():
                         help="6개 LSTM 버전 중 하나. Aff-Wild2 가 그나마 자연스러운 반응이라 기본값")
     parser.add_argument("--sample-fps", type=float, default=5.0,
                         help="초당 몇 프레임을 볼지 (표정 브라우저 추출과 동일하게 5 권장)")
+    parser.add_argument("--device", default=None,
+                        help='"cuda"/"mps"/"cpu" 직접 지정. 생략하면 '
+                             "CUDA -> MPS -> CPU 순으로 자동 선택")
+    parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE,
+                        help="ResNet50 에 한 번에 넣을 프레임 수 (GPU 메모리가 부족하면 줄일 것)")
     args = parser.parse_args()
 
-    backbone, lstm_model = load_models(args.lstm_corpus)
+    device = resolve_device(args.device)
+    print(f"[device] {device} 사용 (torch {torch.__version__}, batch={args.batch_size})")
+    if device.type == "cpu":
+        print("  ⚠️ GPU 를 못 찾아 CPU 로 돕니다. 클립이 많으면 오래 걸릴 수 있습니다.")
+
+    backbone, lstm_model = load_models(args.lstm_corpus, device)
 
     video_files = sorted(
         p for p in Path(args.video).iterdir()
@@ -345,8 +416,10 @@ def main():
     ) as face_mesh:
         for path in video_files:
             try:
-                feats = extract_clip_features(str(path), backbone, face_mesh, args.sample_fps)
-                probs = predict_clip_emotion_probs(feats, lstm_model)
+                feats = extract_clip_features(
+                    str(path), backbone, face_mesh, device,
+                    target_fps=args.sample_fps, batch_size=args.batch_size)
+                probs = predict_clip_emotion_probs(feats, lstm_model, device)
             except ValueError as e:
                 print(f"[skip] {path.name}: {e}")
                 continue

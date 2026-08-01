@@ -2,16 +2,16 @@ package com.aitserver.aiInterview.service;
 
 import com.aitserver.aiInterview.client.FastApiClient;
 import com.aitserver.aiInterview.dto.VoiceResult;
+import com.aitserver.aiInterview.entity.AiComprehensiveReport;
+import com.aitserver.aiInterview.repository.AiComprehensiveReportRepository;
+import com.aitserver.aiInterview.repository.AiInterviewsRepository;
 import com.aitserver.aiInterview.requestDto.FastApiFaceAnalyzeRequest;
-import com.aitserver.aiInterview.requestDto.FastVoiceAnalysisRequest;
 import com.aitserver.aiInterview.requestDto.FollowUpQuestionRequest;
 import com.aitserver.aiInterview.requestDto.NonVerbalDataRequest;
 import com.aitserver.aiInterview.responseDto.FastScoreResponse;
 import com.aitserver.aiInterview.responseDto.GmsAnalysisResponse;
 import com.aitserver.aiInterview.entity.AiInterviewQuestion;
 import com.aitserver.aiInterview.repository.AiInterviewQuestionRepository;
-import com.aitserver.aiInterview.responseDto.VoiceAcceptedResponse;
-import com.aitserver.aiInterview.responseDto.VoiceResultResponse;
 import com.aitserver.global.gms.client.GmsClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -29,12 +29,14 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @RequiredArgsConstructor
 public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
-
+    // 이 서비스 로직에서 5개의 점수가 다 저장된다.
     private final AiInterviewQuestionRepository aiInterviewQuestionRepository;
     private final GmsClient gmsClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RedisTemplate<String, String> redisTemplate;
     private final FastApiClient fastApiClient;
+    private final AiInterviewsRepository aiInterviewsRepository;
+    private final AiComprehensiveReportRepository aiComprehensiveReportRepository;
 
     @Override
     @Async
@@ -105,39 +107,12 @@ public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
         }
     }
 
-//    @Override
-//    @Async
-//    public void sendAudioToFastApiAsync(Long userId, Long aiInterviewId, byte[] audioBytes, String filename, String contentType) {
-//        log.info("[===Async=== AiInterviewAsyncServiceImpl] FastAPI로 음성 분석을 위한 바이트 전달, userId: {}, aiInterviewId, {}", userId, aiInterviewId);
-//
-//        try {
-//            // 1. FastAPI로 음성 바이트 전송하기 위해 객체에 담기
-//            FastVoiceAnalysisRequest request = new FastVoiceAnalysisRequest();
-//            request.setAudioData(audioBytes);
-//            // 2. 점수 리턴
-//            FastScoreResponse response = fastApiClient.sendAudioToFastApi(
-//                    "/analyses/voice", // 여기에는 uri가 정해지면 넣자
-//                    audioBytes,
-//                    filename,
-//                    FastScoreResponse.class
-//            );
-//
-//            // 3. 레디스에 userId + aiInterviewId + 점수를 키로 하고, value에는 리스트 형식으로 점수를 하나씩 추가하기
-//            String voiceRedisKey = "voice_score:" + userId + ":" + aiInterviewId;
-//            saveScoreInRedis(voiceRedisKey, String.valueOf(response.getScore()));
-//
-//        } catch (Exception e) {
-//            log.error("[===Async=== AiInterviewAsyncServiceImpl] FastAPI 음성 분석 로직 중 에러 발생, userId: {}, aiInterviewId,{}",
-//                    userId, aiInterviewId, e);
-//        }
-//    }
     @Override
     @Async
     public void sendAudioToFastApiAsync(Long userId, Long aiInterviewId, byte[] audioBytes, String filename, String contentType) {
         log.info("[===Async===] FastAPI 음성 분석 요청 시작...");
 
         try {
-            // 💡 폴링 없이 바로 기다립니다. (FastAPI가 분석 후 VoiceResult를 바로 리턴해 줍니다)
             VoiceResult finalResult = fastApiClient.sendAudioToFastApi(
                     "/analyses/voice",
                     audioBytes,
@@ -208,29 +183,170 @@ public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
                         .build());
             }
 
+            FastApiFaceAnalyzeRequest finalPayload = FastApiFaceAnalyzeRequest.builder()
+                    .fps(request.getFps())
+                    .durationSec(request.getDurationSec())
+                    .frames(fastApiFrames) // 방금 만든 비닐봉지 묶음을 큰 박스 안에 넣습니다.
+                    .build();
+
             // 3. 최종 시선 점수 계산 (10점 만점 - (패널티 횟수 * 0.5점), 최하 0점 보장)
             double gazeScore = Math.max(10.0 - (totalPenaltyCount * PENALTY_SCORE), 0.0);
             String eyeRedisKey = "eye_score:" + userId + ":" + aiInterviewId;
             saveScoreInRedis(eyeRedisKey, String.valueOf(gazeScore)); // redis에 사용자 시선 점수 저장
 
-            FastScoreResponse response = fastApiClient.sendToFastApi( // FastAPI로 표정 좌표 넘겨서 점수 하나만 리턴 받기
-                    "", // uri가 정해지면 넣자
-                    fastApiFrames,
+            FastScoreResponse response = fastApiClient.sendFaceDataToFastApi( // FastAPI로 표정 좌표 넘겨서 점수 하나만 리턴 받기
+                    "/analyses/face", // uri가 정해지면 넣자
+                    finalPayload,
                     FastScoreResponse.class
             );
 
             String faceRedisKey = "face_score:" + userId + ":" + aiInterviewId;
             saveScoreInRedis(faceRedisKey, String.valueOf(response.getScore())); // redis에 사용자 표정 점수 저장
 
-            log.info(">> Redis 비언어적 점수 누적 완료! (시선: {}점 [패널티 {}회])", gazeScore, totalPenaltyCount);
+            log.info(">> Redis 비언어적 점수 누적 완료! (시선: {}점 [패널티 {}회], 표정: {}점)", gazeScore, totalPenaltyCount, response.getScore());
         } catch (Exception e) {
             log.error("[===Async=== AiInterviewAsyncServiceImpl] 비언어적 데이터 분석 중 에러 발생, userId: {}, aiInterviewId: {}",
                     userId, aiInterviewId, e);
         }
     }
 
+    @Override
+    @Transactional
+    @Async
+    public void interviewComplete(Long userId, Long aiInterviewId) {
+        log.info("[===Async=== AiInterviewAsyncServiceImpl] AI 모의 면접 완료!!!");
+
+        try {
+            // 1. DB의 aiIntervewsRepository를 통해 면접 "doing"에서 "done"으로 변경
+            aiInterviewsRepository.updateStatus(userId, aiInterviewId, "done");
+            log.info(">> {}번 사용자의 면접 상태 변경 완료: doing -> done", userId);
+
+            // 2. redis에서 기존 점수들을 각각 가져와서 평균 계산.
+            Double avgQnaScore = calculateAverageFromRedis("qna_score:" + userId + ":" + aiInterviewId); // 질의응답 점수
+            Double avgSentenceScore = calculateAverageFromRedis("sentence_score:" + userId + ":" + aiInterviewId); // 문장구성 점수
+            Double avgVoiceScore = calculateAverageFromRedis("voice_score:" + userId + ":" + aiInterviewId); // 목소리 점수
+            Double avgEyeScore = calculateAverageFromRedis("eye_score:" + userId + ":" + aiInterviewId); // 시선처리 점수
+            Double avgFaceScore = calculateAverageFromRedis("face_score:" + userId + ":" + aiInterviewId); // 표정 점수
+
+            log.info(">> [평균 점수 계산 완료] QnA: {}, 문장: {}, 음성: {}, 시선: {}, 표정: {}",
+                    avgQnaScore, avgSentenceScore, avgVoiceScore, avgEyeScore, avgFaceScore);
+
+            // 3. 전체 내용 분석해서 개선하면 좋을 점을 도출하기....
+            // 해당 모의 면접에서의 질의응답 내용 조회
+            List<AiInterviewQuestion> questions = aiInterviewQuestionRepository.findAllByAiInterviewId(aiInterviewId);
+
+            StringBuilder qnaContext = new StringBuilder();
+            for (int i = 0; i < questions.size(); i++) { // 전체 리스트에서 사용자의 질의응답과 AI 보완점 뽑기
+                AiInterviewQuestion q = questions.get(i);
+                qnaContext.append(String.format("""
+                        [질문 %d] %s
+                        - 작성한 답변: %s
+                        - AI가 보완한 답변: %s
+                        - AI 개별 피드백: %s
+                        """, i + 1, q.getQuestion(), q.getUserAnswer(), q.getAiAnswer(), q.getFeedback()));
+            }
+
+            String developerPrompt = """
+                    당신은 시니어 개발자이자 총괄 면접관입니다.
+                    지원자의 전체 면접 결과(비언어적 요소 평가 점수 및 질문별 답변/피드백)를 바탕으로 종합 평가 리포트를 작성해 주세요.
+                    
+                    [작성 가이드라인]
+                    1. 가식적인 칭찬보다는 실제 면접에 도움이 되는 구체적이고 담백한 피드백을 제공하세요.
+                    2. 강점(strengths)과 보완점(weaknesses)을 각각 1~4개의 핵심 문장으로 정리하세요.
+                    3. 응답은 반드시 아래 형식의 순수 JSON 포맷으로만 작성해야 하며, 백틱(```)이나 마크다운 텍스트는 절대 포함하지 마세요.
+                    
+                    {
+                      "strengths": [
+                        "자료구조에 대한 이해도가 높으며, 특히 해시 테이블의 충돌 해결 방식을 명확하게 설명했습니다.",
+                        "결론을 먼저 말하고 근거를 제시하는 두괄식 말하기 습관이 아주 좋습니다."
+                      ],
+                      "weaknesses": [
+                        "답변 중간에 '어...', '그...' 와 같은 습관어가 반복되어 다소 자신감이 부족해 보일 수 있습니다.",
+                        "프로젝트 경험을 설명할 때 본인의 구체적인 기여도보다 팀 전체의 성과 위주로 말하는 경향이 있습니다."
+                      ]
+                    }
+                    """;
+
+            String userPrompt = String.format("""
+                    [지원자 평균 점수 요약 (10점 만점)]
+                    - 질의응답 이해도 점수: %.2f점
+                    - 문장 구성력 점수: %.2f점
+                    - 음성 전달력 점수: %.2f점
+                    - 시선 처리 점수: %.2f점
+                    - 표정 자연스러움 점수: %.2f점
+                    
+                    [질문별 답변 및 피드백 히스토리]
+                    %s
+                    """, avgQnaScore, avgSentenceScore, avgVoiceScore, avgEyeScore, avgFaceScore, qnaContext.toString());
+
+
+            log.info(">> GMS 종합 평가 리포트 생성 요청 시작...");
+            String reportContent = gmsClient.generate(developerPrompt, userPrompt);
+            // json 파싱 에러 방지
+            reportContent = reportContent.replace("```json", "").replace("```", "").trim();
+            log.info(">> GMS 종합 평가 리포트 생성 완료!");
+
+            // 4. DB의 aiComprehensiveReport 엔티티 참고해서 각각의 평균점수랑 최종 분석 결과 json 넣기
+            AiComprehensiveReport reportEntity = AiComprehensiveReport.builder()
+                    .aiInterviewId(aiInterviewId)
+                    .content(reportContent)
+                    .qnaScore(avgQnaScore)
+                    .sentenceScore(avgSentenceScore)
+                    .voiceScore(avgVoiceScore)
+                    .eyeContactScore(avgEyeScore)
+                    .faceScore(avgFaceScore)
+                    .build();
+
+            aiComprehensiveReportRepository.save(reportEntity);
+            log.info(">> [성공] ai_comprehensive_reports 테이블에 최종 리포트 저장 완료! Report ID: {}", reportEntity.getId());
+
+            deleteRedisKeys(userId, aiInterviewId);
+
+        } catch (Exception e) {
+            log.error("[===Async=== AiInterviewAsyncServiceImpl] 모의 면접 AI 레포트 발행 중 에러 발생, userId: {}, aiInterviewId: {}",
+                    userId, aiInterviewId, e);
+        }
+    }
+
+    // Redis에 저장된 점수를 통해 평균을 계산하는 메서드
+    private Double calculateAverageFromRedis(String redisKey) {
+        List<String> scores = redisTemplate.opsForList().range(redisKey, 0, -1);
+        if (scores == null || scores.isEmpty()) {
+            return 0.0; // 점수가 없으면 0.0 리턴
+        }
+
+        double sum = 0.0; // 저장된 점수의 합
+        int count = 0; // 저장된 점수의 개수
+        for (String scoreStr : scores) {
+            try {
+                sum += Double.parseDouble(scoreStr);
+                count++;
+            } catch (NumberFormatException e) {
+                log.warn("Redis 점수 파싱 실패 - key: {}, val: {}", redisKey, scoreStr);
+            }
+        }
+        if (count == 0) return 0.0; // 저장된 점수의 개수가 0개였다면 0.0 리턴
+
+        double avg = sum / count; // 평균 계산 후 소수점 둘째 자리까지 반올림
+        return Math.round(avg * 100.0) / 100.0;
+    }
+
+    // Redis에 점수 저장하는 메서드
     private void saveScoreInRedis(String redisKey, String redisValue) {
         redisTemplate.opsForList().rightPush(redisKey, redisValue);
         redisTemplate.expire(redisKey, 1, TimeUnit.DAYS);
+    }
+
+    // Redis에 점수 삭제하는 메서드
+    private void deleteRedisKeys(Long userId, Long aiInterviewId) {
+        String prefix = ":" + userId + ":" + aiInterviewId;
+        redisTemplate.delete(List.of(
+                "qna_score" + prefix,
+                "sentence_score" + prefix,
+                "voice_score" + prefix,
+                "eye_score" + prefix,
+                "face_score" + prefix
+        ));
+        log.info(">> Redis 임시 점수 데이터 삭제 완료");
     }
 }
