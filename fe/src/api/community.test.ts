@@ -26,6 +26,7 @@ const listItem = {
   likeCount: 5,
   bookmarked: true,
   liked: false,
+  thumbnailUrl: 'stored-thumb 1.png',
   createdAt: '2026-07-30T10:00:00',
 }
 
@@ -92,6 +93,38 @@ describe('fetchPosts', () => {
       bookmarked: true,
       liked: false,
     })
+  })
+
+  it('목록의 썸네일 저장 파일명을 이미지 URL로 조립한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(pageResponse())
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await fetchPosts({
+      tab: 'latest',
+      category: 'all',
+      offset: 0,
+      limit: 3,
+    })
+
+    expect(result.items[0]?.thumbnail).toBe(
+      '/backend/images/stored-thumb%201.png',
+    )
+  })
+
+  it('썸네일이 없는 게시글은 thumbnail을 null로 둔다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      pageResponse({ content: [{ ...listItem, thumbnailUrl: null }] }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await fetchPosts({
+      tab: 'latest',
+      category: 'all',
+      offset: 0,
+      limit: 3,
+    })
+
+    expect(result.items[0]?.thumbnail).toBeNull()
   })
 
   it('검색어를 다듬어 keyword 파라미터로 전달한다', async () => {

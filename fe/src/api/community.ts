@@ -52,7 +52,8 @@ interface PostListItemResponse {
   likeCount: number
   bookmarked: boolean
   liked: boolean
-  thumbnail: string | null
+  // 이름과 달리 완성된 URL이 아니라 본문 첫 이미지의 storedFilename이 내려온다.
+  thumbnailUrl: string | null
   createdAt: string
 }
 
@@ -63,6 +64,10 @@ interface PostFileResponse {
   fileType: CommunityPostFileType
   usageType: CommunityPostFileUsageType
 }
+
+// 서버는 업로드된 파일을 저장 파일명으로만 내려주므로 화면에서 쓸 이미지 URL로 조립한다.
+const toPostImageUrl = (storedFilename: string) =>
+  getBackendAssetUrl(`/images/${encodeURIComponent(storedFilename)}`)
 
 const toPostFile = ({
   id,
@@ -76,7 +81,7 @@ const toPostFile = ({
   storedFilename,
   fileType,
   usageType,
-  url: getBackendAssetUrl(`/images/${encodeURIComponent(storedFilename)}`),
+  url: toPostImageUrl(storedFilename),
 })
 
 // 서버가 요약을 길이 기준으로 잘라 태그 중간이 끊길 수 있어, 완성 태그와 잘린 꼬리 태그를 모두 제거한다.
@@ -104,7 +109,7 @@ const toPostSummary = (item: PostListItemResponse): CommunityPost => ({
   likeCount: item.likeCount,
   liked: item.liked ?? false,
   bookmarked: item.bookmarked ?? false,
-  thumbnail: item.thumbnail ?? null,
+  thumbnail: item.thumbnailUrl ? toPostImageUrl(item.thumbnailUrl) : null,
 })
 
 export interface FetchPostsParams {
