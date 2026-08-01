@@ -283,7 +283,6 @@ html {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* 세로 스크롤바가 생기고 사라질 때 페이지 내용이 좌우로 밀리지 않도록 스크롤바 자리를 항상 확보한다. */
   scrollbar-gutter: stable;
 }
 
@@ -293,6 +292,11 @@ body {
   margin: 0;
   color: var(--color-text-primary);
   background: var(--color-background-default);
+}
+
+/* stable gutter가 이미 스크롤바 폭을 확보하므로 Dialog의 중복 보정 여백은 제거한다. */
+html body[data-scroll-locked] {
+  margin-right: 0 !important;
 }
 
 #root {
@@ -1754,6 +1758,11 @@ button:not(:disabled) {
   backdrop-filter: blur(2px);
 }
 
+.ait-dialog-overlay.study-chat-overlay {
+  background: color-mix(in srgb, var(--color-text-primary) 42%, transparent);
+  backdrop-filter: none;
+}
+
 .ait-dialog-overlay[data-state="open"] {
   animation: dialog-overlay-in var(--duration-base) var(--easing-standard) both;
 }
@@ -1771,35 +1780,37 @@ button:not(:disabled) {
 }
 
 .ait-dialog-content.study-chat-dialog {
-  top: auto;
-  right: 1rem;
-  bottom: 5.25rem;
+  top: 50%;
+  right: clamp(1rem, 3.5vw, 3.5rem);
+  bottom: auto;
   left: auto;
-  width: min(28rem, calc(100vw - 2rem));
-  min-width: min(22rem, calc(100vw - 2rem));
-  min-height: min(26rem, calc(100svh - 6.25rem));
-  height: min(42rem, calc(100svh - 6.25rem));
-  transform: none;
-  transform-origin: calc(100% - 1.75rem) calc(100% + 2.5rem);
+  width: min(37rem, calc(100vw - 2rem));
+  min-width: 0;
+  min-height: 0;
+  height: min(47.5rem, calc(100svh - 4rem));
+  border-radius: 1.25rem;
+  transform: translateY(-50%);
+  transform-origin: right center;
 }
 
-@media (min-width: 48rem) {
+@media (max-width: 40rem) {
   .ait-dialog-content.study-chat-dialog {
-    right: 2rem;
-    bottom: 6.75rem;
-    min-height: min(26rem, calc(100svh - 7.75rem));
-    height: min(42rem, calc(100svh - 7.75rem));
-    transform-origin: calc(100% - 2rem) calc(100% + 3rem);
+    inset: 0;
+    width: 100vw;
+    height: 100svh;
+    max-width: none;
+    border-radius: 0;
+    transform: none;
   }
 }
 
 .ait-dialog-content.study-chat-dialog[data-state="open"] {
-  animation: study-chat-dialog-in var(--duration-base)
+  animation: study-chat-dialog-in var(--duration-fast)
     var(--easing-emphasized) both;
 }
 
 .ait-dialog-content.study-chat-dialog[data-state="closed"] {
-  animation: study-chat-dialog-out var(--duration-base)
+  animation: study-chat-dialog-out var(--duration-fast)
     var(--easing-standard) both;
 }
 
@@ -1835,69 +1846,18 @@ button:not(:disabled) {
   }
 }
 
-.study-chat-dock-item {
-  --study-chat-dock-scale: 1;
-  --study-chat-dock-lift: 0px;
-  /* 세로 독이라 확대는 왼쪽 가장자리를 기준으로 오른쪽(채팅 영역 쪽)으로 커진다. */
-  transform: translateX(var(--study-chat-dock-lift))
-    scale(var(--study-chat-dock-scale));
-  transform-origin: left center;
-  transition:
-    transform 140ms var(--easing-emphasized),
-    border-color var(--duration-fast) var(--easing-standard),
-    box-shadow var(--duration-fast) var(--easing-standard);
-  will-change: transform;
+.study-chat-popover {
+  transform-origin: top left;
+  animation: study-chat-popover-in var(--duration-fast)
+    var(--easing-emphasized) both;
 }
 
-.study-chat-dock-item:focus-visible {
-  --study-chat-dock-scale: 1.2;
-  --study-chat-dock-lift: 0.25rem;
+.study-chat-composer-input {
+  scrollbar-width: none;
 }
 
-.study-chat-dock-item-selected {
-  animation: study-chat-dock-selected-glow 1.6s var(--easing-standard)
-    infinite;
-}
-
-.study-chat-dock-item-selected::after {
-  position: absolute;
-  inset: -0.3rem;
-  border: 2px solid var(--color-status-success);
-  border-radius: inherit;
-  animation: study-chat-dock-selected-pulse 1.6s
-    var(--easing-emphasized) infinite;
-  content: '';
-  pointer-events: none;
-}
-
-@keyframes study-chat-dock-selected-glow {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 0
-        color-mix(in srgb, var(--color-status-success) 12%, transparent),
-      0 4px 12px -6px
-        color-mix(in srgb, var(--color-status-success) 35%, transparent);
-  }
-  50% {
-    box-shadow:
-      0 0 0 0.35rem
-        color-mix(in srgb, var(--color-status-success) 18%, transparent),
-      0 10px 24px -6px
-        color-mix(in srgb, var(--color-status-success) 55%, transparent);
-  }
-}
-
-@keyframes study-chat-dock-selected-pulse {
-  0% {
-    transform: scale(0.92);
-    opacity: 0.75;
-  }
-  65%,
-  100% {
-    transform: scale(1.32);
-    opacity: 0;
-  }
+.study-chat-composer-input::-webkit-scrollbar {
+  display: none;
 }
 
 .document-dialog {
@@ -2318,22 +2278,33 @@ button:not(:disabled) {
 @keyframes study-chat-dialog-in {
   from {
     opacity: 0;
-    transform: translateY(1rem) scale(0.9);
+    translate: 0 0.5rem;
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    translate: 0 0;
   }
 }
 
 @keyframes study-chat-dialog-out {
   from {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    translate: 0 0;
   }
   to {
     opacity: 0;
-    transform: translateY(1rem) scale(0.9);
+    translate: 0 0.5rem;
+  }
+}
+
+@keyframes study-chat-popover-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
@@ -2453,7 +2424,7 @@ button:not(:disabled) {
 }
 
 .study-chat-message {
-  animation: study-chat-message-in var(--duration-base)
+  animation: study-chat-message-in var(--duration-fast)
     var(--easing-emphasized) both;
 }
 
@@ -2870,10 +2841,6 @@ button:not(:disabled) {
     scroll-behavior: auto !important;
     animation: none !important;
     transition: none !important;
-  }
-
-  .study-chat-dock-item {
-    transform: none !important;
   }
 
   .stat-card,
