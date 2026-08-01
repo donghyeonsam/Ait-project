@@ -4,10 +4,15 @@ import SockJS from 'sockjs-client'
 import { backendRequest } from '@/api/http'
 import { getStoredAccessToken } from '@/api/auth-storage'
 
-// WebSocket은 Vercel의 /backend rewrite를 거치지 않고 Spring Boot 서버에 직접 연결한다.
-// 로컬·별도 배포 환경에서는 VITE_WS_URL로 연결 대상을 재정의할 수 있다.
+const configuredWebsocketUrl = import.meta.env.VITE_WS_URL?.trim()
+
+// 개발 환경은 Vite의 /backend 프록시를 사용해 REST와 WebSocket이 같은 백엔드를 보게 한다.
+// Vercel은 WebSocket 프록시를 보장하지 않으므로 배포 빌드는 Spring Boot 서버에 직접 연결한다.
 const websocketBaseUrl = (
-  import.meta.env.VITE_WS_URL ?? 'https://i15d202.p.ssafy.io'
+  configuredWebsocketUrl ||
+  (import.meta.env.DEV
+    ? (import.meta.env.VITE_BE_API_URL ?? '/backend')
+    : 'https://i15d202.p.ssafy.io')
 ).replace(/\/$/, '')
 
 export interface StudyGroupChatMessage {
@@ -70,6 +75,7 @@ export function connectStudyGroupChat(
     connectHeaders: {
       Authorization: `Bearer ${getStoredAccessToken() ?? ''}`,
     },
+    connectionTimeout: 10_000,
     reconnectDelay: 5000,
     onConnect: () => {
       client.subscribe(
@@ -104,6 +110,14 @@ export function connectStudyGroupChat(
     },
     onWebSocketError: () => {
       handlers.onError?.('그룹톡 서버에 연결할 수 없습니다.')
+    },
+    onWebSocketClose: () => {
+      handlers.onDisconnect?.()
+      if (client.active) {
+        handlers.onError?.(
+          '그룹톡 연결이 끊겼습니다. 자동으로 다시 연결하고 있습니다.',
+        )
+      }
     },
   })
   client.activate()
