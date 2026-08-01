@@ -20,3 +20,14 @@ export interface ScoreTrendPoint {
   date: string
   score: number
 }
+
+export interface StudyRecord {
+  sessionId: number
+  groupId?: number
+  groupTitle: string
+  date: string
+  score: number
+  /** 같은 그룹의 직전 세션 대비 점수 증감. 비교 대상이 없으면 0이다. */
+  delta: number
+  status: 'collecting' | 'completed'
+}
