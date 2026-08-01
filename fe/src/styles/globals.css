@@ -299,6 +299,23 @@ html body[data-scroll-locked] {
   margin-right: 0 !important;
 }
 
+/* 그룹톡 오버레이가 닿지 않는 stable gutter도 딤 처리된 페이지 배경과 같은 색으로 맞춘다. */
+html:has(.study-chat-overlay[data-state]) {
+  background: color-mix(
+    in srgb,
+    var(--color-text-primary) 42%,
+    var(--color-surface-default)
+  );
+}
+
+html:has(.study-chat-overlay[data-state])::-webkit-scrollbar-track {
+  background: color-mix(
+    in srgb,
+    var(--color-text-primary) 42%,
+    var(--color-surface-default)
+  );
+}
+
 #root {
   min-height: 100svh;
 }
@@ -2278,22 +2295,18 @@ button:not(:disabled) {
 @keyframes study-chat-dialog-in {
   from {
     opacity: 0;
-    translate: 0 0.5rem;
   }
   to {
     opacity: 1;
-    translate: 0 0;
   }
 }
 
 @keyframes study-chat-dialog-out {
   from {
     opacity: 1;
-    translate: 0 0;
   }
   to {
     opacity: 0;
-    translate: 0 0.5rem;
   }
 }
 

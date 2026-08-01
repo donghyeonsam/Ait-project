@@ -43,6 +43,79 @@ export interface StudyGroupChatCursorResult {
   hasNext: boolean
 }
 
+export function setStudyGroupChatReactionForUser(
+  currentReactions: StudyGroupChatReactionSummary[] | undefined,
+  emoji: string,
+  userId: number,
+  reacted: boolean,
+) {
+  const nextReactions = (currentReactions ?? []).map((reaction) => ({
+    ...reaction,
+    userIds: [...reaction.userIds],
+  }))
+  const reactionIndex = nextReactions.findIndex(
+    (reaction) => reaction.emoji === emoji,
+  )
+
+  if (reacted) {
+    if (reactionIndex === -1) {
+      return [
+        ...nextReactions,
+        { emoji, count: 1, userIds: [userId] },
+      ]
+    }
+
+    const reaction = nextReactions[reactionIndex]
+    if (!reaction.userIds.includes(userId)) {
+      reaction.userIds.push(userId)
+      reaction.count = reaction.userIds.length
+    }
+    return nextReactions
+  }
+
+  if (reactionIndex === -1) return nextReactions
+
+  const reaction = nextReactions[reactionIndex]
+  reaction.userIds = reaction.userIds.filter(
+    (reactionUserId) => reactionUserId !== userId,
+  )
+  reaction.count = reaction.userIds.length
+
+  return reaction.count === 0
+    ? nextReactions.filter((_, index) => index !== reactionIndex)
+    : nextReactions
+}
+
+// 서버의 전체 목록 응답이 교차 도착해도 이 브라우저에서 선택한 내 반응은 덮어쓰지 않는다.
+export function applyStudyGroupChatReactionUpdate(
+  currentReactions: StudyGroupChatReactionSummary[] | undefined,
+  update: StudyGroupChatReactionUpdate,
+  preserveUserId: number | null,
+) {
+  if (preserveUserId === null) return update.reactions
+
+  let mergedReactions = update.reactions
+    .map((reaction) => {
+      const userIds = reaction.userIds.filter(
+        (userId) => userId !== preserveUserId,
+      )
+      return { ...reaction, count: userIds.length, userIds }
+    })
+    .filter((reaction) => reaction.count > 0)
+
+  for (const currentReaction of currentReactions ?? []) {
+    if (!currentReaction.userIds.includes(preserveUserId)) continue
+    mergedReactions = setStudyGroupChatReactionForUser(
+      mergedReactions,
+      currentReaction.emoji,
+      preserveUserId,
+      true,
+    )
+  }
+
+  return mergedReactions
+}
+
 export interface StudyGroupChatNotice {
   groupId: number
   notice: string | null
