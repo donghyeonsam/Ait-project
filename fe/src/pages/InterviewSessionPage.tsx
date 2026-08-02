@@ -15,6 +15,7 @@ import { QuestionGenerationStage } from '@/components/interview/QuestionGenerati
 import { SessionTheater } from '@/components/interview/SessionTheater'
 import { useAnswerCountdown } from '@/components/interview/useAnswerCountdown'
 import { useAutoRecordingAfterSpeech } from '@/components/interview/useAutoRecordingAfterSpeech'
+import { useFaceExpression } from '@/components/interview/useFaceExpression'
 import { useMediaDevices } from '@/components/interview/useMediaDevices'
 import { useQuestionSpeech } from '@/components/interview/useQuestionSpeech'
 import { useVoiceAnswer } from '@/components/interview/useVoiceAnswer'
@@ -42,6 +43,8 @@ interface SubmittedVoiceAnswer {
   question: GeneratedInterviewQuestion
   transcript: string
   audioBlob: Blob | null
+  // ai-evaluate 표정 분석 점수(0~10). 분석 실패·미완료 시 null.
+  faceScore: number | null
 }
 
 const interviewTypeMap: Record<InterviewGoalType, InterviewType> = {
@@ -273,6 +276,7 @@ function ActiveInterviewSession({
   const submittedAnswersRef = useRef<SubmittedVoiceAnswer[]>([])
   const question = sessionQuestions[questionIndex]
   const voiceAnswer = useVoiceAnswer(stream)
+  const faceExpression = useFaceExpression(stream)
   const questionKey = `${questionIndex}:${question.order}:${question.question}`
   const answerSecondsRemaining = useAnswerCountdown({
     activeKey:
@@ -296,6 +300,24 @@ function ActiveInterviewSession({
   })
 
   const isLastQuestion = questionIndex === sessionQuestions.length - 1
+
+  const voiceAnswerStatusForFace = voiceAnswer.status
+  const faceExpressionStatus = faceExpression.status
+  const startFaceCapture = faceExpression.startCapture
+  const stopFaceCapture = faceExpression.stopCapture
+  // 답변 녹음 구간과 표정 캡처 구간을 맞춘다: 녹음이 시작되면 캡처를 시작하고, 녹음이 끝나면 곧바로 분석을 요청한다.
+  useEffect(() => {
+    if (voiceAnswerStatusForFace === 'recording') {
+      startFaceCapture()
+    } else if (faceExpressionStatus === 'capturing') {
+      void stopFaceCapture()
+    }
+  }, [
+    voiceAnswerStatusForFace,
+    faceExpressionStatus,
+    startFaceCapture,
+    stopFaceCapture,
+  ])
 
   useEffect(() => {
     sessionStartRef.current = Date.now()
@@ -350,6 +372,7 @@ function ActiveInterviewSession({
       question,
       transcript,
       audioBlob,
+      faceScore: faceExpression.score,
     })
 
     // BE snake_case 역직렬화 버그로 aiInterviewId가 null이거나, 녹음 없이 답변만 있으면
@@ -374,6 +397,7 @@ function ActiveInterviewSession({
     }
 
     voiceAnswer.reset()
+    faceExpression.reset()
 
     // 꼬리질문이 오면 현재 질문 바로 뒤에 끼워 넣고 곧바로 그 질문으로 이동한다.
     if (followUpQuestion) {
@@ -397,6 +421,7 @@ function ActiveInterviewSession({
     )
   }, [
     aiInterviewId,
+    faceExpression,
     handleViewResults,
     input,
     isLastQuestion,
@@ -427,16 +452,19 @@ function ActiveInterviewSession({
 
   const replayQuestion = questionSpeech.replay
   const resetVoiceAnswer = voiceAnswer.reset
+  const resetFaceExpression = faceExpression.reset
   const voiceAnswerStatus = voiceAnswer.status
   const handleReplayQuestion = useCallback(() => {
     if (voiceAnswerStatus === 'error') {
       resetAutoRecording()
       resetVoiceAnswer()
+      resetFaceExpression()
     }
     replayQuestion()
   }, [
     replayQuestion,
     resetAutoRecording,
+    resetFaceExpression,
     resetVoiceAnswer,
     voiceAnswerStatus,
   ])

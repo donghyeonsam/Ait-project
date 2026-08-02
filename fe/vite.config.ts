@@ -32,6 +32,11 @@ export default defineConfig(({ mode }) => {
           ws: true,
           rewrite: (path) => path.replace(/^\/backend/, ''),
         },
+        '/ai-evaluate': {
+          target: env.VITE_AI_EVALUATE_PROXY_TARGET || 'http://localhost:8100',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/ai-evaluate/, ''),
+        },
       },
     },
   }
