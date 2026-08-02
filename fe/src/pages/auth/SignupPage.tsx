@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
-import { signup } from '@/api/auth'
+import { sendSignupEmailCode, signup, verifySignupEmailCode } from '@/api/auth'
 import { toErrorMessage } from '@/api/http'
 import { AuthCard } from '@/components/auth/AuthCard'
 import { AuthLayout } from '@/components/auth/AuthLayout'
@@ -45,7 +45,7 @@ type SignupFormValues = z.infer<typeof signupSchema>
 const TOTAL_STEPS = 2
 
 const DUPLICATE_CHECK_DELAY_MS = 400
-const RESEND_COOLDOWN_SECONDS = 30
+const RESEND_COOLDOWN_SECONDS = 60
 const CODE_EXPIRY_SECONDS = 300
 
 const stepDescriptions = {
@@ -97,6 +97,8 @@ export function SignupPage() {
   const [isCodeSent, setIsCodeSent] = useState(false)
   const [isCheckingNickname, setIsCheckingNickname] = useState(false)
   const [isCheckingEmail, setIsCheckingEmail] = useState(false)
+  const [isSendingCode, setIsSendingCode] = useState(false)
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
   const [codeValiditySeconds, setCodeValiditySeconds] = useState(0)
   const isCodeExpired = isCodeSent && !emailVerified && codeValiditySeconds <= 0
@@ -139,20 +141,26 @@ export function SignupPage() {
     return () => clearTimeout(timer)
   }, [email, trigger, setValue])
 
-  // TODO: 실제 API 연동 필요 - BE에 인증코드 발송 엔드포인트가 없어 이메일 형식 검사만 수행한다.
   const requestVerificationCode = async () => {
     const isValid = await trigger('email')
     if (!isValid) return
-    setIsCodeSent(true)
-    setVerificationCode('')
+    setIsSendingCode(true)
     setVerificationError(null)
-    setValue('emailVerified', false)
-    setResendCooldown(RESEND_COOLDOWN_SECONDS)
-    setCodeValiditySeconds(CODE_EXPIRY_SECONDS)
+    try {
+      await sendSignupEmailCode(email)
+      setIsCodeSent(true)
+      setVerificationCode('')
+      setValue('emailVerified', false)
+      setResendCooldown(RESEND_COOLDOWN_SECONDS)
+      setCodeValiditySeconds(CODE_EXPIRY_SECONDS)
+    } catch (error) {
+      setVerificationError(toErrorMessage(error))
+    } finally {
+      setIsSendingCode(false)
+    }
   }
 
-  // TODO: 실제 API 연동 필요 - BE에 인증코드 확인 엔드포인트가 없어 만료 여부만 검사하고 통과 처리한다.
-  const confirmVerificationCode = () => {
+  const confirmVerificationCode = async () => {
     if (isCodeExpired) {
       setVerificationError('인증코드가 만료됐어요. 재발송해주세요.')
       return
@@ -161,8 +169,16 @@ export function SignupPage() {
       setVerificationError('인증코드를 입력해주세요.')
       return
     }
+    setIsVerifyingCode(true)
     setVerificationError(null)
-    setValue('emailVerified', true, { shouldValidate: true })
+    try {
+      await verifySignupEmailCode(email, verificationCode.trim())
+      setValue('emailVerified', true, { shouldValidate: true })
+    } catch (error) {
+      setVerificationError(toErrorMessage(error))
+    } finally {
+      setIsVerifyingCode(false)
+    }
   }
 
   const goToNextStep = async () => {
@@ -379,10 +395,16 @@ export function SignupPage() {
                         type="button"
                         variant="secondary"
                         className="shrink-0"
-                        disabled={emailVerified || resendCooldown > 0}
+                        disabled={emailVerified || resendCooldown > 0 || isSendingCode}
                         onClick={requestVerificationCode}
                       >
-                        {emailVerified ? '인증 완료' : isCodeSent ? '재발송' : '인증하기'}
+                        {emailVerified
+                          ? '인증 완료'
+                          : isSendingCode
+                            ? '발송 중...'
+                            : isCodeSent
+                              ? '재발송'
+                              : '인증하기'}
                       </Button>
                     </div>
                     <div className="mt-0.5 flex min-h-3 items-start justify-between gap-2 leading-tight">
@@ -419,7 +441,7 @@ export function SignupPage() {
                         placeholder={
                           isCodeSent ? '인증코드를 입력하세요' : '인증하기를 먼저 눌러주세요'
                         }
-                        disabled={!isCodeSent || emailVerified || isCodeExpired}
+                        disabled={!isCodeSent || emailVerified || isCodeExpired || isVerifyingCode}
                         aria-invalid={Boolean(verificationError)}
                         aria-describedby={verificationError ? 'signup-verification-code-error' : undefined}
                         value={verificationCode}
@@ -432,10 +454,10 @@ export function SignupPage() {
                         type="button"
                         variant="secondary"
                         className="shrink-0"
-                        disabled={!isCodeSent || emailVerified || isCodeExpired}
+                        disabled={!isCodeSent || emailVerified || isCodeExpired || isVerifyingCode}
                         onClick={confirmVerificationCode}
                       >
-                        확인
+                        {isVerifyingCode ? '확인 중...' : '확인'}
                       </Button>
                     </div>
                     <div className="mt-0.5 min-h-3 leading-tight">
