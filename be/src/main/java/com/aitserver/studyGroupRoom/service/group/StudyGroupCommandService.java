@@ -4,6 +4,8 @@ import com.aitserver.auth.entity.User;
 import com.aitserver.auth.repository.UserRepository;
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
+import com.aitserver.notification.entity.NotificationType;
+import com.aitserver.notification.event.NotificationEvent;
 import com.aitserver.studyGroupRoom.domain.StudyGroupStatus;
 import com.aitserver.studyGroupRoom.dto.group.StudyGroupRequestDto;
 import com.aitserver.studyGroupRoom.entity.StudyGroup;
@@ -12,6 +14,7 @@ import com.aitserver.studyGroupRoom.repository.StudyGroupMemberRepository;
 import com.aitserver.studyGroupRoom.repository.StudyGroupRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +27,7 @@ public class StudyGroupCommandService {
     private final StudyGroupRepository studyGroupRepository;
     private final StudyGroupMemberRepository studyGroupMemberRepository;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     // 스터디 그룹 생성
     public Long createGroup(StudyGroupRequestDto.Create request, Long currentUserId) {
@@ -110,5 +114,12 @@ public class StudyGroupCommandService {
 
         // 4. 멤버 삭제 처리
         targetMember.kick();
+
+        eventPublisher.publishEvent(new NotificationEvent(
+                targetUserId,                       // 알림 받을 사람
+                NotificationType.GROUP_KICKED,      // 알림 타입
+                group.getId(),                      // 그룹 ID
+                "[" + group.getTitle() + "] 그룹에서 내보내졌습니다."
+        ));
     }
 }

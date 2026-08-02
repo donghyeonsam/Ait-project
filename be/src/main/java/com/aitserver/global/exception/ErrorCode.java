@@ -90,6 +90,9 @@ public enum ErrorCode {
     STUDY_GROUP_FULL(HttpStatus.CONFLICT, "GROUP_005", "스터디 그룹의 모집 정원이 마감되었습니다."),
     KICKED_USER_CANNOT_REJOIN(HttpStatus.CONFLICT, "GROUP_006", "강퇴 당한 멤버는 다시 신청할 수 없습니다."),
 
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTIFICATION_001", "알림을 찾을 수 없습니다."),
+    UNAUTHORIZED_NOTIFICATION_ACTION(HttpStatus.FORBIDDEN, "NOTIFICATION_002", "해당 알림에 대한 권한이 없습니다."),
+
     // Study Session
     STUDY_SESSION_ALREADY_ACTIVE(HttpStatus.CONFLICT, "STUDY_SESSION_001", "이미 진행 중이거나 대기 중인 화상 스터디 세션이 있습니다."),
     STUDY_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "STUDY_SESSION_002", "화상 스터디 세션을 찾을 수 없습니다."),
