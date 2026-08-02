@@ -6,9 +6,11 @@ import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.global.livekit.LiveKitRoomClient;
 import com.aitserver.studyGroupRoom.entity.StudyGroup;
 import com.aitserver.studyGroupRoom.repository.StudyGroupRepository;
+import com.aitserver.studySession.dto.StudySessionStatusResponse;
 import com.aitserver.studySession.entity.StudySession;
 import com.aitserver.studySession.domain.StudySessionStatus;
 import com.aitserver.studySession.dto.StudySessionCreateResponse;
+import com.aitserver.studySession.repository.StudySessionParticipantRepository;
 import com.aitserver.studySession.repository.StudySessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -30,6 +32,7 @@ public class StudySessionService {
     private final StudyGroupRepository studyGroupRepository;
     private final StudySessionRepository studySessionRepository;
     private final LiveKitRoomClient liveKitRoomClient;
+    private final StudySessionParticipantRepository studySessionParticipantRepository;
 
     /**
      * 그룹장이 새로운 화상 스터디 세션을 생성합니다.
@@ -156,5 +159,38 @@ public class StudySessionService {
                     cleanupException
             );
         }
+    }
+
+
+    @Transactional(readOnly = true)
+    public StudySessionStatusResponse getStatus(
+            Long sessionId,
+            Long userId
+    ) {
+        StudySession studySession =
+                studySessionRepository
+                        .findById(sessionId)
+                        .orElseThrow(() ->
+                                new BusinessException(
+                                        ErrorCode.STUDY_SESSION_NOT_FOUND
+                                )
+                        );
+
+        boolean participated =
+                studySessionParticipantRepository
+                        .existsByStudySessionIdAndUserId(
+                                sessionId,
+                                userId
+                        );
+
+        if (!participated) {
+            throw new BusinessException(
+                    ErrorCode.STUDY_SESSION_STATUS_ACCESS_DENIED
+            );
+        }
+
+        return StudySessionStatusResponse.from(
+                studySession
+        );
     }
 }
