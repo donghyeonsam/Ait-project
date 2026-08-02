@@ -3,16 +3,20 @@ package com.aitserver.notification.controller;
 import com.aitserver.global.response.ApiResponse;
 import com.aitserver.notification.dto.NotificationResponse;
 import com.aitserver.notification.entity.Notification;
+import com.aitserver.notification.entity.NotificationType;
+import com.aitserver.notification.event.NotificationEvent;
 import com.aitserver.notification.service.NotificationService;
 import com.aitserver.notification.service.NotificationSseService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -25,6 +29,7 @@ public class NotificationController {
 
     private final NotificationService notificationService;
     private final NotificationSseService sseService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 1. 모든 알림 목록 조회 (읽은 알림 포함, 최신순)
@@ -99,5 +104,21 @@ public class NotificationController {
     public ResponseEntity<SseEmitter> subscribe(@AuthenticationPrincipal Long userId) {
         // ApiResponse 같은 커스텀 래퍼를 쓰지 않고 순수 SseEmitter를 반환해야 합니다!
         return ResponseEntity.ok(sseService.subscribe(userId));
+    }
+
+    @GetMapping("/test-send")
+    @Transactional
+    public ResponseEntity<String> testSendSse(
+            @RequestParam Long receiverId) { // 토큰 없이 강제로 받을 사람 ID를 입력받음
+
+        // 2. 가짜 이벤트 강제 발행
+        eventPublisher.publishEvent(new NotificationEvent(
+                receiverId,
+                NotificationType.COMMENT, // 테스트용 타입
+                999L,                     // 테스트용 타겟 ID
+                "프론트엔드 없이 Postman으로 쏘는 실시간 알림 테스트입니다!"
+        ));
+
+        return ResponseEntity.ok("테스트 알림 이벤트 발행 완료! (수신자 ID: " + receiverId + ")");
     }
 }
