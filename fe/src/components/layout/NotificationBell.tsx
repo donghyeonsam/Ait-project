@@ -9,6 +9,7 @@ import {
   getNotificationRoute,
   markAllNotificationsAsRead,
   markNotificationAsRead,
+  subscribeNotifications,
 } from '@/api/notifications'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -44,14 +45,21 @@ export function NotificationBell() {
   const [slideDirection, setSlideDirection] = useState(1)
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
   const [isDeleting, setDeleting] = useState(false)
+  const [hasNext, setHasNext] = useState(false)
+  const [isLoadingMore, setLoadingMore] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+  // 스크롤 핸들러의 stale closure를 피하려고 현재 페이지와 추가 로드 진행 여부는 ref로 관리한다.
+  const pageRef = useRef(0)
+  const loadMoreLockRef = useRef(false)
   const panelId = useId()
 
-  // 목록을 서버 상태로 동기화한다. 스켈레톤 노출 여부(isLoading)는 호출하는 쪽에서 제어한다.
+  // 첫 페이지를 서버 상태로 동기화한다. 스켈레톤 노출 여부(isLoading)는 호출하는 쪽에서 제어한다.
   const loadNotifications = useCallback(() => {
     return fetchNotifications()
-      .then((items) => {
-        setNotifications(items)
+      .then((page) => {
+        pageRef.current = 0
+        setNotifications(page.items)
+        setHasNext(page.hasNext)
         setError(false)
       })
       .catch(() => {
@@ -65,6 +73,38 @@ export function NotificationBell() {
   useEffect(() => {
     void loadNotifications()
   }, [loadNotifications])
+
+  // SSE로 새 알림을 실시간 수신해 목록 맨 앞에 붙인다. 새로고침 재조회와 겹칠 수 있어 id로 중복을 거른다.
+  useEffect(() => {
+    const controller = new AbortController()
+    void subscribeNotifications((item) => {
+      setNotifications((prev) =>
+        prev.some((n) => n.id === item.id) ? prev : [item, ...prev],
+      )
+    }, controller.signal)
+    return () => controller.abort()
+  }, [])
+
+  // 스크롤이 바닥에 닿으면 다음 페이지를 이어 붙인다. 실패는 조용히 넘기고 다음 스크롤에서 다시 시도한다.
+  const loadMore = useCallback(() => {
+    if (loadMoreLockRef.current) return
+    loadMoreLockRef.current = true
+    setLoadingMore(true)
+    fetchNotifications(pageRef.current + 1)
+      .then((page) => {
+        pageRef.current += 1
+        setNotifications((prev) => {
+          const known = new Set(prev.map((n) => n.id))
+          return [...prev, ...page.items.filter((item) => !known.has(item.id))]
+        })
+        setHasNext(page.hasNext)
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        loadMoreLockRef.current = false
+        setLoadingMore(false)
+      })
+  }, [])
 
   // 삭제 확인 Dialog가 떠 있는 동안에는 Dialog 조작이 드롭다운을 닫지 않게 한다.
   const hasDeleteDialog = deleteTarget != null
@@ -257,6 +297,13 @@ export function NotificationBell() {
                     initial="initial"
                     animate="animate"
                     exit="exit"
+                    onScroll={(event) => {
+                      if (!hasNext) return
+                      const el = event.currentTarget
+                      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 48) {
+                        loadMore()
+                      }
+                    }}
                     className="max-h-[26rem] overflow-y-auto"
                   >
                     {filteredNotifications.length === 0 ? (
@@ -316,6 +363,15 @@ export function NotificationBell() {
                         })}
                       </ul>
                     )}
+                    {isLoadingMore ? (
+                      <div
+                        className="px-4 py-2.5"
+                        role="status"
+                        aria-label="알림 더 불러오는 중"
+                      >
+                        <Skeleton className="h-10 w-full" />
+                      </div>
+                    ) : null}
                   </motion.div>
                 </AnimatePresence>
               )}

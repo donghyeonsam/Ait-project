@@ -6,6 +6,7 @@ import {
   getNotificationRoute,
   markAllNotificationsAsRead,
   markNotificationAsRead,
+  subscribeNotifications,
 } from '@/api/notifications'
 
 const jsonResponse = (data: unknown) =>
@@ -29,58 +30,135 @@ describe('fetchNotifications', () => {
     vi.unstubAllGlobals()
   })
 
-  it('백엔드 응답을 화면용 NotificationItem으로 변환한다', async () => {
+  it('무한 스크롤 응답을 화면용 NotificationPage로 변환한다', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse([
-        {
-          id: 1,
-          type: 'COMMENT',
-          targetId: 42,
-          content: '회원님의 게시글에 새로운 댓글이 달렸습니다.',
-          checked: false,
-          createdAt: '2026-08-02T10:00:00',
-        },
-        {
-          id: 2,
-          type: 'GROUP_APPROVE',
-          targetId: 7,
-          content: '[면접 스터디] 그룹 가입이 승인되었습니다!',
-          isChecked: true,
-          createdAt: '2026-08-01T09:00:00',
-        },
-      ]),
+      jsonResponse({
+        notifications: [
+          {
+            id: 1,
+            type: 'COMMENT',
+            targetId: 42,
+            content: '회원님의 게시글에 새로운 댓글이 달렸습니다.',
+            checked: false,
+            createdAt: '2026-08-02T10:00:00',
+          },
+          {
+            id: 2,
+            type: 'GROUP_APPROVE',
+            targetId: 7,
+            content: '[면접 스터디] 그룹 가입이 승인되었습니다!',
+            isChecked: true,
+            createdAt: '2026-08-01T09:00:00',
+          },
+        ],
+        hasNext: true,
+      }),
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    const items = await fetchNotifications()
+    const page = await fetchNotifications()
 
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('/backend/api/notifications')
-    expect(items).toEqual([
-      {
-        id: '1',
-        type: 'COMMENT',
-        category: 'board',
-        targetId: 42,
-        title: '회원님의 게시글에 새로운 댓글이 달렸습니다.',
-        createdAt: '2026-08-02T10:00:00',
-        read: false,
-      },
-      {
-        id: '2',
-        type: 'GROUP_APPROVE',
-        category: 'group',
-        targetId: 7,
-        title: '[면접 스터디] 그룹 가입이 승인되었습니다!',
-        createdAt: '2026-08-01T09:00:00',
-        read: true,
-      },
-    ])
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/backend/api/notifications?page=0&size=10',
+    )
+    expect(page).toEqual({
+      items: [
+        {
+          id: '1',
+          type: 'COMMENT',
+          category: 'board',
+          targetId: 42,
+          title: '회원님의 게시글에 새로운 댓글이 달렸습니다.',
+          createdAt: '2026-08-02T10:00:00',
+          read: false,
+        },
+        {
+          id: '2',
+          type: 'GROUP_APPROVE',
+          category: 'group',
+          targetId: 7,
+          title: '[면접 스터디] 그룹 가입이 승인되었습니다!',
+          createdAt: '2026-08-01T09:00:00',
+          read: true,
+        },
+      ],
+      hasNext: true,
+    })
   })
 
-  it('data가 null이면 빈 배열을 반환한다', async () => {
+  it('요청한 페이지 번호를 쿼리로 전달한다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ notifications: [], hasNext: false }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await fetchNotifications(2)
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/backend/api/notifications?page=2&size=10',
+    )
+  })
+
+  it('data가 null이면 빈 페이지를 반환한다', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(null)))
 
-    await expect(fetchNotifications()).resolves.toEqual([])
+    await expect(fetchNotifications()).resolves.toEqual({
+      items: [],
+      hasNext: false,
+    })
+  })
+})
+
+describe('subscribeNotifications', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('notification 이벤트의 JSON 데이터만 변환해 전달하고 중단 시 종료된다', async () => {
+    const encoder = new TextEncoder()
+    // 스트림을 닫지 않고 열어 둬야 재연결 대기 없이 abort 종료 경로를 검증할 수 있다.
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'id: 1_1\nevent: notification\ndata: EventStream Created. [userId=1]\n\n',
+          ),
+        )
+        controller.enqueue(
+          encoder.encode(
+            'id: 1_2\nevent: notification\ndata: {"id":5,"type":"LIKE","targetId":9,"content":"회원님의 게시글에 좋아요가 달렸습니다.","checked":false,"createdAt":"2026-08-02T12:00:00"}\n\n',
+          ),
+        )
+      },
+    })
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(stream, {
+        status: 200,
+        headers: { 'content-type': 'text/event-stream' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const received: unknown[] = []
+    const controller = new AbortController()
+    const subscription = subscribeNotifications((item) => {
+      received.push(item)
+    }, controller.signal)
+
+    await vi.waitFor(() => expect(received).toHaveLength(1))
+    controller.abort()
+    await subscription
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/backend/api/notifications/stream')
+    expect(received[0]).toEqual({
+      id: '5',
+      type: 'LIKE',
+      category: 'board',
+      targetId: 9,
+      title: '회원님의 게시글에 좋아요가 달렸습니다.',
+      createdAt: '2026-08-02T12:00:00',
+      read: false,
+    })
   })
 })
 
