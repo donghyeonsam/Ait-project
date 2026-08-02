@@ -55,9 +55,16 @@ export function useMediaDevices() {
 
       setPermission('pending')
       try {
+        const audioConstraints: MediaTrackConstraints = {
+          ...(micDeviceId ? { deviceId: { exact: micDeviceId } } : {}),
+          channelCount: { ideal: 1 },
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        }
         const nextStream = await navigator.mediaDevices.getUserMedia({
           video: cameraDeviceId ? { deviceId: { exact: cameraDeviceId } } : true,
-          audio: micDeviceId ? { deviceId: { exact: micDeviceId } } : true,
+          audio: audioConstraints,
         })
         // 새 스트림을 켜기 전에 기존 트랙을 멈춰 장치 점유가 남지 않게 한다.
         streamRef.current?.getTracks().forEach((track) => track.stop())

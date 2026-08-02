@@ -8,6 +8,10 @@ import {
 } from 'lucide-react'
 import type { CoverLetterDetail } from '@/api/cover-letters'
 import { toErrorMessage } from '@/api/http'
+import {
+  createPeerFeedback,
+  getMyPeerFeedbacksInSession,
+} from '@/api/peer-feedback'
 import { getResume, type Resume } from '@/api/resume'
 import { getStudySessionCoverLetter } from '@/api/study-sessions'
 import { CountUp } from '@/components/reactbits/CountUp'
@@ -28,12 +32,14 @@ import {
   type StudyEvaluationCategory,
   type StudyParticipant,
 } from '@/mocks/study'
+import { toPeerFeedbackCreateRequest } from '@/lib/peer-evaluation'
 import { cn } from '@/lib/utils'
 
 type SidePanelTab = 'documents' | 'evaluation'
 type DocumentType = 'resume' | 'coverLetter'
 
 interface StudySessionSidePanelProps {
+  sessionId: number
   participants: StudyParticipant[]
 }
 
@@ -235,30 +241,61 @@ function createDefaultEvaluationScores(): StudyEvaluationScores {
 }
 
 // 세션 우측 패널: 참가자 이력서·자소서 열람과 참가자 평가 입력을 탭으로 전환한다.
-export function StudySessionSidePanel({ participants }: StudySessionSidePanelProps) {
+export function StudySessionSidePanel({ sessionId, participants }: StudySessionSidePanelProps) {
   const otherParticipants = participants.filter((participant) => !participant.isSelf)
   const [activeTab, setActiveTab] = useState<SidePanelTab>('documents')
-  // 본인 문서는 서류함에서 볼 수 있으므로 이 열람 대상 목록엔 다른 참가자만 둔다.
-  const [documentTargetId, setDocumentTargetId] = useState(otherParticipants[0]?.participantId ?? null)
+  // 사이드 패널은 상대방이 아직 입장하기 전(나만 접속한 시점)에 먼저 마운트되는 경우가 대부분이라,
+  // useState 초기값으로 otherParticipants[0]을 한 번만 넣으면 그 뒤 상대가 들어와도 계속 null로 남는다.
+  // 그래서 "사용자가 직접 고른 값"만 상태로 두고, 없으면 매 렌더 최신 otherParticipants에서 기본값을 뽑는다.
+  const [selectedDocumentTargetId, setSelectedDocumentTargetId] = useState<number | null>(null)
+  const documentTargetId = selectedDocumentTargetId ?? otherParticipants[0]?.participantId ?? null
   const [openDocumentType, setOpenDocumentType] = useState<DocumentType | null>(null)
   const [resumeData, setResumeData] = useState<Resume | null>(null)
   const [coverLetterData, setCoverLetterData] = useState<CoverLetterDetail | null>(null)
   const [documentLoading, setDocumentLoading] = useState(false)
   const [documentError, setDocumentError] = useState<string | null>(null)
-  const [evaluationTargetId, setEvaluationTargetId] = useState(otherParticipants[0]?.participantId ?? null)
+  // 이 세션에서 이미 평가를 제출한 참가자의 userId. DB엔 중복 제출을 막는 제약이 없어 화면에서 막는다.
+  const [submittedUserIds, setSubmittedUserIds] = useState<Set<number>>(new Set())
+  const [selectedEvaluationTargetId, setSelectedEvaluationTargetId] = useState<number | null>(null)
   const [scores, setScores] = useState<StudyEvaluationScores>(
     createDefaultEvaluationScores,
   )
   const [comment, setComment] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  // 이미 제출한 사람은 평가 대상에서 뺀다. userId가 아직 안 내려온 참가자는 판단할 수 없으니 그대로 둔다.
+  const evaluableParticipants = otherParticipants.filter(
+    (participant) => participant.userId == null || !submittedUserIds.has(participant.userId),
+  )
+  const evaluationTargetId = selectedEvaluationTargetId ?? evaluableParticipants[0]?.participantId ?? null
 
   const documentTarget = participants.find((participant) => participant.participantId === documentTargetId) ?? null
+  const evaluationTarget =
+    participants.find((participant) => participant.participantId === evaluationTargetId) ?? null
 
-  const isEvaluationComplete = evaluationTargetId !== null
+  const isEvaluationComplete = evaluationTarget !== null
   const averageScore =
     studyEvaluationCategories.reduce(
       (total, category) => total + scores[category],
       0,
     ) / studyEvaluationCategories.length
+
+  useEffect(() => {
+    let isActive = true
+
+    getMyPeerFeedbacksInSession(sessionId)
+      .then((feedbacks) => {
+        if (!isActive) return
+        setSubmittedUserIds(new Set(feedbacks.map((feedback) => feedback.evaluateeId)))
+      })
+      // 이미 제출한 사람 표시는 보조 정보라, 실패해도 평가 자체는 계속 진행할 수 있게 둔다.
+      .catch(() => {})
+
+    return () => {
+      isActive = false
+    }
+  }, [sessionId])
 
   const handleScoreChange = useCallback(
     (category: StudyEvaluationCategory, value: number) => {
@@ -269,13 +306,24 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
     [],
   )
 
-  const handleSubmitEvaluation = () => {
-    if (!isEvaluationComplete) return
+  const handleSubmitEvaluation = async () => {
+    const evaluateeId = evaluationTarget?.userId
+    if (evaluateeId == null) return
 
-    // TODO: 실제 API 연동 필요 — 평가 제출 API로 교체. 지금은 입력값만 확인한다.
-    console.log('스터디 세션 평가 제출', { targetId: evaluationTargetId, scores, comment })
-    setScores(createDefaultEvaluationScores())
-    setComment('')
+    setSubmitting(true)
+    setSubmitError(null)
+    try {
+      await createPeerFeedback(sessionId, toPeerFeedbackCreateRequest(evaluateeId, scores, comment))
+      setSubmittedUserIds((prev) => new Set(prev).add(evaluateeId))
+      // 방금 제출한 사람은 evaluableParticipants에서 빠지니, 선택을 비워 다음 사람으로 자연스럽게 넘어가게 한다.
+      setSelectedEvaluationTargetId(null)
+      setScores(createDefaultEvaluationScores())
+      setComment('')
+    } catch (error) {
+      setSubmitError(toErrorMessage(error))
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const openDocumentTitle =
@@ -357,7 +405,7 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
                 id="document-target-select"
                 className="mt-2 w-full rounded-ait-s border border-border-default bg-surface-default px-3 py-2 text-body-2 text-text-primary focus:border-action-primary focus:outline-none focus:ring-3 focus:ring-action-primary/25"
                 value={documentTargetId ?? ''}
-                onChange={(event) => setDocumentTargetId(Number(event.target.value))}
+                onChange={(event) => setSelectedDocumentTargetId(Number(event.target.value))}
                 disabled={otherParticipants.length === 0}
               >
                 {otherParticipants.length === 0 ? (
@@ -428,16 +476,16 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
                 className="mt-2 w-full rounded-ait-s border border-border-default bg-surface-default px-3 py-2 text-body-2 text-text-primary focus:border-action-primary focus:outline-none focus:ring-3 focus:ring-action-primary/25"
                 value={evaluationTargetId ?? ''}
                 onChange={(event) => {
-                  setEvaluationTargetId(Number(event.target.value))
+                  setSelectedEvaluationTargetId(Number(event.target.value))
                   setScores(createDefaultEvaluationScores())
                   setComment('')
                 }}
-                disabled={otherParticipants.length === 0}
+                disabled={evaluableParticipants.length === 0}
               >
-                {otherParticipants.length === 0 ? (
+                {evaluableParticipants.length === 0 ? (
                   <option value="">평가할 참가자가 없습니다</option>
                 ) : null}
-                {otherParticipants.map((participant) => (
+                {evaluableParticipants.map((participant) => (
                   <option key={participant.participantId} value={participant.participantId}>
                     {participant.name}
                   </option>
@@ -509,18 +557,24 @@ export function StudySessionSidePanel({ participants }: StudySessionSidePanelPro
               />
             </div>
 
+            {submitError ? (
+              <p className="text-body-2 text-status-error" role="alert">{submitError}</p>
+            ) : null}
+
             <Button
               type="button"
               className="w-full"
-              disabled={!isEvaluationComplete}
-              onClick={handleSubmitEvaluation}
+              disabled={!isEvaluationComplete || submitting}
+              onClick={() => void handleSubmitEvaluation()}
             >
               {isEvaluationComplete ? (
                 <CheckCircle2 className="size-5" aria-hidden="true" />
               ) : null}
-              {isEvaluationComplete
-                ? '평가 제출'
-                : '평가할 참가자가 없습니다'}
+              {submitting
+                ? '제출 중…'
+                : isEvaluationComplete
+                  ? '평가 제출'
+                  : '평가할 참가자가 없습니다'}
             </Button>
           </div>
         )}

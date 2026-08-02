@@ -10,6 +10,7 @@ import {
   landingRoutes,
 } from '@/components/landing/landing.data'
 import { Magnet } from '@/components/reactbits/Magnet'
+import { ShinyText } from '@/components/reactbits/ShinyText'
 
 // 랜딩 여정의 마지막에 가입과 데모 확인 행동을 한 번 더 제공한다.
 export function FinalCta() {
@@ -27,7 +28,14 @@ export function FinalCta() {
         >
           <div className="landing-final__main">
             <div>
-              <p>READY TO PRACTICE?</p>
+              <p>
+                <ShinyText
+                  text="READY TO PRACTICE?"
+                  color="var(--color-status-achievement)"
+                  shineColor="color-mix(in srgb, var(--color-status-achievement) 45%, white)"
+                  delay={2.4}
+                />
+              </p>
               <h2 id="landing-final-title">
                 지금 바로, 첫 면접 연습을 시작하세요
               </h2>
@@ -36,13 +44,13 @@ export function FinalCta() {
             <div className="landing-final__actions">
               <Magnet disabled={Boolean(reduceMotion)}>
                 <Link className="landing-button landing-button--primary" to={landingRoutes.start}>
-                  무료로 면접 시작하기
+                  <ShinyText text="무료로 면접 시작하기" />
                   <ArrowRight aria-hidden="true" />
                 </Link>
               </Magnet>
-              <a className="landing-button landing-button--secondary" href="#demo">
+              <a className="landing-button landing-button--secondary" href="#gallery">
                 <Play aria-hidden="true" />
-                데모 둘러보기
+                화면 미리보기
               </a>
             </div>
           </div>

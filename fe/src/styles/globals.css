@@ -283,7 +283,6 @@ html {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* 세로 스크롤바가 생기고 사라질 때 페이지 내용이 좌우로 밀리지 않도록 스크롤바 자리를 항상 확보한다. */
   scrollbar-gutter: stable;
 }
 
@@ -293,6 +292,28 @@ body {
   margin: 0;
   color: var(--color-text-primary);
   background: var(--color-background-default);
+}
+
+/* stable gutter가 이미 스크롤바 폭을 확보하므로 Dialog의 중복 보정 여백은 제거한다. */
+html body[data-scroll-locked] {
+  margin-right: 0 !important;
+}
+
+/* 그룹톡 오버레이가 닿지 않는 stable gutter도 딤 처리된 페이지 배경과 같은 색으로 맞춘다. */
+html:has(.study-chat-overlay[data-state]) {
+  background: color-mix(
+    in srgb,
+    var(--color-text-primary) 42%,
+    var(--color-surface-default)
+  );
+}
+
+html:has(.study-chat-overlay[data-state])::-webkit-scrollbar-track {
+  background: color-mix(
+    in srgb,
+    var(--color-text-primary) 42%,
+    var(--color-surface-default)
+  );
 }
 
 #root {
@@ -386,33 +407,107 @@ button:not(:disabled) {
   animation-delay: var(--record-delay);
 }
 
-.trend-line {
+.simple-graph {
+  min-width: 0;
+}
+
+.simple-graph__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.simple-graph__axis-label {
+  fill: var(--color-text-secondary);
+  font-size: 0.8125rem;
+}
+
+.simple-graph__grid-group:first-of-type line {
+  stroke-dasharray: none;
+}
+
+.simple-graph__line {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
 }
 
-.trend-line.is-visible {
-  animation: draw-line 1.2s ease-out forwards;
+.simple-graph.is-active .simple-graph__line {
+  animation: simple-graph-draw var(--simple-graph-animation-duration)
+    var(--easing-emphasized) forwards;
 }
 
-.trend-point {
+.simple-graph__area {
   opacity: 0;
+  transform: scaleY(0.88);
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.simple-graph.is-active .simple-graph__area {
+  animation: simple-graph-area-in var(--duration-slow)
+    var(--easing-emphasized) forwards;
+  animation-delay: var(--simple-graph-area-delay);
+}
+
+.simple-graph__point {
+  cursor: default;
+  opacity: 0;
+  outline: none;
   transform: translateY(0.25rem);
 }
 
-.trend-point.is-visible {
-  animation: point-enter var(--duration-base) var(--easing-emphasized) forwards;
-  animation-delay: var(--point-delay);
+.simple-graph.is-active .simple-graph__point {
+  animation: simple-graph-point-in var(--duration-base)
+    var(--easing-emphasized) forwards;
+  animation-delay: var(--simple-graph-point-delay);
 }
 
-.trend-area {
+.simple-graph__point-hit-area {
+  fill: transparent;
+  pointer-events: all;
+}
+
+.simple-graph__dot,
+.simple-graph__dot-glow {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    opacity var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-emphasized);
+}
+
+.simple-graph__dot-glow {
   opacity: 0;
-  transform: translateY(0.75rem);
+  transform: scale(0.45);
 }
 
-.trend-area.is-visible {
-  animation: area-enter var(--duration-slow) var(--easing-emphasized) forwards;
-  animation-delay: 1.15s;
+.simple-graph__value-label {
+  fill: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  transition:
+    fill var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-emphasized);
+}
+
+.simple-graph__point:is(:hover, :focus-visible) .simple-graph__dot {
+  transform: scale(1.22);
+}
+
+.simple-graph__point:is(:hover, :focus-visible) .simple-graph__dot-glow {
+  opacity: 0.18;
+  transform: scale(1);
+}
+
+.simple-graph__point:is(:hover, :focus-visible)
+  .simple-graph__value-label {
+  fill: var(--color-action-primary);
+  transform: translateY(-0.2rem);
+}
+
+.simple-graph__point:focus-visible .simple-graph__dot {
+  stroke-width: 5;
 }
 
 .report-overlay {
@@ -422,22 +517,8 @@ button:not(:disabled) {
   display: flex;
   align-items: center;
   justify-content: center;
-  visibility: hidden;
   padding: 2rem;
   background: color-mix(in srgb, var(--color-text-primary) 42%, transparent);
-  opacity: 0;
-  backdrop-filter: blur(0);
-  transition:
-    opacity var(--duration-base) var(--easing-standard),
-    backdrop-filter var(--duration-base) var(--easing-standard),
-    visibility 0s linear var(--duration-base);
-}
-
-.report-overlay.is-open {
-  visibility: visible;
-  opacity: 1;
-  backdrop-filter: blur(2px);
-  transition-delay: 0s;
 }
 
 .report-dialog {
@@ -450,16 +531,6 @@ button:not(:disabled) {
   border-radius: var(--radius-l);
   background: var(--color-surface-default);
   box-shadow: var(--elevation-3);
-  opacity: 0;
-  transform: scale(0.96);
-  transition:
-    opacity var(--duration-base) var(--easing-emphasized),
-    transform var(--duration-base) var(--easing-emphasized);
-}
-
-.report-dialog.is-open {
-  opacity: 1;
-  transform: scale(1);
 }
 
 .radar-polygon {
@@ -681,48 +752,174 @@ button:not(:disabled) {
   animation: question-generation-pulse 2.4s ease-in-out infinite;
 }
 
-.question-generation-ring {
+.gradient-blob {
   position: relative;
-  display: flex;
-  width: 10.625rem;
-  height: 10.625rem;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 2.375rem;
+  display: grid;
+  isolation: isolate;
+  place-items: center;
+  opacity: var(--gradient-blob-opacity);
+  perspective: 38rem;
+  pointer-events: auto;
 }
 
-.question-generation-ring-conic {
+.gradient-blob__halo {
+  position: absolute;
+  inset: 16%;
+  z-index: -1;
+  border-radius: var(--radius-pill);
+  background: color-mix(
+    in srgb,
+    var(--gradient-blob-secondary) 34%,
+    transparent
+  );
+  filter: blur(1.75rem);
+  opacity: 0.65;
+  transform: scale(1.08);
+}
+
+.gradient-blob__tilt {
+  position: absolute;
+  inset: 5%;
+  transform: translate3d(
+      var(--gradient-blob-shift-x),
+      var(--gradient-blob-shift-y),
+      0
+    )
+    rotateX(var(--gradient-blob-rotate-x))
+    rotateY(var(--gradient-blob-rotate-y));
+  transform-style: preserve-3d;
+  transition: transform var(--duration-base) var(--easing-emphasized);
+}
+
+.gradient-blob__surface {
   position: absolute;
   inset: 0;
-  border-radius: var(--radius-pill);
-  background: conic-gradient(
-    from 0deg,
-    var(--color-loading-pastel-blue),
-    var(--color-loading-pastel-violet),
-    var(--color-loading-pastel-green),
-    var(--color-loading-pastel-blue)
-  );
-  filter: blur(1px);
-  animation: question-generation-drift 14s linear infinite;
+  overflow: hidden;
+  border: 1px solid
+    color-mix(in srgb, var(--gradient-blob-base) 42%, transparent);
+  border-radius: 43% 57% 64% 36% / 47% 42% 58% 53%;
+  background: var(--gradient-blob-primary);
+  box-shadow:
+    inset 1rem 1rem 2.5rem
+      color-mix(in srgb, var(--gradient-blob-base) 30%, transparent),
+    inset -1.2rem -1.4rem 2.8rem
+      color-mix(in srgb, var(--gradient-blob-primary) 68%, transparent),
+    0 1.5rem 2.5rem -1.5rem
+      color-mix(in srgb, var(--gradient-blob-primary) 62%, transparent);
+  animation: gradient-blob-morph var(--gradient-blob-speed)
+    var(--easing-emphasized) infinite alternate;
 }
 
-/* inset 14px 흰 원이 conic 원을 덮어 14px 두께의 파스텔 링만 남긴다. */
-.question-generation-ring-core {
+.gradient-blob[data-breathe='true'] .gradient-blob__tilt {
+  animation: gradient-blob-breathe var(--gradient-blob-breathe-duration)
+    ease-in-out infinite;
+}
+
+.gradient-blob__material {
   position: absolute;
-  inset: 0.875rem;
-  border-radius: var(--radius-pill);
-  background: var(--color-surface-default);
-  box-shadow: inset 0 1px 4px
-    color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+  inset: -28%;
+  background:
+    radial-gradient(
+      circle at 28% 24%,
+      color-mix(in srgb, white 88%, var(--gradient-blob-base)) 0 5%,
+      color-mix(in srgb, var(--gradient-blob-base) 58%, transparent) 13%,
+      transparent 29%
+    ),
+    radial-gradient(
+      circle at 72% 68%,
+      var(--gradient-blob-secondary) 0 17%,
+      transparent 47%
+    ),
+    radial-gradient(
+      circle at 31% 76%,
+      var(--gradient-blob-accent) 0 14%,
+      transparent 43%
+    ),
+    conic-gradient(
+      from 35deg,
+      var(--gradient-blob-primary),
+      var(--gradient-blob-secondary),
+      var(--gradient-blob-base),
+      var(--gradient-blob-accent),
+      var(--gradient-blob-primary)
+    );
+  filter: saturate(1.08) contrast(1.04);
+  transform: rotate(-12deg) scale(1.1);
 }
 
-.question-generation-ring-label {
+.gradient-blob[data-auto-rotate='true'] .gradient-blob__material {
+  animation: gradient-blob-rotate var(--gradient-blob-rotation-speed) linear
+    infinite;
+}
+
+.gradient-blob__shine {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      140deg,
+      color-mix(in srgb, white 44%, transparent),
+      transparent 34% 66%,
+      color-mix(in srgb, var(--gradient-blob-primary) 26%, transparent)
+    ),
+    radial-gradient(
+      ellipse at 35% 20%,
+      color-mix(in srgb, white 68%, transparent),
+      transparent 34%
+    );
+  mix-blend-mode: soft-light;
+}
+
+.gradient-blob__content {
   position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  transform: translateZ(2rem);
+}
+
+.question-generation-visual {
+  position: relative;
+  display: grid;
+  width: min(26rem, calc(100vw - 2.5rem));
+  height: 12.75rem;
+  place-items: center;
+  margin-bottom: 2rem;
+}
+
+.question-generation-magic-rings {
+  position: absolute;
+  z-index: 0;
+  inset: -8% -7%;
+  pointer-events: none;
+  mask-image: radial-gradient(
+    circle,
+    black 42%,
+    color-mix(in srgb, black 72%, transparent) 72%,
+    transparent 100%
+  );
+}
+
+.question-generation-magic-rings canvas {
+  display: block;
+}
+
+.question-generation-blob {
+  --question-generation-blob-size: 10.625rem;
+
+  z-index: 1;
+  width: var(--question-generation-blob-size) !important;
+  height: var(--question-generation-blob-size) !important;
+}
+
+.question-generation-blob-label {
   font-size: 1.625rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: var(--color-action-primary);
-  animation: question-generation-breathe 5s ease-in-out infinite;
+  color: var(--color-surface-default);
+  text-shadow: 0 1px 14px
+    color-mix(in srgb, var(--color-action-primary) 55%, transparent);
 }
 
 .question-generation-headline {
@@ -832,9 +1029,94 @@ button:not(:disabled) {
 }
 
 @media (max-width: 47.999rem) {
-  .question-generation-ring {
-    width: 7.5rem;
-    height: 7.5rem;
+  .report-overlay {
+    padding: 0.75rem;
+  }
+
+  .report-dialog {
+    width: 100%;
+    max-width: none;
+    height: calc(100dvh - 1.5rem);
+    border-radius: var(--radius-m);
+  }
+
+  .report-dialog__body {
+    padding: 1.5rem 1rem;
+  }
+
+  .report-summary {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 1rem;
+  }
+
+  .report-score-panel {
+    min-height: auto;
+    padding-right: 0;
+    padding-bottom: 1.25rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-chart-axis);
+  }
+
+  .report-score-panel > p:nth-of-type(1) {
+    margin-top: 1.25rem;
+  }
+
+  .report-score-panel > p:nth-of-type(2) {
+    margin-top: 1rem;
+  }
+
+  .report-radar-panel {
+    padding-top: 1.25rem;
+    padding-left: 0;
+  }
+
+  .report-feedback-grid,
+  .report-question-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .report-feedback-grid {
+    gap: 0.75rem;
+  }
+
+  .report-question-column {
+    padding-inline: 0;
+  }
+
+  .report-question-grid > :not([hidden]) ~ :not([hidden]) {
+    padding-top: 1rem;
+    margin-top: 1rem;
+    border-top: 1px solid var(--color-chart-axis);
+    border-left: 0;
+  }
+
+  .report-dialog__footer {
+    align-items: stretch;
+    padding: 0.75rem 1rem;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .report-dialog__footer > button,
+  .report-dialog__actions button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .report-dialog__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .question-generation-visual {
+    width: min(19rem, calc(100vw - 2rem));
+    height: 9.5rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .question-generation-blob {
+    --question-generation-blob-size: 7.5rem;
   }
 
   .question-generation-headline {
@@ -876,6 +1158,37 @@ button:not(:disabled) {
   50% {
     transform: scale(1.06);
     opacity: 1;
+  }
+}
+
+@keyframes gradient-blob-morph {
+  0% {
+    border-radius: 43% 57% 64% 36% / 47% 42% 58% 53%;
+    transform: scale(0.98) rotate(-2deg);
+  }
+  50% {
+    border-radius: 58% 42% 39% 61% / 43% 61% 39% 57%;
+    transform: scale(var(--gradient-blob-morph-scale)) rotate(2deg);
+  }
+  100% {
+    border-radius: 38% 62% 55% 45% / 59% 38% 62% 41%;
+    transform: scale(1) rotate(-1deg);
+  }
+}
+
+@keyframes gradient-blob-breathe {
+  0%,
+  100% {
+    scale: 0.98;
+  }
+  50% {
+    scale: 1.035;
+  }
+}
+
+@keyframes gradient-blob-rotate {
+  to {
+    transform: rotate(348deg) scale(1.1);
   }
 }
 
@@ -1462,6 +1775,11 @@ button:not(:disabled) {
   backdrop-filter: blur(2px);
 }
 
+.ait-dialog-overlay.study-chat-overlay {
+  background: color-mix(in srgb, var(--color-text-primary) 42%, transparent);
+  backdrop-filter: none;
+}
+
 .ait-dialog-overlay[data-state="open"] {
   animation: dialog-overlay-in var(--duration-base) var(--easing-standard) both;
 }
@@ -1479,35 +1797,37 @@ button:not(:disabled) {
 }
 
 .ait-dialog-content.study-chat-dialog {
-  top: auto;
-  right: 1rem;
-  bottom: 5.25rem;
+  top: 50%;
+  right: clamp(1rem, 3.5vw, 3.5rem);
+  bottom: auto;
   left: auto;
-  width: min(28rem, calc(100vw - 2rem));
-  min-width: min(22rem, calc(100vw - 2rem));
-  min-height: min(26rem, calc(100svh - 6.25rem));
-  height: min(42rem, calc(100svh - 6.25rem));
-  transform: none;
-  transform-origin: calc(100% - 1.75rem) calc(100% + 2.5rem);
+  width: min(37rem, calc(100vw - 2rem));
+  min-width: 0;
+  min-height: 0;
+  height: min(47.5rem, calc(100svh - 4rem));
+  border-radius: 1.25rem;
+  transform: translateY(-50%);
+  transform-origin: right center;
 }
 
-@media (min-width: 48rem) {
+@media (max-width: 40rem) {
   .ait-dialog-content.study-chat-dialog {
-    right: 2rem;
-    bottom: 6.75rem;
-    min-height: min(26rem, calc(100svh - 7.75rem));
-    height: min(42rem, calc(100svh - 7.75rem));
-    transform-origin: calc(100% - 2rem) calc(100% + 3rem);
+    inset: 0;
+    width: 100vw;
+    height: 100svh;
+    max-width: none;
+    border-radius: 0;
+    transform: none;
   }
 }
 
 .ait-dialog-content.study-chat-dialog[data-state="open"] {
-  animation: study-chat-dialog-in var(--duration-base)
+  animation: study-chat-dialog-in var(--duration-fast)
     var(--easing-emphasized) both;
 }
 
 .ait-dialog-content.study-chat-dialog[data-state="closed"] {
-  animation: study-chat-dialog-out var(--duration-base)
+  animation: study-chat-dialog-out var(--duration-fast)
     var(--easing-standard) both;
 }
 
@@ -1543,69 +1863,18 @@ button:not(:disabled) {
   }
 }
 
-.study-chat-dock-item {
-  --study-chat-dock-scale: 1;
-  --study-chat-dock-lift: 0px;
-  /* 세로 독이라 확대는 왼쪽 가장자리를 기준으로 오른쪽(채팅 영역 쪽)으로 커진다. */
-  transform: translateX(var(--study-chat-dock-lift))
-    scale(var(--study-chat-dock-scale));
-  transform-origin: left center;
-  transition:
-    transform 140ms var(--easing-emphasized),
-    border-color var(--duration-fast) var(--easing-standard),
-    box-shadow var(--duration-fast) var(--easing-standard);
-  will-change: transform;
+.study-chat-popover {
+  transform-origin: top left;
+  animation: study-chat-popover-in var(--duration-fast)
+    var(--easing-emphasized) both;
 }
 
-.study-chat-dock-item:focus-visible {
-  --study-chat-dock-scale: 1.2;
-  --study-chat-dock-lift: 0.25rem;
+.study-chat-composer-input {
+  scrollbar-width: none;
 }
 
-.study-chat-dock-item-selected {
-  animation: study-chat-dock-selected-glow 1.6s var(--easing-standard)
-    infinite;
-}
-
-.study-chat-dock-item-selected::after {
-  position: absolute;
-  inset: -0.3rem;
-  border: 2px solid var(--color-status-success);
-  border-radius: inherit;
-  animation: study-chat-dock-selected-pulse 1.6s
-    var(--easing-emphasized) infinite;
-  content: '';
-  pointer-events: none;
-}
-
-@keyframes study-chat-dock-selected-glow {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 0
-        color-mix(in srgb, var(--color-status-success) 12%, transparent),
-      0 4px 12px -6px
-        color-mix(in srgb, var(--color-status-success) 35%, transparent);
-  }
-  50% {
-    box-shadow:
-      0 0 0 0.35rem
-        color-mix(in srgb, var(--color-status-success) 18%, transparent),
-      0 10px 24px -6px
-        color-mix(in srgb, var(--color-status-success) 55%, transparent);
-  }
-}
-
-@keyframes study-chat-dock-selected-pulse {
-  0% {
-    transform: scale(0.92);
-    opacity: 0.75;
-  }
-  65%,
-  100% {
-    transform: scale(1.32);
-    opacity: 0;
-  }
+.study-chat-composer-input::-webkit-scrollbar {
+  display: none;
 }
 
 .document-dialog {
@@ -1951,23 +2220,23 @@ button:not(:disabled) {
   }
 }
 
-@keyframes draw-line {
+@keyframes simple-graph-draw {
   to {
     stroke-dashoffset: 0;
   }
 }
 
-@keyframes point-enter {
+@keyframes simple-graph-point-in {
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-@keyframes area-enter {
+@keyframes simple-graph-area-in {
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: scaleY(1);
   }
 }
 
@@ -2026,22 +2295,29 @@ button:not(:disabled) {
 @keyframes study-chat-dialog-in {
   from {
     opacity: 0;
-    transform: translateY(1rem) scale(0.9);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }
 
 @keyframes study-chat-dialog-out {
   from {
     opacity: 1;
-    transform: translateY(0) scale(1);
   }
   to {
     opacity: 0;
-    transform: translateY(1rem) scale(0.9);
+  }
+}
+
+@keyframes study-chat-popover-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
@@ -2161,7 +2437,7 @@ button:not(:disabled) {
 }
 
 .study-chat-message {
-  animation: study-chat-message-in var(--duration-base)
+  animation: study-chat-message-in var(--duration-fast)
     var(--easing-emphasized) both;
 }
 
@@ -2560,6 +2836,15 @@ button:not(:disabled) {
   .mypage-panel {
     padding: 1rem;
   }
+
+  .simple-graph__axis-label,
+  .simple-graph__value-label {
+    font-size: 1.25rem;
+  }
+
+  .simple-graph__dot {
+    r: 9px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2571,16 +2856,12 @@ button:not(:disabled) {
     transition: none !important;
   }
 
-  .study-chat-dock-item {
-    transform: none !important;
-  }
-
   .stat-card,
   .stat-delta,
   .recent-list-item,
   .record-item,
-  .trend-point,
-  .trend-area,
+  .simple-graph__point,
+  .simple-graph__area,
   .radar-label,
   .mypage-enter,
   .skill-tag,
@@ -2600,7 +2881,7 @@ button:not(:disabled) {
     display: none !important;
   }
 
-  .trend-line {
+  .simple-graph__line {
     stroke-dashoffset: 0 !important;
   }
 

@@ -7,7 +7,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
-import { TiltedSurface } from '@/components/reactbits/TiltedSurface'
+import { DepthCard } from '@/components/reactbits/DepthCard'
 import { LANDING_ASSET_ROOT } from '@/components/landing/landing.data'
 
 const waveformBars = [
@@ -58,7 +58,7 @@ export function InterviewPreview() {
         aria-hidden="true"
       />
 
-      <TiltedSurface className="landing-preview">
+      <DepthCard className="landing-preview">
         <div className="landing-preview__topbar">
           <div>
             <span className="landing-preview__brand">AI 모의면접</span>
@@ -170,7 +170,7 @@ export function InterviewPreview() {
             </div>
           </div>
         </div>
-      </TiltedSurface>
+      </DepthCard>
     </div>
   )
 }

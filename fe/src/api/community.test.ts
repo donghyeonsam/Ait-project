@@ -5,7 +5,9 @@ import {
   fetchMyActivityPosts,
   fetchPost,
   fetchPosts,
+  fetchTrendingKeywords,
   toggleBookmark,
+  toggleCommentLike,
   toggleLike,
   updatePost,
   uploadPostFile,
@@ -25,6 +27,7 @@ const listItem = {
   likeCount: 5,
   bookmarked: true,
   liked: false,
+  thumbnailUrl: 'stored-thumb 1.png',
   createdAt: '2026-07-30T10:00:00',
 }
 
@@ -91,6 +94,38 @@ describe('fetchPosts', () => {
       bookmarked: true,
       liked: false,
     })
+  })
+
+  it('목록의 썸네일 저장 파일명을 이미지 URL로 조립한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(pageResponse())
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await fetchPosts({
+      tab: 'latest',
+      category: 'all',
+      offset: 0,
+      limit: 3,
+    })
+
+    expect(result.items[0]?.thumbnail).toBe(
+      '/backend/images/stored-thumb%201.png',
+    )
+  })
+
+  it('썸네일이 없는 게시글은 thumbnail을 null로 둔다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      pageResponse({ content: [{ ...listItem, thumbnailUrl: null }] }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await fetchPosts({
+      tab: 'latest',
+      category: 'all',
+      offset: 0,
+      limit: 3,
+    })
+
+    expect(result.items[0]?.thumbnail).toBeNull()
   })
 
   it('검색어를 다듬어 keyword 파라미터로 전달한다', async () => {
@@ -163,6 +198,37 @@ describe('fetchPosts', () => {
     })
 
     expect(result.items[0]?.excerpt).toBe('게시글 테스트입니다. 수정합니다')
+  })
+})
+
+describe('fetchTrendingKeywords', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('주간 인기 태그를 조회하고 응답 순서대로 순위를 만든다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 200,
+          message: '주간 인기 태그 Top 10 조회 성공',
+          data: ['기술면접', '모의면접', '취업준비'],
+          error: null,
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(fetchTrendingKeywords()).resolves.toEqual([
+      { rank: 1, keyword: '기술면접' },
+      { rank: 2, keyword: '모의면접' },
+      { rank: 3, keyword: '취업준비' },
+    ])
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/backend/api/tags/trending',
+      expect.objectContaining({ credentials: 'include' }),
+    )
   })
 })
 
@@ -511,5 +577,22 @@ describe('toggleLike / toggleBookmark', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(toggleLike('11', true)).rejects.toThrow('서버 오류')
+  })
+
+  it('댓글 좋아요는 comments 경로로 호출하고 409/404는 성공으로 본다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(interactionResponse(200, '댓글 좋아요 등록 성공'))
+      .mockResolvedValueOnce(interactionResponse(409, '이미 좋아요를 누른 댓글입니다.'))
+      .mockResolvedValueOnce(interactionResponse(404, '좋아요 내역을 찾을 수 없습니다.'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(toggleCommentLike('7', true)).resolves.toBe(true)
+    await expect(toggleCommentLike('7', true)).resolves.toBe(true)
+    await expect(toggleCommentLike('7', false)).resolves.toBe(false)
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/backend/api/comments/7/likes')
+    expect((fetchMock.mock.calls[0]?.[1] as RequestInit).method).toBe('POST')
+    expect((fetchMock.mock.calls[2]?.[1] as RequestInit).method).toBe('DELETE')
   })
 })

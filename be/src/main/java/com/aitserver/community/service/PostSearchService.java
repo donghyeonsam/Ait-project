@@ -2,12 +2,10 @@ package com.aitserver.community.service;
 
 import com.aitserver.community.dto.PostDto;
 import com.aitserver.community.entity.*;
-import com.aitserver.community.repository.PostFileRepository;
-import com.aitserver.community.repository.PostLikeScrapRepository;
-import com.aitserver.community.repository.PostRepository;
-import com.aitserver.community.repository.PostTagRepository;
+import com.aitserver.community.repository.*;
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
+import com.nimbusds.jose.jwk.ThumbprintURI;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.JPAExpressions;
@@ -38,6 +36,7 @@ public class PostSearchService {
     private final PostTagRepository postTagRepository;
     private final PostLikeScrapRepository postLikeScrapRepository;
     private final PostFileRepository postFileRepository;
+    private final PostCommentRepository postCommentRepository;
 
     /**
      * 게시글 목록 조회 (검색 + 정렬 + 페이징 + N+1 최적화)
@@ -82,6 +81,22 @@ public class PostSearchService {
                         Collectors.mapping(pt -> pt.getTag().getName(), Collectors.toList())
                 ));
 
+        // 썸네일 정보 IN 쿼리로 조립 (UsageType.INLINE 조건만 사용)
+        List<PostFile> allPostImages = postFileRepository.findByPostIdInAndUsageType(postIds, PostFile.UsageType.INLINE);
+        Map<Long, String> thumbnailMap = allPostImages.stream()
+                .collect(Collectors.toMap(
+                        pf -> pf.getPost().getId(),
+                        PostFile::getStoredFilename,
+                        (existing, replacement) -> existing // 여러 개라도 첫 번째 파일만 썸네일로 사용
+                ));
+
+        List<Object[]> commentCounts = postCommentRepository.countCommentsByPostIdIn(postIds);
+        Map<Long, Integer> commentCountMap = commentCounts.stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],                       // 게시글 ID
+                        row -> ((Long) row[1]).intValue()           // 댓글 수
+                ));
+
         // 유저 액션(좋아요/스크랩) IN 쿼리로 한 번에 조회
         Set<Long> likedPostIds = new HashSet<>();
         Set<Long> scrappedPostIds = new HashSet<>();
@@ -98,9 +113,10 @@ public class PostSearchService {
             boolean isLiked = likedPostIds.contains(p.getId());
             boolean isScrapped = scrappedPostIds.contains(p.getId());
             List<String> tags = tagMap.getOrDefault(p.getId(), Collections.emptyList());
-            int commentCount = 0; // TODO: 댓글 수 추가
+            String thumbnailUrl = thumbnailMap.get(p.getId());
+            int commentCount = commentCountMap.getOrDefault(p.getId(), 0);
 
-            return new PostDto.ListResponse(p, tags, isScrapped, isLiked, commentCount);
+            return new PostDto.ListResponse(p, tags, isScrapped, isLiked, commentCount, thumbnailUrl);
         }).toList();
 
         return new PageImpl<>(responses, pageable, postPage.getTotalElements());

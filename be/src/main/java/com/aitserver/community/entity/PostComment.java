@@ -7,18 +7,15 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "posts_comments")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLRestriction("deleted_at IS NULL")
+//@SQLRestriction("deleted_at IS NULL") // 소프트 딜리트 적용
 public class PostComment {
 
     @Id
@@ -36,9 +33,6 @@ public class PostComment {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private PostComment parent;
-
-    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<PostComment> children = new ArrayList<>();
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
@@ -64,6 +58,16 @@ public class PostComment {
         this.parent = parent;
         this.content = content;
         this.likeCount = 0;
+    }
+
+    public boolean isReply() {
+        return this.parent != null;
+    }
+
+    public void validateCanHaveReply() {
+        if (this.isReply()) {
+            throw new IllegalArgumentException("답글에는 추가 답글을 작성할 수 없습니다.");
+        }
     }
 
     public void updateContent(String content) {

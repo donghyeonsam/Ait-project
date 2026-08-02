@@ -34,7 +34,14 @@ export function StudySessionRoomPage() {
   }
 
   const handleLeave = () => {
-    navigate('/study')
+    // 방금 나온 세션은 다른 참가자들의 평가가 아직 덜 모였을 수 있어, 스터디 기록 화면에
+    // "평가 수집중" 상태로 먼저 보여주기 위해 sessionId·groupId를 함께 넘긴다.
+    navigate('/dashboard/study', {
+      state: {
+        justLeftSessionId: navState.connection.sessionId,
+        justLeftGroupId: navState.connection.groupId,
+      },
+    })
   }
 
   return (

@@ -1,10 +1,6 @@
 import { ApiError, backendRequest, getBackendAssetUrl } from '@/api/http'
 import { CATEGORY_META } from '@/lib/community-categories'
 import { COMMUNITY_SEARCH_SUGGESTIONS } from '@/lib/community-suggestions'
-import {
-  mockComments,
-  mockTrendingKeywords,
-} from '@/mocks/community'
 import type {
   CommunityCategory,
   CommunityComment,
@@ -13,15 +9,12 @@ import type {
   CommunityPostFile,
   CommunityPostFileType,
   CommunityPostFileUsageType,
+  CommunityReply,
   CommunityTab,
   TrendingKeyword,
 } from '@/types/community'
 
-// 커뮤니티 API 레이어. 게시글 CRUD·검색·좋아요·저장은 실제 백엔드를 호출하고,
-// 댓글·트렌딩 키워드는 목업을 300~600ms 지연과 함께 돌려준다.
-
-const delay = () =>
-  new Promise((resolve) => setTimeout(resolve, 300 + Math.random() * 300))
+// 커뮤니티 API 레이어. 게시글·댓글 CRUD·검색·좋아요·저장·인기 태그 조회를 담당한다.
 
 // 백엔드는 카테고리를 한글 라벨 문자열로 저장하므로 FE 값과 상호 변환한다.
 const CATEGORY_LABEL_TO_VALUE = new Map(
@@ -54,7 +47,8 @@ interface PostListItemResponse {
   likeCount: number
   bookmarked: boolean
   liked: boolean
-  thumbnail: string | null
+  // 이름과 달리 완성된 URL이 아니라 본문 첫 이미지의 storedFilename이 내려온다.
+  thumbnailUrl: string | null
   createdAt: string
 }
 
@@ -65,6 +59,10 @@ interface PostFileResponse {
   fileType: CommunityPostFileType
   usageType: CommunityPostFileUsageType
 }
+
+// 서버는 업로드된 파일을 저장 파일명으로만 내려주므로 화면에서 쓸 이미지 URL로 조립한다.
+const toPostImageUrl = (storedFilename: string) =>
+  getBackendAssetUrl(`/images/${encodeURIComponent(storedFilename)}`)
 
 const toPostFile = ({
   id,
@@ -78,7 +76,7 @@ const toPostFile = ({
   storedFilename,
   fileType,
   usageType,
-  url: getBackendAssetUrl(`/images/${encodeURIComponent(storedFilename)}`),
+  url: toPostImageUrl(storedFilename),
 })
 
 // 서버가 요약을 길이 기준으로 잘라 태그 중간이 끊길 수 있어, 완성 태그와 잘린 꼬리 태그를 모두 제거한다.
@@ -106,7 +104,7 @@ const toPostSummary = (item: PostListItemResponse): CommunityPost => ({
   likeCount: item.likeCount,
   liked: item.liked ?? false,
   bookmarked: item.bookmarked ?? false,
-  thumbnail: item.thumbnail ?? null,
+  thumbnail: item.thumbnailUrl ? toPostImageUrl(item.thumbnailUrl) : null,
 })
 
 export interface FetchPostsParams {
@@ -227,16 +225,89 @@ export async function fetchPost(postId: string): Promise<CommunityPost | null> {
   }
 }
 
+// 백엔드 댓글 응답. 원댓글은 replies에 답글을 담은 1-depth 트리로 내려오고,
+// 삭제된 원댓글은 userId가 null·본문이 "삭제된 댓글입니다."인 껍데기로 유지된다.
+interface CommentResponse {
+  id: number
+  parentId: number | null
+  userId: number | null
+  nickname: string
+  content: string
+  likeCount: number
+  liked: boolean
+  createdAt: string
+  deletedAt: string | null
+  replies: CommentResponse[] | null
+}
+
+const toReply = (item: CommentResponse): CommunityReply => ({
+  id: String(item.id),
+  authorId: item.userId,
+  author: item.nickname,
+  createdAt: item.createdAt,
+  content: item.content,
+  likeCount: item.likeCount,
+  liked: item.liked ?? false,
+  deleted: item.deletedAt != null,
+})
+
+const toComment = (item: CommentResponse): CommunityComment => ({
+  ...toReply(item),
+  replies: (item.replies ?? []).map(toReply),
+})
+
 export async function fetchComments(
   postId: string,
 ): Promise<CommunityComment[]> {
-  await delay()
-  return structuredClone(mockComments[postId] ?? [])
+  const comments = await backendRequest<CommentResponse[]>(
+    `/api/posts/${postId}/comments`,
+  )
+  return comments.map(toComment)
+}
+
+// 작성된 댓글의 id를 문자열로 돌려준다. parentId를 주면 해당 원댓글의 답글로 등록된다.
+export async function createComment(
+  postId: string,
+  parentId: string | null,
+  content: string,
+): Promise<string> {
+  const commentId = await backendRequest<number>(
+    `/api/posts/${postId}/comments`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        parentId: parentId ? Number(parentId) : null,
+        content,
+      }),
+    },
+  )
+  return String(commentId)
+}
+
+// 본인 댓글 여부 검증은 토큰 기반으로 백엔드가 수행한다.
+export async function updateComment(
+  commentId: string,
+  content: string,
+): Promise<void> {
+  await backendRequest<void>(`/api/comments/${commentId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ content }),
+  })
+}
+
+// soft delete라 답글이 있는 원댓글은 목록에 "삭제된 댓글입니다." 껍데기로 남는다.
+export async function deleteComment(commentId: string): Promise<void> {
+  await backendRequest<void>(`/api/comments/${commentId}`, {
+    method: 'DELETE',
+  })
 }
 
 export async function fetchTrendingKeywords(): Promise<TrendingKeyword[]> {
-  await delay()
-  return mockTrendingKeywords
+  const keywords = await backendRequest<string[]>('/api/tags/trending')
+  return keywords.map((keyword, index) => ({
+    rank: index + 1,
+    keyword,
+  }))
 }
 
 // 서버 API가 없는 자동완성은 FE 후보군에서 대소문자 구분 없이 검색한다.
@@ -373,4 +444,12 @@ export async function toggleBookmark(
 ): Promise<boolean> {
   await setInteraction(`/api/posts/${postId}/scraps`, bookmarked)
   return bookmarked
+}
+
+export async function toggleCommentLike(
+  commentId: string,
+  liked: boolean,
+): Promise<boolean> {
+  await setInteraction(`/api/comments/${commentId}/likes`, liked)
+  return liked
 }

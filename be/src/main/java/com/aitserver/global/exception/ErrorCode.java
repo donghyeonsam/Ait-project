@@ -19,6 +19,12 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "AUTH_003", "아이디 혹은 비밀번호가 일치하지 않습니다."),
     INVALID_PASSWORD(HttpStatus.BAD_REQUEST, "AUTH_004", "아이디 혹은 비밀번호가 일치하지 않습니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "AUTH_005", "토큰이 존재하지 않습니다."),
+    // OAUTH 관련
+    UNSUPPORTED_OAUTH_PROVIDER(HttpStatus.BAD_REQUEST, "OAUTH_001", "지원하지 않는 소셜 로그인입니다."),
+    INVALID_REDIRECT_URI(HttpStatus.BAD_REQUEST, "OAUTH_002", "허용되지 않은 redirect_uri 입니다."),
+    OAUTH_TOKEN_FAILED(HttpStatus.UNAUTHORIZED, "OAUTH_003", "소셜 토큰 발급에 실패했습니다."),
+    OAUTH_USERINFO_FAILED(HttpStatus.UNAUTHORIZED, "OAUTH_004", "소셜 사용자 정보 조회에 실패했습니다."),
+    OAUTH_EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "OAUTH_005", "소셜 계정 이메일이 확인되지 않았습니다."),
 
     // resume
     RESUME_NOT_FOUND(HttpStatus.NOT_FOUND, "RESUME_001", "이력서를 찾을 수 없습니다."),
@@ -31,6 +37,8 @@ public enum ErrorCode {
 
     // AI 모의 면접 관련 에러
     FASTAPI_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "AI_INTERVIEW_001", "AI 질문 생성 중 서버 에러 발생"),
+    INTERVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_INTERVIEW_002", "해당 면접 기록을 찾을 수 없거나 접근 권한이 없습니다."),
+    REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_INTERVIEW_003", "해당 면접의 종합 평가 리포트가 아직 생성되지 않았거나 존재하지 않습니다."),
 
     //GITHUB 관련 에러
     GITHUB_APP_NOT_FOUND(HttpStatus.NOT_FOUND, "GITHUB_001", "깃허브 연동 정보가 존재하지 않습니다."),
@@ -57,6 +65,8 @@ public enum ErrorCode {
     ALREADY_SCRAPPED_POST(HttpStatus.CONFLICT, "COMMUNITY_006", "이미 스크랩한 게시글입니다."),
     LIKE_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMUNITY_007", "좋아요 내역을 찾을 수 없습니다."),
     SCRAP_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMUNITY_008", "스크랩 내역을 찾을 수 없습니다."),
+    COMMENT_ALREADY_DELETED(HttpStatus.BAD_REQUEST, "COMMUNITY_009", "이미 삭제된 댓글입니다."),
+    ALREADY_LIKED_COMMENT(HttpStatus.CONFLICT, "COMMUNITY_010", "이미 좋아요를 누른 댓글입니다."),
 
     // Study Group
     STUDY_GROUP_NOT_FOUND(HttpStatus.NOT_FOUND, "STUDY_GROUP_001", "스터디 그룹을 찾을 수 없습니다."),

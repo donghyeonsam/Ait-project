@@ -1,10 +1,8 @@
 import {
   BarChart3,
-  BrainCircuit,
   MessagesSquare,
   Mic2,
   ScanFace,
-  Sparkles,
   TrendingUp,
   UsersRound,
 } from 'lucide-react'
@@ -70,21 +68,31 @@ export const features = [
   },
 ] as const
 
-export const demoFeedback = [
+export const galleryScreens = [
   {
-    icon: Sparkles,
-    title: '구조화',
-    description: '핵심 경험을 먼저 제시해 답변 흐름이 명확해요.',
+    id: 'interview',
+    label: 'AI 모의면접 세션',
+    src: `${LANDING_ASSET_ROOT}/screens/interview.png`,
   },
   {
-    icon: BrainCircuit,
-    title: '구체성',
-    description: '성과를 보여주는 수치나 사례를 한 가지 더해보세요.',
+    id: 'report',
+    label: '멀티모달 분석 리포트',
+    src: `${LANDING_ASSET_ROOT}/screens/report.png`,
   },
   {
-    icon: Mic2,
-    title: '전달 속도',
-    description: '중요한 문장 앞에서 잠시 쉬면 더 편안하게 들릴 수 있어요.',
+    id: 'study',
+    label: '그룹 스터디 룸',
+    src: `${LANDING_ASSET_ROOT}/screens/study.png`,
+  },
+  {
+    id: 'dashboard',
+    label: '성장 대시보드',
+    src: `${LANDING_ASSET_ROOT}/screens/dashboard.png`,
+  },
+  {
+    id: 'documents',
+    label: '자소서 · 이력서 관리',
+    src: `${LANDING_ASSET_ROOT}/screens/documents.png`,
   },
 ]
 
@@ -108,6 +116,48 @@ export const growthSteps = [
     icon: TrendingUp,
   },
 ]
+
+export const showcaseQuestions = [
+  {
+    id: 'frontend',
+    field: '프론트엔드',
+    question:
+      '렌더링 성능을 개선했던 경험과 개선 효과를 측정한 방법을 말씀해 주세요.',
+    tags: ['기술 깊이', '성과 측정'],
+  },
+  {
+    id: 'backend',
+    field: '백엔드',
+    question:
+      '트래픽이 몰리는 API를 어떤 순서로 진단하고 개선할지 설명해 주세요.',
+    tags: ['문제 해결', '설계'],
+  },
+  {
+    id: 'data',
+    field: '데이터',
+    question: '핵심 지표가 급락했을 때 원인을 어떤 순서로 파악하시겠어요?',
+    tags: ['분석 사고', '가설 검증'],
+  },
+  {
+    id: 'pm',
+    field: '기획',
+    question:
+      '이해관계자 의견이 충돌할 때 우선순위를 정했던 경험을 들려주세요.',
+    tags: ['협업', '의사결정'],
+  },
+  {
+    id: 'design',
+    field: '디자인',
+    question: '사용성 개선을 위해 데이터를 근거로 설득한 사례가 있나요?',
+    tags: ['근거 기반', '사용자 관점'],
+  },
+  {
+    id: 'common',
+    field: '공통 역량',
+    question: '실패했던 프로젝트에서 무엇을 배우고 어떻게 적용했나요?',
+    tags: ['회고', '성장'],
+  },
+] as const
 
 export const finalBenefits = [
   '무료 체험 제공',

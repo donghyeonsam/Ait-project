@@ -5,6 +5,7 @@
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS `social_users`;
 DROP TABLE IF EXISTS `peer_feedbacks`;
 DROP TABLE IF EXISTS `ai_peer_summaries`;
 DROP TABLE IF EXISTS `study_sessions`;
@@ -831,3 +832,33 @@ CREATE TABLE `comment_likes` (
                                  CONSTRAINT `fk_comment_likes_comment_id` FOREIGN KEY (`comment_id`) REFERENCES `posts_comments`(`id`) ON DELETE CASCADE,
                                  CONSTRAINT `fk_comment_likes_user_id` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 );
+
+
+-- =========================================================
+-- 소셜 가입 및 연동 사용자 정보
+-- users 참조 (users 1 : N social_users)
+-- =========================================================
+CREATE TABLE `social_users` (
+                                `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                `user_id` BIGINT NOT NULL,
+                                `provider` VARCHAR(50) NOT NULL,
+                                `provider_id` VARCHAR(255) NOT NULL,
+                                `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                                PRIMARY KEY (`id`),
+
+    -- 동일 소셜 계정 중복 연동 방지 (로그인 식별 기준)
+                                UNIQUE KEY `uk_social_users_provider_provider_id`
+                                    (`provider`, `provider_id`),
+
+                                KEY `idx_social_users_user_id` (`user_id`),
+
+                                CONSTRAINT `fk_social_users_user`
+                                    FOREIGN KEY (`user_id`)
+                                        REFERENCES `users` (`id`)
+                                        ON DELETE CASCADE
+                                        ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='소셜 가입 및 연동 사용자 정보';

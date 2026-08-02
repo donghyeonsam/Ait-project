@@ -1,8 +1,4 @@
-import type {
-  CommunityComment,
-  CommunityPost,
-  TrendingKeyword,
-} from '@/types/community'
+import type { CommunityPost } from '@/types/community'
 
 // 커뮤니티 화면 확인용 목업 데이터. 스크린샷의 실제 콘텐츠를 우선 반영한다.
 // TODO: 실제 API 연동 필요
@@ -128,89 +124,4 @@ export const mockPosts: CommunityPost[] = [
       bookmarked: false,
     }
   }),
-]
-
-// 상세 스크린샷의 댓글 + 답글 0개/2개/7개 검증 케이스.
-export const mockComments: Record<string, CommunityComment[]> = {
-  'post-3': [
-    {
-      id: 'comment-1',
-      author: '이현우',
-      createdAt: ago(2 * HOUR),
-      content:
-        '3번이 정말 공감돼요... 사고 과정을 말하니까 면접관이 더 관심 있게 들어주셨습니다.',
-      likeCount: 7,
-      replies: [],
-    },
-    {
-      id: 'comment-2',
-      author: '박현지',
-      createdAt: ago(4 * HOUR),
-      content:
-        '저도 비슷한 경험이 있었는데, 솔직하게 말하고 관련 경험을 연결해서 답변했더니 좋은 피드백을 받았어요',
-      likeCount: 5,
-      replies: [
-        {
-          id: 'reply-2-1',
-          author: '이호창',
-          createdAt: ago(3 * HOUR),
-          content: '맞아요! 솔직함이 신뢰로 이어지더라구요',
-          likeCount: 2,
-        },
-        {
-          id: 'reply-2-2',
-          author: '한서연',
-          createdAt: ago(2.5 * HOUR),
-          content: '관련 경험을 연결하는 게 포인트인 것 같아요. 저도 다음 면접에서 써먹어볼게요.',
-          likeCount: 1,
-        },
-      ],
-    },
-    {
-      id: 'comment-3',
-      author: '조윤재',
-      createdAt: ago(6 * HOUR),
-      content:
-        '면접 전에 이런 팁을 알았더라면 더 자신감 있게 답변했을 것 같아요. 감사합니다!',
-      likeCount: 3,
-      replies: [],
-    },
-    {
-      id: 'comment-4',
-      author: '한서연',
-      createdAt: ago(8 * HOUR),
-      content:
-        '저는 반대로 아는 척을 하다가 꼬리 질문에서 완전히 무너진 경험이 있어요. 그때 면접관님이 마지막에 해주신 말이 아직도 기억에 남는데, 모르는 걸 모른다고 말하는 것도 실력이라고 하시더라고요. 그 뒤로는 모르는 질문이 나오면 먼저 솔직하게 인정하고, 대신 제가 아는 인접 개념까지는 꼭 설명하려고 합니다. 그렇게 바꾸고 나서는 오히려 면접 분위기가 편해졌고, 사고 과정을 보여줄 기회도 더 많아졌어요. 이 글의 세 단계가 딱 그 경험이랑 겹쳐서 많이 공감했습니다.',
-      likeCount: 12,
-      replies: Array.from({ length: 7 }, (_, index) => ({
-        id: `reply-4-${index + 1}`,
-        author: ['이현우', '박현지', '이호창', '조윤재'][index % 4],
-        createdAt: ago((7 - index) * HOUR),
-        content: [
-          '경험 공유 감사합니다. 저도 같은 실수를 했었어요.',
-          '모르는 걸 모른다고 말하는 것도 실력이라는 말 좋네요.',
-          '꼬리 질문 대비는 정말 기본기가 답인 것 같아요.',
-          '인접 개념 설명 전략 저도 써봐야겠어요.',
-          '분위기가 편해진다는 부분 완전 공감합니다.',
-          '솔직함 + 사고 과정 조합이 제일 안전한 것 같아요.',
-          '다음 면접에서 바로 적용해보겠습니다!',
-        ][index],
-        likeCount: 7 - index,
-      })),
-    },
-  ],
-}
-
-// 인기 태그 롤링용 10개. 등락은 ▲/▼/−/NEW 케이스를 모두 포함한다.
-export const mockTrendingKeywords: TrendingKeyword[] = [
-  { rank: 1, keyword: '삼성전자', change: 0 },
-  { rank: 2, keyword: 'SK 하이닉스', change: 2 },
-  { rank: 3, keyword: '카카오', change: -1 },
-  { rank: 4, keyword: '네이버', change: 1 },
-  { rank: 5, keyword: '기술면접', change: 0 },
-  { rank: 6, keyword: '토스', change: 'new' },
-  { rank: 7, keyword: '현대자동차', change: -2 },
-  { rank: 8, keyword: 'LG CNS', change: 1 },
-  { rank: 9, keyword: '자기소개', change: 0 },
-  { rank: 10, keyword: '쿠팡', change: 'new' },
 ]

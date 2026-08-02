@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PeerFeedback } from '@/api/peer-feedback'
-import {
-  averageEvaluationScores,
-  toEvaluationScores,
-} from '@/lib/peer-evaluation'
+import { averageEvaluationScores, toEvaluationScores } from '@/lib/peer-evaluation'
 
 function createFeedback(overrides: Partial<PeerFeedback> = {}): PeerFeedback {
   return {

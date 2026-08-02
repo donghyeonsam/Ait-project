@@ -40,7 +40,7 @@ const participants: StudyParticipant[] = [
 describe('StudySessionSidePanel evaluation', () => {
   it('모든 평가 항목을 5점으로 시작하고 휠로 0~10 사이에서 조절한다', async () => {
     const user = userEvent.setup()
-    render(<StudySessionSidePanel participants={participants} />)
+    render(<StudySessionSidePanel sessionId={1} participants={participants} />)
 
     await user.click(screen.getByRole('tab', { name: '평가' }))
 
@@ -71,7 +71,7 @@ describe('StudySessionSidePanel evaluation', () => {
 
   it('정수 점수와 평균 및 방사형 그래프를 실시간으로 갱신한다', async () => {
     const user = userEvent.setup()
-    render(<StudySessionSidePanel participants={participants} />)
+    render(<StudySessionSidePanel sessionId={1} participants={participants} />)
 
     await user.click(screen.getByRole('tab', { name: '평가' }))
     const logicScore = screen.getByRole('spinbutton', { name: '논리력' })
