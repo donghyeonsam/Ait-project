@@ -176,6 +176,52 @@ export function submitInterviewAnswer({
   )
 }
 
+export interface NonVerbalFrame {
+  timestamp: number
+  gaze_x: number
+  gaze_y: number
+  blendshapes: number[]
+  ear: number
+  mar: number
+}
+
+interface SendNonVerbalDataOptions {
+  aiInterviewId: number
+  screenWidth: number
+  screenHeight: number
+  fps: number
+  durationSec: number
+  frames: NonVerbalFrame[]
+  signal?: AbortSignal
+}
+
+// 답변 구간의 표정·시선 원시 프레임을 전송한다. BE가 직접 ai-evaluate를 호출해 표정 점수를
+// 계산하고, 시선 이탈은 자체 공식으로 판정해 리포트에 반영한다(비동기라 응답에 데이터가 없다).
+export function sendNonVerbalData({
+  aiInterviewId,
+  screenWidth,
+  screenHeight,
+  fps,
+  durationSec,
+  frames,
+  signal,
+}: SendNonVerbalDataOptions) {
+  return backendRequest<void>(
+    `/api/ai-interviews/${aiInterviewId}/non-verbal`,
+    {
+      method: 'POST',
+      signal,
+      body: JSON.stringify({
+        screen_width: screenWidth,
+        screen_height: screenHeight,
+        fps,
+        duration_sec: durationSec,
+        frames,
+      }),
+    },
+  )
+}
+
 // 면접 종료를 서버에 알려 리포트 비동기 생성을 시작시킨다.
 // 응답은 즉시 오고 리포트는 백그라운드에서 만들어지므로 완료 여부는 결과 조회로 확인한다.
 export function completeInterview(aiInterviewId: number) {

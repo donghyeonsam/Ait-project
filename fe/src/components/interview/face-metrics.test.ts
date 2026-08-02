@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { frameMetrics, type NormalizedPoint } from '@/components/interview/face-metrics'
+import {
+  frameMetrics,
+  noseTipPosition,
+  type NormalizedPoint,
+} from '@/components/interview/face-metrics'
 
 // MediaPipe FaceLandmarker 인덱스에 맞춰, 계산에 쓰이는 지점만 채운 478개 랜드마크를 만든다.
 function buildLandmarks(overrides: Record<number, NormalizedPoint>) {
@@ -95,51 +99,12 @@ describe('frameMetrics', () => {
     )
   })
 
-  it('코끝이 화면 중앙일 때 deviation은 0이다', () => {
-    const landmarks = buildLandmarks({
-      33: { x: 0, y: 0 },
-      133: { x: 0.3, y: 0 },
-      159: { x: 0.15, y: 0 },
-      145: { x: 0.15, y: 0.1 },
-      158: { x: 0.16, y: 0 },
-      153: { x: 0.16, y: 0.1 },
-      362: { x: 0.6, y: 0 },
-      263: { x: 0.9, y: 0 },
-      386: { x: 0.75, y: 0 },
-      374: { x: 0.75, y: 0.1 },
-      385: { x: 0.76, y: 0 },
-      380: { x: 0.76, y: 0.1 },
-      61: { x: 0.4, y: 0.5 },
-      291: { x: 0.6, y: 0.5 },
-      13: { x: 0.5, y: 0.5 },
-      14: { x: 0.5, y: 0.5 },
-      1: { x: 0.5, y: 0.5 },
-    })
+})
 
-    expect(frameMetrics(landmarks).deviation).toBe(0)
-  })
+describe('noseTipPosition', () => {
+  it('코끝(인덱스 1) 정규화 좌표를 그대로 반환한다', () => {
+    const landmarks = buildLandmarks({ 1: { x: 0.62, y: 0.41 } })
 
-  it('코끝이 중앙에서 벗어난 만큼 deviation이 커진다', () => {
-    const landmarks = buildLandmarks({
-      33: { x: 0, y: 0 },
-      133: { x: 0.3, y: 0 },
-      159: { x: 0.15, y: 0 },
-      145: { x: 0.15, y: 0.1 },
-      158: { x: 0.16, y: 0 },
-      153: { x: 0.16, y: 0.1 },
-      362: { x: 0.6, y: 0 },
-      263: { x: 0.9, y: 0 },
-      386: { x: 0.75, y: 0 },
-      374: { x: 0.75, y: 0.1 },
-      385: { x: 0.76, y: 0 },
-      380: { x: 0.76, y: 0.1 },
-      61: { x: 0.4, y: 0.5 },
-      291: { x: 0.6, y: 0.5 },
-      13: { x: 0.5, y: 0.5 },
-      14: { x: 0.5, y: 0.5 },
-      1: { x: 0.8, y: 0.5 },
-    })
-
-    expect(frameMetrics(landmarks).deviation).toBeCloseTo(0.3, 5)
+    expect(noseTipPosition(landmarks)).toEqual({ x: 0.62, y: 0.41 })
   })
 })
