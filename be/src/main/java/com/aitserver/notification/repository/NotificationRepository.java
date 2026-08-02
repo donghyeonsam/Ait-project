@@ -1,6 +1,8 @@
 package com.aitserver.notification.repository;
 
 import com.aitserver.notification.entity.Notification;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -12,7 +14,7 @@ import java.util.List;
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
     // 유저 알림 조회
-    List<Notification> findByUserIdOrderByCreatedAtDesc(Long userId);
+    Slice<Notification> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
     // 2. 전체 읽음 처리 (Bulk Update - 안 읽은 것만 읽음 처리)
     @Modifying(clearAutomatically = true)

@@ -2,10 +2,12 @@ package com.aitserver.notification.dto;
 
 import com.aitserver.notification.entity.Notification;
 import com.aitserver.notification.entity.NotificationType;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Builder
@@ -27,5 +29,12 @@ public class NotificationResponse {
                 .isChecked(notification.getIsChecked())
                 .createdAt(notification.getCreatedAt())
                 .build();
+    }
+
+    @Getter
+    @AllArgsConstructor
+    public static class ScrollResponse {
+        private List<NotificationResponse> notifications;
+        private boolean hasNext;
     }
 }

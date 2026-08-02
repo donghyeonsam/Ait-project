@@ -6,6 +6,9 @@ import com.aitserver.notification.entity.Notification;
 import com.aitserver.notification.service.NotificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,16 +28,14 @@ public class NotificationController {
      * [GET] /api/notifications
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<List<NotificationResponse>>> getNotifications(
+    public ResponseEntity<ApiResponse<NotificationResponse.ScrollResponse>>getNotifications(
             @AuthenticationPrincipal Long userId,
+            @PageableDefault(size = 5) Pageable pageable,
             HttpServletRequest request) {
 
-        List<NotificationResponse> responses = notificationService.getNotifications(userId)
-                .stream()
-                .map(NotificationResponse::from)
-                .toList();
+        NotificationResponse.ScrollResponse response = notificationService.getNotifications(userId, pageable);
 
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "알림 목록 조회 성공", responses, request));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "알림 목록 조회 성공", response, request));
     }
 
     /**
