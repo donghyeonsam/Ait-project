@@ -11,6 +11,7 @@ import { PasswordInput } from '@/components/auth/PasswordInput'
 import { SocialButton } from '@/components/auth/SocialButton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { buildGoogleAuthUrl } from '@/lib/googleOAuth'
 
 const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).{8,}$/
 
@@ -270,9 +271,10 @@ export function SignupPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <SocialButton provider="google" onClick={() => console.log('Google 회원가입')}>
+                <SocialButton provider="google" onClick={() => { window.location.href = buildGoogleAuthUrl() }}>
                   Google
                 </SocialButton>
+                {/* TODO: 실제 API 연동 필요 - 백엔드에 GitHub OAuth 클라이언트가 아직 없다. */}
                 <SocialButton provider="github" onClick={() => console.log('GitHub 회원가입')}>
                   GitHub
                 </SocialButton>

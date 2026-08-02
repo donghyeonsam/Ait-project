@@ -16,6 +16,13 @@ export interface SignupRequest {
   nickname: string
 }
 
+export interface OAuthLoginResponse {
+  accessToken: string
+  expireTime: number
+  isNewUser: boolean
+  user: AuthUser
+}
+
 // 회원가입 성공 시 BE는 201과 빈 data를 반환한다.
 export function signup(request: SignupRequest) {
   return backendRequest<void>('/api/auth/signup', {
@@ -30,6 +37,14 @@ export function login(email: string, password: string) {
     method: 'POST',
     authenticated: false,
     body: JSON.stringify({ email, password }),
+  })
+}
+
+export function loginWithGoogle(code: string, redirectUri: string) {
+  return backendRequest<OAuthLoginResponse>('/api/oauth/google', {
+    method: 'POST',
+    authenticated: false,
+    body: JSON.stringify({ code, redirectUri }),
   })
 }
 

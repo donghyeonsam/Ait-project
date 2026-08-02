@@ -12,6 +12,7 @@ import { PasswordInput } from '@/components/auth/PasswordInput'
 import { SocialButton } from '@/components/auth/SocialButton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { buildGoogleAuthUrl } from '@/lib/googleOAuth'
 import { useAuth } from '@/lib/useAuth'
 
 const loginSchema = z.object({
@@ -177,11 +178,11 @@ export function LoginPage() {
             <span className="h-px flex-1 bg-border-default" />
           </div>
 
-          {/* TODO: 실제 소셜 로그인 연동 필요 (현재는 클릭 로그만 남기는 스텁) */}
           <div className="grid gap-3 sm:grid-cols-2">
-            <SocialButton provider="google" onClick={() => console.log('Google 로그인')}>
+            <SocialButton provider="google" onClick={() => { window.location.href = buildGoogleAuthUrl() }}>
               Google로 계속하기
             </SocialButton>
+            {/* TODO: 실제 API 연동 필요 - 백엔드에 GitHub OAuth 클라이언트가 아직 없다. */}
             <SocialButton provider="github" onClick={() => console.log('GitHub 로그인')}>
               GitHub로 계속하기
             </SocialButton>
