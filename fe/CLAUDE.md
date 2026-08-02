@@ -23,7 +23,7 @@
 - 실제 API 연동과 서버 상태 설계
 - 실제 로그인, 파일 업로드, 결제 등 서버가 필요한 기능
 - WebRTC·LiveKit을 이용한 실제 면접 세션 연결(화상 통화, 녹화, 재연결 로직) — 단, 스터디 세션(`StudySessionRoom`)의 LiveKit 화상 연결은 예외적으로 실연동 완료됨
-- 아이트래킹 수집·계산·전송 로직
+- 아이트래킹 수집·계산·전송 로직 — 단, 표정 인식(MediaPipe FaceLandmarker 기반 EAR/MAR/blendshape 캡처와 `ai-evaluate` 서버 직접 호출)은 예외적으로 실연동 완료됨(`useFaceExpression`, `api/face-analysis.ts`)
 
 제외 범위가 필요한 작업은 임의로 구현하지 않고 사용자와 범위를 먼저 확인한다. 목업 화면을 실제 연동이 완료된 것처럼 표현하지 않는다.
 
