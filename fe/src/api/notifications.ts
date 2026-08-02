@@ -1,29 +1,70 @@
-import { mockNotifications } from '@/mocks/notifications'
-import type { NotificationItem } from '@/types/notification'
+import { backendRequest } from '@/api/http'
+import type {
+  NotificationCategory,
+  NotificationItem,
+  NotificationType,
+} from '@/types/notification'
 
-// 알림 API 레이어. 지금은 목업 데이터를 지연과 함께 돌려주며,
-// 실제 API가 준비되면 이 모듈의 함수 내부만 교체한다.
-// TODO: 실제 API 연동 필요
+// 알림 API 레이어. 백엔드 /api/notifications 응답을 화면용 NotificationItem으로 변환한다.
 
-const delay = () =>
-  new Promise((resolve) => setTimeout(resolve, 300 + Math.random() * 300))
+interface NotificationApiItem {
+  id: number
+  type: NotificationType
+  targetId: number
+  content: string
+  // 백엔드 boolean 필드(isChecked)의 직렬화 이름이 checked로 바뀔 수 있어 둘 다 대응한다.
+  checked?: boolean
+  isChecked?: boolean
+  createdAt: string
+}
 
-// 읽음 처리를 화면 새로고침 없이 확인할 수 있도록 세션 동안 유지하는 인메모리 저장소.
-let notifications: NotificationItem[] = structuredClone(mockNotifications)
+const toCategory = (type: NotificationType): NotificationCategory =>
+  type.startsWith('GROUP') ? 'group' : 'board'
+
+function toNotificationItem(raw: NotificationApiItem): NotificationItem {
+  return {
+    id: String(raw.id),
+    type: raw.type,
+    category: toCategory(raw.type),
+    targetId: raw.targetId,
+    title: raw.content,
+    createdAt: raw.createdAt,
+    read: raw.isChecked ?? raw.checked ?? false,
+  }
+}
+
+// 알림 클릭 시 이동할 경로. targetId는 그룹 알림이면 groupId, 게시판 알림이면 postId다.
+export function getNotificationRoute(item: NotificationItem): string {
+  return item.category === 'group'
+    ? `/study/groups/${item.targetId}`
+    : `/community/posts/${item.targetId}`
+}
 
 export async function fetchNotifications(): Promise<NotificationItem[]> {
-  await delay()
-  return structuredClone(notifications)
+  const data = await backendRequest<NotificationApiItem[]>('/api/notifications')
+  return (data ?? []).map(toNotificationItem)
 }
 
 export async function markNotificationAsRead(id: string): Promise<void> {
-  await delay()
-  notifications = notifications.map((item) =>
-    item.id === id ? { ...item, read: true } : item,
-  )
+  await backendRequest<null>(`/api/notifications/${id}/read`, {
+    method: 'PATCH',
+  })
 }
 
 export async function markAllNotificationsAsRead(): Promise<void> {
-  await delay()
-  notifications = notifications.map((item) => ({ ...item, read: true }))
+  await backendRequest<null>('/api/notifications/read-all', {
+    method: 'PATCH',
+  })
+}
+
+export async function deleteNotification(id: string): Promise<void> {
+  await backendRequest<null>(`/api/notifications/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function deleteAllNotifications(): Promise<void> {
+  await backendRequest<null>('/api/notifications', {
+    method: 'DELETE',
+  })
 }

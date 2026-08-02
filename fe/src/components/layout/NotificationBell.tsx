@@ -1,8 +1,12 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bell, MessageSquare, Users } from 'lucide-react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { Bell, MessageSquare, Users, X } from 'lucide-react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
+  deleteAllNotifications,
+  deleteNotification,
   fetchNotifications,
+  getNotificationRoute,
   markAllNotificationsAsRead,
   markNotificationAsRead,
 } from '@/api/notifications'
@@ -28,25 +32,34 @@ const filterOptions: { value: NotificationFilter; label: string }[] = [
 
 // 헤더의 알림 벨. 그룹 알림과 게시판 알림을 필터로 나눠 보여주는 드롭다운을 연다.
 export function NotificationBell() {
+  const navigate = useNavigate()
   const [isOpen, setOpen] = useState(false)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [isLoading, setLoading] = useState(true)
+  const [hasError, setError] = useState(false)
   const [filter, setFilter] = useState<NotificationFilter>('all')
   const [slideDirection, setSlideDirection] = useState(1)
   const rootRef = useRef<HTMLDivElement>(null)
   const panelId = useId()
 
-  useEffect(() => {
-    let cancelled = false
-    fetchNotifications().then((items) => {
-      if (cancelled) return
-      setNotifications(items)
-      setLoading(false)
-    })
-    return () => {
-      cancelled = true
-    }
+  // 목록을 서버 상태로 동기화한다. 스켈레톤 노출 여부(isLoading)는 호출하는 쪽에서 제어한다.
+  const loadNotifications = useCallback(() => {
+    return fetchNotifications()
+      .then((items) => {
+        setNotifications(items)
+        setError(false)
+      })
+      .catch(() => {
+        setError(true)
+      })
+      .finally(() => {
+        setLoading(false)
+      })
   }, [])
+
+  useEffect(() => {
+    void loadNotifications()
+  }, [loadNotifications])
 
   useEffect(() => {
     if (!isOpen) return
@@ -70,17 +83,37 @@ export function NotificationBell() {
       ? notifications
       : notifications.filter((item) => item.category === filter)
 
+  // 드롭다운을 열 때마다 스켈레톤 없이 최신 목록으로 동기화한다.
+  const handleToggle = () => {
+    const next = !isOpen
+    setOpen(next)
+    if (next) void loadNotifications()
+  }
+
   const handleSelect = (item: NotificationItem) => {
-    if (item.read) return
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === item.id ? { ...n, read: true } : n)),
-    )
-    void markNotificationAsRead(item.id)
+    if (!item.read) {
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === item.id ? { ...n, read: true } : n)),
+      )
+      void markNotificationAsRead(item.id)
+    }
+    setOpen(false)
+    navigate(getNotificationRoute(item))
   }
 
   const handleMarkAllRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-    void markAllNotificationsAsRead()
+    markAllNotificationsAsRead().catch(() => loadNotifications())
+  }
+
+  const handleDelete = (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id))
+    deleteNotification(id).catch(() => loadNotifications())
+  }
+
+  const handleDeleteAll = () => {
+    setNotifications([])
+    deleteAllNotifications().catch(() => loadNotifications())
   }
 
   const handleFilterChange = (next: NotificationFilter) => {
@@ -102,7 +135,7 @@ export function NotificationBell() {
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-controls={isOpen ? panelId : undefined}
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={handleToggle}
       >
         <Bell aria-hidden="true" />
         {unreadCount > 0 ? (
@@ -127,15 +160,26 @@ export function NotificationBell() {
           >
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
               <p className="text-body-1 font-semibold text-text-primary">알림</p>
-              {unreadCount > 0 ? (
-                <button
-                  type="button"
-                  onClick={handleMarkAllRead}
-                  className="text-body-2 text-action-primary hover:underline"
-                >
-                  모두 읽음
-                </button>
-              ) : null}
+              <div className="flex items-center gap-3">
+                {unreadCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={handleMarkAllRead}
+                    className="text-body-2 text-action-primary hover:underline"
+                  >
+                    모두 읽음
+                  </button>
+                ) : null}
+                {notifications.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={handleDeleteAll}
+                    className="text-body-2 text-text-secondary hover:text-status-error hover:underline"
+                  >
+                    전체 삭제
+                  </button>
+                ) : null}
+              </div>
             </div>
 
             <div
@@ -172,6 +216,22 @@ export function NotificationBell() {
                     <Skeleton key={index} className="h-12 w-full" />
                   ))}
                 </div>
+              ) : hasError ? (
+                <div className="px-4 py-10 text-center">
+                  <p className="text-body-2 text-text-secondary">
+                    알림을 불러오지 못했어요.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoading(true)
+                      void loadNotifications()
+                    }}
+                    className="mt-2 text-body-2 text-action-primary hover:underline"
+                  >
+                    다시 시도
+                  </button>
+                </div>
               ) : (
                 <AnimatePresence mode="wait" initial={false} custom={slideDirection}>
                   <motion.div
@@ -192,12 +252,12 @@ export function NotificationBell() {
                         {filteredNotifications.map((item) => {
                           const CategoryIcon = categoryIcons[item.category]
                           return (
-                            <li key={item.id}>
+                            <li key={item.id} className="group/item relative">
                               <button
                                 type="button"
                                 role="menuitem"
                                 onClick={() => handleSelect(item)}
-                                className="flex w-full items-start gap-2.5 px-4 py-2.5 text-left transition-colors [transition-duration:var(--duration-fast)] hover:bg-surface-muted"
+                                className="flex w-full items-start gap-2.5 py-2.5 pr-10 pl-4 text-left transition-colors [transition-duration:var(--duration-fast)] hover:bg-surface-muted"
                               >
                                 <span className="relative mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-surface-muted">
                                   <CategoryIcon
@@ -214,7 +274,7 @@ export function NotificationBell() {
                                 <span className="min-w-0 flex-1">
                                   <span
                                     className={cn(
-                                      'block truncate text-body-2',
+                                      'block text-body-2',
                                       item.read
                                         ? 'text-text-secondary'
                                         : 'font-semibold text-text-primary',
@@ -222,13 +282,18 @@ export function NotificationBell() {
                                   >
                                     {item.title}
                                   </span>
-                                  <span className="mt-0.5 block truncate text-caption text-ink-500">
-                                    {item.description}
-                                  </span>
                                   <span className="mt-0.5 block text-caption text-ink-400">
                                     {formatRelativeTime(item.createdAt)}
                                   </span>
                                 </span>
+                              </button>
+                              <button
+                                type="button"
+                                aria-label="알림 삭제"
+                                onClick={() => handleDelete(item.id)}
+                                className="absolute top-2.5 right-2.5 flex size-6 items-center justify-center rounded-full text-ink-400 opacity-0 transition-opacity [transition-duration:var(--duration-fast)] group-hover/item:opacity-100 hover:bg-surface-default hover:text-status-error focus-visible:opacity-100"
+                              >
+                                <X aria-hidden="true" className="size-3.5" />
                               </button>
                             </li>
                           )
