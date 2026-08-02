@@ -104,3 +104,9 @@ google:
     id: ${GOOGLE_CLIENT_ID}
     secret: ${GOOGLE_CLIENT_SECRET}
     allowed-redirect-uris: ${GOOGLE_ALLOWED_REDIRECT_URIS}
+
+github:
+  client:
+    id: ${GITHUB_CLIENT_ID}
+    secret: ${GITHUB_CLIENT_SECRET}
+    allowed-redirect-uris: ${GITHUB_ALLOWED_REDIRECT_URIS}
