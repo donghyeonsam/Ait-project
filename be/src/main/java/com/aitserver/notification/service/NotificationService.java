@@ -2,9 +2,12 @@ package com.aitserver.notification.service;
 
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
+import com.aitserver.notification.dto.NotificationResponse;
 import com.aitserver.notification.entity.Notification;
 import com.aitserver.notification.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,9 +22,16 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
 
     // 1. 모든 알림 목록 조회
-    public List<Notification> getNotifications(Long userId) {
+    public NotificationResponse.ScrollResponse getNotifications(Long userId, Pageable pageable) {
 
-        return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        Slice<Notification> notificationSlice = notificationRepository
+                .findByUserIdOrderByCreatedAtDesc(userId, pageable);
+
+        List<NotificationResponse> notificationList = notificationSlice.getContent().stream()
+                .map(NotificationResponse::from)
+                .toList();
+
+        return new NotificationResponse.ScrollResponse(notificationList, notificationSlice.hasNext());
     }
 
     // 2. 단일 알림 읽음 처리

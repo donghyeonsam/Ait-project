@@ -2,8 +2,10 @@ package com.aitserver.notification.event;
 
 import com.aitserver.auth.entity.User;
 import com.aitserver.auth.repository.UserRepository;
+import com.aitserver.notification.dto.NotificationResponse;
 import com.aitserver.notification.entity.Notification;
 import com.aitserver.notification.repository.NotificationRepository;
+import com.aitserver.notification.service.NotificationSseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -20,6 +22,7 @@ public class NotificationEventListener {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final NotificationSseService sseService;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT) // 본 로직 커밋 성공 시에만 동작
@@ -36,7 +39,10 @@ public class NotificationEventListener {
                     .content(event.content())
                     .build();
 
-            notificationRepository.save(notification);
+            Notification savedNotification = notificationRepository.save(notification);
+
+            NotificationResponse response = NotificationResponse.from(savedNotification);
+            sseService.send(event.receiverId(), response);
         } catch (Exception e) {
             // 알림 저장에 실패하더라도 기존 비즈니스 로직에 영향을 주면 안 되므로 로깅만 처리
             log.error("알림 저장 실패: receiverId={}, message={}", event.receiverId(), e.getMessage());

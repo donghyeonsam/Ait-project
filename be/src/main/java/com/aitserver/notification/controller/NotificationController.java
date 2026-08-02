@@ -4,12 +4,17 @@ import com.aitserver.global.response.ApiResponse;
 import com.aitserver.notification.dto.NotificationResponse;
 import com.aitserver.notification.entity.Notification;
 import com.aitserver.notification.service.NotificationService;
+import com.aitserver.notification.service.NotificationSseService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 
@@ -19,22 +24,21 @@ import java.util.List;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final NotificationSseService sseService;
 
     /**
      * 1. 모든 알림 목록 조회 (읽은 알림 포함, 최신순)
      * [GET] /api/notifications
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<List<NotificationResponse>>> getNotifications(
+    public ResponseEntity<ApiResponse<NotificationResponse.ScrollResponse>>getNotifications(
             @AuthenticationPrincipal Long userId,
+            @PageableDefault(size = 5) Pageable pageable,
             HttpServletRequest request) {
 
-        List<NotificationResponse> responses = notificationService.getNotifications(userId)
-                .stream()
-                .map(NotificationResponse::from)
-                .toList();
+        NotificationResponse.ScrollResponse response = notificationService.getNotifications(userId, pageable);
 
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "알림 목록 조회 성공", responses, request));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "알림 목록 조회 성공", response, request));
     }
 
     /**
@@ -89,5 +93,11 @@ public class NotificationController {
 
         notificationService.deleteAllNotifications(userId);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "모든 알림이 삭제되었습니다.",request));
+    }
+
+    @GetMapping(value = "/stream", produces = "text/event-stream")
+    public ResponseEntity<SseEmitter> subscribe(@AuthenticationPrincipal Long userId) {
+        // ApiResponse 같은 커스텀 래퍼를 쓰지 않고 순수 SseEmitter를 반환해야 합니다!
+        return ResponseEntity.ok(sseService.subscribe(userId));
     }
 }
