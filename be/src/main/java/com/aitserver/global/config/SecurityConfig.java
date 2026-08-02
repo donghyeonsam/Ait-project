@@ -75,7 +75,8 @@ public class SecurityConfig {
                                 "/v3/api-docs",
                                 "/v3/api-docs/**",  // 스웨거
                                 "/api/webhooks/**",  // 스터디 세션을 위한 라이브킷 웹훅 연결
-                                "/ws/chat/**"
+                                "/ws/chat/**",
+                                "/api/oauth/**" // oauth 로그인 관련
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
