@@ -206,7 +206,6 @@ function parseUserIdFromIdentity(identity: string): number | null {
 // 스터디 세션 화상 회의방: 참가자 그리드/스테이지 뷰, 컨트롤 바, 이력서·자소서·평가 패널을 구성한다.
 // LiveKit Room 연결/트랙 구독은 이 컴포넌트가 소유하고, 하위 트리에는 RoomContext로 내려준다.
 // 채팅은 같은 Room의 데이터 채널(useChat)로 실연동되어 있다(FloatingChatButton 참고).
-// TODO: 실제 API 연동 필요 — 평가 제출 API로 교체.
 export function StudySessionRoom({
   initialDevices,
   selfCoverLetterId,
@@ -520,6 +519,39 @@ function StudySessionRoomStage({
     connection.role,
     resolveParticipantId,
   ])
+
+  // participants는 지금 화상에 접속해 있는 사람만 담아 그리드/영상 렌더링용으로 쓴다. 그런데 누군가
+  // 먼저 나가버리면 그 사람은 이 배열에서 바로 사라져서, 아직 그 사람을 평가하지 않은 다른 참가자는
+  // 더 이상 평가 대상으로 고를 수 없게 된다. 그래서 세션 우측 패널(서류·평가)에는 그리드용 배열 대신
+  // 본인이 이 세션에 있는 동안 한 번이라도 본 참가자를 계속 기억해두는 이 목록을 따로 넘긴다.
+  // (렌더 중 상태 조정 패턴 — 이펙트로 하면 한 프레임 지연되며 cascading render가 생긴다.)
+  const [everSeenParticipantsById, setEverSeenParticipantsById] = useState<Map<number, StudyParticipant>>(
+    new Map(),
+  )
+  const seenParticipantsNeedUpdate = participants.some((participant) => {
+    const existing = everSeenParticipantsById.get(participant.participantId)
+    return (
+      !existing ||
+      existing.name !== participant.name ||
+      existing.role !== participant.role ||
+      existing.resumeId !== participant.resumeId ||
+      existing.coverLetterId !== participant.coverLetterId ||
+      existing.coverLetterTitle !== participant.coverLetterTitle
+    )
+  })
+
+  if (seenParticipantsNeedUpdate) {
+    const next = new Map(everSeenParticipantsById)
+    for (const participant of participants) {
+      next.set(participant.participantId, participant)
+    }
+    setEverSeenParticipantsById(next)
+  }
+
+  const seenParticipants = useMemo(
+    () => Array.from(everSeenParticipantsById.values()),
+    [everSeenParticipantsById],
+  )
 
   const cameraTrackByParticipantId = useMemo(() => {
     const map = new Map<number, (typeof cameraTracks)[number]>()
@@ -1344,7 +1376,7 @@ function StudySessionRoomStage({
           style={{ width: panelOpen ? PANEL_WIDTH : 0 }}
         >
           <div className="h-full" style={{ width: PANEL_WIDTH }}>
-            <StudySessionSidePanel participants={participants} />
+            <StudySessionSidePanel sessionId={connection.sessionId} participants={seenParticipants} />
           </div>
         </div>
       </div>

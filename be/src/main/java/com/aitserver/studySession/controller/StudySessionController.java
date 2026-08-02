@@ -6,6 +6,7 @@ import com.aitserver.global.response.ApiResponse;
 import com.aitserver.studySession.dto.StudyGroupActiveSessionResponse;
 import com.aitserver.studySession.dto.StudySessionConnectionResponse;
 import com.aitserver.studySession.dto.StudySessionCreateResponse;
+import com.aitserver.studySession.dto.StudySessionStatusResponse;
 import com.aitserver.studySession.service.StudyGroupActiveSessionService;
 import com.aitserver.studySession.service.StudySessionConnectionService;
 import com.aitserver.studySession.service.StudySessionEndService;
@@ -98,6 +99,7 @@ public class StudySessionController {
                         request
                 ));
     }
+
 
 
 

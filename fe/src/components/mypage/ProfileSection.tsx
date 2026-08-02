@@ -138,7 +138,7 @@ export function ProfileSection({
 
   return (
     <div className="profile-layout grid gap-8">
-      <div className="flex flex-col">
+      <div className="flex flex-col self-start">
         <ProfileCard
           profile={displayed}
           isEditing={isEditing}

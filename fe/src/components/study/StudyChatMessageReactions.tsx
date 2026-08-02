@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SmilePlus, X } from 'lucide-react'
 import type { StudyGroupChatReactionSummary } from '@/api/study-group-chat'
 import { studyChatEmojis } from '@/components/study/studyChatEmojis'
@@ -24,14 +24,49 @@ export function StudyChatMessageReactions({
   align = 'start',
 }: StudyChatMessageReactionsProps) {
   const [pickerOpen, setPickerOpen] = useState(false)
+  const reactionAreaRef = useRef<HTMLDivElement>(null)
+  const pickerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!pickerOpen) return
+
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!reactionAreaRef.current?.contains(event.target as Node)) {
+        setPickerOpen(false)
+      }
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPickerOpen(false)
+    }
+    const animationFrame = window.requestAnimationFrame(() => {
+      pickerRef.current?.scrollIntoView?.({ block: 'nearest' })
+    })
+
+    document.addEventListener('pointerdown', closeOnOutsidePointer)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.cancelAnimationFrame(animationFrame)
+      document.removeEventListener('pointerdown', closeOnOutsidePointer)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [pickerOpen])
 
   const toggleReaction = (emoji: string) => {
     onToggle(messageId, emoji)
-    setPickerOpen(false)
   }
 
+  const hasReacted = (emoji: string) =>
+    currentUserId !== null &&
+    reactions.some(
+      (reaction) =>
+        reaction.emoji === emoji && reaction.userIds.includes(currentUserId),
+    )
+
   return (
-    <div className="relative mt-1.5 flex max-w-full flex-wrap items-center gap-1">
+    <div
+      ref={reactionAreaRef}
+      className="mt-1.5 flex max-w-full flex-wrap items-center gap-1"
+    >
       {reactions.map((reaction) => {
         const reactedByMe =
           currentUserId !== null && reaction.userIds.includes(currentUserId)
@@ -72,11 +107,12 @@ export function StudyChatMessageReactions({
 
       {pickerOpen ? (
         <div
+          ref={pickerRef}
           role="dialog"
           aria-label="메시지 반응 선택"
           className={cn(
-            'absolute bottom-9 z-(--z-index-dropdown) w-64 rounded-ait-m border border-border-default bg-surface-default p-2 shadow-elevation-2',
-            align === 'end' ? 'right-0' : 'left-0',
+            'order-last mt-1 w-64 max-w-full basis-full rounded-ait-m border border-border-default bg-surface-default p-2 shadow-elevation-2',
+            align === 'end' ? 'ml-auto' : 'mr-auto',
           )}
         >
           <p className="mb-1.5 px-1 text-caption text-text-secondary">
@@ -88,14 +124,20 @@ export function StudyChatMessageReactions({
                 key={emoji}
                 type="button"
                 onClick={() => toggleReaction(emoji)}
-                className="flex size-9 items-center justify-center rounded-ait-s text-xl hover:bg-status-neutral-surface focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25"
+                aria-pressed={hasReacted(emoji)}
+                className={cn(
+                  'flex size-9 items-center justify-center rounded-ait-s border text-xl focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25',
+                  hasReacted(emoji)
+                    ? 'border-status-achievement-border bg-status-achievement-surface'
+                    : 'border-transparent hover:bg-status-neutral-surface',
+                )}
                 aria-label={`${emoji} 반응`}
               >
                 {emoji}
               </button>
             ))}
           </div>
-          <div className="grid max-h-32 grid-cols-7 gap-1 overflow-y-auto overscroll-contain">
+          <div className="grid max-h-32 grid-cols-6 gap-1 overflow-x-hidden overflow-y-auto overscroll-contain">
             {studyChatEmojis
               .filter((emoji) => !quickReactionEmojis.includes(emoji))
               .map((emoji) => (
@@ -103,7 +145,13 @@ export function StudyChatMessageReactions({
                   key={emoji}
                   type="button"
                   onClick={() => toggleReaction(emoji)}
-                  className="flex size-8 items-center justify-center rounded-ait-s text-lg hover:bg-status-neutral-surface focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25"
+                  aria-pressed={hasReacted(emoji)}
+                  className={cn(
+                    'flex size-8 items-center justify-center rounded-ait-s border text-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25',
+                    hasReacted(emoji)
+                      ? 'border-status-achievement-border bg-status-achievement-surface'
+                      : 'border-transparent hover:bg-status-neutral-surface',
+                  )}
                   aria-label={`${emoji} 반응`}
                 >
                   {emoji}

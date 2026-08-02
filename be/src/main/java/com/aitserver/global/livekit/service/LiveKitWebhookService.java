@@ -364,10 +364,8 @@ public class LiveKitWebhookService {
                     );
 
             case ROOM_FINISHED ->
-                    log.info(
-                            "LiveKit 방 종료: {}",
-                            getRoomName(event)
-                    );
+                    handleRoomFinished(event);
+
 
             default ->
                     log.debug(
@@ -588,5 +586,30 @@ public class LiveKitWebhookService {
                     exception
             );
         }
+    }
+
+    private void handleRoomFinished(
+            LivekitWebhook.WebhookEvent event
+    ) {
+        String roomName = getRoomName(event);
+
+        StudySession studySession =
+                studySessionRepository
+                        .findForWebhookByRoomName(roomName)
+                        .orElseThrow(() ->
+                                new IllegalStateException(
+                                        "LiveKit 방과 연결된 스터디 세션을 찾을 수 없습니다. room="
+                                                + roomName
+                                )
+                        );
+
+        studySession.end();
+
+        log.info(
+                "LiveKit 방 종료에 따른 스터디 세션 종료 처리 완료: "
+                        + "sessionId={}, roomName={}",
+                studySession.getId(),
+                roomName
+        );
     }
 }

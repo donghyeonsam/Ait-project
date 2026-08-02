@@ -4,6 +4,8 @@ import com.aitserver.auth.entity.User;
 import com.aitserver.auth.repository.UserRepository;
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
+import com.aitserver.notification.entity.NotificationType;
+import com.aitserver.notification.event.NotificationEvent;
 import com.aitserver.studyGroupRoom.domain.StudyGroupMemberStatus;
 import com.aitserver.studyGroupRoom.dto.application.ApplicationCreateRequest;
 import com.aitserver.studyGroupRoom.dto.application.ApplicationProcessRequest;
@@ -13,6 +15,7 @@ import com.aitserver.studyGroupRoom.entity.StudyGroupMember;
 import com.aitserver.studyGroupRoom.repository.StudyGroupMemberRepository;
 import com.aitserver.studyGroupRoom.repository.StudyGroupRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +28,7 @@ public class StudyGroupApplicationService {
     private final StudyGroupRepository studyGroupRepository;
     private final StudyGroupMemberRepository studyGroupMemberRepository;
     private final UserRepository userRepository; // User 엔티티 조회를 위해 필요
+    private final ApplicationEventPublisher eventPublisher;
 
     // 1. 가입 신청하기 (POST)
     @Transactional
@@ -64,6 +68,13 @@ public class StudyGroupApplicationService {
             StudyGroupMember application = StudyGroupMember.createMember(group, user, request.getMessage());
             studyGroupMemberRepository.save(application);
         }
+
+        eventPublisher.publishEvent(new NotificationEvent(
+                group.getOwner().getId(),
+                NotificationType.GROUP_APPLY,
+                group.getId(),
+                "[" + group.getTitle() + "] 그룹에 새로운 가입 신청이 들어왔습니다."
+        ));
     }
 
     // 2. 신청 목록 조회 (GET - 방장만 가능)
@@ -106,10 +117,23 @@ public class StudyGroupApplicationService {
 
         // 승인 or 거절 (더티 체킹으로 자동 UPDATE)
         if (request.isApprove()) {
-            application.approve(); // 상태 ACTIVE로 변경, joinedAt 세팅
-            // TODO: (선택) 여기서 group.addMemberCount() 처럼 현재 멤버 수를 +1 해주는 로직이 필요할 수 있습니다.
+            application.approve();
+
+            eventPublisher.publishEvent(new NotificationEvent(
+                    application.getUser().getId(),
+                    NotificationType.GROUP_APPROVE,
+                    group.getId(),
+                    "[" + group.getTitle() + "] 그룹 가입이 승인되었습니다!"
+            ));
         } else {
-            application.reject(); // 상태 REJECTED로 변경, deletedAt 세팅
+            application.reject();
+
+            eventPublisher.publishEvent(new NotificationEvent(
+                    application.getUser().getId(),
+                    NotificationType.GROUP_REJECT,
+                    group.getId(),
+                    "[" + group.getTitle() + "] 그룹 가입이 거절되었습니다."
+            ));
         }
     }
 }

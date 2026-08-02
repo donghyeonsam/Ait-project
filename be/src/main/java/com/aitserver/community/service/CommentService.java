@@ -11,7 +11,11 @@ import com.aitserver.community.repository.PostCommentRepository;
 import com.aitserver.community.repository.PostRepository;
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
+import com.aitserver.notification.entity.NotificationType;
+import com.aitserver.notification.event.NotificationEvent;
+import com.aitserver.notification.event.NotificationEventListener;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +31,7 @@ public class CommentService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final CommentLikeRepository commentLikeRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 1. 댓글 / 답글 작성
@@ -36,7 +41,7 @@ public class CommentService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NO_USER));
 
         PostComment parent = null;
         if (request.getParentId() != null) {
@@ -54,7 +59,18 @@ public class CommentService {
                 .content(request.getContent())
                 .build();
 
-        return commentRepository.save(comment).getId();
+        PostComment savedComment = commentRepository.save(comment);
+
+        if(!post.getUser().getId().equals(userId)) {
+            eventPublisher.publishEvent(new NotificationEvent(
+                    post.getUser().getId(),
+                    NotificationType.COMMENT,
+                    post.getId(),
+                    "회원님의 게시글에 새로운 댓글이 달렸습니다."
+            ));
+        }
+
+        return savedComment.getId();
     }
 
     /**

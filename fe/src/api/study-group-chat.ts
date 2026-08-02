@@ -4,10 +4,15 @@ import SockJS from 'sockjs-client'
 import { backendRequest } from '@/api/http'
 import { getStoredAccessToken } from '@/api/auth-storage'
 
-// WebSocket은 Vercel의 /backend rewrite를 거치지 않고 Spring Boot 서버에 직접 연결한다.
-// 로컬·별도 배포 환경에서는 VITE_WS_URL로 연결 대상을 재정의할 수 있다.
+const configuredWebsocketUrl = import.meta.env.VITE_WS_URL?.trim()
+
+// 개발 환경은 Vite의 /backend 프록시를 사용해 REST와 WebSocket이 같은 백엔드를 보게 한다.
+// Vercel은 WebSocket 프록시를 보장하지 않으므로 배포 빌드는 Spring Boot 서버에 직접 연결한다.
 const websocketBaseUrl = (
-  import.meta.env.VITE_WS_URL ?? 'https://i15d202.p.ssafy.io'
+  configuredWebsocketUrl ||
+  (import.meta.env.DEV
+    ? (import.meta.env.VITE_BE_API_URL ?? '/backend')
+    : 'https://i15d202.p.ssafy.io')
 ).replace(/\/$/, '')
 
 export interface StudyGroupChatMessage {
@@ -36,6 +41,79 @@ export interface StudyGroupChatReactionUpdate {
 export interface StudyGroupChatCursorResult {
   chats: StudyGroupChatMessage[]
   hasNext: boolean
+}
+
+export function setStudyGroupChatReactionForUser(
+  currentReactions: StudyGroupChatReactionSummary[] | undefined,
+  emoji: string,
+  userId: number,
+  reacted: boolean,
+) {
+  const nextReactions = (currentReactions ?? []).map((reaction) => ({
+    ...reaction,
+    userIds: [...reaction.userIds],
+  }))
+  const reactionIndex = nextReactions.findIndex(
+    (reaction) => reaction.emoji === emoji,
+  )
+
+  if (reacted) {
+    if (reactionIndex === -1) {
+      return [
+        ...nextReactions,
+        { emoji, count: 1, userIds: [userId] },
+      ]
+    }
+
+    const reaction = nextReactions[reactionIndex]
+    if (!reaction.userIds.includes(userId)) {
+      reaction.userIds.push(userId)
+      reaction.count = reaction.userIds.length
+    }
+    return nextReactions
+  }
+
+  if (reactionIndex === -1) return nextReactions
+
+  const reaction = nextReactions[reactionIndex]
+  reaction.userIds = reaction.userIds.filter(
+    (reactionUserId) => reactionUserId !== userId,
+  )
+  reaction.count = reaction.userIds.length
+
+  return reaction.count === 0
+    ? nextReactions.filter((_, index) => index !== reactionIndex)
+    : nextReactions
+}
+
+// 서버의 전체 목록 응답이 교차 도착해도 이 브라우저에서 선택한 내 반응은 덮어쓰지 않는다.
+export function applyStudyGroupChatReactionUpdate(
+  currentReactions: StudyGroupChatReactionSummary[] | undefined,
+  update: StudyGroupChatReactionUpdate,
+  preserveUserId: number | null,
+) {
+  if (preserveUserId === null) return update.reactions
+
+  let mergedReactions = update.reactions
+    .map((reaction) => {
+      const userIds = reaction.userIds.filter(
+        (userId) => userId !== preserveUserId,
+      )
+      return { ...reaction, count: userIds.length, userIds }
+    })
+    .filter((reaction) => reaction.count > 0)
+
+  for (const currentReaction of currentReactions ?? []) {
+    if (!currentReaction.userIds.includes(preserveUserId)) continue
+    mergedReactions = setStudyGroupChatReactionForUser(
+      mergedReactions,
+      currentReaction.emoji,
+      preserveUserId,
+      true,
+    )
+  }
+
+  return mergedReactions
 }
 
 export interface StudyGroupChatNotice {
@@ -70,6 +148,7 @@ export function connectStudyGroupChat(
     connectHeaders: {
       Authorization: `Bearer ${getStoredAccessToken() ?? ''}`,
     },
+    connectionTimeout: 10_000,
     reconnectDelay: 5000,
     onConnect: () => {
       client.subscribe(
@@ -104,6 +183,14 @@ export function connectStudyGroupChat(
     },
     onWebSocketError: () => {
       handlers.onError?.('그룹톡 서버에 연결할 수 없습니다.')
+    },
+    onWebSocketClose: () => {
+      handlers.onDisconnect?.()
+      if (client.active) {
+        handlers.onError?.(
+          '그룹톡 연결이 끊겼습니다. 자동으로 다시 연결하고 있습니다.',
+        )
+      }
     },
   })
   client.activate()

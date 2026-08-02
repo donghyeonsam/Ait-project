@@ -322,7 +322,7 @@ describe('StudyPage', () => {
     )
   })
 
-  it('그룹톡 Dock 인터랙션과 메시지 전송을 처리한다', async () => {
+  it('그룹톡 전환 팝오버와 메시지 전송을 처리한다', async () => {
     const user = userEvent.setup()
     renderStudyPage()
     await screen.findAllByRole('article', { name: /상세 정보$/ })
@@ -334,56 +334,26 @@ describe('StudyPage', () => {
     const chatDialog = screen.getByRole('dialog')
     expect(chatDialog).toHaveClass('study-chat-dialog')
     expect(chatDialog).not.toHaveClass('left-1/2', 'top-1/2')
-    const groupDock = await within(chatDialog).findByRole('tablist', {
-      name: '스터디 그룹 선택',
+    const groupTrigger = await within(chatDialog).findByRole('button', {
+      name: /금융권 면접 PT 대비/,
     })
-    const groupTabs = within(groupDock).getAllByRole('tab')
-    expect(groupTabs).toHaveLength(myStudyGroups.length)
-    expect(groupTabs[0]).toHaveAccessibleName('금융권 면접 PT 대비')
-    expect(groupDock).toHaveClass(
-      'study-chat-dock',
-      'flex-col',
-      'items-center',
-      'gap-6',
-      'overflow-y-auto',
-    )
-    expect(groupDock).toHaveAttribute('aria-orientation', 'vertical')
-    expect(groupTabs[0]).toHaveClass('study-chat-dock-item')
-    expect(groupTabs[0]).toHaveClass('study-chat-dock-item-selected')
+    expect(groupTrigger).toHaveAttribute('aria-expanded', 'false')
+    await user.click(groupTrigger)
 
-    vi.spyOn(groupDock, 'getBoundingClientRect').mockReturnValue({
-      left: 0,
-      right: 240,
-      top: 0,
-      bottom: 80,
-      width: 240,
-      height: 80,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
+    const groupList = within(chatDialog).getByRole('listbox', {
+      name: '내 그룹톡',
     })
-    groupTabs.forEach((tab, index) => {
-      Object.defineProperties(tab, {
-        offsetTop: { configurable: true, value: index * 76 },
-        offsetHeight: { configurable: true, value: 48 },
-      })
-    })
-    fireEvent.pointerMove(groupDock, { clientY: 24 })
+    const groupOptions = within(groupList).getAllByRole('option')
+    expect(groupOptions).toHaveLength(myStudyGroups.length)
+    expect(groupOptions[0]).toHaveAttribute('aria-selected', 'true')
+    expect(groupOptions[1]).toHaveAttribute('aria-selected', 'false')
+
+    await user.keyboard('{ArrowDown}{Enter}')
     expect(
-      groupTabs[0].style.getPropertyValue('--study-chat-dock-scale'),
-    ).toBe('1.420')
-    expect(
-      Number(
-        groupTabs[1].style.getPropertyValue('--study-chat-dock-scale'),
-      ),
-    ).toBeGreaterThan(1)
-    fireEvent.pointerLeave(groupDock)
-    expect(
-      groupTabs[0].style.getPropertyValue('--study-chat-dock-scale'),
-    ).toBe('')
-    await user.click(groupTabs[1])
-    expect(groupTabs[0]).not.toHaveClass('study-chat-dock-item-selected')
-    expect(groupTabs[1]).toHaveClass('study-chat-dock-item-selected')
+      within(chatDialog).getByRole('button', {
+        name: /백엔드 기술 연습/,
+      }),
+    ).toHaveAttribute('aria-expanded', 'false')
 
     const messageInput = within(chatDialog).getByRole('textbox', {
       name: '메시지 입력',
@@ -397,5 +367,41 @@ describe('StudyPage', () => {
     expect(
       within(chatDialog).getByText('자료 확인했습니다.'),
     ).toBeInTheDocument()
+  })
+
+  it('바깥 클릭과 Escape로 팝오버를 닫고 그룹톡 트리거로 포커스를 복귀한다', async () => {
+    const user = userEvent.setup()
+    renderStudyPage()
+    await screen.findAllByRole('article', { name: /상세 정보$/ })
+
+    const chatButton = screen.getByRole('button', { name: '그룹톡 열기' })
+    await user.click(chatButton)
+    const chatDialog = screen.getByRole('dialog')
+    const groupTrigger = await within(chatDialog).findByRole('button', {
+      name: /금융권 면접 PT 대비/,
+    })
+
+    await user.click(groupTrigger)
+    expect(
+      within(chatDialog).getByRole('listbox', { name: '내 그룹톡' }),
+    ).toBeInTheDocument()
+
+    await user.click(
+      within(chatDialog).getByRole('textbox', { name: '메시지 입력' }),
+    )
+    expect(
+      within(chatDialog).queryByRole('listbox', { name: '내 그룹톡' }),
+    ).not.toBeInTheDocument()
+
+    await user.click(groupTrigger)
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(
+      within(chatDialog).queryByRole('listbox', { name: '내 그룹톡' }),
+    ).not.toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(chatButton).toHaveFocus()
   })
 })

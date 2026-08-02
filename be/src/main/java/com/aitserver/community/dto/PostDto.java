@@ -131,7 +131,7 @@ public class PostDto {
         private final String title;
         private final String contentSummary; // 글 내용 한 줄
         private final String nickname;
-
+        private final String thumbnailUrl;
         private final List<String> tags;     // 태그 리스트
 
         private final int viewCount;
@@ -143,11 +143,12 @@ public class PostDto {
 
         private final LocalDateTime createdAt;
 
-        public ListResponse(Post post, List<String> tags, boolean isBookmarked, boolean isLiked, int commentCount) {
+        public ListResponse(Post post, List<String> tags, boolean isBookmarked, boolean isLiked, int commentCount,String thumbnailUrl) {
             this.id = post.getId();
             this.category = post.getCategory();
             this.title = post.getTitle();
             this.nickname = post.getUser().getName();
+            this.thumbnailUrl = thumbnailUrl;
             // 본문 내용을 50자 이내의 한 줄로 요약
             this.contentSummary = post.getContent() != null && post.getContent().length() > 50
                     ? post.getContent().substring(0, 50) + "..."

@@ -19,6 +19,12 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "AUTH_003", "아이디 혹은 비밀번호가 일치하지 않습니다."),
     INVALID_PASSWORD(HttpStatus.BAD_REQUEST, "AUTH_004", "아이디 혹은 비밀번호가 일치하지 않습니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "AUTH_005", "토큰이 존재하지 않습니다."),
+    // OAUTH 관련
+    UNSUPPORTED_OAUTH_PROVIDER(HttpStatus.BAD_REQUEST, "OAUTH_001", "지원하지 않는 소셜 로그인입니다."),
+    INVALID_REDIRECT_URI(HttpStatus.BAD_REQUEST, "OAUTH_002", "허용되지 않은 redirect_uri 입니다."),
+    OAUTH_TOKEN_FAILED(HttpStatus.UNAUTHORIZED, "OAUTH_003", "소셜 토큰 발급에 실패했습니다."),
+    OAUTH_USERINFO_FAILED(HttpStatus.UNAUTHORIZED, "OAUTH_004", "소셜 사용자 정보 조회에 실패했습니다."),
+    OAUTH_EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "OAUTH_005", "소셜 계정 이메일이 확인되지 않았습니다."),
 
     // resume
     RESUME_NOT_FOUND(HttpStatus.NOT_FOUND, "RESUME_001", "이력서를 찾을 수 없습니다."),
@@ -84,6 +90,9 @@ public enum ErrorCode {
     STUDY_GROUP_FULL(HttpStatus.CONFLICT, "GROUP_005", "스터디 그룹의 모집 정원이 마감되었습니다."),
     KICKED_USER_CANNOT_REJOIN(HttpStatus.CONFLICT, "GROUP_006", "강퇴 당한 멤버는 다시 신청할 수 없습니다."),
 
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTIFICATION_001", "알림을 찾을 수 없습니다."),
+    UNAUTHORIZED_NOTIFICATION_ACTION(HttpStatus.FORBIDDEN, "NOTIFICATION_002", "해당 알림에 대한 권한이 없습니다."),
+
     // Study Session
     STUDY_SESSION_ALREADY_ACTIVE(HttpStatus.CONFLICT, "STUDY_SESSION_001", "이미 진행 중이거나 대기 중인 화상 스터디 세션이 있습니다."),
     STUDY_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "STUDY_SESSION_002", "화상 스터디 세션을 찾을 수 없습니다."),
@@ -94,6 +103,7 @@ public enum ErrorCode {
     STUDY_SESSION_HOST_REQUIRED(HttpStatus.FORBIDDEN, "STUDY_SESSION_007", "화상 스터디 방장만 사용할 수 있는 기능입니다."),
     STUDY_SESSION_CANNOT_KICK_SELF(HttpStatus.BAD_REQUEST, "STUDY_SESSION_008", "방장은 자신을 강퇴할 수 없습니다."),
     STUDY_SESSION_PARTICIPANT_NOT_FOUND(HttpStatus.NOT_FOUND, "STUDY_SESSION_009", "화상 스터디 참가자를 찾을 수 없습니다."),
+    STUDY_SESSION_STATUS_ACCESS_DENIED(HttpStatus.FORBIDDEN, "STUDY_SESSION_010", "해당 스터디 세션에 참여한 멤버가 아닙니다."),
 
     // Livekit
     LIVEKIT_TOKEN_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "LIVEKIT_002", "화상 스터디 접속 토큰 생성에 실패했습니다."),
@@ -102,8 +112,28 @@ public enum ErrorCode {
 
     // PeerFeedback
     PEER_FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "PEER_FEEDBACK_001", "해당 id의 상호 평가를 찾을 수 없습니다."),
-    PEER_FEEDBACK_ACCESS_DENIED(HttpStatus.FORBIDDEN, "PEER_FEEDBACK_002", "해당 평가를 수정할 권한이 없습니다.");
+    PEER_FEEDBACK_ACCESS_DENIED(HttpStatus.FORBIDDEN, "PEER_FEEDBACK_002", "해당 평가를 수정할 권한이 없습니다."),
 
+    // email
+    EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "AUTH_EMAIL_001", "이미 가입된 이메일입니다."),
+    EMAIL_SEND_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH_EMAIL_002", "인증 이메일 발송에 실패했습니다."),
+    EMAIL_RESEND_TOO_FAST(HttpStatus.TOO_MANY_REQUESTS, "AUTH_EMAIL_003", "인증번호는 1분 후 다시 요청할 수 있습니다."),
+    EMAIL_VERIFICATION_CODE_EXPIRED(HttpStatus.BAD_REQUEST, "AUTH_EMAIL_004", "인증번호가 만료되었거나 존재하지 않습니다."),
+    EMAIL_VERIFICATION_CODE_MISMATCH(HttpStatus.BAD_REQUEST, "AUTH_EMAIL_005", "인증번호가 일치하지 않습니다."),
+    EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "AUTH_EMAIL_006", "인증번호 입력 횟수를 초과했습니다. 다시 발급해주세요."),
+    EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "AUTH_EMAIL_007", "이메일 인증이 완료되지 않았습니다."),
+
+
+    // 상호평가 요약
+    STUDY_SESSION_NOT_FINISHED(HttpStatus.CONFLICT, "STUDY_SESSION_010", "종료되지 않은 세션의 상호평가를 요약할 수 없습니다."),
+    GMS_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "GMS_001", "AI 요약 생성 요청에 실패했습니다."),
+    GMS_RESPONSE_PARSE_FAILED(HttpStatus.BAD_GATEWAY, "GMS_002", "AI 요약 결과를 처리하지 못했습니다."),
+    GMS_RESPONSE_INVALID(HttpStatus.BAD_GATEWAY, "GMS_003", "AI 요약 결과가 올바른 형식이 아닙니다."),
+
+
+    // user
+    GITHUB_REPOSITORY_NOT_FOUND(HttpStatus.NOT_FOUND, "GITHUB_002", "GitHub 레포지토리를 찾을 수 없습니다."),
+    INVALID_GITHUB_REPOSITORY(HttpStatus.BAD_REQUEST, "GITHUB_003", "잘못된 GitHub 레포지토리 요청입니다.");
 
 
     private final HttpStatus status;

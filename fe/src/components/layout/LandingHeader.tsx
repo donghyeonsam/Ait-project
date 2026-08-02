@@ -9,7 +9,6 @@ import '@/components/landing/landing.css'
 const sectionAnchors = [
   { label: '기능', href: '#features' },
   { label: '미리보기', href: '#gallery' },
-  { label: '프로세스', href: '#process' },
 ]
 
 // 비로그인 랜딩 상단에서 홈 로고, 섹션 내비게이션, 로그인·회원가입 경로를 제공한다.

@@ -1,11 +1,11 @@
 import { FeatureGrid } from '@/components/landing/FeatureGrid'
 import { FinalCta } from '@/components/landing/FinalCta'
-import { GrowthProcess } from '@/components/landing/GrowthProcess'
 import { HeroSection } from '@/components/landing/HeroSection'
 import { QuestionShowcase } from '@/components/landing/QuestionShowcase'
 import { ScreenGallery } from '@/components/landing/ScreenGallery'
 import { TrustMarquee } from '@/components/landing/TrustMarquee'
 import { LandingPreloader } from '@/components/landing/LandingPreloader'
+import { MultimodalAnalysisSection } from '@/components/landing/multimodal/MultimodalAnalysisSection'
 import { Footer } from '@/components/layout/Footer'
 import { LandingHeader } from '@/components/layout/LandingHeader'
 
@@ -19,9 +19,9 @@ export function LandingPage() {
         <HeroSection />
         <TrustMarquee />
         <FeatureGrid />
+        <MultimodalAnalysisSection />
         <ScreenGallery />
         <QuestionShowcase />
-        <GrowthProcess />
         <FinalCta />
       </main>
       <Footer />

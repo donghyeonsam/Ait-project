@@ -153,17 +153,41 @@ function ReportVisual() {
           className="landing-report-area"
           d="M38 115 L98 91 L158 70 L218 52 L296 20 L296 126 L38 126 Z"
           initial={reduceMotion ? false : { opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true, amount: 0.5 }}
-          transition={{ duration: 0.6, delay: 1.3 }}
+          whileInView={
+            reduceMotion ? { opacity: 1 } : { opacity: [0, 0, 1, 1, 0] }
+          }
+          viewport={{ once: false, amount: 0.5 }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : {
+                  duration: 4.4,
+                  times: [0, 0.26, 0.42, 0.82, 1],
+                  repeat: Number.POSITIVE_INFINITY,
+                  ease: 'easeInOut',
+                }
+          }
         />
         <motion.path
           className="landing-report-line"
           d="M38 115 L98 91 L158 70 L218 52 L296 20"
-          initial={reduceMotion ? false : { pathLength: 0 }}
-          whileInView={{ pathLength: 1 }}
-          viewport={{ once: true, amount: 0.5 }}
-          transition={{ duration: 1.5, ease: [0.2, 0, 0.2, 1] }}
+          initial={reduceMotion ? false : { pathLength: 0, opacity: 0 }}
+          whileInView={
+            reduceMotion
+              ? { pathLength: 1, opacity: 1 }
+              : { pathLength: [0, 1, 1, 0], opacity: [1, 1, 1, 0] }
+          }
+          viewport={{ once: false, amount: 0.5 }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : {
+                  duration: 4.4,
+                  times: [0, 0.36, 0.82, 1],
+                  repeat: Number.POSITIVE_INFINITY,
+                  ease: [0.2, 0, 0.2, 1],
+                }
+          }
         />
         {[['38','115'],['98','91'],['158','70'],['218','52'],['296','20']].map(
           ([cx, cy], index) => (
@@ -174,13 +198,31 @@ function ReportVisual() {
               r="5"
               aria-hidden="true"
               initial={reduceMotion ? false : { opacity: 0, scale: 0 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true, amount: 0.5 }}
-              transition={{
-                duration: 0.3,
-                delay: 0.1 + index * 0.34,
-                ease: 'easeOut',
-              }}
+              whileInView={
+                reduceMotion
+                  ? { opacity: 1, scale: 1 }
+                  : {
+                      opacity: [0, 0, 1, 1, 0],
+                      scale: [0, 0, 1, 1, 0],
+                    }
+              }
+              viewport={{ once: false, amount: 0.5 }}
+              transition={
+                reduceMotion
+                  ? { duration: 0 }
+                  : {
+                      duration: 4.4,
+                      times: [
+                        0,
+                        0.04 + index * 0.075,
+                        0.095 + index * 0.075,
+                        0.82,
+                        1,
+                      ],
+                      repeat: Number.POSITIVE_INFINITY,
+                      ease: 'easeOut',
+                    }
+              }
               style={{ transformOrigin: `${cx}px ${cy}px` }}
             />
           ),
@@ -242,15 +284,18 @@ export function FeatureGrid() {
                 <strong className="landing-features__hub-center">Ait</strong>
               }
               centerSize={92}
-              nodeSize={88}
+              nodeSize={96}
               nodeDistance={0.75}
               pulseDuration={2.2}
-              pulseInterval={4}
-              pulseLength={0.35}
-              lineWidth={1.5}
-              pulseWidth={1.5}
-              lineColor="#e3e6ed"
-              lineColorLight="#e3e6ed"
+              pulseInterval={2.5}
+              pulseLength={0.5}
+              lineWidth={2}
+              pulseWidth={2.5}
+              pulseSoftness={4}
+              baseGlow={12}
+              syncPulses
+              lineColor="#d3d9e3"
+              lineColorLight="#d3d9e3"
               pulseColor="#c9a96e"
               pulseColorLight="#c9a96e"
               glowColor="#c9a96e"

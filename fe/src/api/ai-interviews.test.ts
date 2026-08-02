@@ -4,6 +4,7 @@ import {
   generateInterviewQuestions,
   getInterviewReportDetail,
   getInterviewReports,
+  sendNonVerbalData,
   submitInterviewAnswer,
 } from '@/api/ai-interviews'
 import type { InterviewInputContract } from '@/lib/interview-session'
@@ -196,6 +197,73 @@ describe('completeInterview', () => {
       '/backend/api/ai-interviews/101/complete',
     )
     expect((fetchMock.mock.calls[0]?.[1] as RequestInit).method).toBe('POST')
+  })
+})
+
+describe('sendNonVerbalData', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('프레임을 snake_case 필드로 변환해 /non-verbal에 POST한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 200,
+          timestamp: '2026-08-02T00:00:00Z',
+          path: '/api/ai-interviews/101/non-verbal',
+          message: '시선 및 표정 데이터 분석 요청 완료',
+          data: null,
+          error: null,
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await sendNonVerbalData({
+      aiInterviewId: 101,
+      screenWidth: 640,
+      screenHeight: 480,
+      fps: 5,
+      durationSec: 12.4,
+      frames: [
+        {
+          timestamp: 0.2,
+          gaze_x: 320,
+          gaze_y: 240,
+          blendshapes: [0.1],
+          ear: 0.3,
+          mar: 0.1,
+        },
+      ],
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/backend/api/ai-interviews/101/non-verbal',
+    )
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({
+      screen_width: 640,
+      screen_height: 480,
+      fps: 5,
+      duration_sec: 12.4,
+      frames: [
+        {
+          timestamp: 0.2,
+          gaze_x: 320,
+          gaze_y: 240,
+          blendshapes: [0.1],
+          ear: 0.3,
+          mar: 0.1,
+        },
+      ],
+    })
   })
 })
 

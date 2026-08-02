@@ -69,4 +69,6 @@ public interface CoverLetterRepository extends JpaRepository<CoverLetter, Long> 
             @Param("coverLetterId") Long coverLetterId,
             @Param("analysisContent") String analysisContent
     );
+
+
 }

@@ -26,7 +26,7 @@ describe('StudyChatMessageReactions', () => {
     expect(onToggle).toHaveBeenCalledWith(17, '👍')
   })
 
-  it('반응 추가 버튼에서 빠른 반응을 선택한다', async () => {
+  it('선택창을 유지하며 여러 이모지 반응을 연속으로 선택한다', async () => {
     const user = userEvent.setup()
     const onToggle = vi.fn()
 
@@ -43,8 +43,38 @@ describe('StudyChatMessageReactions', () => {
       screen.getByRole('button', { name: '이모지 반응 추가' }),
     )
     await user.click(screen.getByRole('button', { name: '🎉 반응' }))
+    await user.click(screen.getByRole('button', { name: '👏 반응' }))
 
-    expect(onToggle).toHaveBeenCalledWith(21, '🎉')
+    expect(onToggle).toHaveBeenNthCalledWith(1, 21, '🎉')
+    expect(onToggle).toHaveBeenNthCalledWith(2, 21, '👏')
+    expect(
+      screen.getByRole('dialog', { name: '메시지 반응 선택' }),
+    ).toBeInTheDocument()
+  })
+
+  it('선택창 밖을 누르거나 Escape를 누르면 선택창을 닫는다', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <StudyChatMessageReactions
+        messageId={21}
+        currentUserId={3}
+        reactions={[]}
+        onToggle={vi.fn()}
+      />,
+    )
+
+    const openPicker = () =>
+      user.click(screen.getByRole('button', { name: '이모지 반응 추가' }))
+
+    await openPicker()
+    await user.click(document.body)
+    expect(
+      screen.queryByRole('dialog', { name: '메시지 반응 선택' }),
+    ).not.toBeInTheDocument()
+
+    await openPicker()
+    await user.keyboard('{Escape}')
     expect(
       screen.queryByRole('dialog', { name: '메시지 반응 선택' }),
     ).not.toBeInTheDocument()
