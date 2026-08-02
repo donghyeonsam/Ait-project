@@ -11,6 +11,7 @@ import {
   markNotificationAsRead,
 } from '@/api/notifications'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatRelativeTime } from '@/lib/format'
 import { dropdownPanel, filterSlide } from '@/lib/motion'
@@ -18,6 +19,8 @@ import { cn } from '@/lib/utils'
 import type { NotificationCategory, NotificationItem } from '@/types/notification'
 
 type NotificationFilter = 'all' | NotificationCategory
+
+type DeleteTarget = { type: 'all' } | { type: 'one'; id: string }
 
 const categoryIcons: Record<NotificationCategory, typeof Users> = {
   group: Users,
@@ -39,6 +42,8 @@ export function NotificationBell() {
   const [hasError, setError] = useState(false)
   const [filter, setFilter] = useState<NotificationFilter>('all')
   const [slideDirection, setSlideDirection] = useState(1)
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
+  const [isDeleting, setDeleting] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const panelId = useId()
 
@@ -61,8 +66,10 @@ export function NotificationBell() {
     void loadNotifications()
   }, [loadNotifications])
 
+  // 삭제 확인 Dialog가 떠 있는 동안에는 Dialog 조작이 드롭다운을 닫지 않게 한다.
+  const hasDeleteDialog = deleteTarget != null
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen || hasDeleteDialog) return
     const handlePointerDown = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
     }
@@ -75,7 +82,7 @@ export function NotificationBell() {
       document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen])
+  }, [isOpen, hasDeleteDialog])
 
   const unreadCount = notifications.filter((item) => !item.read).length
   const filteredNotifications =
@@ -106,14 +113,23 @@ export function NotificationBell() {
     markAllNotificationsAsRead().catch(() => loadNotifications())
   }
 
-  const handleDelete = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id))
-    deleteNotification(id).catch(() => loadNotifications())
-  }
-
-  const handleDeleteAll = () => {
-    setNotifications([])
-    deleteAllNotifications().catch(() => loadNotifications())
+  // 되돌릴 수 없는 삭제는 확인 Dialog를 거친 뒤에만 실행한다. 실패하면 목록을 다시 동기화한다.
+  const handleConfirmDelete = () => {
+    if (!deleteTarget || isDeleting) return
+    setDeleting(true)
+    const request =
+      deleteTarget.type === 'all'
+        ? deleteAllNotifications().then(() => setNotifications([]))
+        : deleteNotification(deleteTarget.id).then(() => {
+            const targetId = deleteTarget.id
+            setNotifications((prev) => prev.filter((n) => n.id !== targetId))
+          })
+    request
+      .catch(() => loadNotifications())
+      .finally(() => {
+        setDeleting(false)
+        setDeleteTarget(null)
+      })
   }
 
   const handleFilterChange = (next: NotificationFilter) => {
@@ -173,7 +189,7 @@ export function NotificationBell() {
                 {notifications.length > 0 ? (
                   <button
                     type="button"
-                    onClick={handleDeleteAll}
+                    onClick={() => setDeleteTarget({ type: 'all' })}
                     className="text-body-2 text-text-secondary hover:text-status-error hover:underline"
                   >
                     전체 삭제
@@ -290,7 +306,7 @@ export function NotificationBell() {
                               <button
                                 type="button"
                                 aria-label="알림 삭제"
-                                onClick={() => handleDelete(item.id)}
+                                onClick={() => setDeleteTarget({ type: 'one', id: item.id })}
                                 className="absolute top-2.5 right-2.5 flex size-6 items-center justify-center rounded-full text-ink-400 opacity-0 transition-opacity [transition-duration:var(--duration-fast)] group-hover/item:opacity-100 hover:bg-surface-default hover:text-status-error focus-visible:opacity-100"
                               >
                                 <X aria-hidden="true" className="size-3.5" />
@@ -307,6 +323,19 @@ export function NotificationBell() {
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={hasDeleteDialog}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) setDeleteTarget(null)
+        }}
+        title={deleteTarget?.type === 'all' ? '알림을 모두 삭제할까요?' : '알림을 삭제할까요?'}
+        description="삭제한 알림은 되돌릴 수 없습니다."
+        confirmLabel={deleteTarget?.type === 'all' ? '전체 삭제' : '삭제'}
+        confirmVariant="destructive"
+        isConfirming={isDeleting}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   )
 }
