@@ -11,6 +11,7 @@ import { DashboardStudyPage } from '@/pages/DashboardStudyPage'
 import { GithubCallbackPage } from '@/pages/GithubCallbackPage'
 import { InterviewSessionPage } from '@/pages/InterviewSessionPage'
 import { InterviewsPage } from '@/pages/InterviewsPage'
+import { GoogleCallbackPage } from '@/pages/auth/GoogleCallbackPage'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
 import { MyPage } from '@/pages/MyPage'
@@ -53,6 +54,7 @@ export function AppRouter() {
       <Route path="/mypage/documents/cover-letters/:coverLetterId" element={<ProtectedRoute><CoverLetterPage /></ProtectedRoute>} />
       <Route path="/login" element={<GuestOnlyRoute><LoginPage /></GuestOnlyRoute>} />
       <Route path="/signup" element={<GuestOnlyRoute><SignupPage /></GuestOnlyRoute>} />
+      <Route path="/oauth/google/callback" element={<GuestOnlyRoute><GoogleCallbackPage /></GuestOnlyRoute>} />
       <Route path="/reset-password" element={<GuestOnlyRoute><ResetPasswordPage /></GuestOnlyRoute>} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />

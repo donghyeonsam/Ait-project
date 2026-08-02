@@ -2094,7 +2094,6 @@ button:not(:disabled) {
 }
 
 .profile-card {
-  align-self: start;
   border-radius: var(--radius-m);
   background: var(--color-action-primary);
   padding: 1.5rem;
