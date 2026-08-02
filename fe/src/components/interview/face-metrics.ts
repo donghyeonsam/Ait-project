@@ -30,15 +30,16 @@ function aspectRatio(points: NormalizedPoint[], indexes: number[]) {
 export interface FrameMetrics {
   ear: number
   mar: number
-  deviation: number
 }
 
 export function frameMetrics(landmarks: NormalizedPoint[]): FrameMetrics {
   const ear =
     (aspectRatio(landmarks, LEFT_EYE) + aspectRatio(landmarks, RIGHT_EYE)) / 2
   const mar = aspectRatio(landmarks, MOUTH)
-  const nose = landmarks[NOSE_TIP]
-  // 코끝이 화면 중앙(0.5, 0.5)에서 벗어난 거리 = 머리 방향 근사치.
-  const deviation = Math.hypot(nose.x - 0.5, nose.y - 0.5)
-  return { ear, mar, deviation }
+  return { ear, mar }
+}
+
+// BE가 시선 이탈 점수를 계산할 gaze_x/gaze_y의 재료. 정규화 좌표(0~1)의 코끝 위치를 그대로 반환한다.
+export function noseTipPosition(landmarks: NormalizedPoint[]): NormalizedPoint {
+  return landmarks[NOSE_TIP]
 }

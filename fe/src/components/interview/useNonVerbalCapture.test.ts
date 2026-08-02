@@ -11,12 +11,14 @@ vi.mock('@mediapipe/tasks-vision', () => ({
   FaceLandmarker: { createFromOptions },
 }))
 
-const analyzeFaceExpression = vi.fn()
-vi.mock('@/api/face-analysis', () => ({
-  analyzeFaceExpression: (...args: unknown[]) => analyzeFaceExpression(...args),
+const sendNonVerbalData = vi.fn()
+vi.mock('@/api/ai-interviews', () => ({
+  sendNonVerbalData: (...args: unknown[]) => sendNonVerbalData(...args),
 }))
 
-const { useFaceExpression } = await import('@/components/interview/useFaceExpression')
+const { useNonVerbalCapture } = await import(
+  '@/components/interview/useNonVerbalCapture'
+)
 
 class MockMediaStream {
   private readonly tracks: MediaStreamTrack[]
@@ -29,6 +31,8 @@ class MockMediaStream {
 }
 
 const SAMPLE_INTERVAL_MS = 200 // SAMPLE_FPS(5)와 동일
+const VIDEO_WIDTH = 640
+const VIDEO_HEIGHT = 480
 
 function detectionResult() {
   return {
@@ -39,14 +43,14 @@ function detectionResult() {
   }
 }
 
-describe('useFaceExpression', () => {
+describe('useNonVerbalCapture', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.stubGlobal('MediaStream', MockMediaStream)
     detectForVideo.mockReturnValue(detectionResult())
     forVisionTasks.mockClear().mockResolvedValue({})
     createFromOptions.mockClear().mockResolvedValue({ detectForVideo, close })
-    analyzeFaceExpression.mockReset()
+    sendNonVerbalData.mockReset()
 
     vi.spyOn(document, 'createElement').mockImplementation(
       ((tag: string) => {
@@ -54,6 +58,14 @@ describe('useFaceExpression', () => {
         if (tag === 'video') {
           Object.defineProperty(element, 'readyState', {
             value: 2,
+            configurable: true,
+          })
+          Object.defineProperty(element, 'videoWidth', {
+            value: VIDEO_WIDTH,
+            configurable: true,
+          })
+          Object.defineProperty(element, 'videoHeight', {
+            value: VIDEO_HEIGHT,
             configurable: true,
           })
           Object.defineProperty(element, 'play', {
@@ -77,7 +89,7 @@ describe('useFaceExpression', () => {
   }
 
   it('영상 트랙이 없으면 캡처를 시작하지 않는다', () => {
-    const { result } = renderHook(() => useFaceExpression(null))
+    const { result } = renderHook(() => useNonVerbalCapture(null, 1))
 
     act(() => {
       result.current.startCapture()
@@ -87,37 +99,69 @@ describe('useFaceExpression', () => {
     expect(createFromOptions).not.toHaveBeenCalled()
   })
 
-  it('녹화 구간 동안 프레임을 모아 분석 결과 점수를 받는다', async () => {
-    analyzeFaceExpression.mockResolvedValue({ score: 8.4 })
-    const { result } = renderHook(() => useFaceExpression(trackStream()))
+  it('aiInterviewId가 없으면 캡처를 시작하지 않는다', () => {
+    const { result } = renderHook(() => useNonVerbalCapture(trackStream(), null))
+
+    act(() => {
+      result.current.startCapture()
+    })
+
+    expect(result.current.status).toBe('idle')
+    expect(createFromOptions).not.toHaveBeenCalled()
+  })
+
+  it('녹화 구간 동안 프레임을 모아 BE의 /non-verbal로 전송한다', async () => {
+    sendNonVerbalData.mockResolvedValue(undefined)
+    const { result } = renderHook(() => useNonVerbalCapture(trackStream(), 42))
 
     act(() => {
       result.current.startCapture()
     })
     expect(result.current.status).toBe('capturing')
 
-    // FaceLandmarker 로딩(Promise 체인)을 흘려보내고 샘플링 간격을 5회 진행한다.
     await act(async () => {
       await vi.advanceTimersByTimeAsync(SAMPLE_INTERVAL_MS * 5)
     })
     expect(detectForVideo).toHaveBeenCalled()
 
+    act(() => {
+      result.current.stopCapture()
+    })
     await act(async () => {
-      await result.current.stopCapture()
+      await vi.advanceTimersByTimeAsync(0)
     })
 
-    expect(analyzeFaceExpression).toHaveBeenCalledTimes(1)
-    const [payload] = analyzeFaceExpression.mock.calls[0] as [
-      { fps: number; frames: unknown[] },
+    expect(sendNonVerbalData).toHaveBeenCalledTimes(1)
+    const [payload] = sendNonVerbalData.mock.calls[0] as [
+      {
+        aiInterviewId: number
+        screenWidth: number
+        screenHeight: number
+        fps: number
+        frames: Array<{
+          gaze_x: number
+          gaze_y: number
+          blendshapes: number[]
+          ear: number
+          mar: number
+        }>
+      },
     ]
+    expect(payload.aiInterviewId).toBe(42)
+    expect(payload.screenWidth).toBe(VIDEO_WIDTH)
+    expect(payload.screenHeight).toBe(VIDEO_HEIGHT)
     expect(payload.fps).toBe(5)
-    expect(payload.frames.length).toBeGreaterThanOrEqual(5)
+    expect(payload.frames.length).toBeGreaterThan(0)
+    // 코끝이 정규화 좌표 (0.5, 0.5)이므로 비디오 픽셀 기준으로는 정중앙 좌표가 된다.
+    expect(payload.frames[0].gaze_x).toBeCloseTo(VIDEO_WIDTH * 0.5, 5)
+    expect(payload.frames[0].gaze_y).toBeCloseTo(VIDEO_HEIGHT * 0.5, 5)
+    expect(payload.frames[0].blendshapes).toHaveLength(52)
     expect(result.current.status).toBe('done')
-    expect(result.current.score).toBe(8.4)
   })
 
-  it('검출된 프레임이 너무 적으면 분석을 요청하지 않고 idle로 돌아간다', async () => {
-    const { result } = renderHook(() => useFaceExpression(trackStream()))
+  it('검출된 프레임이 없으면 전송하지 않고 idle로 돌아간다', async () => {
+    detectForVideo.mockReturnValue({ faceLandmarks: [] })
+    const { result } = renderHook(() => useNonVerbalCapture(trackStream(), 42))
 
     act(() => {
       result.current.startCapture()
@@ -125,18 +169,17 @@ describe('useFaceExpression', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(SAMPLE_INTERVAL_MS)
     })
-
-    await act(async () => {
-      await result.current.stopCapture()
+    act(() => {
+      result.current.stopCapture()
     })
 
-    expect(analyzeFaceExpression).not.toHaveBeenCalled()
+    expect(sendNonVerbalData).not.toHaveBeenCalled()
     expect(result.current.status).toBe('idle')
   })
 
-  it('분석 요청이 실패하면 error 상태와 메시지를 남긴다', async () => {
-    analyzeFaceExpression.mockRejectedValue(new Error('network down'))
-    const { result } = renderHook(() => useFaceExpression(trackStream()))
+  it('전송이 실패하면 error 상태와 메시지를 남긴다', async () => {
+    sendNonVerbalData.mockRejectedValue(new Error('network down'))
+    const { result } = renderHook(() => useNonVerbalCapture(trackStream(), 42))
 
     act(() => {
       result.current.startCapture()
@@ -144,8 +187,11 @@ describe('useFaceExpression', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(SAMPLE_INTERVAL_MS * 5)
     })
+    act(() => {
+      result.current.stopCapture()
+    })
     await act(async () => {
-      await result.current.stopCapture()
+      await vi.advanceTimersByTimeAsync(0)
     })
 
     expect(result.current.status).toBe('error')
@@ -154,7 +200,7 @@ describe('useFaceExpression', () => {
 
   it('모델 로딩에 실패하면 error 상태가 된다', async () => {
     createFromOptions.mockRejectedValue(new Error('gpu unavailable'))
-    const { result } = renderHook(() => useFaceExpression(trackStream()))
+    const { result } = renderHook(() => useNonVerbalCapture(trackStream(), 42))
 
     act(() => {
       result.current.startCapture()
@@ -166,9 +212,9 @@ describe('useFaceExpression', () => {
     expect(result.current.status).toBe('error')
   })
 
-  it('reset을 호출하면 idle 상태로 돌아가고 점수가 사라진다', async () => {
-    analyzeFaceExpression.mockResolvedValue({ score: 5 })
-    const { result } = renderHook(() => useFaceExpression(trackStream()))
+  it('reset을 호출하면 idle 상태로 돌아간다', async () => {
+    sendNonVerbalData.mockResolvedValue(undefined)
+    const { result } = renderHook(() => useNonVerbalCapture(trackStream(), 42))
 
     act(() => {
       result.current.startCapture()
@@ -176,16 +222,19 @@ describe('useFaceExpression', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(SAMPLE_INTERVAL_MS * 5)
     })
-    await act(async () => {
-      await result.current.stopCapture()
+    act(() => {
+      result.current.stopCapture()
     })
-    expect(result.current.score).toBe(5)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(result.current.status).toBe('done')
 
     act(() => {
       result.current.reset()
     })
 
     expect(result.current.status).toBe('idle')
-    expect(result.current.score).toBeNull()
+    expect(result.current.error).toBeNull()
   })
 })
