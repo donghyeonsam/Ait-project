@@ -1,6 +1,12 @@
 package com.aitserver.studySession.service;
 
 
+import com.aitserver.coverletter.dto.CoverLetterContentResponse;
+import com.aitserver.coverletter.dto.CoverLetterDetailResponse;
+import com.aitserver.coverletter.entity.CoverLetter;
+import com.aitserver.coverletter.entity.CoverLetterContent;
+import com.aitserver.coverletter.repository.CoverLetterRepository;
+import com.aitserver.coverletter.service.CoverLetterService;
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.global.livekit.LiveKitRoomClient;
@@ -15,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.aitserver.studySession.domain.StudySessionParticipantStatus.JOINED;
@@ -31,6 +38,8 @@ public class StudySessionParticipantService {
     private final LiveKitRoomClient liveKitRoomClient;
 
     private final LiveKitTokenService liveKitTokenService;
+
+    private final CoverLetterRepository coverLetterRepository;
 
 
     @Transactional
@@ -191,5 +200,36 @@ public class StudySessionParticipantService {
                     ErrorCode.STUDY_SESSION_ACCESS_DENIED
             );
         }
+    }
+
+
+
+    public CoverLetterDetailResponse getDetail(Long coverLetterId) {
+
+        CoverLetter coverLetter = coverLetterRepository
+                .findByIdAndDeletedAtIsNull(coverLetterId)
+                .orElseThrow(() ->
+                        new BusinessException(ErrorCode.COVER_LETTER_NOT_FOUND)
+                );
+
+        List<CoverLetterContentResponse> contents = new ArrayList<>();
+
+        for (CoverLetterContent coverLetterContent : coverLetter.getContents()) {
+            CoverLetterContentResponse contentResponse =
+                    CoverLetterContentResponse.from(coverLetterContent);
+
+            contents.add(contentResponse);
+        }
+
+        return CoverLetterDetailResponse.builder()
+                .coverLetterId(coverLetter.getId())
+                .title(coverLetter.getTitle())
+                .companyName(coverLetter.getCompanyName())
+                .role(coverLetter.getRole())
+                .analysisContent(coverLetter.getAnalysisContent())
+                .coverLetterContents(contents)
+                .createdAt(coverLetter.getCreatedAt())
+                .updatedAt(coverLetter.getUpdatedAt())
+                .build();
     }
 }

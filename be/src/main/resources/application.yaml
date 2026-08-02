@@ -42,7 +42,7 @@ spring:
 
   sql:
     init:
-      mode: never
+      mode: always
 
   docker:
     compose:
@@ -72,6 +72,26 @@ spring:
     multipart:
       max-file-size: 20MB      # 파일 1개당 최대 허용 용량
       max-request-size: 20MB   # 요청 1번당 최대 허용 용량 (파일 여러 개 묶음)
+
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_APP_PASSWORD}
+    default-encoding: UTF-8
+
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          # 타임아웃 설정
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
 # http://localhost:8080/swagger-ui/index.html#/
 

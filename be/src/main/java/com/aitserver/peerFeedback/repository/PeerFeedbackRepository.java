@@ -2,6 +2,7 @@ package com.aitserver.peerFeedback.repository;
 
 import com.aitserver.peerFeedback.entity.PeerFeedback;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -23,6 +24,15 @@ public interface PeerFeedbackRepository extends JpaRepository<PeerFeedback, Long
     );
 
     List<PeerFeedback> findAllByEvaluateeId(Long evaluateeId);
+
+    // summary 생성용
+    @EntityGraph(attributePaths = {
+            "evaluator",
+            "evaluatee"
+    })
+    List<PeerFeedback> findAllByStudySession_Id(
+            Long sessionId
+    );
 
 
 }

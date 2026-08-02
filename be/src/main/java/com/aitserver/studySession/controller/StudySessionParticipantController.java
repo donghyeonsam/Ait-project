@@ -1,6 +1,8 @@
 package com.aitserver.studySession.controller;
 
 
+import com.aitserver.coverletter.dto.CoverLetterDetailResponse;
+import com.aitserver.coverletter.service.CoverLetterService;
 import com.aitserver.global.response.ApiResponse;
 import com.aitserver.studySession.dto.MemberResponse;
 import com.aitserver.studySession.dto.StudySessionParticipantJoinRequest;
@@ -23,6 +25,8 @@ public class StudySessionParticipantController {
 
     private final StudySessionParticipantService participantService;
     private final StudySessionParticipantJoinService participantJoinService;
+    private final StudySessionParticipantService studySessionParticipantService;
+
 
     // 세션 강퇴 기능(방장만 가능)
     @DeleteMapping("/{sessionId}/participants/{targetUserId}")
@@ -105,6 +109,25 @@ public class StudySessionParticipantController {
                         request
                 ));
 
+    }
+
+    // 자소서 상세 조회, 사용자 인증 없는 버전
+    @GetMapping("/{coverLetterId}")
+    public ResponseEntity<ApiResponse<CoverLetterDetailResponse>> getDetails(
+            @PathVariable Long coverLetterId,
+            HttpServletRequest request
+    ){
+
+        CoverLetterDetailResponse coverLetterDetailResponse = studySessionParticipantService.getDetail(coverLetterId);
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.success(
+                        HttpStatus.OK,
+                        "자기소개서 상세 조회에 성공하였습니다.",
+                        coverLetterDetailResponse,
+                        request
+                ));
     }
 
 }

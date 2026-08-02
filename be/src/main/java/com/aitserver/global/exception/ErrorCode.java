@@ -98,7 +98,17 @@ public enum ErrorCode {
 
     // PeerFeedback
     PEER_FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "PEER_FEEDBACK_001", "해당 id의 상호 평가를 찾을 수 없습니다."),
-    PEER_FEEDBACK_ACCESS_DENIED(HttpStatus.FORBIDDEN, "PEER_FEEDBACK_002", "해당 평가를 수정할 권한이 없습니다.");
+    PEER_FEEDBACK_ACCESS_DENIED(HttpStatus.FORBIDDEN, "PEER_FEEDBACK_002", "해당 평가를 수정할 권한이 없습니다."),
+
+    // email
+    EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "AUTH_EMAIL_001", "이미 가입된 이메일입니다."),
+    EMAIL_SEND_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AUTH_EMAIL_002", "인증 이메일 발송에 실패했습니다."),
+    EMAIL_RESEND_TOO_FAST(HttpStatus.TOO_MANY_REQUESTS, "AUTH_EMAIL_003", "인증번호는 1분 후 다시 요청할 수 있습니다."),
+    EMAIL_VERIFICATION_CODE_EXPIRED(HttpStatus.BAD_REQUEST, "AUTH_EMAIL_004", "인증번호가 만료되었거나 존재하지 않습니다."),
+    EMAIL_VERIFICATION_CODE_MISMATCH(HttpStatus.BAD_REQUEST, "AUTH_EMAIL_005", "인증번호가 일치하지 않습니다."),
+    EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "AUTH_EMAIL_006", "인증번호 입력 횟수를 초과했습니다. 다시 발급해주세요."),
+    EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "AUTH_EMAIL_007", "이메일 인증이 완료되지 않았습니다.");
+
 
 
 
