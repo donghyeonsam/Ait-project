@@ -3,11 +3,10 @@ package com.aitserver.peerFeedback.service;
 
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
-import com.aitserver.peerFeedback.dto.PeerFeedbackCreateRequest;
-import com.aitserver.peerFeedback.dto.PeerFeedbackDetailResponse;
-import com.aitserver.peerFeedback.dto.PeerFeedbackListResponse;
-import com.aitserver.peerFeedback.dto.PeerFeedbackUpdateRequest;
+import com.aitserver.peerFeedback.dto.*;
+import com.aitserver.peerFeedback.entity.AiPeerSummary;
 import com.aitserver.peerFeedback.entity.PeerFeedback;
+import com.aitserver.peerFeedback.repository.AiPeerSummaryRepository;
 import com.aitserver.peerFeedback.repository.PeerFeedbackRepository;
 import com.aitserver.studySession.entity.StudySession;
 import com.aitserver.studySession.repository.StudySessionRepository;
@@ -24,6 +23,7 @@ import java.util.*;
 public class PeerFeedbackServiceImpl implements PeerFeedbackService{
     private final PeerFeedbackRepository peerFeedbackRepository;
     private final StudySessionRepository studySessionRepository;
+    private final AiPeerSummaryRepository aiPeerSummaryRepository;
 
     @Override
     public PeerFeedbackDetailResponse getPeerFeedbackDetail(Long peerId) {
@@ -52,7 +52,7 @@ public class PeerFeedbackServiceImpl implements PeerFeedbackService{
     }
 
     @Override
-    public List<PeerFeedbackDetailResponse> getPeerFeedbackReceiveList(Long userId, Long sessionId) {
+    public PeerFeedbackReceiveResponse getPeerFeedbackReceiveList(Long userId, Long sessionId) {
 
         List<PeerFeedback> list = peerFeedbackRepository.findAllByStudySessionIdAndEvaluateeId(sessionId, userId);
 
@@ -61,7 +61,14 @@ public class PeerFeedbackServiceImpl implements PeerFeedbackService{
                         .map(PeerFeedbackDetailResponse::from)
                         .toList();
 
-        return responseList;
+        AiPeerSummary aiPeerSummary = aiPeerSummaryRepository.findByStudySessionIdAndEvaluateeId(sessionId, userId);
+
+
+
+        return  PeerFeedbackReceiveResponse.builder()
+                .aiSummary(aiPeerSummary.getContent())
+                .details(responseList)
+                .build();
     }
 
     @Override

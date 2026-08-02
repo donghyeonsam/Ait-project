@@ -26,11 +26,7 @@ public interface PeerFeedbackRepository extends JpaRepository<PeerFeedback, Long
     List<PeerFeedback> findAllByEvaluateeId(Long evaluateeId);
 
     // summary 생성용
-    @EntityGraph(attributePaths = {
-            "evaluator",
-            "evaluatee"
-    })
-    List<PeerFeedback> findAllByStudySession_Id(
+    List<PeerFeedback> findAllByStudySessionId(
             Long sessionId
     );
 

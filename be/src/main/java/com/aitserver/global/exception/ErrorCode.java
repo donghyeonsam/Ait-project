@@ -117,9 +117,19 @@ public enum ErrorCode {
     EMAIL_VERIFICATION_CODE_EXPIRED(HttpStatus.BAD_REQUEST, "AUTH_EMAIL_004", "인증번호가 만료되었거나 존재하지 않습니다."),
     EMAIL_VERIFICATION_CODE_MISMATCH(HttpStatus.BAD_REQUEST, "AUTH_EMAIL_005", "인증번호가 일치하지 않습니다."),
     EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "AUTH_EMAIL_006", "인증번호 입력 횟수를 초과했습니다. 다시 발급해주세요."),
-    EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "AUTH_EMAIL_007", "이메일 인증이 완료되지 않았습니다.");
+    EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "AUTH_EMAIL_007", "이메일 인증이 완료되지 않았습니다."),
 
 
+    // 상호평가 요약
+    STUDY_SESSION_NOT_FINISHED(HttpStatus.CONFLICT, "STUDY_SESSION_010", "종료되지 않은 세션의 상호평가를 요약할 수 없습니다."),
+    GMS_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "GMS_001", "AI 요약 생성 요청에 실패했습니다."),
+    GMS_RESPONSE_PARSE_FAILED(HttpStatus.BAD_GATEWAY, "GMS_002", "AI 요약 결과를 처리하지 못했습니다."),
+    GMS_RESPONSE_INVALID(HttpStatus.BAD_GATEWAY, "GMS_003", "AI 요약 결과가 올바른 형식이 아닙니다."),
+
+
+    // user
+    GITHUB_REPOSITORY_NOT_FOUND(HttpStatus.NOT_FOUND, "GITHUB_002", "GitHub 레포지토리를 찾을 수 없습니다."),
+    INVALID_GITHUB_REPOSITORY(HttpStatus.BAD_REQUEST, "GITHUB_003", "잘못된 GitHub 레포지토리 요청입니다.");
 
 
     private final HttpStatus status;
