@@ -1,16 +1,16 @@
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/lib/useAuth'
+import { LandingPage } from '@/pages/LandingPage'
 
 interface RouteGuardProps {
   children: ReactNode
 }
 
-// 루트("/") 진입 처리. 로그인 상태면 대시보드로 보낸다.
-// 랜딩 페이지는 외부 노출을 막기 위해 임시 비활성화한다. 복구 시 LandingPage import와 렌더링을 되살린다.
+// 루트("/") 진입 처리. 로그인 상태면 대시보드로, 비로그인이면 랜딩 페이지를 보여준다.
 export function HomeRoute() {
   const { isAuthenticated } = useAuth()
-  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />
 }
 
 // 로그인 사용자는 접근할 필요가 없는 화면(로그인·회원가입) 가드. 이미 로그인했으면 대시보드로 보낸다.
