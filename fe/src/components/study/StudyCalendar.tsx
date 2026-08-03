@@ -445,6 +445,7 @@ export function StudyCalendar({ groupId }: StudyCalendarProps) {
               ariaLabel="연도 선택"
               className="w-28"
               buttonClassName="h-10 border-0 px-2 py-0 text-h2 text-text-primary hover:bg-status-neutral-surface"
+              listboxClassName="max-h-[12.5rem] overflow-y-auto overscroll-contain"
             />
             <Dropdown
               options={monthOptions}
@@ -453,6 +454,7 @@ export function StudyCalendar({ groupId }: StudyCalendarProps) {
               ariaLabel="월 선택"
               className="w-24"
               buttonClassName="h-10 border-0 px-2 py-0 text-h2 text-text-primary hover:bg-status-neutral-surface"
+              listboxClassName="max-h-[12.5rem] overflow-y-auto overscroll-contain"
             />
           </div>
           <button

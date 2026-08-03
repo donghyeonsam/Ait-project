@@ -341,10 +341,22 @@ describe('StudyGroupPage', () => {
     await renderStudyGroupPage()
 
     await user.click(screen.getByRole('button', { name: '연도 선택' }))
+    expect(
+      screen.getByRole('listbox', { name: '연도 선택' }),
+    ).toHaveClass(
+      'max-h-[12.5rem]',
+      'overflow-y-auto',
+      'overscroll-contain',
+    )
     await user.click(
       screen.getByRole('option', { name: `${nextYear}년` }),
     )
     await user.click(screen.getByRole('button', { name: '월 선택' }))
+    expect(screen.getByRole('listbox', { name: '월 선택' })).toHaveClass(
+      'max-h-[12.5rem]',
+      'overflow-y-auto',
+      'overscroll-contain',
+    )
     await user.click(
       screen.getByRole('option', { name: `${nextMonth}월` }),
     )

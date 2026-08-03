@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, ChevronDown } from 'lucide-react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { dropdownPanel } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
@@ -17,6 +17,7 @@ interface DropdownProps<T extends string> {
   placeholder?: string
   className?: string
   buttonClassName?: string
+  listboxClassName?: string
   invalid?: boolean
   /** 트리거가 화면/컨테이너 하단에 가까워 아래로 펼치면 잘리는 경우, 위로 펼치도록 전환한다. */
   openUpward?: boolean
@@ -31,12 +32,14 @@ export function Dropdown<T extends string>({
   placeholder = '선택',
   className,
   buttonClassName,
+  listboxClassName,
   invalid = false,
   openUpward = false,
 }: DropdownProps<T>) {
   const [isOpen, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const rootRef = useRef<HTMLDivElement>(null)
+  const listboxRef = useRef<HTMLUListElement>(null)
   const listboxId = useId()
 
   const selected = options.find((option) => option.value === value) ?? null
@@ -49,6 +52,14 @@ export function Dropdown<T extends string>({
     document.addEventListener('pointerdown', handlePointerDown)
     return () => document.removeEventListener('pointerdown', handlePointerDown)
   }, [isOpen])
+
+  useLayoutEffect(() => {
+    if (!isOpen || activeIndex < 0) return
+    const activeOption = listboxRef.current?.children.item(activeIndex)
+    if (activeOption instanceof HTMLElement) {
+      activeOption.scrollIntoView?.({ block: 'nearest' })
+    }
+  }, [activeIndex, isOpen])
 
   const openList = () => {
     setActiveIndex(Math.max(0, options.findIndex((o) => o.value === value)))
@@ -125,6 +136,7 @@ export function Dropdown<T extends string>({
       <AnimatePresence>
         {isOpen ? (
           <motion.ul
+            ref={listboxRef}
             id={listboxId}
             role="listbox"
             aria-label={ariaLabel}
@@ -133,8 +145,10 @@ export function Dropdown<T extends string>({
             animate="animate"
             exit="exit"
             className={cn(
-              'absolute left-0 z-(--z-index-dropdown) min-w-full overflow-hidden rounded-ait-s border border-line bg-surface-default py-1 shadow-elevation-2',
+              'absolute left-0 z-(--z-index-dropdown) min-w-full rounded-ait-s border border-line bg-surface-default py-1 shadow-elevation-2',
+              !listboxClassName && 'overflow-hidden',
               openUpward ? 'bottom-[calc(100%+0.375rem)] origin-bottom' : 'top-[calc(100%+0.375rem)] origin-top',
+              listboxClassName,
             )}
           >
             {options.map((option, index) => (
