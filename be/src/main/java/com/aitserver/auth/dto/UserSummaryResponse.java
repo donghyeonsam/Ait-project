@@ -1,6 +1,6 @@
 package com.aitserver.auth.dto;
 
-import com.aitserver.auth.entity.User;
+import com.aitserver.user.entity.User;
 
 public record UserSummaryResponse(
         Long userId,

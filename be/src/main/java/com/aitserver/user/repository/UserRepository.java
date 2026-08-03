@@ -1,6 +1,6 @@
-package com.aitserver.auth.repository;
+package com.aitserver.user.repository;
 
-import com.aitserver.auth.entity.User;
+import com.aitserver.user.entity.User;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,4 +20,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByIdAndDeletedAtIsNull(Long userId);
 
     boolean existsByNicknameAndIdNotAndDeletedAtIsNull(String nickname, Long userId);
+
+
 }

@@ -3,7 +3,7 @@ package com.aitserver.auth.service;
 
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
-import com.aitserver.auth.repository.UserRepository;
+import com.aitserver.user.repository.UserRepository;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;

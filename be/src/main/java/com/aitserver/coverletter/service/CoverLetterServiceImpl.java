@@ -1,7 +1,7 @@
 package com.aitserver.coverletter.service;
 
-import com.aitserver.auth.entity.User;
-import com.aitserver.auth.repository.UserRepository;
+import com.aitserver.user.entity.User;
+import com.aitserver.user.repository.UserRepository;
 import com.aitserver.coverletter.analysis.event.CoverLetterAnalysisRequestedEvent;
 import com.aitserver.coverletter.analysis.service.CoverLetterChangeDetector;
 import com.aitserver.coverletter.dto.*;
