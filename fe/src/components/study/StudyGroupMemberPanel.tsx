@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 /** 구성원 패널이 그리는 최소 정보. 그룹 상세 응답의 members를 이 형태로 변환해 넘긴다. */
 export interface StudyGroupMember {
   id: number
-  name: string
+  nickname: string
   role: string
   isSelf: boolean
 }
@@ -63,7 +63,7 @@ export function StudyGroupMemberPanel({
               </AvatarFallback>
             </Avatar>
             <p className="min-w-0 flex-1 truncate text-body-2 text-text-primary">
-              <span className="font-medium">{member.name}</span>
+              <span className="font-medium">{member.nickname}</span>
               <span className="text-text-secondary"> · {member.role}</span>
             </p>
             {canManage && !member.isSelf ? (
@@ -71,7 +71,7 @@ export function StudyGroupMemberPanel({
                 type="button"
                 onClick={() => onRemoveMember(member.id)}
                 className="shrink-0 rounded-ait-s border border-status-error-border px-3 py-1 text-caption text-status-error hover:bg-status-error-surface"
-                aria-label={`${member.name} 내보내기`}
+                aria-label={`${member.nickname} 내보내기`}
               >
                 내보내기
               </button>

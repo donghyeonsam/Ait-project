@@ -26,7 +26,7 @@ export interface StudyGroupPage {
 
 export interface StudyGroupMemberInfo {
   userId: number
-  name: string
+  nickname: string
   profileImageUrl: string | null
   owner: boolean
 }
