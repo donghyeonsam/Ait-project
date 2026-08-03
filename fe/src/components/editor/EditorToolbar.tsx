@@ -12,6 +12,8 @@ import {
   Undo2,
 } from 'lucide-react'
 import { useRef, type ReactNode } from 'react'
+import { EmojiPopover } from '@/components/editor/EmojiPopover'
+import { EmoticonPopover } from '@/components/editor/EmoticonPopover'
 import { LinkPopover } from '@/components/editor/LinkPopover'
 import { Dropdown } from '@/components/ui/dropdown'
 import { cn } from '@/lib/utils'
@@ -189,6 +191,8 @@ export function EditorToolbar({ editor, onPickImage }: EditorToolbarProps) {
       <ToolbarButton label="이미지" onClick={onPickImage}>
         <ImagePlus aria-hidden="true" className="size-4" />
       </ToolbarButton>
+      <EmojiPopover editor={editor} />
+      <EmoticonPopover editor={editor} />
 
       <Divider />
 
