@@ -5,35 +5,39 @@ import {
 } from '@/components/interview/interviewer-media'
 
 describe('InterviewerMedia', () => {
-  it('답변 녹음 중에는 중립 영상만 사용한다', () => {
-    const playlist = getInterviewerPlaylist('neutral')
+  it('면접 진행 중에는 평시 영상을 90% 이상 사용하고 인사를 제외한다', () => {
+    const playlist = getInterviewerPlaylist('active')
+    const neutralClips = playlist.filter((source) => source.includes('평시'))
 
-    expect(playlist.length).toBeGreaterThan(0)
-    expect(playlist.every((source) => source.includes('neutrality'))).toBe(true)
+    expect(neutralClips.length / playlist.length).toBeGreaterThanOrEqual(0.9)
+    expect(playlist.some((source) => source.includes('눈 2번 깜빡임'))).toBe(true)
+    expect(playlist.some((source) => source.includes('숨쉬기'))).toBe(true)
+    expect(playlist.some((source) => source.includes('큰숨'))).toBe(true)
+    expect(playlist.every((source) => !source.includes('인사'))).toBe(true)
   })
 
-  it('질문·답변 상태에 맞는 영상 단계를 결정한다', () => {
+  it('인사 영상은 마지막 답변을 제출하는 종료 단계에서만 사용한다', () => {
+    expect(getInterviewerPlaylist('outro')).toEqual([
+      '/interviewer_video/인사.mp4',
+    ])
     expect(
       getInterviewerPhase({
-        questionIndex: 0,
-        answerStatus: 'idle',
-        isAiSpeaking: false,
-        isSubmittingAnswer: false,
-        isLastQuestion: false,
-      }),
-    ).toBe('intro')
-    expect(
-      getInterviewerPhase({
-        questionIndex: 1,
         answerStatus: 'recording',
         isAiSpeaking: false,
         isSubmittingAnswer: false,
-        isLastQuestion: false,
+        isLastQuestion: true,
       }),
-    ).toBe('neutral')
+    ).toBe('active')
     expect(
       getInterviewerPhase({
-        questionIndex: 2,
+        answerStatus: 'review',
+        isAiSpeaking: false,
+        isSubmittingAnswer: true,
+        isLastQuestion: false,
+      }),
+    ).toBe('active')
+    expect(
+      getInterviewerPhase({
         answerStatus: 'review',
         isAiSpeaking: false,
         isSubmittingAnswer: true,

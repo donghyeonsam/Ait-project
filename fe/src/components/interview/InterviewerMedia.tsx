@@ -10,7 +10,6 @@ import type { InterviewStyle } from '@/mocks/interview'
 const INTERVIEWER_IMAGE_SRC = '/interview/ai-interviewer.png'
 
 interface InterviewerMediaProps {
-  questionIndex: number
   interviewStyle: InterviewStyle
   answerStatus: VoiceAnswerStatus
   isAiSpeaking: boolean
@@ -34,7 +33,7 @@ export function InterviewerMedia(props: InterviewerMediaProps) {
   )
   const source =
     playlist.length > 0
-      ? playlist[(props.questionIndex + playbackStep) % playlist.length]
+      ? playlist[playbackStep % playlist.length]
       : null
 
   const handleVideoError = () => {
@@ -71,7 +70,11 @@ export function InterviewerMedia(props: InterviewerMediaProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: 'easeOut' }}
-            onEnded={() => setPlaybackStep((step) => step + 1)}
+            onEnded={() => {
+              if (phase !== 'outro') {
+                setPlaybackStep((step) => step + 1)
+              }
+            }}
             onError={handleVideoError}
           />
         </AnimatePresence>

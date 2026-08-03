@@ -212,7 +212,6 @@ export function SessionTheater({
       <h1 className="sr-only">AI 모의면접 진행</h1>
 
       <InterviewerMedia
-        questionIndex={questionIndex}
         interviewStyle={interviewStyle}
         answerStatus={answerStatus}
         isAiSpeaking={isAiSpeaking}
