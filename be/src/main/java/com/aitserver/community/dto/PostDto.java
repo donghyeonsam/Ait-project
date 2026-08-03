@@ -76,7 +76,7 @@ public class PostDto {
         private final String category;
         private final String title;
         private final String content;
-
+        private final Integer commentCount;
         private final Boolean allowComments;
         private final Boolean receiveNotifications;
         private final Integer likeCount;
@@ -96,6 +96,7 @@ public class PostDto {
             this.category = post.getCategory();
             this.title = post.getTitle();
             this.content = post.getContent();
+            this.commentCount = post.getCommentCount();
 
             this.allowComments = post.getAllowComments();
             this.receiveNotifications = post.getReceiveNotifications();
