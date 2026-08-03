@@ -1,5 +1,6 @@
 package com.aitserver.studyGroupRoom.service.group;
 
+import com.aitserver.studyGroupRoom.domain.StudyGroupMemberRole;
 import com.aitserver.user.entity.User;
 import com.aitserver.user.repository.UserRepository;
 import com.aitserver.global.exception.BusinessException;
@@ -120,6 +121,40 @@ public class StudyGroupCommandService {
                 NotificationType.GROUP_KICKED,      // 알림 타입
                 group.getId(),                      // 그룹 ID
                 "[" + group.getTitle() + "] 그룹에서 내보내졌습니다."
+        ));
+    }
+
+    @Transactional
+    public void delegateOwner(Long groupId, Long currentUserId, Long targetUserId) {
+
+        // 검증 1: 자기 자신에게 위임하려는 경우 차단
+        if (currentUserId.equals(targetUserId)) {
+            throw new BusinessException(ErrorCode.INVALID_DELEGATION_TARGET);
+        }
+
+        // 검증 2: 요청자가 해당 그룹의 소속인지, 그리고 'OWNER'가 맞는지 확인
+        StudyGroupMember currentOwner = studyGroupMemberRepository.findByStudyGroupIdAndUserId(groupId, currentUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_GROUP_MEMBER));
+
+        if (currentOwner.getRole() != StudyGroupMemberRole.OWNER) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_GROUP_ACTION);
+        }
+
+        // 검증 3: 위임받을 대상자가 해당 그룹의 'MEMBER'로 존재하는지 확인
+        StudyGroupMember targetMember = studyGroupMemberRepository.findByStudyGroupIdAndUserId(groupId, targetUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_GROUP_MEMBER));
+
+        currentOwner.updateRole(StudyGroupMemberRole.MEMBER); // 기존 방장은 일반 멤버로 강등
+        targetMember.updateRole(StudyGroupMemberRole.OWNER);  // 대상자는 방장으로 승급
+
+        String groupTitle = targetMember.getStudyGroup().getTitle();
+
+        //알림발송
+        eventPublisher.publishEvent(new NotificationEvent(
+                targetUserId,
+                NotificationType.GROUP_DELEGATED,
+                groupId,
+                "[" + groupTitle + "] 그룹의 방장으로 임명되었습니다."
         ));
     }
 }

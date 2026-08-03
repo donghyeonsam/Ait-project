@@ -6,5 +6,6 @@ public enum NotificationType {
     GROUP_APPLY,     // 그룹 신청 들어옴 (팀장용)
     GROUP_APPROVE,   // 그룹 신청 승인됨 (신청자용)
     GROUP_REJECT,     // 그룹 신청 거절됨 (신청자용)
-    GROUP_KICKED    //강퇴당함
+    GROUP_KICKED,    //강퇴당함
+    GROUP_DELEGATED
 }
