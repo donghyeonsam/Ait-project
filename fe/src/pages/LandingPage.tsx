@@ -3,7 +3,7 @@ import { FinalCta } from '@/components/landing/FinalCta'
 import { HeroSection } from '@/components/landing/HeroSection'
 import { QuestionShowcase } from '@/components/landing/QuestionShowcase'
 import { ScreenGallery } from '@/components/landing/ScreenGallery'
-import { TrustMarquee } from '@/components/landing/TrustMarquee'
+// import { TrustMarquee } from '@/components/landing/TrustMarquee'
 import { LandingPreloader } from '@/components/landing/LandingPreloader'
 import { MultimodalAnalysisSection } from '@/components/landing/multimodal/MultimodalAnalysisSection'
 import { Footer } from '@/components/layout/Footer'
@@ -17,7 +17,7 @@ export function LandingPage() {
       <LandingHeader />
       <main id="main-content" aria-label="Ait 랜딩 페이지">
         <HeroSection />
-        <TrustMarquee />
+        {/* <TrustMarquee /> */}
         <FeatureGrid />
         <MultimodalAnalysisSection />
         <ScreenGallery />

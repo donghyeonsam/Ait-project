@@ -1295,13 +1295,7 @@
 .landing-hero {
   position: relative;
   border-bottom: 1px solid var(--color-border-default);
-  background:
-    radial-gradient(
-      circle at 62% 22%,
-      color-mix(in srgb, var(--color-status-achievement-surface) 70%, transparent),
-      transparent 32%
-    ),
-    var(--color-surface-default);
+  background: var(--color-surface-default);
 }
 
 .landing-hero__grid {
