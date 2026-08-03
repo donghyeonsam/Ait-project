@@ -125,6 +125,18 @@ describe('CommunityPostPage', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('댓글을 허용하지 않은 게시글에서는 댓글 로딩 스켈레톤을 표시하지 않는다', async () => {
+    vi.mocked(fetchPost).mockResolvedValue({ ...post, allowComments: false })
+    vi.mocked(fetchComments).mockReturnValue(new Promise(() => {}))
+
+    const { container } = renderPage()
+
+    expect(
+      await screen.findByText('이 게시글은 댓글 작성을 허용하지 않습니다.'),
+    ).toBeInTheDocument()
+    expect(container.querySelector('.analyzing-shimmer')).not.toBeInTheDocument()
+  })
+
   it('헤더와 푸터를 제외한 상세 콘텐츠를 90%로 축소한다', async () => {
     renderPage()
 
