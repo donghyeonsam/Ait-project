@@ -11,6 +11,8 @@ interface ProfileInfoProps {
   skillsText: string
   onChangeSkillsText: (value: string) => void
   onChangeField: (key: 'nickname' | 'email' | 'github', value: string) => void
+  nicknameError?: string | null
+  isCheckingNickname?: boolean
   onChangeRepositoryName: (id: number, name: string) => void
   isSaving?: boolean
   saveError?: string | null
@@ -37,6 +39,8 @@ export function ProfileInfo({
   skillsText,
   onChangeSkillsText,
   onChangeField,
+  nicknameError,
+  isCheckingNickname = false,
   onChangeRepositoryName,
   isSaving = false,
   saveError,
@@ -53,17 +57,29 @@ export function ProfileInfo({
     <div className="min-w-0 flex-1">
       <dl className="grid min-h-40 gap-3">
         {profileFields.map((field) => (
-          <div key={field.key} className="grid items-center gap-2 sm:grid-cols-[7rem_1fr]">
-            <dt className="text-body-2 font-semibold text-text-primary">{field.label}</dt>
+          <div key={field.key} className="grid items-start gap-2 sm:grid-cols-[7rem_1fr]">
+            <dt className="pt-2 text-body-2 font-semibold text-text-primary">{field.label}</dt>
             {isEditing ? (
-              <Input
-                value={profile[field.key]}
-                disabled={isSaving}
-                onChange={(event) => onChangeField(field.key, event.target.value)}
-                aria-label={field.label}
-              />
+              <div>
+                <Input
+                  value={profile[field.key]}
+                  disabled={isSaving}
+                  onChange={(event) => onChangeField(field.key, event.target.value)}
+                  aria-label={field.label}
+                  aria-invalid={field.key === 'nickname' && Boolean(nicknameError)}
+                />
+                {field.key === 'nickname' && nicknameError ? (
+                  <p className="mt-1 text-caption text-status-error" role="alert">
+                    {nicknameError}
+                  </p>
+                ) : field.key === 'nickname' && isCheckingNickname ? (
+                  <p className="mt-1 text-caption text-text-secondary" role="status">
+                    닉네임 확인 중...
+                  </p>
+                ) : null}
+              </div>
             ) : (
-              <dd className="text-body-2 text-text-secondary">
+              <dd className="pt-2 text-body-2 text-text-secondary">
                 {profile[field.key] || '미등록'}
               </dd>
             )}
@@ -138,7 +154,11 @@ export function ProfileInfo({
             <Button type="button" variant="text" disabled={isSaving} onClick={onCancelEditing}>
               취소
             </Button>
-            <Button type="button" disabled={isSaving} onClick={onSaveEditing}>
+            <Button
+              type="button"
+              disabled={isSaving || isCheckingNickname || Boolean(nicknameError)}
+              onClick={onSaveEditing}
+            >
               {isSaving ? '저장 중...' : '저장'}
             </Button>
           </div>
