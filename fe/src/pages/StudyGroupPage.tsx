@@ -300,12 +300,12 @@ export function StudyGroupPage() {
     }
   }
 
-  // 그룹 삭제는 BE가 논리 삭제라 상태를 CLOSED로 바꾸는 것으로 처리한다.
+  // 그룹장이 혼자 남은 경우 나가기 API가 그룹장 탈퇴와 그룹 논리 삭제를 함께 처리한다.
   const confirmGroupDeletion = async () => {
     setIsDeletingGroup(true)
     setGroupDeleteError(null)
     try {
-      await updateStudyGroupStatus(groupId, 'CLOSED')
+      await leaveStudyGroup(groupId)
       navigate('/study', { replace: true })
     } catch (error) {
       setGroupDeleteError(toErrorMessage(error))
