@@ -1,17 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { loginWithGoogle } from '@/api/auth'
+import type { OAuthLoginResponse } from '@/api/auth'
 import { toErrorMessage } from '@/api/http'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Button } from '@/components/ui/button'
-import { consumeGoogleOAuthState, getGoogleRedirectUri } from '@/lib/googleOAuth'
 import { useAuth } from '@/lib/useAuth'
 
 class OAuthDeniedError extends Error {}
 class OAuthStateMismatchError extends Error {}
 
-// 구글 인가 코드 콜백 화면. code를 백엔드와 교환해 로그인·가입을 완료하고 대시보드로 이동한다.
-export function GoogleCallbackPage() {
+interface OAuthCallbackPageProps {
+  providerLabel: string
+  login: (code: string, redirectUri: string) => Promise<OAuthLoginResponse>
+  getRedirectUri: () => string
+  consumeState: () => string | null
+}
+
+// 소셜 로그인 인가 코드 콜백 화면. code를 백엔드와 교환해 로그인·가입을 완료하고 대시보드로 이동한다.
+export function OAuthCallbackPage({
+  providerLabel,
+  login,
+  getRedirectUri,
+  consumeState,
+}: OAuthCallbackPageProps) {
   const navigate = useNavigate()
   const { signIn } = useAuth()
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -26,17 +37,17 @@ export function GoogleCallbackPage() {
     const code = params.get('code')
     const state = params.get('state')
     const deniedReason = params.get('error')
-    const expectedState = consumeGoogleOAuthState()
+    const expectedState = consumeState()
 
     Promise.resolve()
       .then(() => {
         if (deniedReason) {
-          throw new OAuthDeniedError('구글 로그인이 취소되었습니다.')
+          throw new OAuthDeniedError(`${providerLabel} 로그인이 취소되었습니다.`)
         }
         if (!code || !state || state !== expectedState) {
-          throw new OAuthStateMismatchError('구글 로그인 요청을 확인할 수 없습니다. 다시 시도해주세요.')
+          throw new OAuthStateMismatchError(`${providerLabel} 로그인 요청을 확인할 수 없습니다. 다시 시도해주세요.`)
         }
-        return loginWithGoogle(code, getGoogleRedirectUri())
+        return login(code, getRedirectUri())
       })
       .then((response) => {
         signIn(response.accessToken, response.user, true)
@@ -49,7 +60,7 @@ export function GoogleCallbackPage() {
             : toErrorMessage(error),
         )
       })
-  }, [navigate, signIn])
+  }, [providerLabel, login, getRedirectUri, consumeState, navigate, signIn])
 
   return (
     <PageLayout>
@@ -65,7 +76,7 @@ export function GoogleCallbackPage() {
           </>
         ) : (
           <p className="text-body-1 text-text-secondary" role="status">
-            구글 로그인을 확인하고 있어요...
+            {providerLabel} 로그인을 확인하고 있어요...
           </p>
         )}
       </section>
