@@ -2054,19 +2054,21 @@ button:not(:disabled) {
   -webkit-line-clamp: 2;
 }
 
+/* 패널이 왼쪽에서 400ms 동안 슬라이드된 뒤 보이도록, 항목 등장은 패널 시간만큼 늦춘다. */
 .document-box-dialog[data-state='open'] .line-sidebar-item {
   animation: line-sidebar-item-in var(--duration-base)
     var(--easing-emphasized) both;
+  animation-delay: var(--duration-slow);
 }
 
 .document-box-dialog[data-state='open']
   .line-sidebar-item:nth-child(2) {
-  animation-delay: var(--duration-fast);
+  animation-delay: calc(var(--duration-slow) + var(--duration-fast));
 }
 
 .document-box-dialog[data-state='open']
   .line-sidebar-item:nth-child(n + 3) {
-  animation-delay: var(--duration-base);
+  animation-delay: calc(var(--duration-slow) + var(--duration-base));
 }
 
 .dynamic-card {
