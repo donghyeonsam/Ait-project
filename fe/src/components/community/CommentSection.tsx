@@ -20,6 +20,7 @@ type CommentSort = 'registered' | 'likes'
 interface CommentSectionProps {
   postId: string
   commentCount: number
+  allowComments: boolean
   // 요청 실패 안내를 페이지 토스트로 전달한다.
   onNotify?: (message: string) => void
 }
@@ -28,6 +29,7 @@ interface CommentSectionProps {
 export function CommentSection({
   postId,
   commentCount,
+  allowComments,
   onNotify,
 }: CommentSectionProps) {
   const { user } = useAuth()
@@ -63,6 +65,8 @@ export function CommentSection({
 
   // 작성 성공 후 목록을 다시 불러와 서버가 만든 작성자·시각 정보로 맞춘다.
   const submitNew = async (parentId: string | null, content: string) => {
+    if (!allowComments) return
+
     try {
       const id = await createComment(postId, parentId, content)
       setComments(await fetchComments(postId))
@@ -161,14 +165,20 @@ export function CommentSection({
         />
       </div>
 
-      <div className="mt-5 border-b border-line pb-6">
-        <div className="flex items-start gap-3">
-          <span aria-hidden="true" className="mt-0.5 size-10 shrink-0 rounded-ait-pill bg-profile-avatar" />
-          <div className="flex-1">
-            <CommentComposer onSubmit={submitComment} />
+      {allowComments ? (
+        <div className="mt-5 border-b border-line pb-6">
+          <div className="flex items-start gap-3">
+            <span aria-hidden="true" className="mt-0.5 size-10 shrink-0 rounded-ait-pill bg-profile-avatar" />
+            <div className="flex-1">
+              <CommentComposer onSubmit={submitComment} />
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <p className="mt-5 border-b border-line pb-6 text-body-2 text-ink-500">
+          이 게시글은 댓글 작성을 허용하지 않습니다.
+        </p>
+      )}
 
       {isLoading ? (
         <div className="mt-6 flex flex-col gap-5">
@@ -189,6 +199,7 @@ export function CommentSection({
               key={comment.id}
               comment={comment}
               currentUserId={user?.userId ?? null}
+              canReply={allowComments}
               isHighlighted={comment.id === highlightedId}
               highlightedReplyId={highlightedId}
               onSubmitReply={submitReply}
