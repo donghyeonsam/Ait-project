@@ -1,4 +1,3 @@
-import type { Editor } from '@tiptap/react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { SmilePlus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -7,11 +6,11 @@ import { EASE_OUT } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
 interface EmojiPopoverProps {
-  editor: Editor
+  onSelect: (emoji: string) => void
 }
 
-// 커서 위치에 이모지를 넣는 팝오버.
-export function EmojiPopover({ editor }: EmojiPopoverProps) {
+// 선택한 이모지를 콜백으로 넘기는 공용 팝오버 버튼.
+export function EmojiPopover({ onSelect }: EmojiPopoverProps) {
   const [isOpen, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -24,8 +23,8 @@ export function EmojiPopover({ editor }: EmojiPopoverProps) {
     return () => document.removeEventListener('pointerdown', handlePointerDown)
   }, [isOpen])
 
-  const insertEmoji = (emoji: string) => {
-    editor.chain().focus().insertContent(emoji).run()
+  const select = (emoji: string) => {
+    onSelect(emoji)
     setOpen(false)
   }
 
@@ -61,7 +60,7 @@ export function EmojiPopover({ editor }: EmojiPopoverProps) {
                 <button
                   key={emoji}
                   type="button"
-                  onClick={() => insertEmoji(emoji)}
+                  onClick={() => select(emoji)}
                   className="flex size-8 items-center justify-center rounded-ait-s text-lg leading-none hover:bg-surface-muted"
                   aria-label={`${emoji} 입력`}
                 >

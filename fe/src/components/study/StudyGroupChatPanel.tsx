@@ -27,8 +27,8 @@ import {
 import { studyChatEmojis } from '@/components/study/studyChatEmojis'
 import {
   aitEmoticons,
-  parseEmoticonChatMessage,
-  toEmoticonChatMessage,
+  parseEmoticonToken,
+  toEmoticonToken,
   type AitEmoticon,
 } from '@/lib/emoticons'
 import { cn } from '@/lib/utils'
@@ -254,7 +254,7 @@ export function StudyGroupChatPanel({
     sendStudyGroupChatMessage(
       clientRef.current,
       groupId,
-      toEmoticonChatMessage(emoticon),
+      toEmoticonToken(emoticon),
     )
     setComposerPicker(null)
   }
@@ -530,7 +530,7 @@ export function StudyGroupChatPanel({
 
         {messages.map((message) => {
           const isSelf = message.senderId === currentUserId
-          const emoticon = parseEmoticonChatMessage(message.message)
+          const emoticon = parseEmoticonToken(message.message)
 
           return (
             <div

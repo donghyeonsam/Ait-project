@@ -1,4 +1,3 @@
-import type { Editor } from '@tiptap/react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Sticker } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -7,11 +6,11 @@ import { EASE_OUT } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
 interface EmoticonPopoverProps {
-  editor: Editor
+  onSelect: (emoticon: AitEmoticon) => void
 }
 
-// 커서 위치에 Ait 캐릭터 이모티콘을 본문 이미지로 넣는 팝오버.
-export function EmoticonPopover({ editor }: EmoticonPopoverProps) {
+// 선택한 Ait 캐릭터 이모티콘을 콜백으로 넘기는 공용 팝오버 버튼.
+export function EmoticonPopover({ onSelect }: EmoticonPopoverProps) {
   const [isOpen, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -24,20 +23,8 @@ export function EmoticonPopover({ editor }: EmoticonPopoverProps) {
     return () => document.removeEventListener('pointerdown', handlePointerDown)
   }, [isOpen])
 
-  const insertEmoticon = (emoticon: AitEmoticon) => {
-    // 원본 PNG가 크므로 본문에서는 이모티콘 크기로 줄여 넣는다. 이후 크기 조절이 가능하다.
-    editor
-      .chain()
-      .focus()
-      .insertContent({
-        type: 'image',
-        attrs: {
-          src: emoticon.src,
-          alt: `${emoticon.label} 이모티콘`,
-          width: '120px',
-        },
-      })
-      .run()
+  const select = (emoticon: AitEmoticon) => {
+    onSelect(emoticon)
     setOpen(false)
   }
 
@@ -73,9 +60,9 @@ export function EmoticonPopover({ editor }: EmoticonPopoverProps) {
                 <button
                   key={emoticon.id}
                   type="button"
-                  onClick={() => insertEmoticon(emoticon)}
+                  onClick={() => select(emoticon)}
                   className="flex aspect-square items-center justify-center rounded-ait-s p-1 hover:bg-surface-muted"
-                  aria-label={`${emoticon.label} 이모티콘 삽입`}
+                  aria-label={`${emoticon.label} 이모티콘 입력`}
                 >
                   <img
                     src={emoticon.src}

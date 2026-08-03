@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StudyChatMessageReactions } from '@/components/study/StudyChatMessageReactions'
-import { parseEmoticonChatMessage } from '@/lib/emoticons'
+import { parseEmoticonToken } from '@/lib/emoticons'
 import { cn } from '@/lib/utils'
 
 interface StudyChatMessageListProps {
@@ -134,7 +134,7 @@ export function StudyChatMessageList({
       {!isLoading && !error
         ? messages.map((message, index) => {
             const isSelf = message.senderId === currentUserId
-            const emoticon = parseEmoticonChatMessage(message.message)
+            const emoticon = parseEmoticonToken(message.message)
             const previousMessage = messages[index - 1]
             const showDateDivider =
               !previousMessage ||
