@@ -31,6 +31,12 @@ export interface StudyGroupMemberInfo {
   owner: boolean
 }
 
+// BE가 멤버 닉네임을 name 필드로 내려주는 동안 두 필드를 모두 수신한다.
+interface StudyGroupMemberResponse extends Omit<StudyGroupMemberInfo, 'nickname'> {
+  nickname?: string
+  name?: string
+}
+
 export interface StudyGroupDetail {
   groupId: number
   title: string
@@ -97,8 +103,19 @@ export function createStudyGroup(request: StudyGroupCreateRequest) {
   })
 }
 
-export function getStudyGroupDetail(groupId: number) {
-  return backendRequest<StudyGroupDetail>(`/api/study-groups/${groupId}`)
+export async function getStudyGroupDetail(
+  groupId: number,
+): Promise<StudyGroupDetail> {
+  const detail = await backendRequest<
+    Omit<StudyGroupDetail, 'members'> & { members: StudyGroupMemberResponse[] }
+  >(`/api/study-groups/${groupId}`)
+  return {
+    ...detail,
+    members: detail.members.map(({ name, ...member }) => ({
+      ...member,
+      nickname: member.nickname ?? name ?? '알 수 없음',
+    })),
+  }
 }
 
 export function getMyStudyGroups() {
