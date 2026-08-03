@@ -68,4 +68,18 @@ public class User {
         this.secondJobInterest = secondJobInterest;
         this.profileImage = profileImage;
     }
+
+    public void updateMyPage(
+            String nickname,
+            String firstJobInterest,
+            String secondJobInterest
+    ) {
+        this.nickname = nickname;
+        this.firstJobInterest = firstJobInterest;
+        this.secondJobInterest = secondJobInterest;
+    }
+
+    public void updateProfileImage(String profileImage) {
+        this.profileImage = profileImage;
+    }
 }

@@ -9,7 +9,10 @@ import com.aitserver.community.repository.PostLikeScrapRepository;
 import com.aitserver.community.repository.PostRepository;
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
+import com.aitserver.notification.entity.NotificationType;
+import com.aitserver.notification.event.NotificationEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +23,7 @@ public class PostInteractionService {
     private final PostLikeScrapRepository postLikeScrapRepository;
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 1. 좋아요 등록
@@ -77,7 +81,19 @@ public class PostInteractionService {
 
         postLikeScrapRepository.save(interaction);
 
-         if (type == ActionType.LIKE) post.increaseLikeCount();
+        if (type == ActionType.LIKE) {
+            post.increaseLikeCount();
+
+            // 내 글에 내가 좋아요를 누른 게 아닐 때만 알림 발생
+            if (!post.getUser().getId().equals(userId)) {
+                eventPublisher.publishEvent(new NotificationEvent(
+                        post.getUser().getId(),
+                        NotificationType.LIKE,
+                        post.getId(),
+                        "회원님의 게시글에 좋아요가 달렸습니다."
+                ));
+            }
+        }
     }
 
     private void removeAction(Long userId, Long postId, ActionType type, ErrorCode notFoundError) {

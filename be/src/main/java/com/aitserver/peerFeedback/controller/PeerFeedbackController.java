@@ -2,10 +2,7 @@ package com.aitserver.peerFeedback.controller;
 
 
 import com.aitserver.global.response.ApiResponse;
-import com.aitserver.peerFeedback.dto.PeerFeedbackCreateRequest;
-import com.aitserver.peerFeedback.dto.PeerFeedbackDetailResponse;
-import com.aitserver.peerFeedback.dto.PeerFeedbackListResponse;
-import com.aitserver.peerFeedback.dto.PeerFeedbackUpdateRequest;
+import com.aitserver.peerFeedback.dto.*;
 import com.aitserver.peerFeedback.service.PeerFeedbackService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -67,12 +64,12 @@ public class PeerFeedbackController {
 
     // 내가 받은 상호평가 불러오기 이거를 sessionid를 받아서 해당 세션 아이디꺼만 가져오게 하면
     @GetMapping("/me/{sessionId}/received")
-    public ResponseEntity<ApiResponse<List<PeerFeedbackDetailResponse>>> getPeerFeedbackIReceived(
+    public ResponseEntity<ApiResponse<PeerFeedbackReceiveResponse>> getPeerFeedbackIReceived(
             @PathVariable Long sessionId,
             @AuthenticationPrincipal Long userId,
             HttpServletRequest request
     ){
-        List<PeerFeedbackDetailResponse> response = peerFeedbackService.getPeerFeedbackReceiveList(userId, sessionId);
+        PeerFeedbackReceiveResponse response = peerFeedbackService.getPeerFeedbackReceiveList(userId, sessionId);
 
         return ResponseEntity
                 .status(HttpStatus.OK)

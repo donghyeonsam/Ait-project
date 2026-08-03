@@ -31,6 +31,7 @@ public class AuthServiceImpl implements AuthService{
     private final JwtTokenProvider jwtTokenProvider;
     private final StringRedisTemplate redisTemplate;
     private final ResumeRepository resumeRepository;
+    private final EmailVerificationService emailVerificationService;
 
     // 일반 회원가입 로직
     @Override
@@ -43,6 +44,12 @@ public class AuthServiceImpl implements AuthService{
             log.debug("[AuthService, insert] 이메일 중복 - Email: {}", signupRequest.email());
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
+
+        // 이메일 인증이 완료된 상태인지 여부 확인
+        log.info("[AuthService, insert] 이메일 인증 여부 확인 - Email: {}", signupRequest.email());
+        emailVerificationService.validateVerifiedEmail(signupRequest.email().trim());
+
+
         // 닉네임 중복 확인
         log.info("[AuthService, insert] 닉네임 중복 확인 로직 수행");
         if(userRepository.existsByNickname(signupRequest.nickname())) {
@@ -65,6 +72,10 @@ public class AuthServiceImpl implements AuthService{
         // 이력서 PK FK 생성 완료
         resumeRepository.save(new Resume(user));
         log.info("[AuthService, insert] 기본 이력서 PK, FK 생성 완료 - userId, {}", user.getId());
+
+        // 회원 가입이 끝난 후 이메일 인증 완료 상태 삭제
+        log.info("[AuthService, insert] 이메일 인증 완료 상태 삭제 - Email: {}", signupRequest.email());
+        emailVerificationService.clearVerification(signupRequest.email().trim());
     }
 
     // 일반 로그인

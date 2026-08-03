@@ -32,6 +32,27 @@ export function signup(request: SignupRequest) {
   })
 }
 
+export interface EmailVerificationResult {
+  verified: boolean
+}
+
+// 회원가입용 이메일 인증코드 발송. 이미 가입된 이메일이면 BE가 에러로 거절한다.
+export function sendSignupEmailCode(email: string) {
+  return backendRequest<void>('/api/auth/email/send', {
+    method: 'POST',
+    authenticated: false,
+    body: JSON.stringify({ email }),
+  })
+}
+
+export function verifySignupEmailCode(email: string, verificationCode: string) {
+  return backendRequest<EmailVerificationResult>('/api/auth/email/verify', {
+    method: 'POST',
+    authenticated: false,
+    body: JSON.stringify({ email, verificationCode }),
+  })
+}
+
 export function login(email: string, password: string) {
   return backendRequest<LoginResponse>('/api/auth/login', {
     method: 'POST',

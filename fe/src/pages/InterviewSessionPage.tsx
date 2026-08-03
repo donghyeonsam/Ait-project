@@ -16,6 +16,7 @@ import { SessionTheater } from '@/components/interview/SessionTheater'
 import { useAnswerCountdown } from '@/components/interview/useAnswerCountdown'
 import { useAutoRecordingAfterSpeech } from '@/components/interview/useAutoRecordingAfterSpeech'
 import { useMediaDevices } from '@/components/interview/useMediaDevices'
+import { useNonVerbalCapture } from '@/components/interview/useNonVerbalCapture'
 import { useQuestionSpeech } from '@/components/interview/useQuestionSpeech'
 import { useVoiceAnswer } from '@/components/interview/useVoiceAnswer'
 import { Button } from '@/components/ui/button'
@@ -273,6 +274,7 @@ function ActiveInterviewSession({
   const submittedAnswersRef = useRef<SubmittedVoiceAnswer[]>([])
   const question = sessionQuestions[questionIndex]
   const voiceAnswer = useVoiceAnswer(stream)
+  const nonVerbalCapture = useNonVerbalCapture(stream, aiInterviewId)
   const questionKey = `${questionIndex}:${question.order}:${question.question}`
   const answerSecondsRemaining = useAnswerCountdown({
     activeKey:
@@ -296,6 +298,25 @@ function ActiveInterviewSession({
   })
 
   const isLastQuestion = questionIndex === sessionQuestions.length - 1
+
+  const voiceAnswerStatusForNonVerbal = voiceAnswer.status
+  const nonVerbalCaptureStatus = nonVerbalCapture.status
+  const startNonVerbalCapture = nonVerbalCapture.startCapture
+  const stopNonVerbalCapture = nonVerbalCapture.stopCapture
+  // 답변 녹음 구간과 표정·시선 캡처 구간을 맞춘다: 녹음이 시작되면 캡처를 시작하고,
+  // 녹음이 끝나면 곧바로 BE로 전송한다.
+  useEffect(() => {
+    if (voiceAnswerStatusForNonVerbal === 'recording') {
+      startNonVerbalCapture()
+    } else if (nonVerbalCaptureStatus === 'capturing') {
+      stopNonVerbalCapture()
+    }
+  }, [
+    voiceAnswerStatusForNonVerbal,
+    nonVerbalCaptureStatus,
+    startNonVerbalCapture,
+    stopNonVerbalCapture,
+  ])
 
   useEffect(() => {
     sessionStartRef.current = Date.now()
@@ -374,6 +395,7 @@ function ActiveInterviewSession({
     }
 
     voiceAnswer.reset()
+    nonVerbalCapture.reset()
 
     // 꼬리질문이 오면 현재 질문 바로 뒤에 끼워 넣고 곧바로 그 질문으로 이동한다.
     if (followUpQuestion) {
@@ -401,6 +423,7 @@ function ActiveInterviewSession({
     input,
     isLastQuestion,
     isSubmittingAnswer,
+    nonVerbalCapture,
     question,
     questionIndex,
     sessionQuestions.length,
@@ -427,16 +450,19 @@ function ActiveInterviewSession({
 
   const replayQuestion = questionSpeech.replay
   const resetVoiceAnswer = voiceAnswer.reset
+  const resetNonVerbalCapture = nonVerbalCapture.reset
   const voiceAnswerStatus = voiceAnswer.status
   const handleReplayQuestion = useCallback(() => {
     if (voiceAnswerStatus === 'error') {
       resetAutoRecording()
       resetVoiceAnswer()
+      resetNonVerbalCapture()
     }
     replayQuestion()
   }, [
     replayQuestion,
     resetAutoRecording,
+    resetNonVerbalCapture,
     resetVoiceAnswer,
     voiceAnswerStatus,
   ])

@@ -79,4 +79,10 @@ public interface StudySessionParticipantRepository
     findAllByStudySessionId(
             Long sessionId
     );
+
+
+    boolean existsByStudySessionIdAndUserId(
+            Long sessionId,
+            Long userId
+    );
 }
