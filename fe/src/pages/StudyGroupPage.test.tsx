@@ -145,6 +145,10 @@ const scheduledDateKey = `${monthPrefix}-21`
 const scheduledCellName = `${scheduledDateKey}${
   scheduledDateKey === toDateKey(new Date()) ? ', 오늘' : ''
 }, 스터디 일정 있음`
+const emptyDateKey = `${monthPrefix}-22`
+const emptyCellName = `${emptyDateKey}${
+  emptyDateKey === toDateKey(new Date()) ? ', 오늘' : ''
+}`
 const studyCalendars = [
   {
     calendarId: 11,
@@ -324,6 +328,37 @@ describe('StudyGroupPage', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('그룹원이 일정을 조회할 때 추가·편집·삭제 버튼을 보여주지 않는다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getStudyGroupDetail).mockResolvedValue({
+      ...groupDetail,
+      ownerId: 2,
+      members: groupDetail.members.map((member) => ({
+        ...member,
+        owner: member.userId === 2,
+      })),
+    })
+
+    await renderStudyGroupPage()
+
+    await user.click(
+      await screen.findByRole('gridcell', { name: scheduledCellName }),
+    )
+    expect(screen.getByText('개인별 질문 2개 준비')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '일정 편집' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '일정 삭제' }),
+    ).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('gridcell', { name: emptyCellName }))
+    expect(screen.getByText('예정된 스터디가 없습니다.')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '일정 추가' }),
+    ).not.toBeInTheDocument()
   })
 
   it('선택한 멤버에게 그룹장 권한을 위임한다', async () => {

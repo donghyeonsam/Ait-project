@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils'
 
 interface StudyCalendarProps {
   groupId: number
+  canManage: boolean
 }
 
 type RepeatValue = 'none' | '2' | '4' | '8'
@@ -104,7 +105,7 @@ function groupByDate(calendars: StudyCalendarItem[]) {
 }
 
 // 기본에는 월력을 가득 보여주고 날짜 선택 시 왼쪽 상세 패널에서 일정을 추가·편집·삭제한다.
-export function StudyCalendar({ groupId }: StudyCalendarProps) {
+export function StudyCalendar({ groupId, canManage }: StudyCalendarProps) {
   const [viewDate, setViewDate] = useState(() => {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1)
@@ -232,6 +233,8 @@ export function StudyCalendar({ groupId }: StudyCalendarProps) {
   }
 
   const openCreateForm = (dateKey: string) => {
+    if (!canManage) return
+
     setRequestError(null)
     setScheduleForm({
       mode: 'create',
@@ -243,6 +246,8 @@ export function StudyCalendar({ groupId }: StudyCalendarProps) {
   }
 
   const openEditForm = (day: StudyCalendarDay) => {
+    if (!canManage) return
+
     setRequestError(null)
     setScheduleForm({
       mode: 'edit',
@@ -302,7 +307,7 @@ export function StudyCalendar({ groupId }: StudyCalendarProps) {
     )
 
   const saveSchedule = async () => {
-    if (!scheduleForm) return
+    if (!canManage || !scheduleForm) return
     const cleanedAgenda = scheduleForm.agenda
       .map((line) => line.trim())
       .filter((line) => line.length > 0)
@@ -362,7 +367,7 @@ export function StudyCalendar({ groupId }: StudyCalendarProps) {
   }
 
   const confirmDeleteSchedule = async () => {
-    if (!deleteTargetKey) return
+    if (!canManage || !deleteTargetKey) return
     const entries = daysByDate.get(deleteTargetKey)?.entries ?? []
 
     setIsDeleting(true)
@@ -518,44 +523,48 @@ export function StudyCalendar({ groupId }: StudyCalendarProps) {
                   </ul>
                 </div>
 
-                <div className="mt-6 flex flex-col gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="h-8 w-full gap-1 py-0 text-caption [&_svg]:size-3.5"
-                    onClick={() => openEditForm(selectedDay)}
-                  >
-                    <Pencil aria-hidden="true" />
-                    일정 편집
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    className="h-8 w-full gap-1 py-0 text-caption text-white [&_svg]:size-3.5"
-                    onClick={() => {
-                      setRequestError(null)
-                      setDeleteTargetKey(selectedDay.date)
-                    }}
-                  >
-                    <Trash2 aria-hidden="true" />
-                    일정 삭제
-                  </Button>
-                </div>
+                {canManage ? (
+                  <div className="mt-6 flex flex-col gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="h-8 w-full gap-1 py-0 text-caption [&_svg]:size-3.5"
+                      onClick={() => openEditForm(selectedDay)}
+                    >
+                      <Pencil aria-hidden="true" />
+                      일정 편집
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      className="h-8 w-full gap-1 py-0 text-caption text-white [&_svg]:size-3.5"
+                      onClick={() => {
+                        setRequestError(null)
+                        setDeleteTargetKey(selectedDay.date)
+                      }}
+                    >
+                      <Trash2 aria-hidden="true" />
+                      일정 삭제
+                    </Button>
+                  </div>
+                ) : null}
               </>
             ) : (
               <div className="mt-6 space-y-4">
                 <p className="text-body-2 text-text-secondary">
                   예정된 스터디가 없습니다.
                 </p>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="h-8 w-full gap-1 py-0 text-caption [&_svg]:size-3.5"
-                  onClick={() => openCreateForm(selectedDateKey)}
-                >
-                  <Plus aria-hidden="true" />
-                  일정 추가
-                </Button>
+                {canManage ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-8 w-full gap-1 py-0 text-caption [&_svg]:size-3.5"
+                    onClick={() => openCreateForm(selectedDateKey)}
+                  >
+                    <Plus aria-hidden="true" />
+                    일정 추가
+                  </Button>
+                ) : null}
               </div>
             )}
           </aside>
