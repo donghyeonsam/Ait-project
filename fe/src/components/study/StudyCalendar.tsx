@@ -62,6 +62,14 @@ const repeatOptions: DropdownOption<RepeatValue>[] = [
   { value: '8', label: '매주 · 8회' },
 ]
 
+const monthOptions: DropdownOption<string>[] = Array.from(
+  { length: 12 },
+  (_, index) => ({
+    value: String(index + 1),
+    label: `${index + 1}월`,
+  }),
+)
+
 const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토']
 
 function toDateKey(date: Date) {
@@ -133,6 +141,14 @@ export function StudyCalendar({ groupId }: StudyCalendarProps) {
 
   const viewYear = viewDate.getFullYear()
   const viewMonth = viewDate.getMonth() + 1
+  const yearOptions = useMemo<DropdownOption<string>[]>(
+    () =>
+      Array.from({ length: 11 }, (_, index) => {
+        const year = viewYear - 5 + index
+        return { value: String(year), label: `${year}년` }
+      }),
+    [viewYear],
+  )
 
   // 최초 로딩은 isLoading 초기값(true)이 담당하고, 달 이동·재시도 시에만 호출부에서 다시 세운다.
   const loadCalendars = useCallback(
@@ -217,6 +233,24 @@ export function StudyCalendar({ groupId }: StudyCalendarProps) {
       (currentDate) =>
         new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1),
     )
+    setSelectedDateKey(null)
+  }
+
+  const selectYear = (year: string) => {
+    const nextYear = Number(year)
+    if (nextYear === viewYear) return
+
+    setIsLoading(true)
+    setViewDate(new Date(nextYear, viewDate.getMonth(), 1))
+    setSelectedDateKey(null)
+  }
+
+  const selectMonth = (month: string) => {
+    const nextMonth = Number(month)
+    if (nextMonth === viewMonth) return
+
+    setIsLoading(true)
+    setViewDate(new Date(viewDate.getFullYear(), nextMonth - 1, 1))
     setSelectedDateKey(null)
   }
 
@@ -403,12 +437,24 @@ export function StudyCalendar({ groupId }: StudyCalendarProps) {
           >
             <ChevronLeft aria-hidden="true" />
           </button>
-          <p
-            className="min-w-16 text-center text-h2 text-text-primary"
-            aria-live="polite"
-          >
-            {viewMonth}월
-          </p>
+          <div className="flex items-center gap-2">
+            <Dropdown
+              options={yearOptions}
+              value={String(viewYear)}
+              onChange={selectYear}
+              ariaLabel="연도 선택"
+              className="w-28"
+              buttonClassName="h-10 border-0 px-2 py-0 text-h2 text-text-primary hover:bg-status-neutral-surface"
+            />
+            <Dropdown
+              options={monthOptions}
+              value={String(viewMonth)}
+              onChange={selectMonth}
+              ariaLabel="월 선택"
+              className="w-24"
+              buttonClassName="h-10 border-0 px-2 py-0 text-h2 text-text-primary hover:bg-status-neutral-surface"
+            />
+          </div>
           <button
             type="button"
             onClick={() => changeMonth(1)}

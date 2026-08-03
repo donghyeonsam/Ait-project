@@ -314,6 +314,12 @@ describe('StudyGroupPage', () => {
     try {
       await renderStudyGroupPage()
 
+      expect(
+        screen.getByRole('button', { name: '연도 선택' }),
+      ).toHaveTextContent('2026년')
+      expect(
+        screen.getByRole('button', { name: '월 선택' }),
+      ).toHaveTextContent('7월')
       const todayCell = screen.getByRole('gridcell', {
         name: '2026-07-27, 오늘',
       })
@@ -324,6 +330,38 @@ describe('StudyGroupPage', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('연도와 월을 드롭다운으로 선택해 해당 월의 일정을 조회한다', async () => {
+    const user = userEvent.setup()
+    const now = new Date()
+    const nextYear = now.getFullYear() + 1
+    const nextMonth = now.getMonth() + 1 === 12 ? 11 : now.getMonth() + 2
+
+    await renderStudyGroupPage()
+
+    await user.click(screen.getByRole('button', { name: '연도 선택' }))
+    await user.click(
+      screen.getByRole('option', { name: `${nextYear}년` }),
+    )
+    await user.click(screen.getByRole('button', { name: '월 선택' }))
+    await user.click(
+      screen.getByRole('option', { name: `${nextMonth}월` }),
+    )
+
+    expect(
+      screen.getByRole('button', { name: '연도 선택' }),
+    ).toHaveTextContent(`${nextYear}년`)
+    expect(
+      screen.getByRole('button', { name: '월 선택' }),
+    ).toHaveTextContent(`${nextMonth}월`)
+    await waitFor(() => {
+      expect(getMonthlyStudyCalendars).toHaveBeenLastCalledWith(
+        101,
+        nextYear,
+        nextMonth,
+      )
+    })
   })
 
   it('선택한 멤버에게 그룹장 권한을 위임한다', async () => {
