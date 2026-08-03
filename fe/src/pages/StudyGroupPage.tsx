@@ -12,7 +12,6 @@ import {
   StudyGroupMemberPanel,
   type StudyGroupMember,
 } from '@/components/study/StudyGroupMemberPanel'
-import { StudyHeroGlow } from '@/components/study/StudyHeroGlow'
 import { StudyLeaderTransferDialog } from '@/components/study/StudyLeaderTransferDialog'
 import { Button } from '@/components/ui/button'
 import {
@@ -346,7 +345,6 @@ export function StudyGroupPage() {
 
   return (
     <PageLayout contentClassName="relative isolate max-w-dashboard px-4 sm:px-8">
-      <StudyHeroGlow />
       <section className="py-8" aria-labelledby="study-group-title">
         <Link
           to="/study"
