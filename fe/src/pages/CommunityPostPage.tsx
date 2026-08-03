@@ -253,6 +253,7 @@ export function CommunityPostPage() {
             <CommentSection
               postId={post.id}
               commentCount={post.commentCount}
+              allowComments={post.allowComments !== false}
               onNotify={showToast}
             />
           </div>

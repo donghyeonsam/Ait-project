@@ -1,9 +1,17 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudyGroupPage } from '@/pages/StudyGroupPage'
 import {
+  delegateStudyGroupLeader,
   getMyActiveStudyGroups,
   getMyStudyGroups,
   getStudyGroupApplications,
@@ -42,6 +50,7 @@ vi.mock('@/api/study-groups', () => ({
   updateStudyGroupStatus: vi.fn(),
   kickStudyGroupMember: vi.fn(),
   leaveStudyGroup: vi.fn(),
+  delegateStudyGroupLeader: vi.fn(),
 }))
 
 vi.mock('@/api/study-sessions', () => ({
@@ -101,11 +110,11 @@ const groupDetail: StudyGroupDetail = {
   createdAt: '2026-07-01T09:00:00',
   ownerId: 1,
   members: [
-    { userId: 1, name: '김아이', profileImageUrl: null, owner: true },
-    { userId: 2, name: '김구미', profileImageUrl: null, owner: false },
-    { userId: 3, name: '최싸피', profileImageUrl: null, owner: false },
-    { userId: 4, name: '강프로', profileImageUrl: null, owner: false },
-    { userId: 5, name: '이면접', profileImageUrl: null, owner: false },
+    { userId: 1, nickname: '김아이', profileImageUrl: null, owner: true },
+    { userId: 2, nickname: '김구미', profileImageUrl: null, owner: false },
+    { userId: 3, nickname: '최싸피', profileImageUrl: null, owner: false },
+    { userId: 4, nickname: '강프로', profileImageUrl: null, owner: false },
+    { userId: 5, nickname: '이면접', profileImageUrl: null, owner: false },
   ],
   notice: null,
 }
@@ -136,6 +145,10 @@ const scheduledDateKey = `${monthPrefix}-21`
 const scheduledCellName = `${scheduledDateKey}${
   scheduledDateKey === toDateKey(new Date()) ? ', 오늘' : ''
 }, 스터디 일정 있음`
+const emptyDateKey = `${monthPrefix}-22`
+const emptyCellName = `${emptyDateKey}${
+  emptyDateKey === toDateKey(new Date()) ? ', 오늘' : ''
+}`
 const studyCalendars = [
   {
     calendarId: 11,
@@ -178,6 +191,7 @@ describe('StudyGroupPage', () => {
     })
     vi.mocked(kickStudyGroupMember).mockResolvedValue(undefined)
     vi.mocked(leaveStudyGroup).mockResolvedValue(undefined)
+    vi.mocked(delegateStudyGroupLeader).mockResolvedValue(undefined)
     vi.mocked(getMonthlyStudyCalendars).mockResolvedValue(studyCalendars)
     // 날짜를 열면 그 날짜만 다시 조회하므로, 해당 날짜 일정을 그대로 돌려준다.
     vi.mocked(getDailyStudyCalendars).mockImplementation((_, date) =>
@@ -304,6 +318,12 @@ describe('StudyGroupPage', () => {
     try {
       await renderStudyGroupPage()
 
+      expect(
+        screen.getByRole('button', { name: '연도 선택' }),
+      ).toHaveTextContent('2026년')
+      expect(
+        screen.getByRole('button', { name: '월 선택' }),
+      ).toHaveTextContent('7월')
       const todayCell = screen.getByRole('gridcell', {
         name: '2026-07-27, 오늘',
       })
@@ -314,6 +334,81 @@ describe('StudyGroupPage', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('연도와 월을 드롭다운으로 선택해 해당 월의 일정을 조회한다', async () => {
+    const user = userEvent.setup()
+    const now = new Date()
+    const nextYear = now.getFullYear() + 1
+    const nextMonth = now.getMonth() + 1 === 12 ? 11 : now.getMonth() + 2
+
+    await renderStudyGroupPage()
+
+    await user.click(screen.getByRole('button', { name: '연도 선택' }))
+    expect(
+      screen.getByRole('listbox', { name: '연도 선택' }),
+    ).toHaveClass(
+      'max-h-[12.5rem]',
+      'overflow-y-auto',
+      'overscroll-contain',
+    )
+    await user.click(
+      screen.getByRole('option', { name: `${nextYear}년` }),
+    )
+    await user.click(screen.getByRole('button', { name: '월 선택' }))
+    expect(screen.getByRole('listbox', { name: '월 선택' })).toHaveClass(
+      'max-h-[12.5rem]',
+      'overflow-y-auto',
+      'overscroll-contain',
+    )
+    await user.click(
+      screen.getByRole('option', { name: `${nextMonth}월` }),
+    )
+
+    expect(
+      screen.getByRole('button', { name: '연도 선택' }),
+    ).toHaveTextContent(`${nextYear}년`)
+    expect(
+      screen.getByRole('button', { name: '월 선택' }),
+    ).toHaveTextContent(`${nextMonth}월`)
+    await waitFor(() => {
+      expect(getMonthlyStudyCalendars).toHaveBeenLastCalledWith(
+        101,
+        nextYear,
+        nextMonth,
+      )
+    })
+  })
+
+  it('그룹원이 일정을 조회할 때 추가·편집·삭제 버튼을 보여주지 않는다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getStudyGroupDetail).mockResolvedValue({
+      ...groupDetail,
+      ownerId: 2,
+      members: groupDetail.members.map((member) => ({
+        ...member,
+        owner: member.userId === 2,
+      })),
+    })
+
+    await renderStudyGroupPage()
+
+    await user.click(
+      await screen.findByRole('gridcell', { name: scheduledCellName }),
+    )
+    expect(screen.getByText('개인별 질문 2개 준비')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '일정 편집' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '일정 삭제' }),
+    ).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('gridcell', { name: emptyCellName }))
+    expect(screen.getByText('예정된 스터디가 없습니다.')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '일정 추가' }),
+    ).not.toBeInTheDocument()
   })
 
   it('선택한 멤버에게 그룹장 권한을 위임한다', async () => {
@@ -344,11 +439,50 @@ describe('StudyGroupPage', () => {
     expect(transferButton).toBeEnabled()
     await user.click(transferButton)
 
-    expect(
-      screen.queryByRole('heading', { name: '관리자 메뉴' }),
-    ).not.toBeInTheDocument()
+    expect(delegateStudyGroupLeader).toHaveBeenCalledWith(101, 2)
+    // 위임은 서버 요청이므로 응답 후 방장 전용 UI가 사라지는 것을 기다린다.
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: '관리자 메뉴' }),
+      ).not.toBeInTheDocument(),
+    )
     expect(screen.getByText(/그룹장 김구미/)).toBeInTheDocument()
-    expect(screen.getByText(/그룹원 · 그룹장/)).toBeInTheDocument()
+    expect(screen.getByText('김구미').closest('li')).toHaveTextContent(
+      '김구미 · 그룹장',
+    )
+    expect(screen.getByText('김아이').closest('li')).toHaveTextContent(
+      '김아이 · 그룹원',
+    )
+  })
+
+  it('위임 요청이 실패하면 대화상자에 오류를 보여주고 방장 권한을 유지한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(delegateStudyGroupLeader).mockRejectedValue(
+      new Error('delegation failed'),
+    )
+    await renderStudyGroupPage()
+
+    await user.click(screen.getByRole('button', { name: '그룹장 위임' }))
+    const transferDialog = screen.getByRole('dialog', {
+      name: '그룹장을 위임할까요?',
+    })
+    await user.click(
+      within(transferDialog).getByRole('radio', { name: /김구미/ }),
+    )
+    await user.click(
+      within(transferDialog).getByRole('button', { name: '그룹장 위임' }),
+    )
+
+    expect(
+      await within(transferDialog).findByText(
+        '알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      ),
+    ).toBeInTheDocument()
+    expect(transferDialog).toBeInTheDocument()
+    // 모달이 열린 동안 바깥 콘텐츠는 aria-hidden이라 hidden 옵션으로 존재만 확인한다.
+    expect(
+      screen.getByRole('heading', { name: '관리자 메뉴', hidden: true }),
+    ).toBeInTheDocument()
   })
 
   it('날짜를 선택할 때만 일정 상세를 열고 그룹톡 메시지를 전송한다', async () => {
@@ -397,6 +531,40 @@ describe('StudyGroupPage', () => {
         '일정 확인했습니다.',
       ),
     ).toBeInTheDocument()
+  })
+
+  it('새로고침 후 불러온 그룹톡 이력을 최신 메시지 위치에서 보여준다', async () => {
+    const scrollTo = vi.mocked(HTMLElement.prototype.scrollTo)
+    const scrollHeight = vi
+      .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
+      .mockReturnValue(720)
+    scrollTo.mockClear()
+    vi.mocked(getStudyGroupChats).mockResolvedValue({
+      chats: [
+        {
+          chatId: 10,
+          groupId: 101,
+          senderId: 2,
+          senderNickname: '김구미',
+          profileImageUrl: null,
+          message: '가장 최근 그룹톡 메시지',
+          createdAt: '2026-07-21T10:00:00',
+        },
+      ],
+      hasNext: false,
+    })
+
+    try {
+      await renderStudyGroupPage()
+      await screen.findByText('가장 최근 그룹톡 메시지')
+
+      expect(scrollTo).toHaveBeenCalledWith({
+        top: 720,
+        behavior: 'auto',
+      })
+    } finally {
+      scrollHeight.mockRestore()
+    }
   })
 
   it('메시지 작성 UI를 갖추고, 공지를 STOMP로 작성·조회·수정·삭제한다', async () => {

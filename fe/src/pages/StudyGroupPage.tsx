@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
+  delegateStudyGroupLeader,
   getMyStudyGroups,
   getStudyGroupApplications,
   getStudyGroupDetail,
@@ -67,9 +68,6 @@ export function StudyGroupPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isLeaderTransferDialogOpen, setIsLeaderTransferDialogOpen] =
     useState(false)
-  const [transferredLeaderName, setTransferredLeaderName] = useState<
-    string | null
-  >(null)
   const [memberToRemove, setMemberToRemove] =
     useState<StudyGroupMember | null>(null)
   const [isRemovingMember, setIsRemovingMember] = useState(false)
@@ -104,7 +102,7 @@ export function StudyGroupPage() {
         setMembers(
           groupDetail.members.map((member) => ({
             id: member.userId,
-            name: member.name,
+            nickname: member.nickname,
             role: member.owner ? '그룹장' : '그룹원',
             isSelf: member.userId === currentUserId,
           })),
@@ -208,14 +206,9 @@ export function StudyGroupPage() {
     )
   }
 
-  const isLeader =
-    currentUserId !== null &&
-    detail.ownerId === currentUserId &&
-    transferredLeaderName === null
-  const leaderName =
-    transferredLeaderName ??
-    detail.members.find((member) => member.owner)?.name ??
-    '알 수 없음'
+  const isLeader = currentUserId !== null && detail.ownerId === currentUserId
+  const leaderNickname =
+    detail.members.find((member) => member.owner)?.nickname ?? '알 수 없음'
   const leaderCandidates = members.filter(
     (member) => !member.isSelf && member.role !== '초대 대기',
   )
@@ -249,7 +242,7 @@ export function StudyGroupPage() {
       ...currentMembers,
       {
         id: Date.now(),
-        name: nickname,
+        nickname,
         role: '초대 대기',
         isSelf: false,
       },
@@ -326,21 +319,35 @@ export function StudyGroupPage() {
     }
   }
 
-  const transferLeadership = (memberId: number) => {
+  // 위임이 성공하면 상세를 다시 조회하지 않고 방장 정보와 구성원 역할을 화면에서 함께 갱신한다.
+  const transferLeadership = async (memberId: number) => {
     const nextLeader = members.find((member) => member.id === memberId)
     if (!nextLeader || nextLeader.isSelf || nextLeader.role === '초대 대기') {
       return
     }
 
-    // TODO: 실제 API 연동 필요 — 위임 엔드포인트가 없어 화면에서만 그룹장을 바꾼다.
+    await delegateStudyGroupLeader(groupId, memberId)
     setMembers((currentMembers) =>
       currentMembers.map((member) =>
         member.id === memberId
-          ? { ...member, role: `${member.role} · 그룹장` }
-          : member,
+          ? { ...member, role: '그룹장' }
+          : member.role === '그룹장'
+            ? { ...member, role: '그룹원' }
+            : member,
       ),
     )
-    setTransferredLeaderName(nextLeader.name)
+    setDetail((currentDetail) =>
+      currentDetail === null
+        ? currentDetail
+        : {
+            ...currentDetail,
+            ownerId: memberId,
+            members: currentDetail.members.map((member) => ({
+              ...member,
+              owner: member.userId === memberId,
+            })),
+          },
+    )
   }
 
   return (
@@ -371,7 +378,7 @@ export function StudyGroupPage() {
             </p>
             <p className="mt-2 text-caption text-chart-axis">
               구성원 {detail.currentMemberCount}/{detail.capacity} · 생성일{' '}
-              {formatCreatedAt(detail.createdAt)} · 그룹장 {leaderName}
+              {formatCreatedAt(detail.createdAt)} · 그룹장 {leaderNickname}
             </p>
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-ait-m border border-border-default bg-background-default p-4">
@@ -476,7 +483,7 @@ export function StudyGroupPage() {
         </div>
 
         <div className="my-6 border-t border-status-achievement" />
-        <StudyCalendar groupId={groupId} />
+        <StudyCalendar groupId={groupId} canManage={isLeader} />
       </section>
 
       <StudyChatFloatingButton
@@ -610,7 +617,7 @@ export function StudyGroupPage() {
         >
           <DialogHeader>
             <DialogTitle>
-              {memberToRemove?.name} 님을 내보낼까요?
+              {memberToRemove?.nickname} 님을 내보낼까요?
             </DialogTitle>
             <DialogDescription>
               내보내면 이 스터디 그룹과 일정에 더 이상 접근할 수 없습니다.

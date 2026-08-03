@@ -26,9 +26,15 @@ export interface StudyGroupPage {
 
 export interface StudyGroupMemberInfo {
   userId: number
-  name: string
+  nickname: string
   profileImageUrl: string | null
   owner: boolean
+}
+
+// BE가 멤버 닉네임을 name 필드로 내려주는 동안 두 필드를 모두 수신한다.
+interface StudyGroupMemberResponse extends Omit<StudyGroupMemberInfo, 'nickname'> {
+  nickname?: string
+  name?: string
 }
 
 export interface StudyGroupDetail {
@@ -97,8 +103,19 @@ export function createStudyGroup(request: StudyGroupCreateRequest) {
   })
 }
 
-export function getStudyGroupDetail(groupId: number) {
-  return backendRequest<StudyGroupDetail>(`/api/study-groups/${groupId}`)
+export async function getStudyGroupDetail(
+  groupId: number,
+): Promise<StudyGroupDetail> {
+  const detail = await backendRequest<
+    Omit<StudyGroupDetail, 'members'> & { members: StudyGroupMemberResponse[] }
+  >(`/api/study-groups/${groupId}`)
+  return {
+    ...detail,
+    members: detail.members.map(({ name, ...member }) => ({
+      ...member,
+      nickname: member.nickname ?? name ?? '알 수 없음',
+    })),
+  }
 }
 
 export function getMyStudyGroups() {
@@ -115,6 +132,14 @@ export function kickStudyGroupMember(groupId: number, targetUserId: number) {
     `/api/study-groups/${groupId}/members/${targetUserId}`,
     { method: 'DELETE' },
   )
+}
+
+// 방장만 호출할 수 있고, 위임 대상은 이미 그룹에 속한 다른 사용자여야 한다.
+export function delegateStudyGroupLeader(groupId: number, targetUserId: number) {
+  return backendRequest<void>(`/api/study-groups/${groupId}/delegate`, {
+    method: 'PATCH',
+    body: JSON.stringify({ targetUserId }),
+  })
 }
 
 export function leaveStudyGroup(groupId: number) {

@@ -369,6 +369,67 @@ describe('StudyPage', () => {
     ).toBeInTheDocument()
   })
 
+  it('플로팅 그룹톡에 그룹 페이지와 같은 공지 문구를 표시한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getStudyGroupDetail).mockResolvedValue({
+      notice: '다음 모임 전까지 발표 자료를 공유해 주세요.',
+    } as unknown as StudyGroupDetail)
+    renderStudyPage()
+    await screen.findAllByRole('article', { name: /상세 정보$/ })
+
+    await user.click(screen.getByRole('button', { name: '그룹톡 열기' }))
+    const chatDialog = screen.getByRole('dialog')
+    const notice = await within(chatDialog).findByText(
+      /다음 모임 전까지 발표 자료를 공유해 주세요/,
+    )
+
+    expect(notice).toHaveTextContent(
+      '공지 · 다음 모임 전까지 발표 자료를 공유해 주세요.',
+    )
+    expect(
+      within(chatDialog).queryByText(/이번 주 주제/),
+    ).not.toBeInTheDocument()
+  })
+
+  it('플로팅 그룹톡의 이력을 처음부터 최신 메시지 위치에서 보여준다', async () => {
+    const user = userEvent.setup()
+    const scrollTo = vi.mocked(HTMLElement.prototype.scrollTo)
+    const scrollHeight = vi
+      .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
+      .mockReturnValue(640)
+    scrollTo.mockClear()
+    vi.mocked(getStudyGroupChats).mockResolvedValue({
+      chats: [
+        {
+          chatId: 21,
+          groupId: 101,
+          senderId: 2,
+          senderNickname: '김구미',
+          profileImageUrl: null,
+          message: '가장 최근 플로팅 그룹톡 메시지',
+          createdAt: '2026-07-30T10:00:00',
+        },
+      ],
+      hasNext: false,
+    })
+
+    try {
+      renderStudyPage()
+      await screen.findAllByRole('article', { name: /상세 정보$/ })
+
+      await user.click(screen.getByRole('button', { name: '그룹톡 열기' }))
+      expect(
+        await screen.findByText('가장 최근 플로팅 그룹톡 메시지'),
+      ).toBeInTheDocument()
+      expect(scrollTo).toHaveBeenLastCalledWith({
+        top: 640,
+        behavior: 'auto',
+      })
+    } finally {
+      scrollHeight.mockRestore()
+    }
+  })
+
   it('바깥 클릭과 Escape로 팝오버를 닫고 그룹톡 트리거로 포커스를 복귀한다', async () => {
     const user = userEvent.setup()
     renderStudyPage()
