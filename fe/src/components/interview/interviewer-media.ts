@@ -26,14 +26,15 @@ const accentClips = new Map([
   [19, VIDEO.breathing],
   [29, VIDEO.deepBreath],
 ])
+const neutral1Slots = new Set([4, 14, 24])
 
 // 면접 진행 중에는 30개 슬롯 중 27개(90%)를 평시 영상으로 유지한다.
-// 나머지 슬롯에만 자연스러운 동작을 하나씩 섞고, 인사 영상은 포함하지 않는다.
+// 평시2를 전체의 80%로 반복하고, 나머지 슬롯에 평시1과 자연스러운 동작을 섞는다.
 const activePlaylist = Array.from(
   { length: ACTIVE_PLAYLIST_LENGTH },
   (_, index) =>
     accentClips.get(index) ??
-    (index % 2 === 0 ? VIDEO.neutral1 : VIDEO.neutral2),
+    (neutral1Slots.has(index) ? VIDEO.neutral1 : VIDEO.neutral2),
 )
 
 export function getInterviewerPlaylist(phase: InterviewerPhase) {

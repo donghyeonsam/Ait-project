@@ -8,8 +8,12 @@ describe('InterviewerMedia', () => {
   it('면접 진행 중에는 평시 영상을 90% 이상 사용하고 인사를 제외한다', () => {
     const playlist = getInterviewerPlaylist('active')
     const neutralClips = playlist.filter((source) => source.includes('평시'))
+    const neutral1Clips = playlist.filter((source) => source.includes('평시1'))
+    const neutral2Clips = playlist.filter((source) => source.includes('평시2'))
 
     expect(neutralClips.length / playlist.length).toBeGreaterThanOrEqual(0.9)
+    expect(neutral2Clips).toHaveLength(24)
+    expect(neutral1Clips).toHaveLength(3)
     expect(playlist.some((source) => source.includes('눈 2번 깜빡임'))).toBe(true)
     expect(playlist.some((source) => source.includes('숨쉬기'))).toBe(true)
     expect(playlist.some((source) => source.includes('큰숨'))).toBe(true)
