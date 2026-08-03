@@ -28,7 +28,8 @@ export function TrendingKeywordTicker({
     return () => clearInterval(timer)
   }, [isPaused, keywords.length])
 
-  if (keywords.length === 0) return null
+  // 데이터가 늦게 도착해도 Hero 왼쪽 열의 높이가 바뀌지 않도록 태그 행 공간을 유지한다.
+  if (keywords.length === 0) return <div className="h-9" aria-hidden="true" />
   const current = keywords[index]
 
   return (
