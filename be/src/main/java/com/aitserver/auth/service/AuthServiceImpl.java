@@ -20,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.concurrent.TimeUnit;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -113,8 +112,7 @@ public class AuthServiceImpl implements AuthService{
     @Override
     public void logout(Long userId, String accessToken) {
         log.info("[AuthService, logout] 로그아웃 시도 사용자: {}", userId);
-        revokeTokens(userId, accessToken);
-    }
+//        revokeTokens(userId, accessToken);
 
         // 1. Redis에서 RefreshToken 삭제
         String refreshTokenKey = "RT:" + userId;

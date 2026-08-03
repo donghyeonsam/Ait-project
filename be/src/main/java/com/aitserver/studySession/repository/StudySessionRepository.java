@@ -4,7 +4,6 @@ package com.aitserver.studySession.repository;
 import com.aitserver.studySession.entity.StudySession;
 import com.aitserver.studySession.domain.StudySessionStatus;
 import com.aitserver.studySession.entity.StudySessionParticipant;
-import io.lettuce.core.dynamic.annotation.Param;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -99,35 +99,6 @@ public class AuthController {
                 ));
     }
 
-    @DeleteMapping("/me")
-    public ResponseEntity<ApiResponse<Void>> withdraw(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            @AuthenticationPrincipal Long userId) {
-        String bearerToken = request.getHeader(HttpHeaders.AUTHORIZATION);
-        String accessToken = null;
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
-            accessToken = bearerToken.substring(7);
-        }
-
-        authService.withdraw(userId, accessToken);
-
-        ResponseCookie cookie = ResponseCookie.from("refreshToken", "")
-                .httpOnly(true)
-                .secure(true)
-                .path("/")
-                .maxAge(0)
-                .sameSite("Strict")
-                .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-
-        return ResponseEntity.ok(ApiResponse.success(
-                HttpStatus.OK,
-                "회원 탈퇴가 완료되었습니다.",
-                request
-        ));
-    }
-
     // 토큰 재발급
     @PostMapping("/reissue")
     public ResponseEntity<ApiResponse<Map<String, String>>> reissue(
