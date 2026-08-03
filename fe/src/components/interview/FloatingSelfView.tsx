@@ -13,6 +13,7 @@ interface FloatingSelfViewProps {
   boundsRef: RefObject<HTMLDivElement | null>
   /** 초기 위치를 하단에서 추가로 띄우는 값(px). 하단 오버레이 패널에 가리지 않게 할 때 쓴다. */
   initialBottomOffset?: number
+  docked?: boolean
 }
 
 const SELF_VIEW_WIDTH = 176
@@ -28,6 +29,7 @@ export function FloatingSelfView({
   stream,
   boundsRef,
   initialBottomOffset = 0,
+  docked = false,
 }: FloatingSelfViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const boxRef = useRef<HTMLDivElement>(null)
@@ -41,7 +43,7 @@ export function FloatingSelfView({
   }, [stream])
 
   useEffect(() => {
-    if (position) {
+    if (docked || position) {
       return
     }
     const bounds = boundsRef.current
@@ -55,7 +57,7 @@ export function FloatingSelfView({
         0,
       ),
     })
-  }, [boundsRef, initialBottomOffset, position])
+  }, [boundsRef, docked, initialBottomOffset, position])
 
   const clamp = useCallback((x: number, y: number): Position => {
     const bounds = boundsRef.current
@@ -103,7 +105,7 @@ export function FloatingSelfView({
     }
   }
 
-  if (!position) {
+  if (!docked && !position) {
     return null
   }
 
@@ -111,13 +113,28 @@ export function FloatingSelfView({
     <div
       ref={boxRef}
       role="presentation"
-      aria-label="내 카메라 화면 (드래그로 이동 가능)"
-      className="session-theater-self-view absolute touch-none cursor-grab overflow-hidden rounded-ait-s border-2 border-surface-default bg-status-neutral-surface text-text-secondary shadow-elevation-2 active:cursor-grabbing"
-      style={{ width: SELF_VIEW_WIDTH, height: SELF_VIEW_HEIGHT, left: position.x, top: position.y }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
+      aria-label={
+        docked ? '내 카메라 화면' : '내 카메라 화면 (드래그로 이동 가능)'
+      }
+      className={
+        docked
+          ? 'session-theater-self-view session-theater-self-view--docked overflow-hidden rounded-ait-s border-2 border-surface-default bg-status-neutral-surface text-text-secondary shadow-elevation-2'
+          : 'session-theater-self-view absolute touch-none cursor-grab overflow-hidden rounded-ait-s border-2 border-surface-default bg-status-neutral-surface text-text-secondary shadow-elevation-2 active:cursor-grabbing'
+      }
+      style={
+        docked
+          ? undefined
+          : {
+              width: SELF_VIEW_WIDTH,
+              height: SELF_VIEW_HEIGHT,
+              left: position?.x,
+              top: position?.y,
+            }
+      }
+      onPointerDown={docked ? undefined : handlePointerDown}
+      onPointerMove={docked ? undefined : handlePointerMove}
+      onPointerUp={docked ? undefined : handlePointerUp}
+      onPointerCancel={docked ? undefined : handlePointerUp}
     >
       {stream ? (
         <video ref={videoRef} autoPlay playsInline muted className="size-full -scale-x-100 object-cover" />
