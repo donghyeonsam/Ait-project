@@ -53,18 +53,10 @@ const commentMaxLength = 100
 const documentCardClass = 'rounded-ait-s border border-border-default p-3'
 
 // 이력서 상세: 경력·프로젝트·학력을 최신 항목이 먼저 오도록 그대로(서버 정렬 순서) 나열한다.
+// AI 분석(analysisContent)은 소유자 본인을 위한 내용이라, 다른 참가자를 열람하는 이 화면에는 보여주지 않는다.
 function ResumeDocumentView({ resume }: { resume: Resume }) {
   return (
     <div className="flex flex-col gap-5">
-      {resume.analysisContent ? (
-        <section>
-          <h3 className="text-body-2 font-semibold text-text-primary">AI 분석</h3>
-          <p className="mt-2 whitespace-pre-wrap text-body-1 leading-relaxed text-text-primary">
-            {resume.analysisContent}
-          </p>
-        </section>
-      ) : null}
-
       <section>
         <h3 className="text-body-2 font-semibold text-text-primary">경력</h3>
         {resume.careers.length === 0 ? (
@@ -147,6 +139,7 @@ function ResumeDocumentView({ resume }: { resume: Resume }) {
 }
 
 // 자소서 상세: 문항 순서(contentOrder)대로 질문·답변을 나열한다.
+// AI 분석(analysisContent)은 소유자 본인을 위한 내용이라, 다른 참가자를 열람하는 이 화면에는 보여주지 않는다.
 function CoverLetterDocumentView({ coverLetter }: { coverLetter: CoverLetterDetail }) {
   const sortedContents = [...coverLetter.coverLetterContents].sort(
     (a, b) => a.contentOrder - b.contentOrder,
@@ -157,15 +150,6 @@ function CoverLetterDocumentView({ coverLetter }: { coverLetter: CoverLetterDeta
       <p className="text-body-2 text-text-secondary">
         {coverLetter.companyName} · {coverLetter.role}
       </p>
-
-      {coverLetter.analysisContent ? (
-        <section>
-          <h3 className="text-body-2 font-semibold text-text-primary">AI 분석</h3>
-          <p className="mt-2 whitespace-pre-wrap text-body-1 leading-relaxed text-text-primary">
-            {coverLetter.analysisContent}
-          </p>
-        </section>
-      ) : null}
 
       <section className="flex flex-col gap-4">
         {sortedContents.map((content) => (
