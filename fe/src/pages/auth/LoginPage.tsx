@@ -12,6 +12,7 @@ import { PasswordInput } from '@/components/auth/PasswordInput'
 import { SocialButton } from '@/components/auth/SocialButton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { buildGithubAuthUrl } from '@/lib/githubOAuth'
 import { buildGoogleAuthUrl } from '@/lib/googleOAuth'
 import { useAuth } from '@/lib/useAuth'
 
@@ -182,8 +183,7 @@ export function LoginPage() {
             <SocialButton provider="google" onClick={() => { window.location.href = buildGoogleAuthUrl() }}>
               Google로 계속하기
             </SocialButton>
-            {/* TODO: 실제 API 연동 필요 - 백엔드에 GitHub OAuth 클라이언트가 아직 없다. */}
-            <SocialButton provider="github" onClick={() => console.log('GitHub 로그인')}>
+            <SocialButton provider="github" onClick={() => { window.location.href = buildGithubAuthUrl() }}>
               GitHub로 계속하기
             </SocialButton>
           </div>
