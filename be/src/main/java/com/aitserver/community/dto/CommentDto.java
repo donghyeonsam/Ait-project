@@ -24,6 +24,13 @@ public class CommentDto {
     }
 
     @Getter
+    @AllArgsConstructor
+    public static class ScrollResponse {
+        private List<Response> comments; // 계층형으로 조립된 원댓글 리스트
+        private boolean hasNext;         // 다음 페이지가 있는지 여부
+    }
+
+    @Getter
     @Builder
     @AllArgsConstructor
     public static class Response {

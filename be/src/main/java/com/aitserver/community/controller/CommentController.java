@@ -5,12 +5,12 @@ import com.aitserver.community.service.CommentService;
 import com.aitserver.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api")
@@ -24,13 +24,16 @@ public class CommentController {
     // ==========================================
 
     @GetMapping("/posts/{postId}/comments")
-    public ResponseEntity<ApiResponse<List<CommentDto.Response>>> getComments(
+    public ResponseEntity<ApiResponse<CommentDto.ScrollResponse>> getComments(
             @PathVariable("postId") Long postId,
             @AuthenticationPrincipal Long userId,
+            @PageableDefault(size = 30) Pageable pageable,
             HttpServletRequest request) {
 
-        List<CommentDto.Response> responses = commentService.getComments(userId, postId);
-        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "댓글 목록 조회 성공", responses, request));
+        // Service에서 원댓글 30개 + 답글들을 조립해서 ScrollResponse 형태로 반환
+        CommentDto.ScrollResponse response = commentService.getComments(userId, postId, pageable);
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "댓글 목록 조회 성공", response, request));
     }
 
     @PostMapping("/posts/{postId}/comments")

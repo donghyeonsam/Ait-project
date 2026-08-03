@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Formula;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -47,6 +48,9 @@ public class Post {
 
     @Column(name = "view_count", nullable = false)
     private Integer viewCount;
+
+    @Formula("(SELECT COUNT(*) FROM posts_comments c WHERE c.post_id = id AND c.deleted_at IS NULL)")
+    private int commentCount;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
