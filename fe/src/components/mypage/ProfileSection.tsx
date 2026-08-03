@@ -164,7 +164,7 @@ export function ProfileSection({
         onOpenDocuments={onOpenDocuments}
         onStartEditing={startEditing}
         onCancelEditing={cancelEditing}
-        onSaveEditing={saveEditing}
+        onSaveEditing={() => void saveEditing()}
       />
     </div>
   )

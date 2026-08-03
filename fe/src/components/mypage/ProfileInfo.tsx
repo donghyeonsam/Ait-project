@@ -58,6 +58,7 @@ export function ProfileInfo({
             {isEditing ? (
               <Input
                 value={profile[field.key]}
+                disabled={isSaving}
                 onChange={(event) => onChangeField(field.key, event.target.value)}
                 aria-label={field.label}
               />
@@ -79,6 +80,7 @@ export function ProfileInfo({
                 <li key={repository.id}>
                   <Input
                     value={repository.name}
+                    disabled={isSaving}
                     onChange={(event) => onChangeRepositoryName(repository.id, event.target.value)}
                     aria-label={`${repository.name} 표시 이름`}
                   />
@@ -104,6 +106,7 @@ export function ProfileInfo({
             <Input
               className="mt-3"
               value={skillsText}
+              disabled={isSaving}
               onChange={(event) => onChangeSkillsText(event.target.value)}
               placeholder="쉼표로 구분해서 입력하세요 (예: Java, Spring Boot, MySQL)"
               aria-label="프로젝트 사용 기술"

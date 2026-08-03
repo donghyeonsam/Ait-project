@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.concurrent.TimeUnit;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -111,8 +112,9 @@ public class AuthServiceImpl implements AuthService{
     // 로그아웃 로직 수행
     @Override
     public void logout(Long userId, String accessToken) {
-        // 로그아웃 -> 리프레시 토큰 삭제 -> 엑세스 토큰 블랙 리스트 등록
-        log.info("[AuthService, logout] 로그아웃 시도 사용자: {}, accessToken: {}", userId, accessToken);
+        log.info("[AuthService, logout] 로그아웃 시도 사용자: {}", userId);
+        revokeTokens(userId, accessToken);
+    }
 
         // 1. Redis에서 RefreshToken 삭제
         String refreshTokenKey = "RT:" + userId;
@@ -176,5 +178,24 @@ public class AuthServiceImpl implements AuthService{
 
         log.info("[AuthService, reissue] 새로운 AccessToken 발급 완료 - userId: {}", userId);
         return newAccessToken;
+    }
+
+    private void revokeTokens(Long userId, String accessToken) {
+        String refreshTokenKey = "RT:" + userId;
+        redisTemplate.delete(refreshTokenKey);
+
+        if (!StringUtils.hasText(accessToken)) {
+            return;
+        }
+
+        long expiration = jwtTokenProvider.getExpiration(accessToken);
+        if (expiration > 0) {
+            redisTemplate.opsForValue().set(
+                    "BL:" + accessToken,
+                    "revoked",
+                    expiration,
+                    TimeUnit.MILLISECONDS
+            );
+        }
     }
 }

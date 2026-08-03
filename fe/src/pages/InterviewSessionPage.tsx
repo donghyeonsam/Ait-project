@@ -149,6 +149,7 @@ function InterviewSessionContent({
         if (!active) return
         const generatedQuestions = response.questions
           .filter((item) => item.question.trim())
+          .map((item) => ({ ...item, depth: item.depth ?? 0 }))
           .sort((a, b) => a.order - b.order)
 
         if (generatedQuestions.length === 0) {
@@ -489,7 +490,7 @@ function ActiveInterviewSession({
   const handleConfirmEnd = () => {
     setEndDialogOpen(false)
     if (submittedAnswersRef.current.length > 0) {
-      handleViewResults()
+      void handleViewResults()
       return
     }
     navigate('/interviews')
