@@ -25,7 +25,7 @@ export function StudyChatFloatingButton({
         type="button"
         size="icon"
         onClick={onClick}
-        className="group/chat pointer-events-auto relative size-14 shrink-0 overflow-hidden rounded-ait-pill! border-2 border-status-achievement bg-action-primary p-0 text-surface-default shadow-elevation-3 transition-[transform,box-shadow,border-color,background-color] duration-250 ease-emphasized hover:-translate-y-1 hover:scale-105 hover:border-status-achievement/80 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background-default active:translate-y-0 active:scale-95 motion-reduce:transform-none motion-reduce:transition-none md:size-16"
+        className="group/chat pointer-events-auto relative size-14 shrink-0 rounded-ait-pill! border-2 border-status-achievement bg-action-primary p-0 text-surface-default shadow-elevation-3 transition-[transform,box-shadow,border-color,background-color] duration-250 ease-emphasized hover:-translate-y-1 hover:scale-105 hover:border-status-achievement/80 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background-default active:translate-y-0 active:scale-95 motion-reduce:transform-none motion-reduce:transition-none md:size-16"
         aria-expanded={open}
         aria-controls="study-chat-dialog"
         aria-label={
