@@ -21,19 +21,35 @@ export function getMyPeerFeedbacksInSession(sessionId: number) {
   return backendRequest<PeerFeedback[]>(`/api/peer-feedback/${sessionId}/me`)
 }
 
-// 이 세션에서 내가 받은 평가 전체. 평가자별로 나뉘어 오고, 평가자 신원은 화면에서 밝히지 않는다.
+export interface PeerFeedbackReceiveResult {
+  /** 요약이 아직 생성되지 않았으면 null. */
+  aiSummary: string | null
+  details: PeerFeedback[]
+}
+
+// 이 세션에서 내가 받은 평가 전체와 AI 종합 요약. 평가자별로 나뉘어 오고, 평가자 신원은 화면에서 밝히지 않는다.
+// 요약이 아직 생성 전인 세션에서는 서버가 실패 응답을 줄 수 있어, 요약 생성 이후 재조회하는 용도로도 쓰인다.
 export function getReceivedPeerFeedbacksInSession(sessionId: number) {
-  return backendRequest<PeerFeedback[]>(`/api/peer-feedback/me/${sessionId}/received`)
+  return backendRequest<PeerFeedbackReceiveResult>(
+    `/api/peer-feedback/me/${sessionId}/received`,
+  )
 }
 
-export interface PeerSummary {
+export interface PeerSummaryItem {
+  summaryId: number
+  sessionId: number
+  evaluateeId: number
   content: string
+  createdAt: string
 }
 
-// TODO: 실제 API 연동 필요 — 세션 종료 시점에 코멘트를 모아 AI가 요약하는 백엔드 파이프라인이
-// 아직 없다. 요약이 없으면(404) 아직 생성 전으로 보고 "생성 중" 상태로 표시한다.
-export function getPeerSummary(sessionId: number) {
-  return backendRequest<PeerSummary>(`/api/peer-feedback/me/${sessionId}/summary`)
+// 세션 참가자별 AI 상호평가 요약을 생성한다. 이미 생성돼 있으면 재생성 없이 기존 결과를 반환한다.
+// 세션이 완전히 종료(ENDED)되지 않았으면 실패하므로, 호출 전 세션 상태를 먼저 확인해야 한다.
+export function generatePeerSummaries(sessionId: number) {
+  return backendRequest<PeerSummaryItem[]>(
+    `/api/study-sessions/${sessionId}/peer-summaries`,
+    { method: 'POST' },
+  )
 }
 
 export interface PeerFeedbackCreateRequest {

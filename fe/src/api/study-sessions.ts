@@ -47,6 +47,20 @@ export function getStudySessionMembers(sessionId: number) {
   )
 }
 
+export interface StudySessionStatusInfo {
+  sessionId: number
+  status: StudySessionStatus
+  ended: boolean
+  endedAt: string | null
+}
+
+// AI 상호평가 요약은 세션이 완전히 종료된 뒤에만 생성할 수 있어, 요청 전에 상태를 먼저 확인한다.
+export function getStudySessionStatus(sessionId: number) {
+  return backendRequest<StudySessionStatusInfo>(
+    `/api/study-sessions/${sessionId}/status`,
+  )
+}
+
 // TODO: 백엔드 미배포 — 세션 참가자의 자소서는 본인 소유가 아니면 /api/cover-letters/{id}에서
 // 404로 걸러지므로, 세션 소속 여부로 대신 검증하는 이 엔드포인트가 별도로 필요하다. 배포 전까지는 404가 난다.
 export function getStudySessionCoverLetter(coverLetterId: number) {
