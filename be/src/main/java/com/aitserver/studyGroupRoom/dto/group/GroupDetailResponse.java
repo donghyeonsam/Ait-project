@@ -46,14 +46,14 @@ public class GroupDetailResponse {
     @NoArgsConstructor(access = AccessLevel.PROTECTED)
     public static class MemberInfo {
         private Long userId;
-        private String nickname;
+        private String name;
         private String profileImageUrl;
         private boolean isOwner;
 
         public static MemberInfo from(StudyGroupMember groupMember, Long ownerId) {
             return MemberInfo.builder()
                     .userId(groupMember.getUser().getId())
-                    .nickname(groupMember.getUser().getNickname())
+                    .name(groupMember.getUser().getName())
                     .profileImageUrl(groupMember.getUser().getProfileImage())
                     .isOwner(groupMember.isOwner())
                     .build();
