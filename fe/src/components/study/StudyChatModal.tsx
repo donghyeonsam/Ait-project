@@ -368,7 +368,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
           <div className="mx-4 mt-4 flex shrink-0 items-center gap-2 rounded-ait-m border border-status-info-border bg-status-info-surface px-4 py-3 text-body-2 text-action-primary sm:mx-6">
             <Pin className="size-4 shrink-0" aria-hidden="true" />
             <p className="min-w-0 truncate">
-              <span className="font-semibold">이번 주 주제 · </span>
+              <span className="font-semibold">공지 · </span>
               {notice}
             </p>
           </div>
