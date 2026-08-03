@@ -90,7 +90,7 @@ public class PostInteractionService {
                         post.getUser().getId(),
                         NotificationType.LIKE,
                         post.getId(),
-                        "회원님의 게시글에 좋아요가 달렸습니다."
+                        "[" + post.getTitle() + "] 게시글의 회원님 댓글에 새로운 좋아요가 달렸습니다."
                 ));
             }
         }

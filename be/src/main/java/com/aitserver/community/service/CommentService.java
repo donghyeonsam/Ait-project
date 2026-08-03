@@ -67,8 +67,21 @@ public class CommentService {
                     post.getUser().getId(),
                     NotificationType.COMMENT,
                     post.getId(),
-                    "회원님의 게시글에 새로운 댓글이 달렸습니다."
+                    "[" + post.getTitle() + "] 게시글에 새로운 댓글이 달렸습니다."
             ));
+        }
+
+        if (parent != null) {
+            Long parentAuthorId = parent.getUser().getId();
+
+            if (!parentAuthorId.equals(userId) && !parentAuthorId.equals(post.getUser().getId())) {
+                eventPublisher.publishEvent(new NotificationEvent(
+                        parentAuthorId,
+                        NotificationType.REPLY,
+                        post.getId(),
+                        "[" + post.getTitle() + "] 게시글의 회원님 댓글에 새로운 답글이 달렸습니다."
+                ));
+            }
         }
 
         return savedComment.getId();
