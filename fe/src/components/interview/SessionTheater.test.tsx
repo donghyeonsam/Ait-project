@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { SessionTheater } from '@/components/interview/SessionTheater'
 
@@ -14,21 +14,13 @@ vi.mock('@/components/interview/FloatingSelfView', () => ({
     />
   ),
 }))
-vi.mock('@/components/interview/InterviewerMedia', () => ({
-  InterviewerMedia: () => (
-    <div className="interviewer-media" data-testid="interviewer-media" />
-  ),
-}))
-
 const defaultProps: ComponentProps<typeof SessionTheater> = {
   stream: null,
   questionIndex: 0,
   totalQuestions: 3,
   question: '협업 중 갈등을 해결한 경험을 말해주세요.',
   answerStatus: 'idle',
-  interviewStyle: '밸런스형',
   isSubmittingAnswer: false,
-  isLastQuestion: false,
   answerDurationSeconds: 60,
   answerSecondsRemaining: 60,
   transcript: '',
@@ -40,6 +32,7 @@ const defaultProps: ComponentProps<typeof SessionTheater> = {
   primaryActionLabel: '답변 제출',
   primaryActionDisabled: true,
   onPrimaryAction: vi.fn(),
+  onFinishAnswer: vi.fn(),
   isAiSpeaking: false,
   onReplayQuestion: vi.fn(),
   replayDisabled: false,
@@ -55,11 +48,11 @@ const defaultProps: ComponentProps<typeof SessionTheater> = {
 }
 
 describe('SessionTheater recording controls', () => {
-  it('영상 상태가 전환되어도 헤더·질문 카드·내 화면을 유지한다', () => {
+  it('답변 상태가 전환되어도 헤더·질문 카드·내 화면을 유지한다', () => {
     const { container, rerender } = render(
       <SessionTheater {...defaultProps} />,
     )
-    const media = screen.getByTestId('interviewer-media')
+    const media = container.querySelector('.interviewer-media')
     const selfView = screen.getByTestId('session-self-view')
     const header = container.querySelector('.session-theater-header')
     const bottom = container.querySelector('.session-theater-bottom')
@@ -80,21 +73,25 @@ describe('SessionTheater recording controls', () => {
     expect(screen.getByRole('button', { name: '질문 다시 듣기' })).toBeVisible()
   })
 
-  it('대기·녹음 중에는 수동 녹음 시작/종료 버튼을 표시하지 않는다', () => {
+  it('녹음 중에는 답변 종료 버튼으로 답변을 일찍 마칠 수 있다', () => {
+    const onFinishAnswer = vi.fn()
     const { rerender } = render(<SessionTheater {...defaultProps} />)
 
     expect(screen.queryByRole('button', { name: '답변 제출' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '답변 종료' })).toBeNull()
 
     rerender(
       <SessionTheater
         {...defaultProps}
         answerStatus="recording"
         answerSecondsRemaining={42}
+        onFinishAnswer={onFinishAnswer}
       />,
     )
 
     expect(screen.getByRole('timer')).toHaveAccessibleName('답변 시간 42초 남음')
-    expect(screen.queryByRole('button', { name: /녹음/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '답변 종료' }))
+    expect(onFinishAnswer).toHaveBeenCalledOnce()
   })
 
   it('음성 변환 검토 단계에서는 답변 제출 버튼만 표시한다', () => {
@@ -108,6 +105,6 @@ describe('SessionTheater recording controls', () => {
     )
 
     expect(screen.getByRole('button', { name: '답변 제출' })).toBeEnabled()
-    expect(screen.queryByRole('button', { name: /녹음/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: '답변 종료' })).toBeNull()
   })
 })

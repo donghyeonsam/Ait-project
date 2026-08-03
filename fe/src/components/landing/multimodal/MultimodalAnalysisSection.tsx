@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react'
 import BlurText from '@/components/BlurText'
 import CenterFlow from '@/components/center-flow'
 import FadeContent from '@/components/FadeContent'
-import goldSparkleImage from '@/assets/landing/multimodal/gold-sparkle.svg'
 import { InterviewAnalysisPreview } from '@/components/landing/multimodal/InterviewAnalysisPreview'
 import { MultimodalMetricSelector } from '@/components/landing/multimodal/MultimodalMetricSelector'
 import {
@@ -31,24 +30,6 @@ export function MultimodalAnalysisSection() {
     >
       <div className="landing-shell multimodal-section__shell">
         <header className="multimodal-section__heading">
-          <FadeContent
-            className="multimodal-section__eyebrow"
-            duration={reduceMotion ? 0.01 : 500}
-            yOffset={reduceMotion ? 0 : 16}
-            respectReducedMotion
-            threshold={0.2}
-          >
-            <img
-              src={goldSparkleImage}
-              alt=""
-              width="64"
-              height="64"
-              loading="lazy"
-              decoding="async"
-              aria-hidden="true"
-            />
-            AI 멀티모달 분석
-          </FadeContent>
           <div
             className="multimodal-section__title"
             id="multimodal-analysis-title"

@@ -67,10 +67,10 @@ export function CommentComposer({
   }
 
   return (
-    <div className="flex items-start gap-3">
+    <div className="w-full">
       <div
         className={cn(
-          'relative flex-1 rounded-ait-s border border-line bg-surface-default transition-[border-color] duration-[180ms] focus-within:border-brand-blue focus-within:ring-2 focus-within:ring-brand-blue/15',
+          'rounded-ait-s border border-line bg-surface-default transition-[border-color] duration-[180ms] focus-within:border-brand-blue',
         )}
       >
         <textarea
@@ -87,31 +87,32 @@ export function CommentComposer({
           }}
           placeholder={placeholder}
           aria-label={submitLabel}
-          className="w-full resize-none border-0 bg-transparent px-4 pb-1 pt-3 text-body-2 text-ink-900 outline-none placeholder:text-ink-400 focus-visible:outline-none"
+          data-focus-ring="off"
+          className="w-full resize-none border-0 bg-transparent px-4 py-3 text-body-2 text-ink-900 outline-none placeholder:text-ink-400 focus-visible:outline-none"
         />
-        <div className="flex items-center justify-between gap-2 px-2 pb-1.5">
-          <div className="flex items-center gap-0.5">
-            <EmojiPopover onSelect={insertAtCursor} />
-            <EmoticonPopover
-              onSelect={(emoticon) => insertAtCursor(toEmoticonToken(emoticon))}
-            />
-          </div>
-          <span className="pointer-events-none pr-1 text-caption text-ink-400 tabular-nums">
-            {content.length} / {MAX_LENGTH}
-          </span>
-        </div>
       </div>
-      <button
-        type="button"
-        onClick={() => void submit()}
-        disabled={isSubmitting || content.trim().length === 0}
-        className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-ait-s bg-navy-900 px-5 text-body-2 font-semibold text-surface-default transition-[filter] duration-150 hover:brightness-[.92] disabled:bg-line disabled:text-ink-400"
-      >
-        {isSubmitting ? (
-          <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-        ) : null}
-        {submitLabel}
-      </button>
+      <div className="mt-2 flex items-center justify-end gap-2">
+        <div className="flex items-center gap-0.5">
+          <EmojiPopover onSelect={insertAtCursor} />
+          <EmoticonPopover
+            onSelect={(emoticon) => insertAtCursor(toEmoticonToken(emoticon))}
+          />
+        </div>
+        <span className="pointer-events-none text-caption text-ink-400 tabular-nums">
+          {content.length} / {MAX_LENGTH}
+        </span>
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={isSubmitting || content.trim().length === 0}
+          className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-ait-s bg-navy-900 px-4 text-body-2 font-semibold text-surface-default transition-[filter] duration-150 hover:brightness-[.92] disabled:bg-line disabled:text-ink-400"
+        >
+          {isSubmitting ? (
+            <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+          ) : null}
+          {submitLabel}
+        </button>
+      </div>
     </div>
   )
 }

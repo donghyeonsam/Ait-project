@@ -6,6 +6,7 @@ import {
   type PeerFeedbackSessionSummary,
 } from '@/api/peer-feedback'
 import { getMyStudyGroups, type MyStudyGroup } from '@/api/study-groups'
+import { getStudySessionStatus } from '@/api/study-sessions'
 import { toErrorMessage } from '@/api/http'
 import { ScoreTrendChart } from '@/components/dashboard/ScoreTrendChart'
 import { StudyRecordItem } from '@/components/dashboard/StudyRecordItem'
@@ -14,6 +15,7 @@ import { PageLayout } from '@/components/layout/PageLayout'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { ScoreTrendPoint, StudyRecord } from '@/types/dashboard'
+import { cn } from '@/lib/utils'
 
 interface StudyDashboardNavState {
   /** 방금 나온 세션. 다른 참가자 평가가 아직 안 모였을 수 있어 "평가 수집중" 상태로 먼저 보여준다. */
@@ -51,6 +53,7 @@ function toStudyRecords(items: PeerFeedbackSessionSummary[]): StudyRecord[] {
   }
 
   const deltaBySessionId = new Map<number, number>()
+  const roundBySessionId = new Map<number, number>()
   for (const list of byGroup.values()) {
     const ascending = [...list].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
     ascending.forEach((item, index) => {
@@ -58,6 +61,7 @@ function toStudyRecords(items: PeerFeedbackSessionSummary[]): StudyRecord[] {
         item.sessionId,
         index > 0 ? item.scoreAvg - ascending[index - 1].scoreAvg : 0,
       )
+      roundBySessionId.set(item.sessionId, index + 1)
     })
   }
 
@@ -70,15 +74,31 @@ function toStudyRecords(items: PeerFeedbackSessionSummary[]): StudyRecord[] {
       date: formatRecordDate(item.createdAt),
       score: item.scoreAvg,
       delta: deltaBySessionId.get(item.sessionId) ?? 0,
+      round: roundBySessionId.get(item.sessionId) ?? 1,
       status: 'completed' as const,
     }))
 }
 
 // 이 페이지의 두 상단 카드는 지난 주 대비 같은 비교값이 없어, 카운트업 애니메이션이 붙은
 // StatCard 대신 라벨·값만 보여주는 단순한 카드를 쓴다.
-function SimpleStatCard({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
+function SimpleStatCard({
+  icon,
+  label,
+  value,
+  className,
+}: {
+  icon: ReactNode
+  label: string
+  value: ReactNode
+  className?: string
+}) {
   return (
-    <article className="rounded-ait-m border border-border-default bg-background-default p-4 shadow-elevation-1 lg:p-6">
+    <article
+      className={cn(
+        'flex items-center rounded-ait-m border border-border-default bg-background-default p-4 shadow-elevation-1 lg:p-6',
+        className,
+      )}
+    >
       <div className="flex items-center gap-4">
         <span
           className="flex size-14 shrink-0 items-center justify-center rounded-ait-pill bg-status-neutral-surface text-action-primary"
@@ -118,10 +138,34 @@ export function DashboardStudyPage() {
     let cancelled = false
 
     getPeerFeedbackList()
-      .then((result) => {
+      .then(async (result) => {
         if (cancelled) return
-        setRecords(toStudyRecords(result))
+        const initialRecords = toStudyRecords(result)
+        setRecords(initialRecords)
         setLoadState('loaded')
+
+        // 목록에는 팀원 한 명만 먼저 평가를 남겨도 세션이 잡히므로, 세션이 실제로 완전히
+        // 종료됐는지 다시 확인해 아직이면 점수·리포트를 감추고 "평가 수집중"으로 되돌린다.
+        const statuses = await Promise.all(
+          initialRecords.map((record) =>
+            getStudySessionStatus(record.sessionId).catch(() => null),
+          ),
+        )
+        if (cancelled) return
+
+        const endedBySessionId = new Map(
+          initialRecords
+            .map((record, index) => [record.sessionId, statuses[index]?.ended] as const)
+            .filter(([, ended]) => ended !== undefined),
+        )
+
+        setRecords((current) =>
+          current.map((record) =>
+            endedBySessionId.get(record.sessionId) === false
+              ? { ...record, status: 'collecting', score: 0, delta: 0 }
+              : record,
+          ),
+        )
       })
       .catch((error: unknown) => {
         if (cancelled) return
@@ -188,6 +232,7 @@ export function DashboardStudyPage() {
   const trendData = useMemo<ScoreTrendPoint[]>(
     () =>
       records
+        .filter((record) => record.status === 'completed')
         .slice(0, TREND_POINT_COUNT)
         .map((record) => ({ date: record.date.slice(5), score: record.score }))
         .reverse(),
@@ -267,8 +312,9 @@ export function DashboardStudyPage() {
       ) : (
         <>
           <section className="interview-summary-grid grid gap-10" aria-label="스터디 활동 요약">
-            <div>
+            <div className="flex flex-col">
               <SimpleStatCard
+                className="flex-1"
                 icon={<UsersRound className="size-7" />}
                 label="누적 스터디"
                 value={
@@ -280,6 +326,7 @@ export function DashboardStudyPage() {
               />
               <div className="my-6 border-t border-border-default" />
               <SimpleStatCard
+                className="flex-1"
                 icon={<Users className="size-7" />}
                 label="최근 스터디 그룹"
                 value={records[0]?.groupTitle ?? '아직 없음'}
@@ -353,6 +400,9 @@ export function DashboardStudyPage() {
                         date: formatRecordDate(new Date().toISOString()),
                         score: 0,
                         delta: 0,
+                        round:
+                          records.filter((record) => record.groupId === pendingSession.groupId)
+                            .length + 1,
                         status: 'collecting',
                       }}
                       index={0}
@@ -371,7 +421,7 @@ export function DashboardStudyPage() {
                     ))
                   ) : !pendingSession ? (
                     <div className="rounded-ait-m border border-border-default bg-surface-default px-8 py-10 text-center">
-                      <h3 className="text-h3">조건에 맞는 스터디 기록이 없습니다</h3>
+                      <h3 className="text-h3">아직 스터디 기록이 없습니다</h3>
                       <p className="mt-2 text-body-2 text-text-secondary">다른 그룹을 선택해 주세요.</p>
                     </div>
                   ) : null}

@@ -145,10 +145,7 @@ export function CommentSection({
       )
 
   return (
-    <section
-      aria-label="댓글"
-      className="rounded-ait-m border border-line bg-surface-default p-8"
-    >
+    <section aria-label="댓글">
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-h3 font-bold text-ink-900">
           댓글 {formatNumber(totalCount)}
@@ -164,10 +161,12 @@ export function CommentSection({
         />
       </div>
 
-      <div className="mt-5 flex items-start gap-3">
-        <span aria-hidden="true" className="mt-0.5 size-10 shrink-0 rounded-ait-pill bg-profile-avatar" />
-        <div className="flex-1">
-          <CommentComposer onSubmit={submitComment} />
+      <div className="mt-5 border-b border-line pb-6">
+        <div className="flex items-start gap-3">
+          <span aria-hidden="true" className="mt-0.5 size-10 shrink-0 rounded-ait-pill bg-profile-avatar" />
+          <div className="flex-1">
+            <CommentComposer onSubmit={submitComment} />
+          </div>
         </div>
       </div>
 

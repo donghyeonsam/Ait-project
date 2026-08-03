@@ -336,6 +336,11 @@ button:not(:disabled) {
     color-mix(in srgb, var(--color-action-primary) 25%, transparent);
 }
 
+/* 래퍼가 자체 포커스 표시(테두리 색 등)를 제공하는 입력 요소는 기본 아웃라인을 끈다. */
+:where([data-focus-ring="off"]):focus-visible {
+  outline: none;
+}
+
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
@@ -2049,19 +2054,21 @@ button:not(:disabled) {
   -webkit-line-clamp: 2;
 }
 
+/* 패널이 왼쪽에서 400ms 동안 슬라이드된 뒤 보이도록, 항목 등장은 패널 시간만큼 늦춘다. */
 .document-box-dialog[data-state='open'] .line-sidebar-item {
   animation: line-sidebar-item-in var(--duration-base)
     var(--easing-emphasized) both;
+  animation-delay: var(--duration-slow);
 }
 
 .document-box-dialog[data-state='open']
   .line-sidebar-item:nth-child(2) {
-  animation-delay: var(--duration-fast);
+  animation-delay: calc(var(--duration-slow) + var(--duration-fast));
 }
 
 .document-box-dialog[data-state='open']
   .line-sidebar-item:nth-child(n + 3) {
-  animation-delay: var(--duration-base);
+  animation-delay: calc(var(--duration-slow) + var(--duration-base));
 }
 
 .dynamic-card {

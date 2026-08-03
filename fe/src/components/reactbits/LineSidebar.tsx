@@ -192,6 +192,8 @@ export function LineSidebar({
     () => () => {
       if (animationFrameRef.current !== null) {
         window.cancelAnimationFrame(animationFrameRef.current)
+        // StrictMode 재마운트 후 startAnimation이 stale id를 실행 중으로 오판하지 않도록 비운다.
+        animationFrameRef.current = null
       }
     },
     [],

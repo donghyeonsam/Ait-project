@@ -273,6 +273,7 @@ function ActiveInterviewSession({
   const [speakerVolume, setSpeakerVolume] = useState(devices.speakerVolume)
   const sessionStartRef = useRef(0)
   const submittedAnswersRef = useRef<SubmittedVoiceAnswer[]>([])
+  const submitAfterRecordingRef = useRef(false)
   const question = sessionQuestions[questionIndex]
   const voiceAnswer = useVoiceAnswer(stream)
   const nonVerbalCapture = useNonVerbalCapture(stream, aiInterviewId)
@@ -431,6 +432,40 @@ function ActiveInterviewSession({
     voiceAnswer,
   ])
 
+  const handleFinishAnswer = useCallback(() => {
+    if (voiceAnswer.status !== 'recording') return
+    submitAfterRecordingRef.current = true
+    voiceAnswer.stopRecording()
+  }, [voiceAnswer])
+
+  useEffect(() => {
+    if (!submitAfterRecordingRef.current) return
+
+    if (voiceAnswer.status === 'idle' || voiceAnswer.status === 'error') {
+      submitAfterRecordingRef.current = false
+      return
+    }
+
+    // 녹음 파일과 음성 변환 결과가 모두 준비된 뒤 제출해야 오디오 분석이 누락되지 않는다.
+    if (voiceAnswer.status !== 'review' || !voiceAnswer.audioBlob) return
+
+    if (!voiceAnswer.transcript.trim()) {
+      submitAfterRecordingRef.current = false
+      return
+    }
+
+    const submitTimer = window.setTimeout(() => {
+      submitAfterRecordingRef.current = false
+      void handleSubmitAnswer()
+    }, 0)
+    return () => window.clearTimeout(submitTimer)
+  }, [
+    handleSubmitAnswer,
+    voiceAnswer.audioBlob,
+    voiceAnswer.status,
+    voiceAnswer.transcript,
+  ])
+
   const primaryActionDisabled =
     isSubmittingAnswer ||
     voiceAnswer.status !== 'review' ||
@@ -504,9 +539,7 @@ function ActiveInterviewSession({
         totalQuestions={sessionQuestions.length}
         question={question.question}
         answerStatus={voiceAnswer.status}
-        interviewStyle={input.style}
         isSubmittingAnswer={isSubmittingAnswer}
-        isLastQuestion={isLastQuestion}
         answerDurationSeconds={ANSWER_DURATION_SECONDS}
         answerSecondsRemaining={answerSecondsRemaining}
         transcript={voiceAnswer.transcript}
@@ -523,6 +556,7 @@ function ActiveInterviewSession({
         primaryActionLabel={primaryActionLabel}
         primaryActionDisabled={primaryActionDisabled}
         onPrimaryAction={handlePrimaryAction}
+        onFinishAnswer={handleFinishAnswer}
         isAiSpeaking={questionSpeech.isSpeaking}
         onReplayQuestion={handleReplayQuestion}
         replayDisabled={

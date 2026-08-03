@@ -29,5 +29,7 @@ export interface StudyRecord {
   score: number
   /** 같은 그룹의 직전 세션 대비 점수 증감. 비교 대상이 없으면 0이다. */
   delta: number
+  /** 같은 그룹에서 몇 번째 스터디인지(오래된 순 1부터). */
+  round: number
   status: 'collecting' | 'completed'
 }
