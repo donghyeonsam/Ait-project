@@ -6,18 +6,17 @@ import {
   RotateCcw,
   Send,
   ShieldCheck,
+  Square,
 } from 'lucide-react'
 import { DeviceControlBar } from '@/components/interview/DeviceControlBar'
+import { DemoInterviewerVideo } from '@/components/interview/DemoInterviewerVideo'
 import { FloatingSelfView } from '@/components/interview/FloatingSelfView'
-import { InterviewerMedia } from '@/components/interview/InterviewerMedia'
 import type { MediaPermissionState } from '@/components/interview/useMediaDevices'
 import type { VoiceAnswerStatus } from '@/components/interview/useVoiceAnswer'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
-import type { InterviewStyle } from '@/mocks/interview'
 
-// PIP 초기 위치가 하단 오버레이 패널(질문 카드 + 컨트롤 행)에 가리지 않게 띄우는 값.
-const PIP_BOTTOM_OFFSET = 200
+const INTERVIEWER_IMAGE_SRC = '/interview/ai-interviewer.png'
 
 const WAVE_BAR_COUNT = 12
 
@@ -27,9 +26,7 @@ interface SessionTheaterProps {
   totalQuestions: number
   question: string
   answerStatus: VoiceAnswerStatus
-  interviewStyle: InterviewStyle
   isSubmittingAnswer: boolean
-  isLastQuestion: boolean
   answerDurationSeconds: number
   answerSecondsRemaining: number
   transcript: string
@@ -41,6 +38,7 @@ interface SessionTheaterProps {
   primaryActionLabel: string
   primaryActionDisabled: boolean
   onPrimaryAction: () => void
+  onFinishAnswer: () => void
   isAiSpeaking: boolean
   onReplayQuestion: () => void
   replayDisabled: boolean
@@ -53,6 +51,16 @@ interface SessionTheaterProps {
   speakerVolume: number
   onToggleSpeakerMuted: () => void
   onChangeSpeakerVolume: (value: number) => void
+  demoVideoQuestionKey?: string
+  demoQuestionVideoSrc?: string | null
+  demoVideoQuestionActive?: boolean
+  questionVisible?: boolean
+  onDemoQuestionVideoPlaying?: (playbackKey: string) => void
+  onDemoQuestionVideoEnded?: (playbackKey: string) => void
+  onDemoQuestionVideoPlaybackError?: (
+    playbackKey: string,
+    reason: 'blocked' | 'unavailable',
+  ) => void
 }
 
 function formatCountdown(totalSeconds: number) {
@@ -151,16 +159,14 @@ function LiveWaveform() {
   )
 }
 
-// 면접 세션 몰입형 시어터 화면: 면접관 영상을 전면 배경으로 깔고 질문·컨트롤을 오버레이로 얹는다.
+// 면접 세션 몰입형 시어터 화면: 면접관 배경 위에 질문·컨트롤을 오버레이로 얹는다.
 export function SessionTheater({
   stream,
   questionIndex,
   totalQuestions,
   question,
   answerStatus,
-  interviewStyle,
   isSubmittingAnswer,
-  isLastQuestion,
   answerDurationSeconds,
   answerSecondsRemaining,
   transcript,
@@ -172,6 +178,7 @@ export function SessionTheater({
   primaryActionLabel,
   primaryActionDisabled,
   onPrimaryAction,
+  onFinishAnswer,
   isAiSpeaking,
   onReplayQuestion,
   replayDisabled,
@@ -184,6 +191,13 @@ export function SessionTheater({
   speakerVolume,
   onToggleSpeakerMuted,
   onChangeSpeakerVolume,
+  demoVideoQuestionKey,
+  demoQuestionVideoSrc = null,
+  demoVideoQuestionActive,
+  questionVisible = true,
+  onDemoQuestionVideoPlaying = () => {},
+  onDemoQuestionVideoEnded = () => {},
+  onDemoQuestionVideoPlaybackError = () => {},
 }: SessionTheaterProps) {
   const stageRef = useRef<HTMLDivElement>(null)
 
@@ -208,20 +222,29 @@ export function SessionTheater({
     <div ref={stageRef} className="session-theater screen-fade-in">
       <h1 className="sr-only">AI 모의면접 진행</h1>
 
-      <InterviewerMedia
-        questionIndex={questionIndex}
-        interviewStyle={interviewStyle}
-        answerStatus={answerStatus}
-        isAiSpeaking={isAiSpeaking}
-        isSubmittingAnswer={isSubmittingAnswer}
-        isLastQuestion={isLastQuestion}
-      />
-      <FloatingSelfView
-        stream={stream}
-        boundsRef={stageRef}
-        initialBottomOffset={PIP_BOTTOM_OFFSET}
-      />
-
+      {demoVideoQuestionKey ? (
+        <DemoInterviewerVideo
+          posterSrc={INTERVIEWER_IMAGE_SRC}
+          questionKey={demoVideoQuestionKey}
+          questionVideoSrc={demoQuestionVideoSrc}
+          isQuestionPlaybackActive={
+            demoVideoQuestionActive ?? isAiSpeaking
+          }
+          speakerMuted={speakerMuted}
+          speakerVolume={speakerVolume}
+          onQuestionPlaying={onDemoQuestionVideoPlaying}
+          onQuestionEnded={onDemoQuestionVideoEnded}
+          onQuestionPlaybackError={onDemoQuestionVideoPlaybackError}
+        />
+      ) : (
+        <div className="interviewer-media">
+          <img
+            src={INTERVIEWER_IMAGE_SRC}
+            alt="AI 면접관"
+            className="interviewer-media-poster"
+          />
+        </div>
+      )}
       <div className="session-theater-scrim" aria-hidden="true" />
 
       <header className="session-theater-header">
@@ -254,6 +277,87 @@ export function SessionTheater({
         </div>
       </header>
 
+      <aside className="session-theater-side" aria-label="내 화면과 실시간 답변">
+        <FloatingSelfView stream={stream} boundsRef={stageRef} docked />
+
+        <section
+          className="session-theater-transcript-panel"
+          aria-labelledby="session-live-answer-title"
+        >
+          <div className="session-theater-transcript-header">
+            <h2 id="session-live-answer-title">실시간 답변</h2>
+            <p>
+              {isReview
+                ? '인식된 답변을 확인하고 필요한 부분을 수정해주세요.'
+                : isProcessing
+                  ? '답변을 텍스트로 변환하고 있어요…'
+                  : isRecording
+                    ? 'STT 기능으로 실시간 답변을 기록 중입니다.'
+                    : '질문이 끝나면 실시간 답변 기록을 시작합니다.'}
+            </p>
+          </div>
+
+          {isReview ? (
+            <div className="session-theater-transcript-editor">
+              <label htmlFor="voice-answer-transcript">답변 텍스트</label>
+              <Textarea
+                id="voice-answer-transcript"
+                value={transcript}
+                onChange={(event) => onChangeTranscript(event.target.value)}
+                className="session-theater-textarea"
+                placeholder="인식된 답변을 확인하고 필요한 부분을 수정해주세요."
+              />
+              <p>답변 내용을 수정한 뒤 답변 제출을 눌러주세요.</p>
+            </div>
+          ) : (
+            <div
+              className="session-theater-live-transcript"
+              role="log"
+              aria-live="polite"
+            >
+              {transcript ||
+                (isRecording
+                  ? '답변을 시작하면 인식된 내용이 여기에 표시됩니다.'
+                  : '아직 기록된 답변이 없습니다.')}
+            </div>
+          )}
+        </section>
+
+        {isRecording ? (
+          <div className="session-theater-record-column">
+            <button
+              type="button"
+              className="session-theater-record-button"
+              onClick={onFinishAnswer}
+              aria-label="답변 종료"
+            >
+              <Square className="size-4 fill-current" aria-hidden="true" />
+              답변 종료
+            </button>
+            <span className="session-theater-hint">
+              답변을 마치면 내용을 확인하고 수정할 수 있어요
+            </span>
+          </div>
+        ) : isReview || isSubmittingAnswer ? (
+          <div className="session-theater-record-column">
+            <button
+              type="button"
+              className="session-theater-record-button"
+              onClick={onPrimaryAction}
+              disabled={primaryActionDisabled}
+              aria-busy={isSubmittingAnswer}
+              aria-label={primaryActionLabel}
+            >
+              {actionIcon}
+              {primaryActionLabel}
+            </button>
+            <span className="session-theater-hint">
+              Space 키로 답변을 제출할 수 있어요
+            </span>
+          </div>
+        ) : null}
+      </aside>
+
       <div className="session-theater-bottom">
         {mediaPermission === 'pending' ? (
           <p className="session-theater-hint" role="status">
@@ -277,6 +381,28 @@ export function SessionTheater({
           </div>
         ) : null}
 
+        <div className="session-theater-secondary-row">
+          <DeviceControlBar
+            micStream={stream}
+            micMuted={micMuted}
+            micGain={micGain}
+            onToggleMicMuted={onToggleMicMuted}
+            onChangeMicGain={onChangeMicGain}
+            speakerMuted={speakerMuted}
+            speakerVolume={speakerVolume}
+            onToggleSpeakerMuted={onToggleSpeakerMuted}
+            onChangeSpeakerVolume={onChangeSpeakerVolume}
+            tone="inverse"
+          />
+          <span
+            className="session-theater-privacy"
+            title="음성 텍스트 변환은 브라우저에서 처리합니다. 제출한 녹음 파일은 기존 답변 음성 분석을 위해 서버로 전송됩니다."
+          >
+            <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />
+            음성 텍스트 변환은 브라우저에서 처리됩니다
+          </span>
+        </div>
+
         <div className="session-theater-primary-row">
           <div className="session-theater-glass-card">
             <div className="session-theater-card-main">
@@ -297,7 +423,9 @@ export function SessionTheater({
                   </span>
                 ) : null}
               </div>
-              <p className="session-theater-question">{question}</p>
+              <p className="session-theater-question" aria-live="polite">
+                {questionVisible ? question : '질문 영상을 불러오고 있어요…'}
+              </p>
 
               {isRecording ? (
                 <p className="session-theater-note">
@@ -309,24 +437,6 @@ export function SessionTheater({
                 <p className="session-theater-note" role="status">
                   답변을 텍스트로 변환하고 있어요…
                 </p>
-              ) : null}
-
-              {isReview ? (
-                <div className="mt-4">
-                  <label
-                    htmlFor="voice-answer-transcript"
-                    className="text-caption font-semibold text-white/75"
-                  >
-                    답변 텍스트
-                  </label>
-                  <Textarea
-                    id="voice-answer-transcript"
-                    value={transcript}
-                    onChange={(event) => onChangeTranscript(event.target.value)}
-                    className="session-theater-textarea max-h-40 min-h-24"
-                    placeholder="인식된 답변을 확인하고 필요한 부분을 수정해주세요."
-                  />
-                </div>
               ) : null}
 
               {voiceError || speechError ? (
@@ -349,47 +459,8 @@ export function SessionTheater({
             ) : null}
           </div>
 
-          {isReview || isSubmittingAnswer ? (
-            <div className="session-theater-record-column">
-              <button
-                type="button"
-                className="session-theater-record-button"
-                onClick={onPrimaryAction}
-                disabled={primaryActionDisabled}
-                aria-busy={isSubmittingAnswer}
-                aria-label={primaryActionLabel}
-              >
-                {actionIcon}
-                {primaryActionLabel}
-              </button>
-              <span className="session-theater-hint">
-                Space 키로 답변을 제출할 수 있어요
-              </span>
-            </div>
-          ) : null}
         </div>
 
-        <div className="session-theater-secondary-row">
-          <DeviceControlBar
-            micStream={stream}
-            micMuted={micMuted}
-            micGain={micGain}
-            onToggleMicMuted={onToggleMicMuted}
-            onChangeMicGain={onChangeMicGain}
-            speakerMuted={speakerMuted}
-            speakerVolume={speakerVolume}
-            onToggleSpeakerMuted={onToggleSpeakerMuted}
-            onChangeSpeakerVolume={onChangeSpeakerVolume}
-            tone="inverse"
-          />
-          <span
-            className="session-theater-privacy"
-            title="음성 텍스트 변환은 브라우저에서 처리합니다. 제출한 녹음 파일은 기존 답변 음성 분석을 위해 서버로 전송됩니다."
-          >
-            <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />
-            음성 텍스트 변환은 브라우저에서 처리됩니다
-          </span>
-        </div>
       </div>
     </div>
   )

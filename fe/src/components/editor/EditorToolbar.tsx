@@ -12,6 +12,8 @@ import {
   Undo2,
 } from 'lucide-react'
 import { useRef, type ReactNode } from 'react'
+import { EmojiPopover } from '@/components/common/EmojiPopover'
+import { EmoticonPopover } from '@/components/common/EmoticonPopover'
 import { LinkPopover } from '@/components/editor/LinkPopover'
 import { Dropdown } from '@/components/ui/dropdown'
 import { cn } from '@/lib/utils'
@@ -189,6 +191,26 @@ export function EditorToolbar({ editor, onPickImage }: EditorToolbarProps) {
       <ToolbarButton label="이미지" onClick={onPickImage}>
         <ImagePlus aria-hidden="true" className="size-4" />
       </ToolbarButton>
+      <EmojiPopover
+        onSelect={(emoji) => editor.chain().focus().insertContent(emoji).run()}
+      />
+      <EmoticonPopover
+        onSelect={(emoticon) =>
+          // 원본 PNG가 크므로 본문에서는 이모티콘 크기로 줄여 넣는다. 이후 크기 조절이 가능하다.
+          editor
+            .chain()
+            .focus()
+            .insertContent({
+              type: 'image',
+              attrs: {
+                src: emoticon.src,
+                alt: `${emoticon.label} 이모티콘`,
+                width: '120px',
+              },
+            })
+            .run()
+        }
+      />
 
       <Divider />
 

@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StudyChatMessageReactions } from '@/components/study/StudyChatMessageReactions'
+import { parseEmoticonToken } from '@/lib/emoticons'
 import { cn } from '@/lib/utils'
 
 interface StudyChatMessageListProps {
@@ -133,6 +134,7 @@ export function StudyChatMessageList({
       {!isLoading && !error
         ? messages.map((message, index) => {
             const isSelf = message.senderId === currentUserId
+            const emoticon = parseEmoticonToken(message.message)
             const previousMessage = messages[index - 1]
             const showDateDivider =
               !previousMessage ||
@@ -178,18 +180,26 @@ export function StudyChatMessageList({
                         {message.senderNickname}
                       </p>
                     ) : null}
-                    <div
-                      className={cn(
-                        'rounded-ait-l px-4 py-3 text-left text-body-2',
-                        isSelf
-                          ? 'bg-action-primary text-surface-default'
-                          : 'bg-status-neutral-surface text-action-primary',
-                      )}
-                    >
-                      <p className="whitespace-pre-wrap wrap-break-word">
-                        {message.message}
-                      </p>
-                    </div>
+                    {emoticon ? (
+                      <img
+                        src={emoticon.src}
+                        alt={`${emoticon.label} 이모티콘`}
+                        className="inline-block size-32 object-contain"
+                      />
+                    ) : (
+                      <div
+                        className={cn(
+                          'rounded-ait-l px-4 py-3 text-left text-body-2',
+                          isSelf
+                            ? 'bg-action-primary text-surface-default'
+                            : 'bg-status-neutral-surface text-action-primary',
+                        )}
+                      >
+                        <p className="whitespace-pre-wrap wrap-break-word">
+                          {message.message}
+                        </p>
+                      </div>
+                    )}
                     <div
                       className={cn(
                         'mt-1 flex flex-wrap items-start gap-1.5',

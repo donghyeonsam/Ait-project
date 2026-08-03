@@ -1,0 +1,13 @@
+package com.aitserver.user.dto;
+
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
+@Builder
+public class NicknameCheckResponse {
+
+    private Boolean canUse;
+}

@@ -1,4 +1,3 @@
-import { Sparkles } from 'lucide-react'
 import ClickStack from '@/components/click-stack'
 import { showcaseQuestions } from '@/components/landing/landing.data'
 import { RotatingText } from '@/components/reactbits/RotatingText'
@@ -14,10 +13,6 @@ export function QuestionShowcase() {
     >
       <div className="landing-shell">
         <div className="landing-section-heading">
-          <p>
-            <Sparkles aria-hidden="true" />
-            실전 질문 미리보기
-          </p>
           <h2 id="questions-title">
             <RotatingText
               className="landing-questions__rotate"

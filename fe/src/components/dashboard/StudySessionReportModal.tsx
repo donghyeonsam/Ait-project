@@ -3,10 +3,12 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ChevronDown, Sparkles } from 'lucide-react'
 import {
-  getPeerSummary,
+  generatePeerSummaries,
   getReceivedPeerFeedbacksInSession,
   type PeerFeedback,
+  type PeerFeedbackReceiveResult,
 } from '@/api/peer-feedback'
+import { getStudySessionStatus } from '@/api/study-sessions'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAnimatedNumber } from '@/components/dashboard/useAnimatedNumber'
@@ -69,14 +71,21 @@ function TeammateAccordion({ title, averageScore, children }: TeammateAccordionP
 
 type FeedbackListState =
   | { status: 'idle' }
+  // 세션이 아직 완전히 종료되지 않아 평가가 모이길 기다리는 중.
+  | { status: 'waiting'; sessionId: number }
   | { status: 'loaded'; sessionId: number; feedbacks: PeerFeedback[] }
   | { status: 'error'; sessionId: number; message: string }
 
 type SummaryState =
   | { status: 'idle' }
+  | { status: 'waiting'; sessionId: number }
+  | { status: 'loading'; sessionId: number }
   | { status: 'loaded'; sessionId: number; content: string }
-  // 아직 생성 전(404)이거나 일시적으로 조회에 실패한 경우 — 둘 다 "아직 준비되지 않음"으로 묶어 보여준다.
+  // 요약할 코멘트가 없는 등, 세션 종료 후에도 요약이 만들어지지 않은 경우.
   | { status: 'pending'; sessionId: number }
+
+// 세션 종료 여부를 다시 확인하는 주기. 너무 잦으면 트래픽이 늘고, 너무 뜸하면 종료 직후 반응이 느리다.
+const sessionStatusPollIntervalMs = 5000
 
 // 스터디 세션 리포트 모달. 종합 점수·역량 레이더·AI 총평·팀원별 평가를 보여준다.
 // 접근성을 위해 열려 있는 동안 포커스를 모달 안에 가두고 Esc로 닫는다(ReportModal과 동일한 패턴).
@@ -89,43 +98,85 @@ export function StudySessionReportModal({ open, record, onClose }: StudySessionR
   const [feedbackState, setFeedbackState] = useState<FeedbackListState>({ status: 'idle' })
   const [summaryState, setSummaryState] = useState<SummaryState>({ status: 'idle' })
 
+  // 점수·코멘트와 AI 요약을 함께 내려주는 조회 API는 요약이 아직 없는 세션에서 실패할 수 있어,
+  // 우선 바로 조회를 시도하고 실패하면 세션 종료를 확인한 뒤 요약을 생성하고 나서 다시 조회한다.
+  // 세션이 아직 진행 중이면 종료될 때까지 상태를 주기적으로 다시 확인한다.
   useEffect(() => {
     if (!open) return
     let cancelled = false
+    let pollTimeoutId: ReturnType<typeof setTimeout> | undefined
+    const sessionId = record.sessionId
 
-    getReceivedPeerFeedbacksInSession(record.sessionId)
-      .then((feedbacks) => {
-        if (!cancelled) setFeedbackState({ status: 'loaded', sessionId: record.sessionId, feedbacks })
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          setFeedbackState({
-            status: 'error',
-            sessionId: record.sessionId,
-            message: error instanceof Error ? error.message : '평가를 불러오지 못했습니다.',
-          })
-        }
-      })
-
-    return () => {
-      cancelled = true
+    const applyReceived = (received: PeerFeedbackReceiveResult) => {
+      if (cancelled) return
+      setFeedbackState({ status: 'loaded', sessionId, feedbacks: received.details })
+      if (received.aiSummary) {
+        setSummaryState({ status: 'loaded', sessionId, content: received.aiSummary })
+      }
     }
-  }, [open, record.sessionId])
 
-  useEffect(() => {
-    if (!open) return
-    let cancelled = false
+    const generateAndLoad = async () => {
+      setSummaryState({ status: 'loading', sessionId })
+      await generatePeerSummaries(sessionId)
+      if (cancelled) return
+      applyReceived(await getReceivedPeerFeedbacksInSession(sessionId))
+    }
 
-    getPeerSummary(record.sessionId)
-      .then((summary) => {
-        if (!cancelled) setSummaryState({ status: 'loaded', sessionId: record.sessionId, content: summary.content })
-      })
-      .catch(() => {
-        if (!cancelled) setSummaryState({ status: 'pending', sessionId: record.sessionId })
-      })
+    const waitUntilEnded = async () => {
+      setFeedbackState({ status: 'waiting', sessionId })
+      setSummaryState({ status: 'waiting', sessionId })
+
+      while (!cancelled) {
+        const status = await getStudySessionStatus(sessionId)
+        if (cancelled) return
+
+        if (status.ended) {
+          await generateAndLoad()
+          return
+        }
+
+        await new Promise<void>((resolve) => {
+          pollTimeoutId = setTimeout(resolve, sessionStatusPollIntervalMs)
+        })
+      }
+    }
+
+    async function run() {
+      try {
+        applyReceived(await getReceivedPeerFeedbacksInSession(sessionId))
+        return
+      } catch {
+        // 요약이 아직 없어서 실패했을 수 있으니 세션 상태를 확인해 아래에서 다시 시도한다.
+      }
+
+      if (cancelled) return
+
+      try {
+        const status = await getStudySessionStatus(sessionId)
+        if (cancelled) return
+
+        if (!status.ended) {
+          await waitUntilEnded()
+          return
+        }
+
+        await generateAndLoad()
+      } catch (error) {
+        if (cancelled) return
+        setSummaryState({ status: 'pending', sessionId })
+        setFeedbackState({
+          status: 'error',
+          sessionId,
+          message: error instanceof Error ? error.message : '평가를 불러오지 못했습니다.',
+        })
+      }
+    }
+
+    run()
 
     return () => {
       cancelled = true
+      if (pollTimeoutId !== undefined) clearTimeout(pollTimeoutId)
     }
   }, [open, record.sessionId])
 
@@ -133,6 +184,7 @@ export function StudySessionReportModal({ open, record, onClose }: StudySessionR
   const isCurrentFeedback = feedbackState.status !== 'idle' && feedbackState.sessionId === record.sessionId
   const feedbacks = isCurrentFeedback && feedbackState.status === 'loaded' ? feedbackState.feedbacks : []
   const feedbackError = isCurrentFeedback && feedbackState.status === 'error' ? feedbackState.message : null
+  const isFeedbackWaiting = isCurrentFeedback && feedbackState.status === 'waiting'
   const isFeedbackLoading = !isCurrentFeedback
   const radarScores = averageEvaluationScores(feedbacks)
   const isCurrentSummary = summaryState.status !== 'idle' && summaryState.sessionId === record.sessionId
@@ -279,7 +331,7 @@ export function StudySessionReportModal({ open, record, onClose }: StudySessionR
                     )}
                   </p>
                   <div className="mt-3 w-full">
-                    {isFeedbackLoading ? (
+                    {isFeedbackLoading || isFeedbackWaiting ? (
                       <div className="flex justify-center" role="status" aria-label="역량 분석 불러오는 중">
                         <Skeleton className="size-32 rounded-ait-pill" />
                       </div>
@@ -302,7 +354,12 @@ export function StudySessionReportModal({ open, record, onClose }: StudySessionR
                       아직 AI 요약이 준비되지 않았습니다. 팀원들의 코멘트를 종합하는 대로 채워집니다.
                     </p>
                   ) : (
-                    <div className="mt-4 space-y-2">
+                    <div className="mt-4 space-y-2" role="status" aria-label="AI 요약 생성 중">
+                      <p className="text-body-2 text-text-secondary">
+                        {isCurrentSummary && summaryState.status === 'loading'
+                          ? 'AI가 팀원들의 코멘트를 요약하고 있어요...'
+                          : '평가를 수집하는 중... 세션이 종료되면 AI 요약을 만들어요.'}
+                      </p>
                       <Skeleton className="h-4 w-3/4" />
                       <Skeleton className="h-4 w-2/3" />
                     </div>
@@ -319,7 +376,7 @@ export function StudySessionReportModal({ open, record, onClose }: StudySessionR
                   <h3 id="teammate-feedback-title" className="text-body-1 font-medium">
                     팀원 총평
                   </h3>
-                  {!isFeedbackLoading && !feedbackError ? (
+                  {!isFeedbackLoading && !isFeedbackWaiting && !feedbackError ? (
                     <span className="text-body-2 text-text-secondary">
                       {feedbacks.length}명 참여
                     </span>
@@ -330,6 +387,13 @@ export function StudySessionReportModal({ open, record, onClose }: StudySessionR
                     Array.from({ length: 2 }, (_, index) => (
                       <Skeleton key={index} className="h-14 w-full rounded-ait-s" />
                     ))
+                  ) : isFeedbackWaiting ? (
+                    <p
+                      className="rounded-ait-s border border-border-default px-6 py-8 text-center text-body-2 text-text-secondary"
+                      role="status"
+                    >
+                      평가를 수집하는 중... 세션이 종료되면 팀원 평가를 볼 수 있어요.
+                    </p>
                   ) : feedbackError ? (
                     <p className="rounded-ait-s border border-border-default px-6 py-8 text-center text-body-2 text-status-error">
                       {feedbackError}

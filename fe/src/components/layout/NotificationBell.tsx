@@ -1,12 +1,18 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bell, MessageSquare, Users } from 'lucide-react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { Bell, MessageSquare, Users, X } from 'lucide-react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
+  deleteAllNotifications,
+  deleteNotification,
   fetchNotifications,
+  getNotificationRoute,
   markAllNotificationsAsRead,
   markNotificationAsRead,
+  subscribeNotifications,
 } from '@/api/notifications'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatRelativeTime } from '@/lib/format'
 import { dropdownPanel, filterSlide } from '@/lib/motion'
@@ -14,6 +20,8 @@ import { cn } from '@/lib/utils'
 import type { NotificationCategory, NotificationItem } from '@/types/notification'
 
 type NotificationFilter = 'all' | NotificationCategory
+
+type DeleteTarget = { type: 'all' } | { type: 'one'; id: string }
 
 const categoryIcons: Record<NotificationCategory, typeof Users> = {
   group: Users,
@@ -28,28 +36,80 @@ const filterOptions: { value: NotificationFilter; label: string }[] = [
 
 // 헤더의 알림 벨. 그룹 알림과 게시판 알림을 필터로 나눠 보여주는 드롭다운을 연다.
 export function NotificationBell() {
+  const navigate = useNavigate()
   const [isOpen, setOpen] = useState(false)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [isLoading, setLoading] = useState(true)
+  const [hasError, setError] = useState(false)
   const [filter, setFilter] = useState<NotificationFilter>('all')
   const [slideDirection, setSlideDirection] = useState(1)
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
+  const [isDeleting, setDeleting] = useState(false)
+  const [hasNext, setHasNext] = useState(false)
+  const [isLoadingMore, setLoadingMore] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+  // 스크롤 핸들러의 stale closure를 피하려고 현재 페이지와 추가 로드 진행 여부는 ref로 관리한다.
+  const pageRef = useRef(0)
+  const loadMoreLockRef = useRef(false)
   const panelId = useId()
 
-  useEffect(() => {
-    let cancelled = false
-    fetchNotifications().then((items) => {
-      if (cancelled) return
-      setNotifications(items)
-      setLoading(false)
-    })
-    return () => {
-      cancelled = true
-    }
+  // 첫 페이지를 서버 상태로 동기화한다. 스켈레톤 노출 여부(isLoading)는 호출하는 쪽에서 제어한다.
+  const loadNotifications = useCallback(() => {
+    return fetchNotifications()
+      .then((page) => {
+        pageRef.current = 0
+        setNotifications(page.items)
+        setHasNext(page.hasNext)
+        setError(false)
+      })
+      .catch(() => {
+        setError(true)
+      })
+      .finally(() => {
+        setLoading(false)
+      })
   }, [])
 
   useEffect(() => {
-    if (!isOpen) return
+    void loadNotifications()
+  }, [loadNotifications])
+
+  // SSE로 새 알림을 실시간 수신해 목록 맨 앞에 붙인다. 새로고침 재조회와 겹칠 수 있어 id로 중복을 거른다.
+  useEffect(() => {
+    const controller = new AbortController()
+    void subscribeNotifications((item) => {
+      setNotifications((prev) =>
+        prev.some((n) => n.id === item.id) ? prev : [item, ...prev],
+      )
+    }, controller.signal)
+    return () => controller.abort()
+  }, [])
+
+  // 스크롤이 바닥에 닿으면 다음 페이지를 이어 붙인다. 실패는 조용히 넘기고 다음 스크롤에서 다시 시도한다.
+  const loadMore = useCallback(() => {
+    if (loadMoreLockRef.current) return
+    loadMoreLockRef.current = true
+    setLoadingMore(true)
+    fetchNotifications(pageRef.current + 1)
+      .then((page) => {
+        pageRef.current += 1
+        setNotifications((prev) => {
+          const known = new Set(prev.map((n) => n.id))
+          return [...prev, ...page.items.filter((item) => !known.has(item.id))]
+        })
+        setHasNext(page.hasNext)
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        loadMoreLockRef.current = false
+        setLoadingMore(false)
+      })
+  }, [])
+
+  // 삭제 확인 Dialog가 떠 있는 동안에는 Dialog 조작이 드롭다운을 닫지 않게 한다.
+  const hasDeleteDialog = deleteTarget != null
+  useEffect(() => {
+    if (!isOpen || hasDeleteDialog) return
     const handlePointerDown = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
     }
@@ -62,7 +122,7 @@ export function NotificationBell() {
       document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen])
+  }, [isOpen, hasDeleteDialog])
 
   const unreadCount = notifications.filter((item) => !item.read).length
   const filteredNotifications =
@@ -70,17 +130,46 @@ export function NotificationBell() {
       ? notifications
       : notifications.filter((item) => item.category === filter)
 
+  // 드롭다운을 열 때마다 스켈레톤 없이 최신 목록으로 동기화한다.
+  const handleToggle = () => {
+    const next = !isOpen
+    setOpen(next)
+    if (next) void loadNotifications()
+  }
+
   const handleSelect = (item: NotificationItem) => {
-    if (item.read) return
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === item.id ? { ...n, read: true } : n)),
-    )
-    void markNotificationAsRead(item.id)
+    if (!item.read) {
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === item.id ? { ...n, read: true } : n)),
+      )
+      void markNotificationAsRead(item.id)
+    }
+    setOpen(false)
+    navigate(getNotificationRoute(item))
   }
 
   const handleMarkAllRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-    void markAllNotificationsAsRead()
+    markAllNotificationsAsRead().catch(() => loadNotifications())
+  }
+
+  // 되돌릴 수 없는 삭제는 확인 Dialog를 거친 뒤에만 실행한다. 실패하면 목록을 다시 동기화한다.
+  const handleConfirmDelete = () => {
+    if (!deleteTarget || isDeleting) return
+    setDeleting(true)
+    const request =
+      deleteTarget.type === 'all'
+        ? deleteAllNotifications().then(() => setNotifications([]))
+        : deleteNotification(deleteTarget.id).then(() => {
+            const targetId = deleteTarget.id
+            setNotifications((prev) => prev.filter((n) => n.id !== targetId))
+          })
+    request
+      .catch(() => loadNotifications())
+      .finally(() => {
+        setDeleting(false)
+        setDeleteTarget(null)
+      })
   }
 
   const handleFilterChange = (next: NotificationFilter) => {
@@ -102,7 +191,7 @@ export function NotificationBell() {
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-controls={isOpen ? panelId : undefined}
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={handleToggle}
       >
         <Bell aria-hidden="true" />
         {unreadCount > 0 ? (
@@ -127,15 +216,26 @@ export function NotificationBell() {
           >
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
               <p className="text-body-1 font-semibold text-text-primary">알림</p>
-              {unreadCount > 0 ? (
-                <button
-                  type="button"
-                  onClick={handleMarkAllRead}
-                  className="text-body-2 text-action-primary hover:underline"
-                >
-                  모두 읽음
-                </button>
-              ) : null}
+              <div className="flex items-center gap-3">
+                {unreadCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={handleMarkAllRead}
+                    className="text-body-2 text-action-primary hover:underline"
+                  >
+                    모두 읽음
+                  </button>
+                ) : null}
+                {notifications.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget({ type: 'all' })}
+                    className="text-body-2 text-text-secondary hover:text-status-error hover:underline"
+                  >
+                    전체 삭제
+                  </button>
+                ) : null}
+              </div>
             </div>
 
             <div
@@ -172,6 +272,22 @@ export function NotificationBell() {
                     <Skeleton key={index} className="h-12 w-full" />
                   ))}
                 </div>
+              ) : hasError ? (
+                <div className="px-4 py-10 text-center">
+                  <p className="text-body-2 text-text-secondary">
+                    알림을 불러오지 못했어요.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoading(true)
+                      void loadNotifications()
+                    }}
+                    className="mt-2 text-body-2 text-action-primary hover:underline"
+                  >
+                    다시 시도
+                  </button>
+                </div>
               ) : (
                 <AnimatePresence mode="wait" initial={false} custom={slideDirection}>
                   <motion.div
@@ -181,6 +297,13 @@ export function NotificationBell() {
                     initial="initial"
                     animate="animate"
                     exit="exit"
+                    onScroll={(event) => {
+                      if (!hasNext) return
+                      const el = event.currentTarget
+                      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 48) {
+                        loadMore()
+                      }
+                    }}
                     className="max-h-[26rem] overflow-y-auto"
                   >
                     {filteredNotifications.length === 0 ? (
@@ -192,12 +315,12 @@ export function NotificationBell() {
                         {filteredNotifications.map((item) => {
                           const CategoryIcon = categoryIcons[item.category]
                           return (
-                            <li key={item.id}>
+                            <li key={item.id} className="group/item relative">
                               <button
                                 type="button"
                                 role="menuitem"
                                 onClick={() => handleSelect(item)}
-                                className="flex w-full items-start gap-2.5 px-4 py-2.5 text-left transition-colors [transition-duration:var(--duration-fast)] hover:bg-surface-muted"
+                                className="flex w-full items-start gap-2.5 py-2.5 pr-10 pl-4 text-left transition-colors [transition-duration:var(--duration-fast)] hover:bg-surface-muted"
                               >
                                 <span className="relative mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-surface-muted">
                                   <CategoryIcon
@@ -214,7 +337,7 @@ export function NotificationBell() {
                                 <span className="min-w-0 flex-1">
                                   <span
                                     className={cn(
-                                      'block truncate text-body-2',
+                                      'block text-body-2',
                                       item.read
                                         ? 'text-text-secondary'
                                         : 'font-semibold text-text-primary',
@@ -222,19 +345,33 @@ export function NotificationBell() {
                                   >
                                     {item.title}
                                   </span>
-                                  <span className="mt-0.5 block truncate text-caption text-ink-500">
-                                    {item.description}
-                                  </span>
                                   <span className="mt-0.5 block text-caption text-ink-400">
                                     {formatRelativeTime(item.createdAt)}
                                   </span>
                                 </span>
+                              </button>
+                              <button
+                                type="button"
+                                aria-label="알림 삭제"
+                                onClick={() => setDeleteTarget({ type: 'one', id: item.id })}
+                                className="absolute top-2.5 right-2.5 flex size-6 items-center justify-center rounded-full text-ink-400 opacity-0 transition-opacity [transition-duration:var(--duration-fast)] group-hover/item:opacity-100 hover:bg-surface-default hover:text-status-error focus-visible:opacity-100"
+                              >
+                                <X aria-hidden="true" className="size-3.5" />
                               </button>
                             </li>
                           )
                         })}
                       </ul>
                     )}
+                    {isLoadingMore ? (
+                      <div
+                        className="px-4 py-2.5"
+                        role="status"
+                        aria-label="알림 더 불러오는 중"
+                      >
+                        <Skeleton className="h-10 w-full" />
+                      </div>
+                    ) : null}
                   </motion.div>
                 </AnimatePresence>
               )}
@@ -242,6 +379,19 @@ export function NotificationBell() {
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={hasDeleteDialog}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) setDeleteTarget(null)
+        }}
+        title={deleteTarget?.type === 'all' ? '알림을 모두 삭제할까요?' : '알림을 삭제할까요?'}
+        description="삭제한 알림은 되돌릴 수 없습니다."
+        confirmLabel={deleteTarget?.type === 'all' ? '전체 삭제' : '삭제'}
+        confirmVariant="destructive"
+        isConfirming={isDeleting}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   )
 }

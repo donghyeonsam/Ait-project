@@ -12,7 +12,7 @@ public enum ErrorCode {
     // Common
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "COMMON_001", "입력값 중에 기준을 만족하지 않은 입력값이 있습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_002", "서버 내부 오류가 발생했습니다."),
-
+    SPEECH_TRANSCRIPTION_FAILED(HttpStatus.BAD_REQUEST, "STT_001", "STT 변환 중 문제 발생"),
     // Auth 관련
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "AUTH_001", "이미 사용 중인 이메일입니다."),
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "AUTH_002", "이미 사용 중인 닉네임입니다."),
@@ -133,8 +133,10 @@ public enum ErrorCode {
 
     // user
     GITHUB_REPOSITORY_NOT_FOUND(HttpStatus.NOT_FOUND, "GITHUB_002", "GitHub 레포지토리를 찾을 수 없습니다."),
-    INVALID_GITHUB_REPOSITORY(HttpStatus.BAD_REQUEST, "GITHUB_003", "잘못된 GitHub 레포지토리 요청입니다.");
-
+    INVALID_GITHUB_REPOSITORY(HttpStatus.BAD_REQUEST, "GITHUB_003", "잘못된 GitHub 레포지토리 요청입니다."),
+    INVALID_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "USER_002", "현재 비밀번호가 일치하지 않습니다."),
+    PASSWORD_CONFIRM_NOT_MATCH(HttpStatus.BAD_REQUEST, "USER_003", "새 비밀번호와 비밀번호 확인이 일치하지 않습니다."),
+    SAME_AS_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "USER_004", "새 비밀번호는 현재 비밀번호와 달라야 합니다.");
 
     private final HttpStatus status;
     private final String code;

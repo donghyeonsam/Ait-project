@@ -124,7 +124,7 @@ export function CoverLetterEditor({
       description="DB에 저장된 자기소개서를 확인하고 수정할 수 있습니다."
       lastModified={formatDateTime(draft.updatedAt)}
       saved={saved}
-      isSaving={isSaving}
+      isSaving={isSaving || isDeleting}
       onSubmit={handleSubmit}
       onNavigateHome={() => guard.guardNavigation(() => navigate('/mypage'))}
       destructiveAction={(

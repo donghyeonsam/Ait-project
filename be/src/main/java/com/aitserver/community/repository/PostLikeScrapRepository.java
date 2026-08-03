@@ -1,7 +1,12 @@
 package com.aitserver.community.repository;
 
+import com.aitserver.community.entity.Post;
 import com.aitserver.community.entity.PostLikeScrap;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -20,4 +25,25 @@ public interface PostLikeScrapRepository extends JpaRepository<PostLikeScrap, Lo
     List<PostLikeScrap> findByUserIdAndPostIdIn(Long userId, List<Long> postIds);
 
 
+    @Query(
+            value = """
+                SELECT p
+                FROM Post p, PostLikeScrap pls
+                WHERE p.id = pls.post.id
+                  AND pls.user.id = :userId
+                  AND pls.type = :type
+                ORDER BY pls.createdAt DESC
+                """,
+            countQuery = """
+                SELECT COUNT(pls)
+                FROM PostLikeScrap pls
+                WHERE pls.user.id = :userId
+                  AND pls.type = :type
+                """
+    )
+    Page<Post> findAllByUserAction(
+            @Param("userId") Long userId,
+            @Param("type") PostLikeScrap.ActionType type,
+            Pageable pageable
+    );
 }

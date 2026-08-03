@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronDown, ThumbsUp } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { CommentComposer } from '@/components/community/CommentComposer'
+import { splitEmoticonSegments } from '@/lib/emoticons'
 import { formatRelativeTime } from '@/lib/format'
 import { EASE_OUT, collapseSection } from '@/lib/motion'
 import { cn } from '@/lib/utils'
@@ -384,7 +385,18 @@ function CommentBody({
               !isExpanded && 'line-clamp-3',
             )}
           >
-            {content}
+            {splitEmoticonSegments(content).map((segment, index) =>
+              segment.type === 'emoticon' ? (
+                <img
+                  key={index}
+                  src={segment.emoticon.src}
+                  alt={`${segment.emoticon.label} 이모티콘`}
+                  className="inline-block size-16 object-contain align-bottom"
+                />
+              ) : (
+                <span key={index}>{segment.value}</span>
+              ),
+            )}
           </p>
         </motion.div>
         {needsClamp && !isExpanded ? (

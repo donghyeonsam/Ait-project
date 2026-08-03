@@ -1,6 +1,5 @@
 import {
   MessageCircle,
-  Sparkles,
   ThumbsUp,
 } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
@@ -253,10 +252,6 @@ export function FeatureGrid() {
     <section className="landing-section landing-features" id="features" aria-labelledby="features-title">
       <div className="landing-shell">
         <div className="landing-section-heading">
-          <p>
-            <Sparkles aria-hidden="true" />
-            모든 기능을 하나의 플랫폼에서
-          </p>
           <h2 id="features-title">
             <ScrollReveal text="면접 준비, Ait 하나로 끝내세요" />
           </h2>

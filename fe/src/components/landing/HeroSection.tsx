@@ -1,4 +1,4 @@
-import { ArrowRight, Play, Sparkles } from 'lucide-react'
+import { ArrowRight, Play } from 'lucide-react'
 import {
   motion,
   useReducedMotion,
@@ -8,11 +8,7 @@ import {
 import { useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { InterviewPreview } from '@/components/landing/InterviewPreview'
-import {
-  heroMetrics,
-  landingRoutes,
-} from '@/components/landing/landing.data'
-import { CountUp } from '@/components/reactbits/CountUp'
+import { landingRoutes } from '@/components/landing/landing.data'
 import { Magnet } from '@/components/reactbits/Magnet'
 import { ShinyText } from '@/components/reactbits/ShinyText'
 import { TrueFocus } from '@/components/reactbits/TrueFocus'
@@ -45,17 +41,6 @@ export function HeroSection() {
     >
       <div className="landing-shell landing-hero__grid">
         <div className="landing-hero__copy">
-          <motion.p
-            className="landing-eyebrow"
-            initial={initial}
-            animate="visible"
-            variants={lineVariants}
-            transition={{ duration: 0.35, ease: [0.2, 0, 0, 1] }}
-          >
-            <Sparkles aria-hidden="true" />
-            AI 기반 실전 면접 트레이닝
-          </motion.p>
-
           <motion.h1
             id="landing-hero-title"
             className="landing-hero__title"
@@ -137,27 +122,6 @@ export function HeroSection() {
           </motion.div>
         </motion.div>
 
-        <motion.ul
-          className="landing-hero__metrics"
-          initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: reduceMotion ? 0 : 0.36 }}
-        >
-          {heroMetrics.map(({ value, suffix, label, icon: Icon }) => (
-            <li key={label}>
-              <span className="landing-hero__metric-icon">
-                <Icon aria-hidden="true" />
-              </span>
-              <span>
-                <strong>
-                  <CountUp to={value} duration={1} separator="," />
-                  {suffix}
-                </strong>
-                <small>{label}</small>
-              </span>
-            </li>
-          ))}
-        </motion.ul>
       </div>
     </section>
   )

@@ -129,6 +129,7 @@ describe('submitInterviewAnswer', () => {
       rubric: ['3-way handshake를 설명한다.'],
       topic: '네트워크',
       source: 'general',
+      depth: 0,
     }
     const result = await submitInterviewAnswer({
       aiInterviewId: 101,
@@ -163,6 +164,7 @@ describe('submitInterviewAnswer', () => {
       question: { ...question, depth: 0 },
       answer: '3-way handshake로 연결을 수립합니다.',
     })
+    expect((request.headers as Headers).has('Content-Type')).toBe(false)
   })
 })
 

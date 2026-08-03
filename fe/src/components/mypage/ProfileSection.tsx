@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { deleteGithubRepo, updateGithubRepoNickname } from '@/api/github'
-import { toErrorMessage } from '@/api/http'
+import { useEffect, useState } from 'react'
+import { deleteGithubRepo } from '@/api/github'
+import { ApiError, getBackendAssetUrl, toErrorMessage } from '@/api/http'
+import { checkNicknameAvailability, updateMyPageProfile } from '@/api/my-page'
 import { AccountDeletionSection } from '@/components/mypage/AccountDeletionSection'
 import { ProfileCard } from '@/components/mypage/ProfileCard'
 import { ProfileInfo } from '@/components/mypage/ProfileInfo'
@@ -14,6 +15,11 @@ interface ProfileSectionProps {
   onOpenDocuments: () => void
 }
 
+const nicknameMaxLength = 20
+const nicknameCheckDebounceMs = 400
+// ErrorCode.DUPLICATE_NICKNAME("AUTH_002")와 매칭. be/global/exception/ErrorCode.java 참고.
+const duplicateNicknameErrorCode = 'AUTH_002'
+
 function toCommaText(values: string[]) {
   return values.join(', ')
 }
@@ -23,6 +29,19 @@ function parseCommaText(value: string) {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function validateNicknameFormat(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return '닉네임을 입력해주세요.'
+  if (trimmed.length > nicknameMaxLength) return `닉네임은 ${nicknameMaxLength}자 이하여야 합니다.`
+  return null
+}
+
+function isDuplicateNicknameError(error: unknown) {
+  if (!(error instanceof ApiError) || error.status !== 409) return false
+  const payload = error.payload as { error?: { code?: string } } | null
+  return payload?.error?.code === duplicateNicknameErrorCode
 }
 
 export function ProfileSection({
@@ -36,64 +55,151 @@ export function ProfileSection({
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [nicknameError, setNicknameError] = useState<string | null>(null)
+  const [isCheckingNickname, setIsCheckingNickname] = useState(false)
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
   const [draft, setDraft] = useState(profile)
   const [skillsText, setSkillsText] = useState(() => toCommaText(profile.skills))
   const [rolesText, setRolesText] = useState(() => toCommaText(profile.roles))
-  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null)
-  const [isAvatarRemoved, setIsAvatarRemoved] = useState(false)
 
-  const selectAvatarFile = (file: File | null) => {
-    if (!file) return
-    setAvatarPreviewUrl(URL.createObjectURL(file))
-    setIsAvatarRemoved(false)
+  // 형식(빈 값·길이)과 "저장된 닉네임과 동일" 여부는 입력 즉시 updateField에서 걸러지고,
+  // 형식이 유효하고 실제로 값이 바뀐 경우에만 여기서 서버에 중복 여부를 debounce로 물어본다.
+  // 저장된 닉네임 그대로면 건너뛰는데, 중복확인 API가 자기 자신을 제외하지 않아
+  // 안 바꾼 경우까지 물어보면 항상 "사용 불가"로 나오기 때문이다.
+  useEffect(() => {
+    if (!isEditing) return
+
+    const nickname = draft.nickname.trim()
+    if (validateNicknameFormat(nickname)) return
+    if (nickname === savedProfile.nickname) return
+
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      setIsCheckingNickname(true)
+      checkNicknameAvailability(nickname)
+        .then((result) => {
+          if (cancelled) return
+          setNicknameError(result.canUse ? null : '이미 사용 중인 닉네임입니다.')
+        })
+        .catch(() => {
+          // 중복확인 조회 실패는 조용히 넘어가고, 저장 시점의 서버 검증에 맡긴다.
+        })
+        .finally(() => {
+          if (!cancelled) setIsCheckingNickname(false)
+        })
+    }, nicknameCheckDebounceMs)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [draft.nickname, isEditing, savedProfile.nickname])
+
+  const updateAvatarUrl = (avatarUrl: string | null) => {
+    setSavedProfile((current) => ({ ...current, avatarUrl }))
+    setDraft((current) => ({ ...current, avatarUrl }))
   }
 
+  // 사진 변경은 "수정하기" 흐름과 무관하게 고르는 즉시 반영·저장된다. 통합 수정 API가
+  // 이미지만 따로 올리는 엔드포인트가 없어, 현재 저장된 값(draft가 아닌 savedProfile) 그대로
+  // 다시 보내면서 이미지만 새로 첨부한다 — 편집 중이던 미저장 값이 섞여 들어가지 않게 하기 위해서다.
+  const selectAvatarFile = async (file: File | null) => {
+    if (!file) return
+
+    const previousAvatarUrl = savedProfile.avatarUrl ?? null
+    const previewUrl = URL.createObjectURL(file)
+    updateAvatarUrl(previewUrl)
+    setIsUploadingAvatar(true)
+    setAvatarError(null)
+
+    try {
+      const response = await updateMyPageProfile(
+        {
+          nickname: savedProfile.nickname,
+          name: savedProfile.name,
+          firstJobInterest: null,
+          secondJobInterest: null,
+          skills: savedProfile.skills,
+          githubRepositories: savedProfile.repositories.map((repository) => ({
+            githubRepoId: repository.id,
+            repoNickname: repository.name,
+          })),
+        },
+        file,
+      )
+      updateAvatarUrl(
+        response.profileImageUrl ? getBackendAssetUrl(response.profileImageUrl) : null,
+      )
+    } catch (error) {
+      updateAvatarUrl(previousAvatarUrl)
+      setAvatarError(toErrorMessage(error))
+    } finally {
+      URL.revokeObjectURL(previewUrl)
+      setIsUploadingAvatar(false)
+    }
+  }
+
+  // 백엔드에 사진 삭제 기능이 없어(업로드 시 교체만 지원) 화면에서만 지운다.
+  // 다음 저장이나 새로고침 시 서버에 남아있는 기존 사진으로 되돌아올 수 있다.
   const removeAvatar = () => {
-    setAvatarPreviewUrl(null)
-    setIsAvatarRemoved(true)
+    updateAvatarUrl(null)
   }
 
   const startEditing = () => {
     setDraft(savedProfile)
     setSkillsText(toCommaText(savedProfile.skills))
     setRolesText(toCommaText(savedProfile.roles))
-    setAvatarPreviewUrl(null)
-    setIsAvatarRemoved(false)
+    setNicknameError(null)
     setIsEditing(true)
   }
 
   const cancelEditing = () => {
-    setAvatarPreviewUrl(null)
-    setIsAvatarRemoved(false)
     setSaveError(null)
+    setNicknameError(null)
     setIsEditing(false)
   }
 
-  // TODO: 실제 API 연동 필요 - 닉네임 등 프로필 필드는 수정 엔드포인트가 없어 화면에서만 반영한다.
+  // 닉네임·이름·관심 기술·깃허브 레포지토리 별칭을 한 번에 저장한다.
   const saveEditing = async () => {
-    // 표시 이름이 실제로 바뀐 레포지토리만 서버에 저장한다. 빈 이름은 기존 이름을 유지한다.
-    const renamedRepositories = draft.repositories.filter((repository) => {
-      const saved = savedProfile.repositories.find((item) => item.id === repository.id)
-      const name = repository.name.trim()
-      return Boolean(saved && name && name !== saved.name)
-    })
+    const formatError = validateNicknameFormat(draft.nickname)
+    if (formatError) {
+      setNicknameError(formatError)
+      return
+    }
 
     setIsSaving(true)
     setSaveError(null)
+    setNicknameError(null)
+
     try {
-      await Promise.all(
-        renamedRepositories.map((repository) =>
-          updateGithubRepoNickname(repository.id, repository.name.trim()),
-        ),
-      )
+      await updateMyPageProfile({
+        nickname: draft.nickname.trim(),
+        name: draft.name.trim(),
+        firstJobInterest: null,
+        secondJobInterest: null,
+        skills: parseCommaText(skillsText),
+        githubRepositories: draft.repositories
+          .filter((repository) => repository.name.trim())
+          .map((repository) => ({
+            githubRepoId: repository.id,
+            repoNickname: repository.name.trim(),
+          })),
+      })
     } catch (error) {
-      setSaveError(toErrorMessage(error))
+      if (isDuplicateNicknameError(error)) {
+        setNicknameError(toErrorMessage(error))
+      } else {
+        setSaveError(toErrorMessage(error))
+      }
       setIsSaving(false)
       return
     }
 
     setSavedProfile({
       ...draft,
+      name: draft.name.trim() || savedProfile.name,
+      nickname: draft.nickname.trim(),
       repositories: draft.repositories.map((repository) => {
         const saved = savedProfile.repositories.find((item) => item.id === repository.id)
         const name = repository.name.trim()
@@ -101,16 +207,14 @@ export function ProfileSection({
       }),
       skills: parseCommaText(skillsText),
       roles: parseCommaText(rolesText),
-      avatarUrl: isAvatarRemoved ? null : (avatarPreviewUrl ?? draft.avatarUrl ?? null),
     })
-    setAvatarPreviewUrl(null)
-    setIsAvatarRemoved(false)
     setIsSaving(false)
     setIsEditing(false)
   }
 
-  const updateField = (key: 'nickname' | 'email' | 'github', value: string) => {
+  const updateField = (key: 'name' | 'nickname' | 'email' | 'github', value: string) => {
     setDraft((current) => ({ ...current, [key]: value }))
+    if (key === 'nickname') setNicknameError(validateNicknameFormat(value))
   }
 
   const updateRepositoryName = (id: number, name: string) => {
@@ -134,7 +238,6 @@ export function ProfileSection({
   }
 
   const displayed = isEditing ? draft : savedProfile
-  const editingAvatarSrc = isAvatarRemoved ? null : (avatarPreviewUrl ?? draft.avatarUrl ?? null)
 
   return (
     <div className="profile-layout grid gap-8">
@@ -144,9 +247,12 @@ export function ProfileSection({
           isEditing={isEditing}
           rolesText={rolesText}
           onChangeRolesText={setRolesText}
-          avatarSrc={isEditing ? editingAvatarSrc : (savedProfile.avatarUrl ?? null)}
-          onSelectAvatarFile={selectAvatarFile}
+          onChangeName={(value) => updateField('name', value)}
+          avatarSrc={displayed.avatarUrl ?? null}
+          onSelectAvatarFile={(file) => void selectAvatarFile(file)}
           onRemoveAvatar={removeAvatar}
+          isUploadingAvatar={isUploadingAvatar}
+          avatarError={avatarError}
         />
         {isEditing ? (
           <div className="mt-auto flex justify-start pt-4">
@@ -160,6 +266,8 @@ export function ProfileSection({
         skillsText={skillsText}
         onChangeSkillsText={setSkillsText}
         onChangeField={updateField}
+        nicknameError={nicknameError}
+        isCheckingNickname={isCheckingNickname}
         onChangeRepositoryName={updateRepositoryName}
         isSaving={isSaving}
         saveError={saveError}
@@ -170,7 +278,7 @@ export function ProfileSection({
         onOpenDocuments={onOpenDocuments}
         onStartEditing={startEditing}
         onCancelEditing={cancelEditing}
-        onSaveEditing={saveEditing}
+        onSaveEditing={() => void saveEditing()}
       />
     </div>
   )

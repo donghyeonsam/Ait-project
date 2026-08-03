@@ -28,7 +28,7 @@ export function StudyRecordItem({
   if (record.status === 'collecting') {
     return (
       <div
-        className="flex min-h-28 items-center gap-4 rounded-ait-m border border-status-info-border bg-status-info-surface px-8 py-4"
+        className="flex min-h-28 items-center gap-4 rounded-[28px] border border-status-info-border bg-status-info-surface px-8 py-4 shadow-elevation-1"
         role="status"
         aria-live="polite"
       >
@@ -36,7 +36,9 @@ export function StudyRecordItem({
           <Loader2 className="size-5 animate-spin text-action-primary" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <span className="text-caption font-medium text-status-info">평가 수집중</span>
+          <span className="text-caption font-medium text-status-info">
+            평가 수집중 · {record.round}회차
+          </span>
           <h3 className="mt-2 truncate text-h3 font-semibold">{record.groupTitle}</h3>
           <p className="mt-1 text-body-2 text-text-secondary">
             팀원들의 평가를 모으고 있어요. 모두 모이면 자동으로 결과가 채워져요.
@@ -83,9 +85,11 @@ export function StudyRecordItem({
         style={{ '--record-delay': `${index * 10}ms` } as React.CSSProperties}
       >
         <div className="min-w-0 pr-8">
-          <time className="tabular-nums text-body-2 text-text-secondary">
-            {record.date}
-          </time>
+          <p className="flex flex-wrap items-center gap-2 text-body-2 text-text-secondary">
+            <time className="tabular-nums">{record.date}</time>
+            <span aria-hidden="true">·</span>
+            <span className="tabular-nums">{record.round}회차</span>
+          </p>
           <h3 className="mt-2 truncate text-h3 font-semibold">{record.groupTitle}</h3>
         </div>
 

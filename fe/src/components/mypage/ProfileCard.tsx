@@ -1,5 +1,6 @@
 import { BriefcaseBusiness, Camera, X } from 'lucide-react'
 import { useRef } from 'react'
+import { AuthenticatedImage } from '@/components/common/AuthenticatedImage'
 import { Input } from '@/components/ui/input'
 import type { ProfileData } from '@/types/profile'
 
@@ -8,9 +9,12 @@ interface ProfileCardProps {
   isEditing: boolean
   rolesText: string
   onChangeRolesText: (value: string) => void
+  onChangeName: (value: string) => void
   avatarSrc: string | null
   onSelectAvatarFile: (file: File | null) => void
   onRemoveAvatar: () => void
+  isUploadingAvatar?: boolean
+  avatarError?: string | null
 }
 
 const roleClasses = [
@@ -18,15 +22,18 @@ const roleClasses = [
   'bg-tag-ai-surface text-tag-ai',
 ]
 
-// 프로필 좌측 카드. 아바타·이름·관심 직무를 보여주고, 편집 모드에서는 사진 변경과 직무 입력을 받는다.
+// 프로필 좌측 카드. 아바타·이름·관심 직무를 보여주고, 아바타 클릭으로 사진을 변경하며 편집 모드에서는 직무 입력을 받는다.
 export function ProfileCard({
   profile,
   isEditing,
   rolesText,
   onChangeRolesText,
+  onChangeName,
   avatarSrc,
   onSelectAvatarFile,
   onRemoveAvatar,
+  isUploadingAvatar = false,
+  avatarError,
 }: ProfileCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -38,55 +45,65 @@ export function ProfileCard({
       </div>
 
       <div className="relative mt-4">
-        <div
-          className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-ait-m bg-profile-avatar text-display font-bold text-action-primary"
-          aria-label={`${profile.name} 프로필`}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploadingAvatar}
+          aria-label="프로필 사진 변경"
+          aria-busy={isUploadingAvatar}
+          className="group relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-ait-m bg-profile-avatar text-display font-bold text-action-primary disabled:opacity-70"
         >
           {avatarSrc ? (
-            <img src={avatarSrc} alt="" className="size-full object-cover" />
+            <AuthenticatedImage src={avatarSrc} alt="" className="size-full object-cover" />
           ) : (
             profile.name.slice(0, 1)
           )}
-        </div>
-
-        {isEditing ? (
-          <>
-            {avatarSrc ? (
-              <button
-                type="button"
-                onClick={onRemoveAvatar}
-                aria-label="프로필 사진 삭제"
-                className="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full bg-action-primary/80 text-surface-default transition-colors ease-standard duration-(--duration-fast) hover:bg-action-primary"
-              >
-                <X className="size-4" aria-hidden="true" />
-              </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 rounded-b-ait-m bg-action-primary/80 py-2 text-caption font-semibold text-surface-default transition-colors ease-standard duration-(--duration-fast) hover:bg-action-primary"
-            >
-              <Camera className="size-4" aria-hidden="true" />
-              사진 변경
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              onChange={(event) => {
-                onSelectAvatarFile(event.target.files?.[0] ?? null)
-                event.target.value = ''
-              }}
-            />
-          </>
+          <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 bg-action-primary/80 py-2 text-caption font-semibold text-surface-default opacity-0 transition-opacity ease-standard duration-(--duration-fast) group-hover:opacity-100 group-focus-visible:opacity-100">
+            <Camera className="size-4" aria-hidden="true" />
+            {isUploadingAvatar ? '업로드 중...' : '사진 변경'}
+          </span>
+        </button>
+        {avatarSrc && !isUploadingAvatar ? (
+          <button
+            type="button"
+            onClick={onRemoveAvatar}
+            aria-label="프로필 사진 삭제"
+            className="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full bg-action-primary/80 text-surface-default transition-colors ease-standard duration-(--duration-fast) hover:bg-action-primary"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
         ) : null}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          disabled={isUploadingAvatar}
+          onChange={(event) => {
+            onSelectAvatarFile(event.target.files?.[0] ?? null)
+            event.target.value = ''
+          }}
+        />
       </div>
+      {avatarError ? (
+        <p className="mt-2 text-center text-caption text-status-error" role="alert">
+          {avatarError}
+        </p>
+      ) : null}
 
       <div className="mt-4 min-h-28">
-        <h2 className="text-center text-h3 font-semibold text-surface-default">
-          {profile.name}
-        </h2>
+        {isEditing ? (
+          <Input
+            className="text-center"
+            value={profile.name}
+            onChange={(event) => onChangeName(event.target.value)}
+            aria-label="이름"
+          />
+        ) : (
+          <h2 className="text-center text-h3 font-semibold text-surface-default">
+            {profile.name}
+          </h2>
+        )}
 
         {isEditing ? (
           <Input

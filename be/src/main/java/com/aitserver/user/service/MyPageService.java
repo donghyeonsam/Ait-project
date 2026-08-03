@@ -9,13 +9,13 @@ import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.global.file.FileCategory;
 import com.aitserver.global.file.FileStorageService;
-import com.aitserver.auth.entity.User;
+import com.aitserver.user.entity.User;
 import com.aitserver.user.entity.UserSkill;
 import com.aitserver.user.dto.MyPageGithubRepoUpdateRequest;
 import com.aitserver.user.dto.MyPageUpdateRequest;
 import com.aitserver.user.dto.MyPageGithubRepoResponse;
 import com.aitserver.user.dto.MyPageResponse;
-import com.aitserver.auth.repository.UserRepository;
+import com.aitserver.user.repository.UserRepository;
 import com.aitserver.user.repository.UserSkillRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -77,6 +77,7 @@ public class MyPageService {
 
         // 닉네임 및 관심 직무 수정
         user.updateMyPage(
+                request.getName().trim(),
                 request.getNickname().trim(),
                 normalizeNullableValue(
                         request.getFirstJobInterest()
@@ -117,6 +118,14 @@ public class MyPageService {
                 githubApp
         );
     }
+
+    @Transactional(readOnly = true)
+    public boolean isNicknameAvailable(String nickname) {
+        return !userRepository.existsByNickname(
+                nickname
+        );
+    }
+
 
     private User findUser(Long userId) {
         return userRepository

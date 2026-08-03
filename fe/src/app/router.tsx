@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { GuestOnlyRoute, HomeRoute, ProtectedRoute } from '@/app/route-guards'
+import { loginWithGithub, loginWithGoogle } from '@/api/auth'
 import { CommunityPage } from '@/pages/CommunityPage'
 import { CommunityPostPage } from '@/pages/CommunityPostPage'
 import { CommunityWritePage } from '@/pages/CommunityWritePage'
@@ -11,8 +12,10 @@ import { DashboardStudyPage } from '@/pages/DashboardStudyPage'
 import { GithubCallbackPage } from '@/pages/GithubCallbackPage'
 import { InterviewSessionPage } from '@/pages/InterviewSessionPage'
 import { InterviewsPage } from '@/pages/InterviewsPage'
-import { GoogleCallbackPage } from '@/pages/auth/GoogleCallbackPage'
+import { OAuthCallbackPage } from '@/pages/auth/OAuthCallbackPage'
 import { LoginPage } from '@/pages/auth/LoginPage'
+import { getGithubRedirectUri, consumeGithubOAuthState } from '@/lib/githubOAuth'
+import { getGoogleRedirectUri, consumeGoogleOAuthState } from '@/lib/googleOAuth'
 import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
 import { MyPage } from '@/pages/MyPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
@@ -54,7 +57,32 @@ export function AppRouter() {
       <Route path="/mypage/documents/cover-letters/:coverLetterId" element={<ProtectedRoute><CoverLetterPage /></ProtectedRoute>} />
       <Route path="/login" element={<GuestOnlyRoute><LoginPage /></GuestOnlyRoute>} />
       <Route path="/signup" element={<GuestOnlyRoute><SignupPage /></GuestOnlyRoute>} />
-      <Route path="/oauth/google/callback" element={<GuestOnlyRoute><GoogleCallbackPage /></GuestOnlyRoute>} />
+      <Route
+        path="/oauth/google/callback"
+        element={
+          <GuestOnlyRoute>
+            <OAuthCallbackPage
+              providerLabel="구글"
+              login={loginWithGoogle}
+              getRedirectUri={getGoogleRedirectUri}
+              consumeState={consumeGoogleOAuthState}
+            />
+          </GuestOnlyRoute>
+        }
+      />
+      <Route
+        path="/oauth/github/callback"
+        element={
+          <GuestOnlyRoute>
+            <OAuthCallbackPage
+              providerLabel="깃허브"
+              login={loginWithGithub}
+              getRedirectUri={getGithubRedirectUri}
+              consumeState={consumeGithubOAuthState}
+            />
+          </GuestOnlyRoute>
+        }
+      />
       <Route path="/reset-password" element={<GuestOnlyRoute><ResetPasswordPage /></GuestOnlyRoute>} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />

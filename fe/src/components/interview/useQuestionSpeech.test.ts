@@ -14,6 +14,9 @@ let playBlocked = false
 class MockAudio {
   src = ''
   volume = 1
+  defaultPlaybackRate = 1
+  playbackRate = 1
+  preservesPitch = false
   onplay: (() => void) | null = null
   onended: (() => void) | null = null
   onpause: (() => void) | null = null
@@ -95,7 +98,7 @@ describe('useQuestionSpeech', () => {
     vi.unstubAllGlobals()
   })
 
-  it('질문 텍스트를 TTS mp3로 받아 설정된 음량으로 재생한다', async () => {
+  it('질문 텍스트를 TTS mp3로 받아 설정된 음량과 1.2배속으로 재생한다', async () => {
     const { result, unmount } = renderQuestionSpeech()
 
     await flushSpeech()
@@ -104,12 +107,34 @@ describe('useQuestionSpeech', () => {
     const audio = audioInstances[0]
     expect(audio?.src).toBe('blob:question-audio')
     expect(audio?.volume).toBe(0.7)
+    expect(audio?.playbackRate).toBe(1.2)
+    expect(audio?.defaultPlaybackRate).toBe(1.2)
+    expect(audio?.preservesPitch).toBe(true)
     expect(result.current.isSpeaking).toBe(true)
     expect(result.current.completedSpeechKey).toBeNull()
 
     act(() => audio?.onended?.())
     expect(result.current.isSpeaking).toBe(false)
     expect(result.current.completedSpeechKey).toBe('첫 번째 질문입니다.')
+    unmount()
+  })
+
+  it('비활성화하면 TTS API와 브라우저 음성 합성을 호출하지 않는다', async () => {
+    const { result, unmount } = renderHook(() =>
+      useQuestionSpeech({
+        text: '영상 음성을 사용하는 시연 질문입니다.',
+        volume: 70,
+        muted: false,
+        enabled: false,
+      }),
+    )
+
+    await flushSpeech()
+
+    expect(synthesizeQuestionSpeech).not.toHaveBeenCalled()
+    expect(speak).not.toHaveBeenCalled()
+    expect(result.current.isSpeaking).toBe(false)
+    expect(result.current.completedSpeechKey).toBeNull()
     unmount()
   })
 
@@ -135,6 +160,7 @@ describe('useQuestionSpeech', () => {
     const utterance = speak.mock.calls[0]?.[0]
     expect(utterance?.text).toBe('첫 번째 질문입니다.')
     expect(utterance?.lang).toBe('ko-KR')
+    expect(utterance?.rate).toBe(1.2)
     expect(result.current.isSpeaking).toBe(true)
 
     act(() => utterance?.onend?.())

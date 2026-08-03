@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudyGroupPage } from '@/pages/StudyGroupPage'
 import {
+  getMyActiveStudyGroups,
   getMyStudyGroups,
   getStudyGroupApplications,
   getStudyGroupDetail,
@@ -35,6 +36,7 @@ vi.mock('@/api/auth', () => ({
 vi.mock('@/api/study-groups', () => ({
   getStudyGroupDetail: vi.fn(),
   getMyStudyGroups: vi.fn(),
+  getMyActiveStudyGroups: vi.fn(),
   getStudyGroupApplications: vi.fn(),
   updateStudyGroupStatus: vi.fn(),
   kickStudyGroupMember: vi.fn(),
@@ -166,6 +168,7 @@ describe('StudyGroupPage', () => {
   beforeEach(() => {
     vi.mocked(getStudyGroupDetail).mockResolvedValue(groupDetail)
     vi.mocked(getMyStudyGroups).mockResolvedValue(myStudyGroups)
+    vi.mocked(getMyActiveStudyGroups).mockResolvedValue(myStudyGroups)
     vi.mocked(getStudyGroupApplications).mockResolvedValue([])
     vi.mocked(getStudyGroupActiveSession).mockResolvedValue({
       hasActiveSession: false,

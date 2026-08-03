@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   StudySessionPrejoin,
   type StudySessionPrejoinSelection,
@@ -28,10 +28,16 @@ async function resolveSessionId(groupId: number) {
 // 스터디 라운지 → 내 스터디 그룹 → 세션 생성/참가에서 진입하는 입장 전 대기 화면.
 // 서버에 세션별 제목이 없어 화면 제목은 그룹 제목으로 대신한다.
 export function StudySessionPrejoinPage() {
+  const location = useLocation()
   const navigate = useNavigate()
   const { groupId } = useParams<{ groupId: string }>()
+  const locationState = location.state as { groupTitle?: unknown } | null
+  const initialGroupTitle =
+    typeof locationState?.groupTitle === 'string'
+      ? locationState.groupTitle
+      : null
 
-  const [groupTitle, setGroupTitle] = useState<string | null>(null)
+  const [groupTitle, setGroupTitle] = useState<string | null>(initialGroupTitle)
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
   // 생성까지만 성공하고 참가/접속에서 실패했을 때, 재시도 시 세션을 중복 생성하지 않기 위해 기억해둔다.

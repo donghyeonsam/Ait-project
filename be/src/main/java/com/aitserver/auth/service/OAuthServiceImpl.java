@@ -1,14 +1,14 @@
 package com.aitserver.auth.service;
 
 import com.aitserver.auth.entity.SocialUser;
-import com.aitserver.auth.entity.User;
+import com.aitserver.user.entity.User;
 import com.aitserver.auth.oauth.OAuthClient;
 import com.aitserver.auth.oauth.OAuthProvider;
 import com.aitserver.auth.oauth.OAuthUserInfo;
 import com.aitserver.auth.oauthDto.OAuthLoginResponse;
 import com.aitserver.auth.oauthDto.OAuthLoginResult;
 import com.aitserver.auth.repository.SocialUserRepository;
-import com.aitserver.auth.repository.UserRepository;
+import com.aitserver.user.repository.UserRepository;
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.global.jwt.JwtTokenProvider;

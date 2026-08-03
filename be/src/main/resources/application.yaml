@@ -19,6 +19,11 @@ spring:
   application:
     name: aitServer
 
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 30MB
+
   datasource:
     url: jdbc:mysql://localhost:3307/${MYSQL_DATABASE}?sslMode=DISABLED&allowPublicKeyRetrieval=true&connectionTimeZone=Asia/Seoul&characterEncoding=UTF-8
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -42,7 +47,7 @@ spring:
 
   sql:
     init:
-      mode: never
+      mode: never # 꼭 확인!!!!!!
 
   docker:
     compose:
@@ -67,12 +72,6 @@ spring:
 
     api-key: ${LIVEKIT_API_KEY}
     api-secret: ${LIVEKIT_API_SECRET}
-
-  servlet:
-    multipart:
-      max-file-size: 20MB      # 파일 1개당 최대 허용 용량
-      max-request-size: 20MB   # 요청 1번당 최대 허용 용량 (파일 여러 개 묶음)
-
 
   mail:
     host: smtp.gmail.com
@@ -104,3 +103,9 @@ google:
     id: ${GOOGLE_CLIENT_ID}
     secret: ${GOOGLE_CLIENT_SECRET}
     allowed-redirect-uris: ${GOOGLE_ALLOWED_REDIRECT_URIS}
+
+github:
+  client:
+    id: ${GITHUB_CLIENT_ID}
+    secret: ${GITHUB_CLIENT_SECRET}
+    allowed-redirect-uris: ${GITHUB_ALLOWED_REDIRECT_URIS}

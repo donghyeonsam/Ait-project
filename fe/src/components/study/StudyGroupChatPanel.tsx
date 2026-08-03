@@ -25,6 +25,12 @@ import {
   AvatarImage,
 } from '@/components/ui/avatar'
 import { studyChatEmojis } from '@/components/study/studyChatEmojis'
+import {
+  aitEmoticons,
+  parseEmoticonToken,
+  toEmoticonToken,
+  type AitEmoticon,
+} from '@/lib/emoticons'
 import { cn } from '@/lib/utils'
 import { toErrorMessage } from '@/api/http'
 import {
@@ -238,6 +244,18 @@ export function StudyGroupChatPanel({
 
     sendStudyGroupChatMessage(clientRef.current, groupId, content)
     setDraft('')
+    setComposerPicker(null)
+  }
+
+  // 캐릭터 이모티콘은 입력란을 거치지 않고 토큰 메시지로 바로 전송한다.
+  const sendEmoticon = (emoticon: AitEmoticon) => {
+    if (!clientRef.current?.connected) return
+
+    sendStudyGroupChatMessage(
+      clientRef.current,
+      groupId,
+      toEmoticonToken(emoticon),
+    )
     setComposerPicker(null)
   }
 
@@ -512,6 +530,7 @@ export function StudyGroupChatPanel({
 
         {messages.map((message) => {
           const isSelf = message.senderId === currentUserId
+          const emoticon = parseEmoticonToken(message.message)
 
           return (
             <div
@@ -546,18 +565,26 @@ export function StudyGroupChatPanel({
                     {message.senderNickname}
                   </p>
                 ) : null}
-                <div
-                  className={cn(
-                    'rounded-ait-m px-4 py-2 text-left text-body-2',
-                    isSelf
-                      ? 'rounded-br-none bg-action-primary text-surface-default'
-                      : 'rounded-bl-none bg-status-neutral-surface text-action-primary',
-                  )}
-                >
-                  <p className="whitespace-pre-wrap break-words">
-                    {message.message}
-                  </p>
-                </div>
+                {emoticon ? (
+                  <img
+                    src={emoticon.src}
+                    alt={`${emoticon.label} 이모티콘`}
+                    className="inline-block size-28 object-contain"
+                  />
+                ) : (
+                  <div
+                    className={cn(
+                      'rounded-ait-m px-4 py-2 text-left text-body-2',
+                      isSelf
+                        ? 'rounded-br-none bg-action-primary text-surface-default'
+                        : 'rounded-bl-none bg-status-neutral-surface text-action-primary',
+                    )}
+                  >
+                    <p className="whitespace-pre-wrap break-words">
+                      {message.message}
+                    </p>
+                  </div>
+                )}
                 {!isSelf ? (
                   <StudyChatMessageReactions
                     messageId={message.chatId}
@@ -666,21 +693,52 @@ export function StudyGroupChatPanel({
 
             {composerPicker === 'emoticon' ? (
               <div
-                className="absolute bottom-12 right-0 z-10 flex w-44 flex-col gap-1 rounded-ait-m border border-border-default bg-surface-default p-2 shadow-elevation-2"
+                className="absolute bottom-12 right-0 z-10 flex max-h-72 w-64 flex-col gap-2 overflow-y-auto overscroll-contain rounded-ait-m border border-border-default bg-surface-default p-2 shadow-elevation-2 [scrollbar-gutter:stable]"
                 role="group"
                 aria-label="이모티콘 선택"
               >
-                {composerEmoticons.map((emoticon) => (
-                  <button
-                    key={emoticon}
-                    type="button"
-                    onClick={() => appendToDraft(emoticon, true)}
-                    className="rounded-ait-s px-3 py-2 text-left text-body-2 hover:bg-status-neutral-surface"
-                    aria-label={`${emoticon} 입력`}
-                  >
-                    {emoticon}
-                  </button>
-                ))}
+                <div>
+                  <p className="mb-1 px-1 text-caption text-text-secondary">
+                    캐릭터 이모티콘
+                  </p>
+                  <div className="grid grid-cols-4 gap-1">
+                    {aitEmoticons.map((emoticon) => (
+                      <button
+                        key={emoticon.id}
+                        type="button"
+                        onClick={() => sendEmoticon(emoticon)}
+                        disabled={!isConnected}
+                        className="flex aspect-square items-center justify-center rounded-ait-s p-1 hover:bg-status-neutral-surface disabled:opacity-50"
+                        aria-label={`${emoticon.label} 이모티콘 전송`}
+                      >
+                        <img
+                          src={emoticon.src}
+                          alt=""
+                          loading="lazy"
+                          className="size-full object-contain"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-1 px-1 text-caption text-text-secondary">
+                    텍스트 이모티콘
+                  </p>
+                  <div className="flex flex-col gap-1">
+                    {composerEmoticons.map((emoticon) => (
+                      <button
+                        key={emoticon}
+                        type="button"
+                        onClick={() => appendToDraft(emoticon, true)}
+                        className="rounded-ait-s px-3 py-2 text-left text-body-2 hover:bg-status-neutral-surface"
+                        aria-label={`${emoticon} 입력`}
+                      >
+                        {emoticon}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             ) : null}
           </div>
