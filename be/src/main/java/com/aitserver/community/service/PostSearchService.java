@@ -23,7 +23,7 @@ import org.springframework.util.StringUtils;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.aitserver.auth.entity.QUser.user;
+import static com.aitserver.user.entity.QUser.user;
 import static com.aitserver.community.entity.QPost.post;
 
 @Service

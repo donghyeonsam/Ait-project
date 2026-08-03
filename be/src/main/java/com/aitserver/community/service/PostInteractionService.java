@@ -1,7 +1,7 @@
 package com.aitserver.community.service;
 
-import com.aitserver.auth.entity.User;
-import com.aitserver.auth.repository.UserRepository;
+import com.aitserver.user.entity.User;
+import com.aitserver.user.repository.UserRepository;
 import com.aitserver.community.entity.Post;
 import com.aitserver.community.entity.PostLikeScrap;
 import com.aitserver.community.entity.PostLikeScrap.ActionType;

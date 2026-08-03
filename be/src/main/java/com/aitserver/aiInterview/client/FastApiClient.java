@@ -98,4 +98,53 @@ public class FastApiClient {
             throw new BusinessException(ErrorCode.FASTAPI_SERVER_ERROR);
         }
     }
+
+    public void deleteUserEmbeddings(Long userId) {
+
+        String uri = "/api/v1/embeddings/{userId}";
+
+        try {
+            log.info(
+                    "[FastAPI 사용자 임베딩 삭제 요청] URI: {}, userId: {}",
+                    uri,
+                    userId
+            );
+
+            fastApiRestClient.delete()
+                    .uri(uri, userId)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, (req, res) -> {
+                        log.error(
+                                "[FastAPI 사용자 임베딩 삭제 에러] Status: {}, URI: {}, userId: {}",
+                                res.getStatusCode(),
+                                uri,
+                                userId
+                        );
+
+                        throw new BusinessException(
+                                ErrorCode.FASTAPI_SERVER_ERROR
+                        );
+                    })
+                    .toBodilessEntity();
+
+            log.info(
+                    "[FastAPI 사용자 임베딩 삭제 성공] userId: {}",
+                    userId
+            );
+
+        } catch (BusinessException e) {
+            throw e;
+
+        } catch (Exception e) {
+            log.error(
+                    "[FastAPI 사용자 임베딩 삭제 시스템 에러] userId: {}",
+                    userId,
+                    e
+            );
+
+            throw new BusinessException(
+                    ErrorCode.FASTAPI_SERVER_ERROR
+            );
+        }
+    }
 }

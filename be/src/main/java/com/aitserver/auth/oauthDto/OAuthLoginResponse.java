@@ -1,7 +1,7 @@
 package com.aitserver.auth.oauthDto;
 
 import com.aitserver.auth.dto.UserSummaryResponse;
-import com.aitserver.auth.entity.User;
+import com.aitserver.user.entity.User;
 
 public record OAuthLoginResponse(
         String accessToken,

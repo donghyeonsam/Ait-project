@@ -1,4 +1,4 @@
-package com.aitserver.auth.entity;
+package com.aitserver.user.entity;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -70,10 +70,12 @@ public class User {
     }
 
     public void updateMyPage(
+            String name,
             String nickname,
             String firstJobInterest,
             String secondJobInterest
     ) {
+        this.name = name;
         this.nickname = nickname;
         this.firstJobInterest = firstJobInterest;
         this.secondJobInterest = secondJobInterest;
@@ -81,5 +83,31 @@ public class User {
 
     public void updateProfileImage(String profileImage) {
         this.profileImage = profileImage;
+    }
+
+    // 비밀번호 변경
+    public void changePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
+
+    // 회원탈퇴
+    public void withdraw() {
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    // 이메일, 닉네임 deleted붙이기
+    public void anonymizeForWithdrawal() {
+        String deletedEmail =
+                "deleted_" + this.id + "_" + this.email;
+
+        // email 컬럼 최대 길이 255자 방어
+        if (deletedEmail.length() > 255) {
+            deletedEmail = deletedEmail.substring(0, 255);
+        }
+
+        this.email = deletedEmail;
+
+        // nickname 컬럼이 최대 20자이므로 기존 닉네임은 붙이지 않음
+        this.nickname = "deleted_" + this.id;
     }
 }
