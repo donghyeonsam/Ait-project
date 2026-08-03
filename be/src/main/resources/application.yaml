@@ -96,7 +96,7 @@ spring:
 
 file:
   upload:
-    dir: C:/aitserver/uploads/
+    dir: ${FILE_UPLOAD_DIR:C:/aitserver/uploads/}
 
 google:
   client:
