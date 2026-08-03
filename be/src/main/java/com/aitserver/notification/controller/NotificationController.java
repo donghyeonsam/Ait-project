@@ -2,7 +2,6 @@ package com.aitserver.notification.controller;
 
 import com.aitserver.global.response.ApiResponse;
 import com.aitserver.notification.dto.NotificationResponse;
-import com.aitserver.notification.entity.Notification;
 import com.aitserver.notification.entity.NotificationType;
 import com.aitserver.notification.event.NotificationEvent;
 import com.aitserver.notification.service.NotificationService;
@@ -11,7 +10,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Slice;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,8 +17,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/notifications")
@@ -106,6 +102,17 @@ public class NotificationController {
         return ResponseEntity.ok(sseService.subscribe(userId));
     }
 
+    @GetMapping("/unread-count")
+    public ResponseEntity<ApiResponse<NotificationResponse.UnreadCount>> getUnreadCount(
+            @AuthenticationPrincipal Long userId,
+            HttpServletRequest request) {
+
+        NotificationResponse.UnreadCount response = notificationService.getUnreadCount(userId);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "안 읽은 알림 개수 조회 성공", response, request));
+    }
+
+
+    //테스트 코드
     @GetMapping("/test-send")
     @Transactional
     public ResponseEntity<String> testSendSse(
