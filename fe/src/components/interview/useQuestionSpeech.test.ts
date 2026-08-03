@@ -119,6 +119,25 @@ describe('useQuestionSpeech', () => {
     unmount()
   })
 
+  it('비활성화하면 TTS API와 브라우저 음성 합성을 호출하지 않는다', async () => {
+    const { result, unmount } = renderHook(() =>
+      useQuestionSpeech({
+        text: '영상 음성을 사용하는 시연 질문입니다.',
+        volume: 70,
+        muted: false,
+        enabled: false,
+      }),
+    )
+
+    await flushSpeech()
+
+    expect(synthesizeQuestionSpeech).not.toHaveBeenCalled()
+    expect(speak).not.toHaveBeenCalled()
+    expect(result.current.isSpeaking).toBe(false)
+    expect(result.current.completedSpeechKey).toBeNull()
+    unmount()
+  })
+
   it('같은 질문의 replay는 캐시를 사용해 API를 다시 호출하지 않는다', async () => {
     const { result, unmount } = renderQuestionSpeech()
     await flushSpeech()
