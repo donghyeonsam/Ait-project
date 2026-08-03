@@ -39,32 +39,30 @@ export function ProfileSection({
   const [draft, setDraft] = useState(profile)
   const [skillsText, setSkillsText] = useState(() => toCommaText(profile.skills))
   const [rolesText, setRolesText] = useState(() => toCommaText(profile.roles))
-  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null)
-  const [isAvatarRemoved, setIsAvatarRemoved] = useState(false)
+
+  // TODO: 실제 API 연동 필요 - 사진 업로드 엔드포인트가 없어 편집 모드와 무관하게 화면에서만 즉시 반영한다.
+  const updateAvatarUrl = (avatarUrl: string | null) => {
+    setSavedProfile((current) => ({ ...current, avatarUrl }))
+    setDraft((current) => ({ ...current, avatarUrl }))
+  }
 
   const selectAvatarFile = (file: File | null) => {
     if (!file) return
-    setAvatarPreviewUrl(URL.createObjectURL(file))
-    setIsAvatarRemoved(false)
+    updateAvatarUrl(URL.createObjectURL(file))
   }
 
   const removeAvatar = () => {
-    setAvatarPreviewUrl(null)
-    setIsAvatarRemoved(true)
+    updateAvatarUrl(null)
   }
 
   const startEditing = () => {
     setDraft(savedProfile)
     setSkillsText(toCommaText(savedProfile.skills))
     setRolesText(toCommaText(savedProfile.roles))
-    setAvatarPreviewUrl(null)
-    setIsAvatarRemoved(false)
     setIsEditing(true)
   }
 
   const cancelEditing = () => {
-    setAvatarPreviewUrl(null)
-    setIsAvatarRemoved(false)
     setSaveError(null)
     setIsEditing(false)
   }
@@ -101,10 +99,7 @@ export function ProfileSection({
       }),
       skills: parseCommaText(skillsText),
       roles: parseCommaText(rolesText),
-      avatarUrl: isAvatarRemoved ? null : (avatarPreviewUrl ?? draft.avatarUrl ?? null),
     })
-    setAvatarPreviewUrl(null)
-    setIsAvatarRemoved(false)
     setIsSaving(false)
     setIsEditing(false)
   }
@@ -134,7 +129,6 @@ export function ProfileSection({
   }
 
   const displayed = isEditing ? draft : savedProfile
-  const editingAvatarSrc = isAvatarRemoved ? null : (avatarPreviewUrl ?? draft.avatarUrl ?? null)
 
   return (
     <div className="profile-layout grid gap-8">
@@ -144,7 +138,7 @@ export function ProfileSection({
           isEditing={isEditing}
           rolesText={rolesText}
           onChangeRolesText={setRolesText}
-          avatarSrc={isEditing ? editingAvatarSrc : (savedProfile.avatarUrl ?? null)}
+          avatarSrc={displayed.avatarUrl ?? null}
           onSelectAvatarFile={selectAvatarFile}
           onRemoveAvatar={removeAvatar}
         />
