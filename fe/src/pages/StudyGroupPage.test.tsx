@@ -448,6 +448,40 @@ describe('StudyGroupPage', () => {
     ).toBeInTheDocument()
   })
 
+  it('새로고침 후 불러온 그룹톡 이력을 최신 메시지 위치에서 보여준다', async () => {
+    const scrollTo = vi.mocked(HTMLElement.prototype.scrollTo)
+    const scrollHeight = vi
+      .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
+      .mockReturnValue(720)
+    scrollTo.mockClear()
+    vi.mocked(getStudyGroupChats).mockResolvedValue({
+      chats: [
+        {
+          chatId: 10,
+          groupId: 101,
+          senderId: 2,
+          senderNickname: '김구미',
+          profileImageUrl: null,
+          message: '가장 최근 그룹톡 메시지',
+          createdAt: '2026-07-21T10:00:00',
+        },
+      ],
+      hasNext: false,
+    })
+
+    try {
+      await renderStudyGroupPage()
+      await screen.findByText('가장 최근 그룹톡 메시지')
+
+      expect(scrollTo).toHaveBeenCalledWith({
+        top: 720,
+        behavior: 'auto',
+      })
+    } finally {
+      scrollHeight.mockRestore()
+    }
+  })
+
   it('메시지 작성 UI를 갖추고, 공지를 STOMP로 작성·조회·수정·삭제한다', async () => {
     const user = userEvent.setup()
     await renderStudyGroupPage()
