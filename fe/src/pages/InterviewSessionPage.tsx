@@ -36,6 +36,13 @@ import {
   isInterviewSessionConfiguration,
   type InterviewSessionNavigationState,
 } from '@/lib/interview-session'
+import {
+  getDemoQuestionVideoSrc,
+  isDemoPortfolioInterview,
+  replaceDemoQuestions,
+  resolveDemoFollowUpQuestion,
+} from '@/lib/demo-interview'
+import { useAuth } from '@/lib/useAuth'
 import type { Difficulty, InterviewGoalType } from '@/mocks/interview'
 import type { InterviewRecord, InterviewType, JobType } from '@/types/dashboard'
 
@@ -124,6 +131,11 @@ function InterviewSessionContent({
   config,
 }: InterviewSessionContentProps) {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const isDemoInterview = isDemoPortfolioInterview(
+    user?.email,
+    config.input.interviewType,
+  )
   const questionRequestRef = useRef<QuestionRequest | null>(null)
   const [generatedSession, setGeneratedSession] =
     useState<InterviewQuestionGenerationResponse | null>(null)
@@ -147,7 +159,10 @@ function InterviewSessionContent({
     questionRequestRef.current.promise
       .then((response) => {
         if (!active) return
-        const generatedQuestions = response.questions
+        const generatedQuestions = replaceDemoQuestions(
+          response.questions,
+          isDemoInterview,
+        )
           .filter((item) => item.question.trim())
           .map((item) => ({ ...item, depth: item.depth ?? 0 }))
           .sort((a, b) => a.order - b.order)
@@ -170,7 +185,7 @@ function InterviewSessionContent({
     return () => {
       active = false
     }
-  }, [attempt, config.input])
+  }, [attempt, config.input, isDemoInterview])
 
   if (generatedSession && stageExited) {
     return (
@@ -179,6 +194,7 @@ function InterviewSessionContent({
           config={config}
           aiInterviewId={generatedSession.aiInterviewId}
           questions={generatedSession.questions}
+          isDemoInterview={isDemoInterview}
         />
         {/* 검게 덮인 상태로 시작해 장막을 걷으며 면접 화면을 드러낸다. */}
         <ScreenFadeCurtain covered={false} initialCovered />
@@ -251,6 +267,7 @@ interface ActiveInterviewSessionProps {
   config: NonNullable<InterviewSessionNavigationState['interviewConfig']>
   aiInterviewId: number | null
   questions: GeneratedInterviewQuestion[]
+  isDemoInterview: boolean
 }
 
 // 생성된 질문을 순서대로 제시하고 사용자의 음성 답변을 진행한다.
@@ -258,6 +275,7 @@ function ActiveInterviewSession({
   config,
   aiInterviewId,
   questions,
+  isDemoInterview,
 }: ActiveInterviewSessionProps) {
   const navigate = useNavigate()
   const { input, devices } = config
@@ -271,13 +289,38 @@ function ActiveInterviewSession({
   const [micGain, setMicGain] = useState(devices.micGain)
   const [speakerMuted, setSpeakerMuted] = useState(false)
   const [speakerVolume, setSpeakerVolume] = useState(devices.speakerVolume)
+  const [demoVideoPlaybackAttempt, setDemoVideoPlaybackAttempt] = useState(0)
+  const [startedDemoVideoKey, setStartedDemoVideoKey] = useState<string | null>(
+    null,
+  )
+  const [completedDemoVideoKey, setCompletedDemoVideoKey] = useState<
+    string | null
+  >(null)
+  const [blockedDemoVideoKey, setBlockedDemoVideoKey] = useState<string | null>(
+    null,
+  )
+  const [demoVideoError, setDemoVideoError] = useState<{
+    playbackKey: string
+    message: string
+  } | null>(null)
   const sessionStartRef = useRef(0)
   const submittedAnswersRef = useRef<SubmittedVoiceAnswer[]>([])
-  const submitAfterRecordingRef = useRef(false)
   const question = sessionQuestions[questionIndex]
   const voiceAnswer = useVoiceAnswer(stream)
   const nonVerbalCapture = useNonVerbalCapture(stream, aiInterviewId)
   const questionKey = `${questionIndex}:${question.order}:${question.question}`
+  const demoQuestionVideoSrc = isDemoInterview
+    ? getDemoQuestionVideoSrc(question)
+    : null
+  const usesDemoQuestionVideo = Boolean(demoQuestionVideoSrc)
+  const demoVideoPlaybackKey = `${questionKey}:video:${demoVideoPlaybackAttempt}`
+  const isDemoQuestionVideoActive =
+    usesDemoQuestionVideo &&
+    completedDemoVideoKey !== demoVideoPlaybackKey
+  const isDemoQuestionVideoSpeaking =
+    isDemoQuestionVideoActive &&
+    startedDemoVideoKey === demoVideoPlaybackKey &&
+    blockedDemoVideoKey !== demoVideoPlaybackKey
   const answerSecondsRemaining = useAnswerCountdown({
     activeKey:
       voiceAnswer.status === 'recording' ? questionKey : null,
@@ -289,11 +332,16 @@ function ActiveInterviewSession({
     speechKey: questionKey,
     volume: speakerVolume,
     muted: speakerMuted,
-    enabled: Boolean(stream),
+    enabled: Boolean(stream) && !usesDemoQuestionVideo,
   })
+  const completedQuestionMediaKey = usesDemoQuestionVideo
+    ? completedDemoVideoKey === demoVideoPlaybackKey
+      ? questionKey
+      : null
+    : questionSpeech.completedSpeechKey
   const resetAutoRecording = useAutoRecordingAfterSpeech({
     questionKey,
-    completedSpeechKey: questionSpeech.completedSpeechKey,
+    completedSpeechKey: completedQuestionMediaKey,
     enabled: Boolean(stream) && !micMuted,
     answerStatus: voiceAnswer.status,
     startRecording: voiceAnswer.startRecording,
@@ -375,9 +423,9 @@ function ActiveInterviewSession({
       audioBlob,
     })
 
-    // BE snake_case 역직렬화 버그로 aiInterviewId가 null이거나, 녹음 없이 답변만 있으면
-    // 저장을 건너뛴다. 저장 실패도 면접 진행을 막지 않도록 꼬리질문 없이 다음으로 넘어간다.
-    let followUpQuestion: GeneratedInterviewQuestion | null = null
+    // aiInterviewId가 없거나 녹음 없이 답변만 있으면 저장을 건너뛴다. 일반 면접은 저장 실패 시
+    // 다음 질문으로 넘어가고, 시연 계정의 고정 꼬리질문은 서버 응답과 관계없이 이어간다.
+    let generatedFollowUp: GeneratedInterviewQuestion | null = null
     if (aiInterviewId !== null && audioBlob) {
       setIsSubmittingAnswer(true)
       try {
@@ -388,13 +436,19 @@ function ActiveInterviewSession({
           answer: transcript,
           audioBlob,
         })
-        followUpQuestion = response?.nextQuestion ?? null
+        generatedFollowUp = response?.nextQuestion ?? null
       } catch {
-        followUpQuestion = null
+        generatedFollowUp = null
       } finally {
         setIsSubmittingAnswer(false)
       }
     }
+
+    const followUpQuestion = resolveDemoFollowUpQuestion({
+      enabled: isDemoInterview,
+      answeredQuestion: question,
+      generatedFollowUp,
+    })
 
     voiceAnswer.reset()
     nonVerbalCapture.reset()
@@ -423,6 +477,7 @@ function ActiveInterviewSession({
     aiInterviewId,
     handleViewResults,
     input,
+    isDemoInterview,
     isLastQuestion,
     isSubmittingAnswer,
     nonVerbalCapture,
@@ -434,37 +489,8 @@ function ActiveInterviewSession({
 
   const handleFinishAnswer = useCallback(() => {
     if (voiceAnswer.status !== 'recording') return
-    submitAfterRecordingRef.current = true
     voiceAnswer.stopRecording()
   }, [voiceAnswer])
-
-  useEffect(() => {
-    if (!submitAfterRecordingRef.current) return
-
-    if (voiceAnswer.status === 'idle' || voiceAnswer.status === 'error') {
-      submitAfterRecordingRef.current = false
-      return
-    }
-
-    // 녹음 파일과 음성 변환 결과가 모두 준비된 뒤 제출해야 오디오 분석이 누락되지 않는다.
-    if (voiceAnswer.status !== 'review' || !voiceAnswer.audioBlob) return
-
-    if (!voiceAnswer.transcript.trim()) {
-      submitAfterRecordingRef.current = false
-      return
-    }
-
-    const submitTimer = window.setTimeout(() => {
-      submitAfterRecordingRef.current = false
-      void handleSubmitAnswer()
-    }, 0)
-    return () => window.clearTimeout(submitTimer)
-  }, [
-    handleSubmitAnswer,
-    voiceAnswer.audioBlob,
-    voiceAnswer.status,
-    voiceAnswer.transcript,
-  ])
 
   const primaryActionDisabled =
     isSubmittingAnswer ||
@@ -494,14 +520,60 @@ function ActiveInterviewSession({
       resetVoiceAnswer()
       resetNonVerbalCapture()
     }
+    if (usesDemoQuestionVideo) {
+      setDemoVideoError(null)
+      setBlockedDemoVideoKey(null)
+      setDemoVideoPlaybackAttempt((attempt) => attempt + 1)
+      return
+    }
     replayQuestion()
   }, [
     replayQuestion,
     resetAutoRecording,
     resetNonVerbalCapture,
     resetVoiceAnswer,
+    usesDemoQuestionVideo,
     voiceAnswerStatus,
   ])
+
+  const handleDemoQuestionVideoPlaying = useCallback(
+    (playbackKey: string) => {
+      if (playbackKey !== demoVideoPlaybackKey) return
+      setStartedDemoVideoKey(playbackKey)
+      setBlockedDemoVideoKey(null)
+      setDemoVideoError(null)
+    },
+    [demoVideoPlaybackKey],
+  )
+
+  const handleDemoQuestionVideoEnded = useCallback(
+    (playbackKey: string) => {
+      if (playbackKey !== demoVideoPlaybackKey) return
+      setCompletedDemoVideoKey(playbackKey)
+    },
+    [demoVideoPlaybackKey],
+  )
+
+  const handleDemoQuestionVideoPlaybackError = useCallback(
+    (playbackKey: string, reason: 'blocked' | 'unavailable') => {
+      if (playbackKey !== demoVideoPlaybackKey) return
+      setStartedDemoVideoKey(playbackKey)
+      setDemoVideoError({
+        playbackKey,
+        message:
+          reason === 'blocked'
+            ? '브라우저가 질문 영상의 자동 재생을 차단했습니다. 질문 다시 듣기를 눌러주세요.'
+            : '질문 영상을 재생하지 못했습니다. 화면의 질문을 확인해주세요.',
+      })
+
+      if (reason === 'blocked') {
+        setBlockedDemoVideoKey(playbackKey)
+        return
+      }
+      setCompletedDemoVideoKey(playbackKey)
+    },
+    [demoVideoPlaybackKey],
+  )
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -545,7 +617,11 @@ function ActiveInterviewSession({
         transcript={voiceAnswer.transcript}
         onChangeTranscript={voiceAnswer.setTranscript}
         voiceError={voiceAnswer.error}
-        speechError={questionSpeech.error}
+        speechError={
+          demoVideoError?.playbackKey === demoVideoPlaybackKey
+            ? demoVideoError.message
+            : questionSpeech.error
+        }
         mediaPermission={permission}
         onRetryMediaAccess={() => {
           void requestAccess(
@@ -557,11 +633,18 @@ function ActiveInterviewSession({
         primaryActionDisabled={primaryActionDisabled}
         onPrimaryAction={handlePrimaryAction}
         onFinishAnswer={handleFinishAnswer}
-        isAiSpeaking={questionSpeech.isSpeaking}
+        isAiSpeaking={
+          usesDemoQuestionVideo
+            ? isDemoQuestionVideoSpeaking
+            : questionSpeech.isSpeaking
+        }
         onReplayQuestion={handleReplayQuestion}
         replayDisabled={
-          !stream ||
-          questionSpeech.isSpeaking ||
+          (!stream && !usesDemoQuestionVideo) ||
+          (usesDemoQuestionVideo
+            ? isDemoQuestionVideoActive &&
+              blockedDemoVideoKey !== demoVideoPlaybackKey
+            : questionSpeech.isSpeaking) ||
           voiceAnswer.status === 'recording' ||
           voiceAnswer.status === 'processing'
         }
@@ -574,6 +657,28 @@ function ActiveInterviewSession({
         speakerVolume={speakerVolume}
         onToggleSpeakerMuted={() => setSpeakerMuted((value) => !value)}
         onChangeSpeakerVolume={setSpeakerVolume}
+        demoVideoQuestionKey={
+          isDemoInterview
+            ? usesDemoQuestionVideo
+              ? demoVideoPlaybackKey
+              : questionKey
+            : undefined
+        }
+        demoQuestionVideoSrc={demoQuestionVideoSrc}
+        demoVideoQuestionActive={
+          usesDemoQuestionVideo
+            ? isDemoQuestionVideoActive
+            : questionSpeech.isSpeaking
+        }
+        questionVisible={
+          !usesDemoQuestionVideo ||
+          startedDemoVideoKey === demoVideoPlaybackKey
+        }
+        onDemoQuestionVideoPlaying={handleDemoQuestionVideoPlaying}
+        onDemoQuestionVideoEnded={handleDemoQuestionVideoEnded}
+        onDemoQuestionVideoPlaybackError={
+          handleDemoQuestionVideoPlaybackError
+        }
       />
 
       <Dialog open={endDialogOpen} onOpenChange={setEndDialogOpen}>
