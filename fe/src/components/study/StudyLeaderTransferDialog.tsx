@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { toErrorMessage } from '@/api/http'
 import { cn } from '@/lib/utils'
 import type { StudyGroupMember } from '@/components/study/StudyGroupMemberPanel'
 
@@ -16,7 +17,7 @@ interface StudyLeaderTransferDialogProps {
   open: boolean
   candidates: StudyGroupMember[]
   onOpenChange: (open: boolean) => void
-  onTransfer: (memberId: number) => void
+  onTransfer: (memberId: number) => Promise<void>
 }
 
 // 새 그룹장 후보를 선택하고 권한 위임 의사를 확인한다.
@@ -27,19 +28,34 @@ export function StudyLeaderTransferDialog({
   onTransfer,
 }: StudyLeaderTransferDialogProps) {
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null)
+  const [isTransferring, setIsTransferring] = useState(false)
+  const [transferError, setTransferError] = useState<string | null>(null)
   const selectedMember = candidates.find(
     (member) => member.id === selectedMemberId,
   )
 
   const changeOpen = (nextOpen: boolean) => {
-    if (!nextOpen) setSelectedMemberId(null)
+    // 위임 요청이 진행되는 동안에는 대화상자를 닫지 않는다.
+    if (!nextOpen && isTransferring) return
+    if (!nextOpen) {
+      setSelectedMemberId(null)
+      setTransferError(null)
+    }
     onOpenChange(nextOpen)
   }
 
-  const transferLeadership = () => {
+  const transferLeadership = async () => {
     if (!selectedMember) return
-    onTransfer(selectedMember.id)
-    changeOpen(false)
+    setIsTransferring(true)
+    setTransferError(null)
+    try {
+      await onTransfer(selectedMember.id)
+      setIsTransferring(false)
+      changeOpen(false)
+    } catch (error) {
+      setTransferError(toErrorMessage(error))
+      setIsTransferring(false)
+    }
   }
 
   return (
@@ -117,20 +133,27 @@ export function StudyLeaderTransferDialog({
               : '새 멤버가 가입한 뒤 다시 시도해 주세요.'}
         </p>
 
+        {transferError ? (
+          <p className="mt-2 text-caption text-status-error" role="alert">
+            {transferError}
+          </p>
+        ) : null}
+
         <DialogFooter className="mt-6">
           <Button
             type="button"
             variant="secondary"
+            disabled={isTransferring}
             onClick={() => changeOpen(false)}
           >
             취소
           </Button>
           <Button
             type="button"
-            disabled={!selectedMember}
-            onClick={transferLeadership}
+            disabled={!selectedMember || isTransferring}
+            onClick={() => void transferLeadership()}
           >
-            그룹장 위임
+            {isTransferring ? '위임 중...' : '그룹장 위임'}
           </Button>
         </DialogFooter>
       </DialogContent>

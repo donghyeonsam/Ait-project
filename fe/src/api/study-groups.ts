@@ -117,6 +117,14 @@ export function kickStudyGroupMember(groupId: number, targetUserId: number) {
   )
 }
 
+// 방장만 호출할 수 있고, 위임 대상은 이미 그룹에 속한 다른 사용자여야 한다.
+export function delegateStudyGroupLeader(groupId: number, targetUserId: number) {
+  return backendRequest<void>(`/api/study-groups/${groupId}/delegate`, {
+    method: 'PATCH',
+    body: JSON.stringify({ targetUserId }),
+  })
+}
+
 export function leaveStudyGroup(groupId: number) {
   return backendRequest<void>(`/api/study-groups/${groupId}/leave`, {
     method: 'DELETE',

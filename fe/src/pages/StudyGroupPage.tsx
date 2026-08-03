@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
+  delegateStudyGroupLeader,
   getMyStudyGroups,
   getStudyGroupApplications,
   getStudyGroupDetail,
@@ -67,9 +68,6 @@ export function StudyGroupPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isLeaderTransferDialogOpen, setIsLeaderTransferDialogOpen] =
     useState(false)
-  const [transferredLeaderName, setTransferredLeaderName] = useState<
-    string | null
-  >(null)
   const [memberToRemove, setMemberToRemove] =
     useState<StudyGroupMember | null>(null)
   const [isRemovingMember, setIsRemovingMember] = useState(false)
@@ -208,14 +206,9 @@ export function StudyGroupPage() {
     )
   }
 
-  const isLeader =
-    currentUserId !== null &&
-    detail.ownerId === currentUserId &&
-    transferredLeaderName === null
+  const isLeader = currentUserId !== null && detail.ownerId === currentUserId
   const leaderName =
-    transferredLeaderName ??
-    detail.members.find((member) => member.owner)?.name ??
-    '알 수 없음'
+    detail.members.find((member) => member.owner)?.name ?? '알 수 없음'
   const leaderCandidates = members.filter(
     (member) => !member.isSelf && member.role !== '초대 대기',
   )
@@ -326,21 +319,35 @@ export function StudyGroupPage() {
     }
   }
 
-  const transferLeadership = (memberId: number) => {
+  // 위임이 성공하면 상세를 다시 조회하지 않고 방장 정보와 구성원 역할을 화면에서 함께 갱신한다.
+  const transferLeadership = async (memberId: number) => {
     const nextLeader = members.find((member) => member.id === memberId)
     if (!nextLeader || nextLeader.isSelf || nextLeader.role === '초대 대기') {
       return
     }
 
-    // TODO: 실제 API 연동 필요 — 위임 엔드포인트가 없어 화면에서만 그룹장을 바꾼다.
+    await delegateStudyGroupLeader(groupId, memberId)
     setMembers((currentMembers) =>
       currentMembers.map((member) =>
         member.id === memberId
-          ? { ...member, role: `${member.role} · 그룹장` }
-          : member,
+          ? { ...member, role: '그룹장' }
+          : member.role === '그룹장'
+            ? { ...member, role: '그룹원' }
+            : member,
       ),
     )
-    setTransferredLeaderName(nextLeader.name)
+    setDetail((currentDetail) =>
+      currentDetail === null
+        ? currentDetail
+        : {
+            ...currentDetail,
+            ownerId: memberId,
+            members: currentDetail.members.map((member) => ({
+              ...member,
+              owner: member.userId === memberId,
+            })),
+          },
+    )
   }
 
   return (

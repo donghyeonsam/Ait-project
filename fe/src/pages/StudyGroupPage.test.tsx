@@ -1,9 +1,17 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudyGroupPage } from '@/pages/StudyGroupPage'
 import {
+  delegateStudyGroupLeader,
   getMyActiveStudyGroups,
   getMyStudyGroups,
   getStudyGroupApplications,
@@ -42,6 +50,7 @@ vi.mock('@/api/study-groups', () => ({
   updateStudyGroupStatus: vi.fn(),
   kickStudyGroupMember: vi.fn(),
   leaveStudyGroup: vi.fn(),
+  delegateStudyGroupLeader: vi.fn(),
 }))
 
 vi.mock('@/api/study-sessions', () => ({
@@ -178,6 +187,7 @@ describe('StudyGroupPage', () => {
     })
     vi.mocked(kickStudyGroupMember).mockResolvedValue(undefined)
     vi.mocked(leaveStudyGroup).mockResolvedValue(undefined)
+    vi.mocked(delegateStudyGroupLeader).mockResolvedValue(undefined)
     vi.mocked(getMonthlyStudyCalendars).mockResolvedValue(studyCalendars)
     // 날짜를 열면 그 날짜만 다시 조회하므로, 해당 날짜 일정을 그대로 돌려준다.
     vi.mocked(getDailyStudyCalendars).mockImplementation((_, date) =>
@@ -344,11 +354,50 @@ describe('StudyGroupPage', () => {
     expect(transferButton).toBeEnabled()
     await user.click(transferButton)
 
-    expect(
-      screen.queryByRole('heading', { name: '관리자 메뉴' }),
-    ).not.toBeInTheDocument()
+    expect(delegateStudyGroupLeader).toHaveBeenCalledWith(101, 2)
+    // 위임은 서버 요청이므로 응답 후 방장 전용 UI가 사라지는 것을 기다린다.
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: '관리자 메뉴' }),
+      ).not.toBeInTheDocument(),
+    )
     expect(screen.getByText(/그룹장 김구미/)).toBeInTheDocument()
-    expect(screen.getByText(/그룹원 · 그룹장/)).toBeInTheDocument()
+    expect(screen.getByText('김구미').closest('li')).toHaveTextContent(
+      '김구미 · 그룹장',
+    )
+    expect(screen.getByText('김아이').closest('li')).toHaveTextContent(
+      '김아이 · 그룹원',
+    )
+  })
+
+  it('위임 요청이 실패하면 대화상자에 오류를 보여주고 방장 권한을 유지한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(delegateStudyGroupLeader).mockRejectedValue(
+      new Error('delegation failed'),
+    )
+    await renderStudyGroupPage()
+
+    await user.click(screen.getByRole('button', { name: '그룹장 위임' }))
+    const transferDialog = screen.getByRole('dialog', {
+      name: '그룹장을 위임할까요?',
+    })
+    await user.click(
+      within(transferDialog).getByRole('radio', { name: /김구미/ }),
+    )
+    await user.click(
+      within(transferDialog).getByRole('button', { name: '그룹장 위임' }),
+    )
+
+    expect(
+      await within(transferDialog).findByText(
+        '알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      ),
+    ).toBeInTheDocument()
+    expect(transferDialog).toBeInTheDocument()
+    // 모달이 열린 동안 바깥 콘텐츠는 aria-hidden이라 hidden 옵션으로 존재만 확인한다.
+    expect(
+      screen.getByRole('heading', { name: '관리자 메뉴', hidden: true }),
+    ).toBeInTheDocument()
   })
 
   it('날짜를 선택할 때만 일정 상세를 열고 그룹톡 메시지를 전송한다', async () => {
