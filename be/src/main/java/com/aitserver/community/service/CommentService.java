@@ -13,9 +13,10 @@ import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.notification.entity.NotificationType;
 import com.aitserver.notification.event.NotificationEvent;
-import com.aitserver.notification.event.NotificationEventListener;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -74,55 +75,68 @@ public class CommentService {
     }
 
     /**
-     * 2. 게시글 댓글 목록 조회 (1-Depth 트리 조립 및 삭제 필터링)
+     * 2. 게시글 댓글 목록 조회
      */
-    public List<CommentDto.Response> getComments(Long userId, Long postId) {
-        // 생성일자 오름차순으로 전체 댓글 평면(Flat) 조회
-        List<PostComment> comments = commentRepository.findByPostIdOrderByCreatedAtAsc(postId);
+    public CommentDto.ScrollResponse getComments(Long userId, Long postId, Pageable pageable) {
 
-        // N+1 방지: 현재 사용자가 좋아요를 누른 댓글 ID 목록 추출 (로그인 시에만)
+        // 1. 원댓글만 30개 Slice로 가져오기
+        Slice<PostComment> parentSlice = commentRepository.findByPostIdAndParentIsNullOrderByCreatedAtAsc(postId, pageable);
+        List<PostComment> parentComments = parentSlice.getContent();
+
+        if (parentComments.isEmpty()) {
+            return new CommentDto.ScrollResponse(Collections.emptyList(), false);
+        }
+
+        // 2. 원댓글 ID 추출
+        List<Long> parentIds = parentComments.stream()
+                .map(PostComment::getId)
+                .toList();
+
+        // 3. 이 원댓글들에 달린 모든 답글을 한 번의 쿼리로 싹 가져오기 (N+1 방지)
+        List<PostComment> replies = commentRepository.findByParentIdInOrderByCreatedAtAsc(parentIds);
+
+        // 4. 가져온 답글들을 "부모 ID"를 기준으로 그룹화 해두기 (Map 형태)
+        Map<Long, List<PostComment>> replyMap = replies.stream()
+                .collect(Collectors.groupingBy(reply -> reply.getParent().getId()));
+
+        // 5. 좋아요 여부 확인용 로직 (원댓글 + 답글 ID 합쳐서 한 번에 조회)
         Set<Long> likedCommentIds = new HashSet<>();
         if (userId != null) {
-            List<CommentLike> userLikes = commentLikeRepository.findByUserIdAndCommentIdIn(
-                    userId,
-                    comments.stream().map(PostComment::getId).collect(Collectors.toList())
-            );
-            likedCommentIds = userLikes.stream()
+            List<Long> allIds = new ArrayList<>(parentIds);
+            allIds.addAll(replies.stream().map(PostComment::getId).toList());
+
+            likedCommentIds = commentLikeRepository.findByUserIdAndCommentIdIn(userId, allIds).stream()
                     .map(like -> like.getComment().getId())
                     .collect(Collectors.toSet());
         }
 
-        Map<Long, CommentDto.Response> responseMap = new HashMap<>();
+        // dto 조립
         List<CommentDto.Response> result = new ArrayList<>();
 
-        for (PostComment comment : comments) {
-            boolean isDeleted = comment.getDeletedAt() != null;
+        for (PostComment parent : parentComments) {
+            boolean isParentLiked = likedCommentIds.contains(parent.getId());
+            CommentDto.Response parentDto = CommentDto.Response.of(parent, isParentLiked);
 
-            // 필터링 1: 삭제된 '답글'은 껍데기도 남길 필요가 없으므로 아예 건너뜀
-            if (comment.isReply() && isDeleted) {
+            // Map에서 이 부모의 답글 리스트를 꺼냄 (없으면 빈 리스트)
+            List<PostComment> childComments = replyMap.getOrDefault(parent.getId(), Collections.emptyList());
+
+            // 부모 DTO의 replies 리스트에 답글 DTO들을 변환해서 넣음
+            for (PostComment child : childComments) {
+                if (child.getDeletedAt() != null) continue; // 삭제된 답글은 프론트로 안 보냄
+
+                boolean isChildLiked = likedCommentIds.contains(child.getId());
+                parentDto.getReplies().add(CommentDto.Response.of(child, isChildLiked));
+            }
+
+            if (parent.getDeletedAt() != null && parentDto.getReplies().isEmpty()) {
                 continue;
             }
 
-            boolean isLiked = likedCommentIds.contains(comment.getId());
-            CommentDto.Response dto = CommentDto.Response.of(comment, isLiked);
-            responseMap.put(dto.getId(), dto);
-
-            if (comment.isReply()) {
-                // 부모 DTO를 찾아서 replies에 추가
-                CommentDto.Response parentDto = responseMap.get(comment.getParent().getId());
-                if (parentDto != null) {
-                    parentDto.getReplies().add(dto);
-                }
-            } else {
-                // 원댓글은 결과 리스트에 추가
-                result.add(dto);
-            }
+            result.add(parentDto);
         }
 
-        // 자식(답글)이 하나도 없는 '삭제된 원댓글'을 화면에서 제거
-        result.removeIf(dto -> dto.getDeletedAt() != null && dto.getReplies().isEmpty());
-
-        return result;
+        // 7. 반환! 프론트엔드는 이제 result 안에 쏙쏙 박혀있는 replies를 렌더링하면 됨
+        return new CommentDto.ScrollResponse(result, parentSlice.hasNext());
     }
 
     /**
