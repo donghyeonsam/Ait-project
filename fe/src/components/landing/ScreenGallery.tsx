@@ -1,4 +1,3 @@
-import { Sparkles } from 'lucide-react'
 import { useReducedMotion } from 'framer-motion'
 import AuroraBlur from '@/components/aurora-blur'
 import ParallaxCarousel from '@/components/parallax-carousel'
@@ -45,10 +44,6 @@ export function ScreenGallery() {
       )}
       <div className="landing-shell">
         <div className="landing-section-heading">
-          <p>
-            <Sparkles aria-hidden="true" />
-            화면 미리보기
-          </p>
           <h2 id="gallery-title">
             <ScrollReveal text="Ait의 화면을 미리 둘러보세요" />
           </h2>

@@ -1,4 +1,3 @@
-import { Sparkles } from 'lucide-react'
 import ComparisonSlider from '@/components/comparison-slider'
 import SimpleGraph from '@/components/simple-graph'
 import { LANDING_ASSET_ROOT } from '@/components/landing/landing.data'
@@ -22,10 +21,6 @@ export function GrowthComparison() {
     >
       <div className="landing-shell">
         <div className="landing-section-heading">
-          <p>
-            <Sparkles aria-hidden="true" />
-            연습이 만든 변화
-          </p>
           <h2 id="growth-title">
             <ScrollReveal text="1회차와 5회차, 직접 비교해보세요" />
           </h2>

@@ -6,6 +6,7 @@ import {
   RotateCcw,
   Send,
   ShieldCheck,
+  Square,
 } from 'lucide-react'
 import { DeviceControlBar } from '@/components/interview/DeviceControlBar'
 import { FloatingSelfView } from '@/components/interview/FloatingSelfView'
@@ -41,6 +42,7 @@ interface SessionTheaterProps {
   primaryActionLabel: string
   primaryActionDisabled: boolean
   onPrimaryAction: () => void
+  onFinishAnswer: () => void
   isAiSpeaking: boolean
   onReplayQuestion: () => void
   replayDisabled: boolean
@@ -172,6 +174,7 @@ export function SessionTheater({
   primaryActionLabel,
   primaryActionDisabled,
   onPrimaryAction,
+  onFinishAnswer,
   isAiSpeaking,
   onReplayQuestion,
   replayDisabled,
@@ -349,7 +352,22 @@ export function SessionTheater({
             ) : null}
           </div>
 
-          {isReview || isSubmittingAnswer ? (
+          {isRecording ? (
+            <div className="session-theater-record-column">
+              <button
+                type="button"
+                className="session-theater-record-button"
+                onClick={onFinishAnswer}
+                aria-label="답변 종료"
+              >
+                <Square className="size-4 fill-current" aria-hidden="true" />
+                답변 종료
+              </button>
+              <span className="session-theater-hint">
+                답변을 마치면 바로 다음 질문으로 넘어가요
+              </span>
+            </div>
+          ) : isReview || isSubmittingAnswer ? (
             <div className="session-theater-record-column">
               <button
                 type="button"
