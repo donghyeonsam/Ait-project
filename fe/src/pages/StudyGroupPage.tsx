@@ -483,7 +483,7 @@ export function StudyGroupPage() {
         </div>
 
         <div className="my-6 border-t border-status-achievement" />
-        <StudyCalendar groupId={groupId} />
+        <StudyCalendar groupId={groupId} canManage={isLeader} />
       </section>
 
       <StudyChatFloatingButton
