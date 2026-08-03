@@ -180,7 +180,7 @@ export function CommentSection({
         </p>
       )}
 
-      {isLoading ? (
+      {isLoading && allowComments ? (
         <div className="mt-6 flex flex-col gap-5">
           {Array.from({ length: 3 }, (_, index) => (
             <div key={index} className="flex items-start gap-3">
