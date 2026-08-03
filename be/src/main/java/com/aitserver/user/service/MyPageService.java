@@ -119,6 +119,14 @@ public class MyPageService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public boolean isNicknameAvailable(String nickname) {
+        return !userRepository.existsByNickname(
+                nickname
+        );
+    }
+
+
     private User findUser(Long userId) {
         return userRepository
                 .findByIdAndDeletedAtIsNull(userId)

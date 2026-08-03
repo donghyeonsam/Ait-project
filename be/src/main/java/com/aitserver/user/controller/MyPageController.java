@@ -79,6 +79,30 @@ public class MyPageController {
     }
 
 
+    @GetMapping ("/nickname/check")
+    public ResponseEntity<ApiResponse<NicknameCheckResponse>> getMyPageNickname(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam(value = "nickname", required = false) String nickname,
+            HttpServletRequest request
+    ){
+
+        Boolean avaliable = myPageService.isNicknameAvailable(nickname);
+
+        NicknameCheckResponse response = NicknameCheckResponse.builder()
+                .canUse(avaliable)
+                .build();
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.success(
+                        HttpStatus.OK,
+                        "닉네임 사용 가능 여부 조회 성공",
+                        response,
+                        request
+                ));
+    }
+
+
     // 내가 작성한 게시글 조회
     @GetMapping("/me/post")
     public ResponseEntity<ApiResponse<Page<MyPagePostResponse>>> postMyPage(
