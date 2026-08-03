@@ -369,6 +369,28 @@ describe('StudyPage', () => {
     ).toBeInTheDocument()
   })
 
+  it('플로팅 그룹톡에 그룹 페이지와 같은 공지 문구를 표시한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getStudyGroupDetail).mockResolvedValue({
+      notice: '다음 모임 전까지 발표 자료를 공유해 주세요.',
+    } as unknown as StudyGroupDetail)
+    renderStudyPage()
+    await screen.findAllByRole('article', { name: /상세 정보$/ })
+
+    await user.click(screen.getByRole('button', { name: '그룹톡 열기' }))
+    const chatDialog = screen.getByRole('dialog')
+    const notice = await within(chatDialog).findByText(
+      /다음 모임 전까지 발표 자료를 공유해 주세요/,
+    )
+
+    expect(notice).toHaveTextContent(
+      '공지 · 다음 모임 전까지 발표 자료를 공유해 주세요.',
+    )
+    expect(
+      within(chatDialog).queryByText(/이번 주 주제/),
+    ).not.toBeInTheDocument()
+  })
+
   it('바깥 클릭과 Escape로 팝오버를 닫고 그룹톡 트리거로 포커스를 복귀한다', async () => {
     const user = userEvent.setup()
     renderStudyPage()
