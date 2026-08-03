@@ -37,4 +37,10 @@ public class NotificationResponse {
         private List<NotificationResponse> notifications;
         private boolean hasNext;
     }
+
+    @Getter
+    @AllArgsConstructor
+    public static class UnreadCount {
+        private long count;
+    }
 }
