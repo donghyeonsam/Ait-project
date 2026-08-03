@@ -69,6 +69,14 @@ export function loginWithGoogle(code: string, redirectUri: string) {
   })
 }
 
+export function loginWithGithub(code: string, redirectUri: string) {
+  return backendRequest<OAuthLoginResponse>('/api/oauth/github', {
+    method: 'POST',
+    authenticated: false,
+    body: JSON.stringify({ code, redirectUri }),
+  })
+}
+
 export function logout() {
   return backendRequest<void>('/api/auth/logout', {
     method: 'POST',
