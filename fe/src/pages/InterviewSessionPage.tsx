@@ -539,9 +539,7 @@ function ActiveInterviewSession({
         totalQuestions={sessionQuestions.length}
         question={question.question}
         answerStatus={voiceAnswer.status}
-        interviewStyle={input.style}
         isSubmittingAnswer={isSubmittingAnswer}
-        isLastQuestion={isLastQuestion}
         answerDurationSeconds={ANSWER_DURATION_SECONDS}
         answerSecondsRemaining={answerSecondsRemaining}
         transcript={voiceAnswer.transcript}

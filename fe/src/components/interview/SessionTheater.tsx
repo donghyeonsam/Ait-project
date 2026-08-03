@@ -10,12 +10,12 @@ import {
 } from 'lucide-react'
 import { DeviceControlBar } from '@/components/interview/DeviceControlBar'
 import { FloatingSelfView } from '@/components/interview/FloatingSelfView'
-import { InterviewerMedia } from '@/components/interview/InterviewerMedia'
 import type { MediaPermissionState } from '@/components/interview/useMediaDevices'
 import type { VoiceAnswerStatus } from '@/components/interview/useVoiceAnswer'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
-import type { InterviewStyle } from '@/mocks/interview'
+
+const INTERVIEWER_IMAGE_SRC = '/interview/ai-interviewer.png'
 
 // PIP 초기 위치가 하단 오버레이 패널(질문 카드 + 컨트롤 행)에 가리지 않게 띄우는 값.
 const PIP_BOTTOM_OFFSET = 200
@@ -28,9 +28,7 @@ interface SessionTheaterProps {
   totalQuestions: number
   question: string
   answerStatus: VoiceAnswerStatus
-  interviewStyle: InterviewStyle
   isSubmittingAnswer: boolean
-  isLastQuestion: boolean
   answerDurationSeconds: number
   answerSecondsRemaining: number
   transcript: string
@@ -153,16 +151,14 @@ function LiveWaveform() {
   )
 }
 
-// 면접 세션 몰입형 시어터 화면: 면접관 영상을 전면 배경으로 깔고 질문·컨트롤을 오버레이로 얹는다.
+// 면접 세션 몰입형 시어터 화면: 면접관 배경 위에 질문·컨트롤을 오버레이로 얹는다.
 export function SessionTheater({
   stream,
   questionIndex,
   totalQuestions,
   question,
   answerStatus,
-  interviewStyle,
   isSubmittingAnswer,
-  isLastQuestion,
   answerDurationSeconds,
   answerSecondsRemaining,
   transcript,
@@ -211,13 +207,13 @@ export function SessionTheater({
     <div ref={stageRef} className="session-theater screen-fade-in">
       <h1 className="sr-only">AI 모의면접 진행</h1>
 
-      <InterviewerMedia
-        interviewStyle={interviewStyle}
-        answerStatus={answerStatus}
-        isAiSpeaking={isAiSpeaking}
-        isSubmittingAnswer={isSubmittingAnswer}
-        isLastQuestion={isLastQuestion}
-      />
+      <div className="interviewer-media">
+        <img
+          src={INTERVIEWER_IMAGE_SRC}
+          alt="AI 면접관"
+          className="interviewer-media-poster"
+        />
+      </div>
       <FloatingSelfView
         stream={stream}
         boundsRef={stageRef}

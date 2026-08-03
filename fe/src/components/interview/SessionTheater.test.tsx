@@ -14,21 +14,13 @@ vi.mock('@/components/interview/FloatingSelfView', () => ({
     />
   ),
 }))
-vi.mock('@/components/interview/InterviewerMedia', () => ({
-  InterviewerMedia: () => (
-    <div className="interviewer-media" data-testid="interviewer-media" />
-  ),
-}))
-
 const defaultProps: ComponentProps<typeof SessionTheater> = {
   stream: null,
   questionIndex: 0,
   totalQuestions: 3,
   question: '협업 중 갈등을 해결한 경험을 말해주세요.',
   answerStatus: 'idle',
-  interviewStyle: '밸런스형',
   isSubmittingAnswer: false,
-  isLastQuestion: false,
   answerDurationSeconds: 60,
   answerSecondsRemaining: 60,
   transcript: '',
@@ -56,11 +48,11 @@ const defaultProps: ComponentProps<typeof SessionTheater> = {
 }
 
 describe('SessionTheater recording controls', () => {
-  it('영상 상태가 전환되어도 헤더·질문 카드·내 화면을 유지한다', () => {
+  it('답변 상태가 전환되어도 헤더·질문 카드·내 화면을 유지한다', () => {
     const { container, rerender } = render(
       <SessionTheater {...defaultProps} />,
     )
-    const media = screen.getByTestId('interviewer-media')
+    const media = container.querySelector('.interviewer-media')
     const selfView = screen.getByTestId('session-self-view')
     const header = container.querySelector('.session-theater-header')
     const bottom = container.querySelector('.session-theater-bottom')
