@@ -1,5 +1,6 @@
 package com.aitserver.auth.entity;
 
+import com.aitserver.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;

@@ -1,6 +1,6 @@
 package com.aitserver.studyGroupRoom.entity;
 
-import com.aitserver.auth.entity.User;
+import com.aitserver.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
