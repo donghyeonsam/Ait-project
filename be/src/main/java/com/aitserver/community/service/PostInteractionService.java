@@ -85,7 +85,7 @@ public class PostInteractionService {
             post.increaseLikeCount();
 
             // 내 글에 내가 좋아요를 누른 게 아닐 때만 알림 발생
-            if (!post.getUser().getId().equals(userId)) {
+            if (post.getReceiveNotifications() && !post.getUser().getId().equals(userId)) {
                 eventPublisher.publishEvent(new NotificationEvent(
                         post.getUser().getId(),
                         NotificationType.LIKE,

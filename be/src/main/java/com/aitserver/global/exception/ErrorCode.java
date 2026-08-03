@@ -68,6 +68,7 @@ public enum ErrorCode {
     SCRAP_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMUNITY_008", "스크랩 내역을 찾을 수 없습니다."),
     COMMENT_ALREADY_DELETED(HttpStatus.BAD_REQUEST, "COMMUNITY_009", "이미 삭제된 댓글입니다."),
     ALREADY_LIKED_COMMENT(HttpStatus.CONFLICT, "COMMUNITY_010", "이미 좋아요를 누른 댓글입니다."),
+    COMMENTS_NOT_ALLOWED(HttpStatus.FORBIDDEN, "COMMUNITY_011", "해당 게시글은 댓글 작성이 허용되지 않았습니다."),
 
     // Study Group
     STUDY_GROUP_NOT_FOUND(HttpStatus.NOT_FOUND, "STUDY_GROUP_001", "스터디 그룹을 찾을 수 없습니다."),

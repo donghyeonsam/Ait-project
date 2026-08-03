@@ -41,6 +41,11 @@ public class CommentService {
     public Long createComment(Long userId, Long postId, CommentDto.CreateRequest request) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+
+        if (!post.getAllowComments()) {
+            throw new BusinessException(ErrorCode.COMMENTS_NOT_ALLOWED);
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NO_USER));
 
@@ -62,7 +67,7 @@ public class CommentService {
 
         PostComment savedComment = commentRepository.save(comment);
 
-        if(!post.getUser().getId().equals(userId)) {
+        if(post.getReceiveNotifications() && !post.getUser().getId().equals(userId)) {
             eventPublisher.publishEvent(new NotificationEvent(
                     post.getUser().getId(),
                     NotificationType.COMMENT,
