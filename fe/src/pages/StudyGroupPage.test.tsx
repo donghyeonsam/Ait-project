@@ -9,6 +9,7 @@ import {
   getStudyGroupApplications,
   getStudyGroupDetail,
   kickStudyGroupMember,
+  leaveStudyGroup,
   type MyStudyGroup,
   type StudyGroupDetail,
 } from '@/api/study-groups'
@@ -40,6 +41,7 @@ vi.mock('@/api/study-groups', () => ({
   getStudyGroupApplications: vi.fn(),
   updateStudyGroupStatus: vi.fn(),
   kickStudyGroupMember: vi.fn(),
+  leaveStudyGroup: vi.fn(),
 }))
 
 vi.mock('@/api/study-sessions', () => ({
@@ -175,6 +177,7 @@ describe('StudyGroupPage', () => {
       sessionId: null,
     })
     vi.mocked(kickStudyGroupMember).mockResolvedValue(undefined)
+    vi.mocked(leaveStudyGroup).mockResolvedValue(undefined)
     vi.mocked(getMonthlyStudyCalendars).mockResolvedValue(studyCalendars)
     // 날짜를 열면 그 날짜만 다시 조회하므로, 해당 날짜 일정을 그대로 돌려준다.
     vi.mocked(getDailyStudyCalendars).mockImplementation((_, date) =>
@@ -255,6 +258,27 @@ describe('StudyGroupPage', () => {
     )
     await user.click(screen.getByRole('button', { name: '초대' }))
     expect(screen.getByText('새멤버')).toBeInTheDocument()
+  })
+
+  it('그룹 삭제 시 그룹장의 나가기 API로 그룹을 논리 삭제한다', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getStudyGroupDetail).mockResolvedValue({
+      ...groupDetail,
+      currentMemberCount: 1,
+      members: [groupDetail.members[0]],
+    })
+
+    await renderStudyGroupPage()
+
+    await user.click(screen.getByRole('button', { name: '그룹 삭제' }))
+    const deleteDialog = screen.getByRole('dialog', {
+      name: '그룹을 삭제할까요?',
+    })
+    await user.click(
+      within(deleteDialog).getByRole('button', { name: '그룹 삭제' }),
+    )
+
+    expect(leaveStudyGroup).toHaveBeenCalledWith(101)
   })
 
   it('그룹 상세에 저장된 공지를 진입 시점에 보여준다', async () => {
