@@ -1,7 +1,7 @@
 package com.aitserver.studyGroupRoom.entity;
 
 
-import com.aitserver.auth.entity.User;
+import com.aitserver.user.entity.User;
 import com.aitserver.studyGroupRoom.domain.StudyGroupMemberRole;
 import com.aitserver.studyGroupRoom.domain.StudyGroupMemberStatus;
 import jakarta.persistence.*;

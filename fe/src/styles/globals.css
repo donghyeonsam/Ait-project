@@ -1210,6 +1210,9 @@ button:not(:disabled) {
    design_handoff_ait_session_theater — 몰입형 시어터, high-fidelity 고정값.
    영상 위 오버레이 텍스트라 흰색 계열 rgba를 시맨틱 토큰 대신 그대로 쓴다. */
 .session-theater {
+  --session-theater-edge: 2rem;
+  --session-theater-gap: 1.5rem;
+  --session-theater-side-width: min(29rem, 31vw);
   position: fixed;
   inset: 0;
   isolation: isolate;
@@ -1220,7 +1223,12 @@ button:not(:disabled) {
 
 .interviewer-media {
   position: absolute;
-  inset: 0;
+  inset: 0
+    calc(
+      var(--session-theater-side-width) + var(--session-theater-gap) +
+        var(--session-theater-edge)
+    )
+    0 0;
   z-index: 0;
   isolation: isolate;
   overflow: hidden;
@@ -1239,6 +1247,18 @@ button:not(:disabled) {
 
 .interviewer-media-video {
   z-index: 1;
+  opacity: 0;
+  transition: opacity 240ms linear;
+}
+
+.interviewer-media-video.is-active {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interviewer-media-video {
+    transition-duration: 1ms;
+  }
 }
 
 .session-theater-scrim {
@@ -1257,6 +1277,113 @@ button:not(:disabled) {
 
 .session-theater-self-view {
   z-index: 2;
+}
+
+.session-theater-side {
+  position: absolute;
+  top: 5rem;
+  right: var(--session-theater-edge);
+  bottom: var(--session-theater-edge);
+  z-index: 3;
+  display: grid;
+  width: var(--session-theater-side-width);
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: var(--session-theater-gap);
+}
+
+.session-theater-self-view--docked {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  border-radius: 1.125rem;
+}
+
+.session-theater-transcript-panel {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 1.375rem 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 1.125rem;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(14px);
+}
+
+.session-theater-transcript-header {
+  flex: none;
+  text-align: center;
+}
+
+.session-theater-transcript-header h2 {
+  margin: 0;
+  font-size: 1.1875rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.session-theater-transcript-header p {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.session-theater-live-transcript {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  margin-top: 1.25rem;
+  padding: 1rem 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.82);
+  white-space: pre-wrap;
+}
+
+.session-theater-transcript-editor {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.session-theater-transcript-editor label {
+  flex: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.session-theater-transcript-editor .session-theater-textarea {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  margin-top: 0.5rem;
+  padding: 0.375rem 0 0.375rem 0.875rem;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  box-shadow: inset 2px 0 0 rgba(255, 255, 255, 0.22);
+  resize: none;
+}
+
+.session-theater-transcript-editor .session-theater-textarea:focus {
+  border-color: transparent;
+  box-shadow: inset 2px 0 0 rgba(255, 255, 255, 0.68);
+}
+
+.session-theater-transcript-editor > p {
+  flex: none;
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .session-theater-header {
@@ -1330,7 +1457,10 @@ button:not(:disabled) {
 .session-theater-bottom {
   position: absolute;
   left: 0;
-  right: 0;
+  right: calc(
+    var(--session-theater-side-width) + var(--session-theater-gap) +
+      var(--session-theater-edge)
+  );
   bottom: 0;
   z-index: 3;
   display: flex;
@@ -1339,14 +1469,13 @@ button:not(:disabled) {
   max-height: calc(100dvh - 4.5rem);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0 3rem 2.25rem;
+  padding: 0 0 var(--session-theater-edge) var(--session-theater-edge);
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
 }
 
 .session-theater-primary-row {
   display: flex;
-  flex-direction: column;
   gap: 1rem;
 }
 
@@ -1492,6 +1621,15 @@ button:not(:disabled) {
   gap: 0.5625rem;
 }
 
+.session-theater-side .session-theater-record-column {
+  width: min(20.5rem, 100%);
+  justify-self: end;
+}
+
+.session-theater-side .session-theater-record-button {
+  width: 100%;
+}
+
 .session-theater-record-button {
   display: flex;
   width: 100%;
@@ -1559,13 +1697,18 @@ button:not(:disabled) {
 
 @media (min-width: 80rem) {
   .session-theater-primary-row {
-    flex-direction: row;
     align-items: flex-end;
-    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 64rem) {
+  .session-theater {
+    --session-theater-edge: 1rem;
+    --session-theater-side-width: min(22rem, calc(100vw - 2rem));
   }
 
-  .session-theater-record-button {
-    width: 14.375rem;
+  .session-theater-side {
+    right: var(--session-theater-edge);
   }
 }
 
@@ -1591,9 +1734,58 @@ button:not(:disabled) {
   }
 
   .session-theater-bottom {
-    max-height: calc(100dvh - 5.25rem);
+    right: 0;
+    max-height: 44dvh;
     gap: 0.75rem;
     padding: 0 1rem max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .interviewer-media {
+    inset: 0;
+  }
+
+  .session-theater-side {
+    top: 5.25rem;
+    left: 1rem;
+    right: 1rem;
+    bottom: auto;
+    width: auto;
+    height: min(38dvh, 18rem);
+    grid-template-columns: minmax(8rem, 0.8fr) minmax(0, 1.2fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 0.75rem;
+  }
+
+  .session-theater-self-view--docked {
+    grid-column: 1;
+    grid-row: 1;
+    height: 100%;
+    aspect-ratio: auto;
+  }
+
+  .session-theater-transcript-panel {
+    grid-column: 2;
+    grid-row: 1;
+    padding: 0.875rem;
+  }
+
+  .session-theater-transcript-header h2 {
+    font-size: 1rem;
+  }
+
+  .session-theater-transcript-header p {
+    display: none;
+  }
+
+  .session-theater-live-transcript,
+  .session-theater-transcript-editor {
+    margin-top: 0.75rem;
+  }
+
+  .session-theater-side .session-theater-record-column {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: min(20.5rem, 100%);
   }
 
   .session-theater-glass-card {
