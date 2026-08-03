@@ -147,7 +147,11 @@ public class StudyGroupCommandService {
         currentOwner.updateRole(StudyGroupMemberRole.MEMBER); // 기존 방장은 일반 멤버로 강등
         targetMember.updateRole(StudyGroupMemberRole.OWNER);  // 대상자는 방장으로 승급
 
-        String groupTitle = targetMember.getStudyGroup().getTitle();
+        StudyGroup studyGroup = targetMember.getStudyGroup();
+        studyGroup.changeOwner(targetMember.getUser());
+
+
+        String groupTitle = studyGroup.getTitle();
 
         //알림발송
         eventPublisher.publishEvent(new NotificationEvent(

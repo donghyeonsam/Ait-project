@@ -41,6 +41,11 @@ public class CommentService {
     public Long createComment(Long userId, Long postId, CommentDto.CreateRequest request) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+
+        if (!post.getAllowComments()) {
+            throw new BusinessException(ErrorCode.COMMENTS_NOT_ALLOWED);
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NO_USER));
 
@@ -62,13 +67,26 @@ public class CommentService {
 
         PostComment savedComment = commentRepository.save(comment);
 
-        if(!post.getUser().getId().equals(userId)) {
+        if(post.getReceiveNotifications() && !post.getUser().getId().equals(userId)) {
             eventPublisher.publishEvent(new NotificationEvent(
                     post.getUser().getId(),
                     NotificationType.COMMENT,
                     post.getId(),
-                    "회원님의 게시글에 새로운 댓글이 달렸습니다."
+                    "[" + post.getTitle() + "] 게시글에 새로운 댓글이 달렸습니다."
             ));
+        }
+
+        if (parent != null) {
+            Long parentAuthorId = parent.getUser().getId();
+
+            if (!parentAuthorId.equals(userId) && !parentAuthorId.equals(post.getUser().getId())) {
+                eventPublisher.publishEvent(new NotificationEvent(
+                        parentAuthorId,
+                        NotificationType.REPLY,
+                        post.getId(),
+                        "[" + post.getTitle() + "] 게시글의 회원님 댓글에 새로운 답글이 달렸습니다."
+                ));
+            }
         }
 
         return savedComment.getId();

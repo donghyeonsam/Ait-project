@@ -153,4 +153,8 @@ public class StudyGroup {
     public void deleteChatNotice() {
         this.chatNotice = null;
     }
+
+    public void changeOwner(User newOwner) {
+        this.owner = newOwner;
+    }
 }

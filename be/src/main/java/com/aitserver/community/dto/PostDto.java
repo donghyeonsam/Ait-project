@@ -81,6 +81,8 @@ public class PostDto {
         private final Boolean receiveNotifications;
         private final Integer likeCount;
         private final Integer viewCount;
+        private final boolean isScrapped;
+        private final boolean isLiked;
 
         // 리스트 데이터
         private final List<String> tags;
@@ -89,7 +91,7 @@ public class PostDto {
         private final LocalDateTime createdAt;
         private final LocalDateTime updatedAt;
 
-        public Response(Post post, List<PostFile> files, List<PostTag> postTags) {
+        public Response(Post post, List<PostFile> files, List<PostTag> postTags, boolean isLiked, boolean isScrapped) {
             this.id = post.getId();
             this.userId = post.getUser().getId();
             this.nickname = post.getUser().getNickname();
@@ -97,6 +99,8 @@ public class PostDto {
             this.title = post.getTitle();
             this.content = post.getContent();
             this.commentCount = post.getCommentCount();
+            this.isLiked = isLiked;
+            this.isScrapped = isScrapped;
 
             this.allowComments = post.getAllowComments();
             this.receiveNotifications = post.getReceiveNotifications();

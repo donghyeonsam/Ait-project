@@ -126,7 +126,7 @@ public class PostSearchService {
      * 게시글 상세 조회
      */
     @Transactional
-    public PostDto.Response getPostDetail(Long postId) {
+    public PostDto.Response getPostDetail(Long postId, Long userId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
@@ -135,7 +135,19 @@ public class PostSearchService {
         List<PostFile> files = postFileRepository.findByPostId(postId);
         List<PostTag> postTags = postTagRepository.findByPostId(postId);
 
-        return new PostDto.Response(post, files, postTags);
+        boolean isLiked = false;
+        boolean isScrapped = false;
+
+        if (userId != null) { // 로그인한 유저인 경우에만 DB 조회
+            isLiked = postLikeScrapRepository.existsByPostIdAndUserIdAndType(
+                    postId, userId, PostLikeScrap.ActionType.LIKE
+            );
+            isScrapped = postLikeScrapRepository.existsByPostIdAndUserIdAndType(
+                    postId, userId, PostLikeScrap.ActionType.SCRAP
+            );
+        }
+
+        return new PostDto.Response(post, files, postTags, isLiked, isScrapped);
     }
 
     // --- 동적 쿼리용 private 메서드 ---
