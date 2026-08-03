@@ -102,7 +102,7 @@ export function StudyGroupPage() {
         setMembers(
           groupDetail.members.map((member) => ({
             id: member.userId,
-            name: member.name,
+            nickname: member.nickname,
             role: member.owner ? '그룹장' : '그룹원',
             isSelf: member.userId === currentUserId,
           })),
@@ -207,8 +207,8 @@ export function StudyGroupPage() {
   }
 
   const isLeader = currentUserId !== null && detail.ownerId === currentUserId
-  const leaderName =
-    detail.members.find((member) => member.owner)?.name ?? '알 수 없음'
+  const leaderNickname =
+    detail.members.find((member) => member.owner)?.nickname ?? '알 수 없음'
   const leaderCandidates = members.filter(
     (member) => !member.isSelf && member.role !== '초대 대기',
   )
@@ -242,7 +242,7 @@ export function StudyGroupPage() {
       ...currentMembers,
       {
         id: Date.now(),
-        name: nickname,
+        nickname,
         role: '초대 대기',
         isSelf: false,
       },
@@ -378,7 +378,7 @@ export function StudyGroupPage() {
             </p>
             <p className="mt-2 text-caption text-chart-axis">
               구성원 {detail.currentMemberCount}/{detail.capacity} · 생성일{' '}
-              {formatCreatedAt(detail.createdAt)} · 그룹장 {leaderName}
+              {formatCreatedAt(detail.createdAt)} · 그룹장 {leaderNickname}
             </p>
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-ait-m border border-border-default bg-background-default p-4">
@@ -617,7 +617,7 @@ export function StudyGroupPage() {
         >
           <DialogHeader>
             <DialogTitle>
-              {memberToRemove?.name} 님을 내보낼까요?
+              {memberToRemove?.nickname} 님을 내보낼까요?
             </DialogTitle>
             <DialogDescription>
               내보내면 이 스터디 그룹과 일정에 더 이상 접근할 수 없습니다.

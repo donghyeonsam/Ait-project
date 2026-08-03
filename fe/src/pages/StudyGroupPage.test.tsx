@@ -110,11 +110,11 @@ const groupDetail: StudyGroupDetail = {
   createdAt: '2026-07-01T09:00:00',
   ownerId: 1,
   members: [
-    { userId: 1, name: '김아이', profileImageUrl: null, owner: true },
-    { userId: 2, name: '김구미', profileImageUrl: null, owner: false },
-    { userId: 3, name: '최싸피', profileImageUrl: null, owner: false },
-    { userId: 4, name: '강프로', profileImageUrl: null, owner: false },
-    { userId: 5, name: '이면접', profileImageUrl: null, owner: false },
+    { userId: 1, nickname: '김아이', profileImageUrl: null, owner: true },
+    { userId: 2, nickname: '김구미', profileImageUrl: null, owner: false },
+    { userId: 3, nickname: '최싸피', profileImageUrl: null, owner: false },
+    { userId: 4, nickname: '강프로', profileImageUrl: null, owner: false },
+    { userId: 5, nickname: '이면접', profileImageUrl: null, owner: false },
   ],
   notice: null,
 }

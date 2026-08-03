@@ -100,12 +100,12 @@ export function StudyLeaderTransferDialog({
                     />
                     <Avatar className="size-10">
                       <AvatarFallback className="border-0 bg-profile-avatar text-body-2 font-semibold text-action-primary">
-                        {member.name.slice(0, 1)}
+                        {member.nickname.slice(0, 1)}
                       </AvatarFallback>
                     </Avatar>
                     <span className="min-w-0">
                       <span className="block truncate text-body-2 font-semibold text-text-primary">
-                        {member.name}
+                        {member.nickname}
                       </span>
                       <span className="block truncate text-caption text-text-secondary">
                         {member.role}
@@ -127,7 +127,7 @@ export function StudyLeaderTransferDialog({
           aria-live="polite"
         >
           {selectedMember
-            ? `${selectedMember.name} 님에게 그룹장 권한을 위임합니다.`
+            ? `${selectedMember.nickname} 님에게 그룹장 권한을 위임합니다.`
             : candidates.length > 0
               ? '위임할 멤버를 선택해 주세요.'
               : '새 멤버가 가입한 뒤 다시 시도해 주세요.'}
