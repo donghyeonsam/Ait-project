@@ -183,7 +183,11 @@ async function requestBackendAsset(
   const accessToken = getStoredAccessToken()
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
 
-  const response = await fetch(resolveBackendUrl(source), {
+  // 기존 게시글에는 폴더 구분자까지 인코딩된 이미지 경로가 남아 있어 실제 리소스 경로로 복원한다.
+  const normalizedSource = isBackendAssetUrl(source)
+    ? source.replace(/%2F/gi, '/')
+    : source
+  const response = await fetch(resolveBackendUrl(normalizedSource), {
     headers,
     credentials: 'include',
   })

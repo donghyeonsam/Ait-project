@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   deletePost,
+  downloadPostFile,
   fetchComments,
   fetchPost,
 } from '@/api/community'
@@ -17,6 +18,7 @@ vi.mock('@/api/community', () => ({
   updateComment: vi.fn(),
   deleteComment: vi.fn(),
   deletePost: vi.fn(),
+  downloadPostFile: vi.fn(),
   toggleBookmark: vi.fn(),
   toggleLike: vi.fn(),
 }))
@@ -66,6 +68,7 @@ describe('CommunityPostPage', () => {
     vi.mocked(fetchPost).mockResolvedValue(post)
     vi.mocked(fetchComments).mockResolvedValue([])
     vi.mocked(deletePost).mockResolvedValue()
+    vi.mocked(downloadPostFile).mockResolvedValue()
   })
 
   it('작성자에게만 수정·삭제 행동을 보여주고 삭제 확인 후 요청한다', async () => {
@@ -160,6 +163,28 @@ describe('CommunityPostPage', () => {
       await screen.findByText('이 게시글은 댓글 작성을 허용하지 않습니다.'),
     ).toBeInTheDocument()
     expect(container.querySelector('.analyzing-shimmer')).not.toBeInTheDocument()
+  })
+
+  it('첨부파일을 표시하고 인증 다운로드를 요청한다', async () => {
+    const user = userEvent.setup()
+    const attachment = {
+      originalFilename: '면접 자료.pdf',
+      storedFilename: 'boards/stored-guide.pdf',
+      fileType: 'PDF' as const,
+      usageType: 'ATTACHMENT' as const,
+      url: '/backend/images/boards/stored-guide.pdf',
+    }
+    vi.mocked(fetchPost).mockResolvedValue({ ...post, files: [attachment] })
+
+    renderPage()
+
+    expect(await screen.findByRole('heading', { name: '첨부파일' })).toBeInTheDocument()
+    expect(screen.getByText('면접 자료.pdf')).toBeInTheDocument()
+    await user.click(
+      screen.getByRole('button', { name: '면접 자료.pdf 다운로드' }),
+    )
+
+    expect(downloadPostFile).toHaveBeenCalledWith(attachment)
   })
 
   it('헤더와 푸터를 제외한 상세 콘텐츠를 90%로 축소한다', async () => {
