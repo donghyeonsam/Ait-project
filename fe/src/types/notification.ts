@@ -3,6 +3,7 @@
 // 백엔드 NotificationType enum과 동일한 값.
 export type NotificationType =
   | 'COMMENT'
+  | 'REPLY'
   | 'LIKE'
   | 'GROUP_APPLY'
   | 'GROUP_APPROVE'
