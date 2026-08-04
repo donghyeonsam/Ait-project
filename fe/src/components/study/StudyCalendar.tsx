@@ -38,8 +38,6 @@ interface StudyCalendarProps {
   canManage: boolean
 }
 
-type RepeatValue = 'none' | '2' | '4' | '8'
-
 // 서버는 진행 내용 한 줄을 한 건으로 저장하므로, 같은 날짜의 여러 건을 날짜 단위로 묶어 화면에서 다룬다.
 interface StudyCalendarDay {
   date: string
@@ -52,16 +50,8 @@ interface ScheduleFormState {
   mode: 'create' | 'edit'
   dateKey: string
   startTime: string
-  repeat: RepeatValue
   agenda: string[]
 }
-
-const repeatOptions: DropdownOption<RepeatValue>[] = [
-  { value: 'none', label: '반복 안 함' },
-  { value: '2', label: '매주 · 2회' },
-  { value: '4', label: '매주 · 4회' },
-  { value: '8', label: '매주 · 8회' },
-]
 
 const monthOptions: DropdownOption<string>[] = Array.from(
   { length: 12 },
@@ -82,11 +72,6 @@ function toDateKey(date: Date) {
 
 function formatSelectedDate(dateKey: string) {
   return dateKey.replaceAll('-', '. ')
-}
-
-function addWeeksToDateKey(dateKey: string, weeks: number) {
-  const [year, month, day] = dateKey.split('-').map(Number)
-  return toDateKey(new Date(year, month - 1, day + weeks * 7))
 }
 
 // 서버의 LocalDateTime은 시간대 표기가 없어, Date로 바꾸지 않고 문자열에서 날짜와 시각을 잘라 쓴다.
@@ -274,7 +259,6 @@ export function StudyCalendar({ groupId, canManage }: StudyCalendarProps) {
       mode: 'create',
       dateKey,
       startTime: '',
-      repeat: 'none',
       agenda: [''],
     })
   }
@@ -287,7 +271,6 @@ export function StudyCalendar({ groupId, canManage }: StudyCalendarProps) {
       mode: 'edit',
       dateKey: day.date,
       startTime: day.startTime,
-      repeat: 'none',
       agenda: day.entries.map((entry) => entry.content),
     })
   }
@@ -347,7 +330,7 @@ export function StudyCalendar({ groupId, canManage }: StudyCalendarProps) {
       .filter((line) => line.length > 0)
     if (cleanedAgenda.length === 0) return
 
-    const { dateKey, mode, startTime, repeat } = scheduleForm
+    const { dateKey, startTime } = scheduleForm
     const existingEntries = daysByDate.get(dateKey)?.entries ?? []
     // 시간을 비워 두면 자정으로 저장한다. 서버에 "시간 미정"을 표현할 자리가 없다.
     const toStartTime = (key: string) => `${key}T${startTime || '00:00'}:00`
@@ -369,26 +352,6 @@ export function StudyCalendar({ groupId, canManage }: StudyCalendarProps) {
           .slice(cleanedAgenda.length)
           .map((entry) => deleteStudyCalendar(groupId, entry.calendarId)),
       ])
-
-      // 서버에 반복 개념이 없어 주 단위로 각각 등록한다. 이미 일정이 있는 주는 건너뛴다.
-      if (mode === 'create' && repeat !== 'none') {
-        const occupiedDateKeys = new Set(days.map((day) => day.date))
-        const repeatDateKeys = Array.from(
-          { length: Number(repeat) - 1 },
-          (_, index) => addWeeksToDateKey(dateKey, index + 1),
-        ).filter((key) => !occupiedDateKeys.has(key))
-
-        await Promise.all(
-          repeatDateKeys.flatMap((key) =>
-            cleanedAgenda.map((content) =>
-              createStudyCalendar(groupId, {
-                content,
-                startTime: toStartTime(key),
-              }),
-            ),
-          ),
-        )
-      }
 
       await loadCalendars()
       setSelectedDateKey(dateKey)
@@ -727,30 +690,6 @@ export function StudyCalendar({ groupId, canManage }: StudyCalendarProps) {
               aria-label="시작 시간"
             />
           </div>
-
-          {scheduleForm?.mode === 'create' ? (
-            <div className="mt-4">
-              <p className="text-body-2 font-semibold text-text-primary">
-                반복
-              </p>
-              <Dropdown
-                className="mt-2"
-                buttonClassName="h-10 py-0"
-                options={repeatOptions}
-                value={scheduleForm.repeat}
-                onChange={(repeat) =>
-                  setScheduleForm((current) =>
-                    current ? { ...current, repeat } : current,
-                  )
-                }
-                ariaLabel="반복"
-              />
-              <p className="mt-1.5 text-caption text-text-secondary">
-                같은 요일에 매주 반복 생성되며, 이미 일정이 있는 날은
-                건너뜁니다.
-              </p>
-            </div>
-          ) : null}
 
           <div className="mt-4">
             <div className="flex items-center justify-between gap-2">
