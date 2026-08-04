@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -13,10 +14,13 @@ interface ConfirmDialogProps {
   onOpenChange: (open: boolean) => void
   title: string
   description?: string
+  /** 설명 아래에 추가로 넣을 입력 폼 등. 단순 확인 문구로 부족할 때만 사용한다. */
+  children?: ReactNode
   confirmLabel?: string
   cancelLabel?: string
   confirmVariant?: 'primary' | 'destructive'
   isConfirming?: boolean
+  confirmDisabled?: boolean
   onConfirm: () => void
 }
 
@@ -26,10 +30,12 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
+  children,
   confirmLabel = '확인',
   cancelLabel = '취소',
   confirmVariant = 'primary',
   isConfirming = false,
+  confirmDisabled = false,
   onConfirm,
 }: ConfirmDialogProps) {
   return (
@@ -42,6 +48,7 @@ export function ConfirmDialog({
           <DialogTitle className="[font-size:var(--text-h3)]">{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
+        {children ? <div className="mt-4">{children}</div> : null}
         <DialogFooter className="mt-6">
           <Button
             type="button"
@@ -54,7 +61,7 @@ export function ConfirmDialog({
           <Button
             type="button"
             variant={confirmVariant}
-            disabled={isConfirming}
+            disabled={isConfirming || confirmDisabled}
             onClick={onConfirm}
           >
             {confirmLabel}
