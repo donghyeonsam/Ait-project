@@ -20,7 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.View;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -65,7 +67,7 @@ public class GithubDataService {
             if (reposNode != null && reposNode.size() > 0) {
                 String ownerId = reposNode.get(0).get("owner").get("login").asText();
 
-                GithubApp githubApp = githubAppRepository.findByUserId(userId)
+                GithubApp githubApp = githubAppRepository.findByInstallationId(installationId)
                         .orElseGet(() -> {
                             GithubApp newApp = GithubApp.builder()
                                     .userId(userId)
@@ -74,6 +76,20 @@ public class GithubDataService {
                                     .build();
                             return githubAppRepository.save(newApp);
                         });
+
+                Set<Long> latestApiRepoIds = new HashSet<>();
+                for (JsonNode repoNode : reposNode) {
+                    latestApiRepoIds.add(repoNode.get("id").asLong());
+                }
+
+                List<GithubRepo> existingRepos = githubRepoRepository.findByGithubAppId(githubApp.getId());
+
+                for (GithubRepo dbRepo : existingRepos) {
+                    if (!latestApiRepoIds.contains(dbRepo.getRepoId())) {
+                        githubRepoRepository.delete(dbRepo);
+                        log.info("레포지토리 연동 해제 감지 (DB 삭제 완료): {}", dbRepo.getRepoName());
+                    }
+                }
 
                 for (JsonNode repoNode : reposNode) {
                     Long repoId = repoNode.get("id").asLong();
@@ -113,11 +129,16 @@ public class GithubDataService {
      */
     @Transactional(readOnly = true)
     public List<GithubRepoResponseDto> getSavedRepos(Long userId) {
-        GithubApp githubApp = githubAppRepository.findByUserId(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.GITHUB_APP_NOT_FOUND));
+        List<GithubApp> apps = githubAppRepository.findByUserId(userId);
 
-        // DB에서 엔티티 리스트 조회
-        List<GithubRepo> repos = githubRepoRepository.findByGithubAppId(githubApp.getId());
+        if (apps.isEmpty()) {
+            throw new BusinessException(ErrorCode.GITHUB_APP_NOT_FOUND);
+        }
+
+        // 조직들의 ID만 추출
+        List<Long> appIds = apps.stream().map(GithubApp::getId).toList();
+
+        List<GithubRepo> repos = githubRepoRepository.findByGithubAppIdIn(appIds);
 
         // Entity 리스트를 DTO 리스트로 변환하여 반환
         return repos.stream()

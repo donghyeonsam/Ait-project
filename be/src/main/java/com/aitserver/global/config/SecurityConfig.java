@@ -78,7 +78,8 @@ public class SecurityConfig {
                                 "/ws/chat/**",
                                 "/api/oauth/**", // oauth 로그인 관련
                                 "/api/auth/email/send",     // 이메일 인증번호 전송 요청
-                                "/api/auth/email/verify"    // 이메일 인증번호 검증
+                                "/api/auth/email/verify",    // 이메일 인증번호 검증
+                                "/api/github/webhook"   //깃허브 연동 수정, 삭제
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
