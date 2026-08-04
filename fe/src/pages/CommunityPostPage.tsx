@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToastStack } from '@/components/ui/toast'
-import { formatNumber, formatPostDate } from '@/lib/format'
+import { formatDateTime, formatNumber } from '@/lib/format'
 import { useAuth } from '@/lib/useAuth'
 import { useToasts } from '@/lib/useToasts'
 import { cn } from '@/lib/utils'
@@ -172,7 +172,7 @@ export function CommunityPostPage() {
               <div className="mt-4 flex items-center gap-3 text-body-2 text-ink-500">
                 <span aria-hidden="true" className="size-9 rounded-ait-pill bg-profile-avatar" />
                 <span className="font-medium text-ink-700">{post.author}</span>
-                <span>{formatPostDate(post.createdAt)}</span>
+                <time dateTime={post.createdAt}>{formatDateTime(post.createdAt)}</time>
                 <span aria-hidden="true">·</span>
                 <span>조회 {formatNumber(post.viewCount)}</span>
               </div>

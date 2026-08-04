@@ -95,6 +95,31 @@ describe('CommunityPostPage', () => {
     expect(screen.queryByRole('button', { name: '삭제' })).not.toBeInTheDocument()
   })
 
+  it('게시글과 댓글 작성 시각을 초 단위까지 보여준다', async () => {
+    vi.mocked(fetchPost).mockResolvedValue({
+      ...post,
+      createdAt: '2026-07-28T10:00:05',
+    })
+    vi.mocked(fetchComments).mockResolvedValue([
+      {
+        id: 'comment-1',
+        authorId: 2,
+        author: '댓글작성자',
+        createdAt: '2026-07-28T11:02:09',
+        content: '초 단위 작성 시각을 확인합니다.',
+        likeCount: 0,
+        liked: false,
+        deleted: false,
+        replies: [],
+      },
+    ])
+
+    renderPage()
+
+    expect(await screen.findByText('2026. 07. 28 10:00:05')).toBeInTheDocument()
+    expect(await screen.findByText('2026. 07. 28 11:02:09')).toBeInTheDocument()
+  })
+
   it('댓글을 허용하지 않은 게시글에서는 댓글과 답글 작성 UI를 숨긴다', async () => {
     vi.mocked(fetchPost).mockResolvedValue({ ...post, allowComments: false })
     vi.mocked(fetchComments).mockResolvedValue([
