@@ -238,19 +238,17 @@ describe('fetchMyActivityPosts', () => {
   })
 
   it.each([
-    ['written', 'WRITTEN'],
-    ['scrapped', 'SCRAPPED'],
-    ['liked', 'LIKED'],
-  ] as const)('%s 활동을 인증 사용자 필터로 조회한다', async (activity, queryValue) => {
+    ['written', '/backend/api/users/me/post'],
+    ['scrapped', '/backend/api/users/me/post/scrap'],
+    ['liked', '/backend/api/users/me/post/like'],
+  ] as const)('%s 활동을 유저별로 필터링된 전용 엔드포인트로 조회한다', async (activity, expectedPath) => {
     const fetchMock = vi.fn().mockResolvedValue(pageResponse({ last: true }))
     vi.stubGlobal('fetch', fetchMock)
 
     const result = await fetchMyActivityPosts(activity)
 
     const url = new URL(String(fetchMock.mock.calls[0]?.[0]), 'http://localhost')
-    expect(url.pathname).toBe('/backend/api/posts')
-    expect(url.searchParams.get('activityType')).toBe(queryValue)
-    expect(url.searchParams.get('sortType')).toBe('LATEST')
+    expect(url.pathname).toBe(expectedPath)
     expect(url.searchParams.get('page')).toBe('0')
     expect(url.searchParams.get('size')).toBe('10')
     expect(result.items[0]?.id).toBe('11')

@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getMyGithubRepositories, type GithubRepository } from '@/api/github'
 import { getBackendAssetUrl, toErrorMessage } from '@/api/http'
-import { getMyPageData, getMyPageProfile, type MyPageProfile } from '@/api/my-page'
-import type { Resume } from '@/api/resume'
+import { getMyPageProfile, getMyPageRepositories, type MyPageProfile } from '@/api/my-page'
 import { DocumentBoxDialog } from '@/components/documents/DocumentBoxDialog'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { ActivityTabs } from '@/components/mypage/ActivityTabs'
@@ -11,10 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/lib/useAuth'
 import type { ProfileData } from '@/types/profile'
-
-function unique(values: string[]) {
-  return [...new Set(values.map((value) => value.trim()).filter(Boolean))]
-}
 
 // 첫 저장소 URL에서 "호스트/소유자" 형태의 GitHub 프로필 경로를 뽑아낸다. 파싱 실패 시 빈 문자열.
 function githubProfile(repositories: GithubRepository[]) {
@@ -30,19 +25,15 @@ function githubProfile(repositories: GithubRepository[]) {
   }
 }
 
-// 이력서·저장소·계정 정보를 화면용 ProfileData 하나로 합친다. 역할은 이력서에서, 이름·닉네임·기술
-// 스택은 내 정보 조회(실제 저장된 값)에서 가져온다.
+// 저장소·계정 정보를 화면용 ProfileData 하나로 합친다. 이름·닉네임·관심 직무·기술
+// 스택은 모두 내 정보 조회(실제 저장된 값)에서 가져온다.
 function createProfile(
-  resume: Resume | null,
   repositories: GithubRepository[],
   profileInfo: MyPageProfile,
 ): ProfileData {
-  const roles = resume
-    ? unique([
-        ...resume.projects.map((project) => project.role),
-        ...resume.careers.map((career) => career.role),
-      ])
-    : []
+  const roles = [profileInfo.firstJobInterest, profileInfo.secondJobInterest].filter(
+    (value): value is string => Boolean(value?.trim()),
+  )
 
   return {
     name: profileInfo.name,
@@ -65,7 +56,6 @@ function createProfile(
 // 마이페이지. 프로필과 등록 자료를 불러와 보여주고, 저장소 조회는 별도로 재시도할 수 있다.
 export function MyPage() {
   const { user } = useAuth()
-  const [resume, setResume] = useState<Resume | null>(null)
   const [repositories, setRepositories] = useState<GithubRepository[] | null>(null)
   const [profileInfo, setProfileInfo] = useState<MyPageProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -77,12 +67,11 @@ export function MyPage() {
   useEffect(() => {
     let active = true
 
-    Promise.all([getMyPageData(), getMyPageProfile()])
-      .then(([data, profile]) => {
+    Promise.all([getMyPageRepositories(), getMyPageProfile()])
+      .then(([repositoriesResult, profile]) => {
         if (!active) return
-        setResume(data.resume)
-        setRepositories(data.repositories)
-        setRepositoryError(data.repositoryError)
+        setRepositories(repositoriesResult.repositories)
+        setRepositoryError(repositoriesResult.repositoryError)
         setProfileInfo(profile)
       })
       .catch((requestError: unknown) => {
@@ -101,11 +90,10 @@ export function MyPage() {
     setIsLoading(true)
     setError(null)
     setRepositoryError(null)
-    Promise.all([getMyPageData(), getMyPageProfile()])
-      .then(([data, profile]) => {
-        setResume(data.resume)
-        setRepositories(data.repositories)
-        setRepositoryError(data.repositoryError)
+    Promise.all([getMyPageRepositories(), getMyPageProfile()])
+      .then(([repositoriesResult, profile]) => {
+        setRepositories(repositoriesResult.repositories)
+        setRepositoryError(repositoriesResult.repositoryError)
         setProfileInfo(profile)
       })
       .catch((requestError: unknown) => setError(toErrorMessage(requestError)))
@@ -125,8 +113,8 @@ export function MyPage() {
 
   const profile = useMemo(() => {
     if (!repositories || !profileInfo) return null
-    return createProfile(resume, repositories, profileInfo)
-  }, [repositories, resume, profileInfo])
+    return createProfile(repositories, profileInfo)
+  }, [repositories, profileInfo])
 
   return (
     <PageLayout>

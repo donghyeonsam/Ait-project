@@ -133,8 +133,8 @@ public class OAuthServiceImpl implements OAuthService {
                 .password(passwordEncoder.encode(UUID.randomUUID().toString())) // 랜덤 비밀번호
                 .name(truncate(rawName, 20))
                 .nickname(generateUniqueNickname(truncate(rawName, 15)))
-                .role("USER")
-                .profileImage(oAuthUser.profileImage())
+                .role("USER") // 신규 가입일 때 이미지 저장 안 하는 걸로
+//                .profileImage(oAuthUser.profileImage())
                 .build();
 
         User saved = userRepository.save(user);

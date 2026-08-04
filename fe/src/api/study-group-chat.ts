@@ -138,10 +138,16 @@ interface StudyGroupChatSocketHandlers {
   onDisconnect?: () => void
 }
 
-// 그룹톡용 STOMP 연결을 열고, 메시지·공지 토픽을 구독한다. 반환된 client로 발행·연결 해제를 처리한다.
-export function connectStudyGroupChat(
-  groupId: number,
-  handlers: StudyGroupChatSocketHandlers,
+interface StudyChatConnectionHandlers {
+  onConnect?: () => void
+  onDisconnect?: () => void
+  onError?: (message: string) => void
+}
+
+// 연결 옵션과 오류 문구를 공유하는 STOMP 클라이언트를 만들고, 구독 구성만 호출부에 맡긴다.
+function createStudyChatClient(
+  subscribeTopics: (client: Client) => void,
+  handlers: StudyChatConnectionHandlers,
 ) {
   const client = new Client({
     webSocketFactory: () => new SockJS(`${websocketBaseUrl}/ws/chat`),
@@ -151,26 +157,7 @@ export function connectStudyGroupChat(
     connectionTimeout: 10_000,
     reconnectDelay: 5000,
     onConnect: () => {
-      client.subscribe(
-        `/topic/study-groups/${groupId}`,
-        (frame: IMessage) => {
-          handlers.onMessage(JSON.parse(frame.body) as StudyGroupChatMessage)
-        },
-      )
-      client.subscribe(
-        `/topic/study-groups/${groupId}/notices`,
-        (frame: IMessage) => {
-          handlers.onNotice(JSON.parse(frame.body) as StudyGroupChatNotice)
-        },
-      )
-      client.subscribe(
-        `/topic/study-groups/${groupId}/reactions`,
-        (frame: IMessage) => {
-          handlers.onReaction(
-            JSON.parse(frame.body) as StudyGroupChatReactionUpdate,
-          )
-        },
-      )
+      subscribeTopics(client)
       handlers.onConnect?.()
     },
     onDisconnect: () => {
@@ -195,6 +182,56 @@ export function connectStudyGroupChat(
   })
   client.activate()
   return client
+}
+
+// 그룹톡용 STOMP 연결을 열고, 메시지·공지 토픽을 구독한다. 반환된 client로 발행·연결 해제를 처리한다.
+export function connectStudyGroupChat(
+  groupId: number,
+  handlers: StudyGroupChatSocketHandlers,
+) {
+  return createStudyChatClient((client) => {
+    client.subscribe(
+      `/topic/study-groups/${groupId}`,
+      (frame: IMessage) => {
+        handlers.onMessage(JSON.parse(frame.body) as StudyGroupChatMessage)
+      },
+    )
+    client.subscribe(
+      `/topic/study-groups/${groupId}/notices`,
+      (frame: IMessage) => {
+        handlers.onNotice(JSON.parse(frame.body) as StudyGroupChatNotice)
+      },
+    )
+    client.subscribe(
+      `/topic/study-groups/${groupId}/reactions`,
+      (frame: IMessage) => {
+        handlers.onReaction(
+          JSON.parse(frame.body) as StudyGroupChatReactionUpdate,
+        )
+      },
+    )
+  }, handlers)
+}
+
+interface StudyGroupChatMultiSocketHandlers extends StudyChatConnectionHandlers {
+  onMessage: (message: StudyGroupChatMessage) => void
+}
+
+// 여러 그룹의 메시지 토픽을 한 연결로 구독한다. 헤더 안읽음 배지처럼 전역 수신이 필요한 곳에서 쓴다.
+export function connectStudyGroupChatMulti(
+  groupIds: number[],
+  handlers: StudyGroupChatMultiSocketHandlers,
+) {
+  return createStudyChatClient((client) => {
+    groupIds.forEach((groupId) => {
+      client.subscribe(
+        `/topic/study-groups/${groupId}`,
+        (frame: IMessage) => {
+          handlers.onMessage(JSON.parse(frame.body) as StudyGroupChatMessage)
+        },
+      )
+    })
+  }, handlers)
 }
 
 export function sendStudyGroupChatMessage(

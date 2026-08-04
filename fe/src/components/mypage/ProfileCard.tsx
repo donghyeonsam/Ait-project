@@ -9,6 +9,7 @@ interface ProfileCardProps {
   isEditing: boolean
   rolesText: string
   onChangeRolesText: (value: string) => void
+  rolesError?: string | null
   onChangeName: (value: string) => void
   avatarSrc: string | null
   onSelectAvatarFile: (file: File | null) => void
@@ -28,6 +29,7 @@ export function ProfileCard({
   isEditing,
   rolesText,
   onChangeRolesText,
+  rolesError,
   onChangeName,
   avatarSrc,
   onSelectAvatarFile,
@@ -106,13 +108,20 @@ export function ProfileCard({
         )}
 
         {isEditing ? (
-          <Input
-            className="mt-3"
-            value={rolesText}
-            onChange={(event) => onChangeRolesText(event.target.value)}
-            placeholder="쉼표로 구분해서 입력하세요 (예: 백엔드 개발, 백엔드 개발 인턴)"
-            aria-label="관심 직무"
-          />
+          <div className="mt-3">
+            <Input
+              value={rolesText}
+              onChange={(event) => onChangeRolesText(event.target.value)}
+              placeholder="쉼표로 구분해서 최대 2개까지 입력하세요 (예: 백엔드 개발, 백엔드 개발 인턴)"
+              aria-label="관심 직무"
+              aria-invalid={Boolean(rolesError)}
+            />
+            {rolesError ? (
+              <p className="mt-1 text-caption text-status-error" role="alert">
+                {rolesError}
+              </p>
+            ) : null}
+          </div>
         ) : (
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             {profile.roles.length ? profile.roles.map((role, index) => (

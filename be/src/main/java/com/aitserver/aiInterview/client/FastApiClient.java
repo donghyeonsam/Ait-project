@@ -1,5 +1,8 @@
 package com.aitserver.aiInterview.client;
 
+import com.aitserver.aiInterview.dto.DeleteEmbeddingItemRequest;
+import com.aitserver.aiInterview.dto.DeleteEmbeddingsRequest;
+import com.aitserver.aiInterview.dto.DeleteEmbeddingsResponse;
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +14,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
+
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -139,6 +144,104 @@ public class FastApiClient {
             log.error(
                     "[FastAPI 사용자 임베딩 삭제 시스템 에러] userId: {}",
                     userId,
+                    e
+            );
+
+            throw new BusinessException(
+                    ErrorCode.FASTAPI_SERVER_ERROR
+            );
+        }
+    }
+
+
+    public DeleteEmbeddingsResponse deleteCoverLetterEmbedding(
+            Long userId,
+            Long coverLetterId
+    ) {
+        String uri = "/api/v1/embeddings/delete";
+
+        DeleteEmbeddingItemRequest item =
+                DeleteEmbeddingItemRequest.builder()
+                        .docType("cover_letter")
+                        .targetId(coverLetterId)
+                        .build();
+
+        DeleteEmbeddingsRequest requestBody =
+                DeleteEmbeddingsRequest.builder()
+                        .userId(userId)
+                        .items(List.of(item))
+                        .build();
+
+        try {
+            log.info(
+                    "[FastAPI 자기소개서 임베딩 삭제 요청] " +
+                            "URI: {}, userId: {}, coverLetterId: {}",
+                    uri,
+                    userId,
+                    coverLetterId
+            );
+
+            DeleteEmbeddingsResponse response =
+                    fastApiRestClient.post()
+                            .uri(uri)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .accept(MediaType.APPLICATION_JSON)
+                            .body(requestBody)
+                            .retrieve()
+                            .onStatus(
+                                    HttpStatusCode::isError,
+                                    (req, res) -> {
+                                        log.error(
+                                                "[FastAPI 자기소개서 임베딩 삭제 에러] " +
+                                                        "Status: {}, URI: {}, " +
+                                                        "userId: {}, coverLetterId: {}",
+                                                res.getStatusCode(),
+                                                uri,
+                                                userId,
+                                                coverLetterId
+                                        );
+
+                                        throw new BusinessException(
+                                                ErrorCode.FASTAPI_SERVER_ERROR
+                                        );
+                                    }
+                            )
+                            .body(DeleteEmbeddingsResponse.class);
+
+            if (response == null) {
+                log.error(
+                        "[FastAPI 자기소개서 임베딩 삭제 응답 없음] " +
+                                "userId: {}, coverLetterId: {}",
+                        userId,
+                        coverLetterId
+                );
+
+                throw new BusinessException(
+                        ErrorCode.FASTAPI_SERVER_ERROR
+                );
+            }
+
+            log.info(
+                    "[FastAPI 자기소개서 임베딩 삭제 성공] " +
+                            "userId: {}, coverLetterId: {}, " +
+                            "requestedCount: {}, deleted: {}",
+                    userId,
+                    coverLetterId,
+                    response.getRequestedCount(),
+                    response.isDeleted()
+            );
+
+            return response;
+
+        } catch (BusinessException e) {
+            throw e;
+
+        } catch (Exception e) {
+            log.error(
+                    "[FastAPI 자기소개서 임베딩 삭제 시스템 에러] " +
+                            "userId: {}, coverLetterId: {}",
+                    userId,
+                    coverLetterId,
                     e
             );
 

@@ -47,13 +47,13 @@ import {
 } from '@/api/study-group-chat'
 import type { Client } from '@stomp/stompjs'
 import { StudyChatMessageReactions } from '@/components/study/StudyChatMessageReactions'
+import { markStudyChatRead } from '@/lib/study-chat-read-state'
 
 interface StudyGroupChatPanelProps {
   groupId: number
   currentUserId: number | null
   isOwner: boolean
   initialNotice: string | null
-  onIncomingMessage?: () => void
 }
 
 // 최근 사용 이모지가 아직 없을 때 처음 보여줄 기본 목록이다.
@@ -82,7 +82,6 @@ export function StudyGroupChatPanel({
   currentUserId,
   isOwner,
   initialNotice,
-  onIncomingMessage,
 }: StudyGroupChatPanelProps) {
   const [messages, setMessages] = useState<StudyGroupChatMessage[]>([])
   const [hasMoreHistory, setHasMoreHistory] = useState(false)
@@ -133,6 +132,11 @@ export function StudyGroupChatPanel({
         )
         setMessages(history)
         setHasMoreHistory(result.hasNext)
+        // 패널이 화면에 항상 보이므로 불러온 최신 메시지까지 읽음으로 기록한다.
+        const latestChatId = result.chats[0]?.chatId
+        if (currentUserId !== null && latestChatId !== undefined) {
+          markStudyChatRead(currentUserId, groupId, latestChatId)
+        }
       } catch (error) {
         if (!cancelled) setHistoryError(toErrorMessage(error))
       } finally {
@@ -145,7 +149,7 @@ export function StudyGroupChatPanel({
     return () => {
       cancelled = true
     }
-  }, [groupId])
+  }, [currentUserId, groupId])
 
   // 실시간 메시지·공지 STOMP 연결을 열고, 화면을 벗어나면 정리한다.
   useEffect(() => {
@@ -154,8 +158,9 @@ export function StudyGroupChatPanel({
         if (knownChatIdsRef.current.has(incoming.chatId)) return
         knownChatIdsRef.current.add(incoming.chatId)
         setMessages((current) => [...current, incoming])
-        if (currentUserId !== null && incoming.senderId !== currentUserId) {
-          onIncomingMessage?.()
+        // 패널이 화면에 항상 보이므로 실시간 수신도 즉시 읽음으로 기록한다.
+        if (currentUserId !== null) {
+          markStudyChatRead(currentUserId, groupId, incoming.chatId)
         }
         setLiveMessageTick((tick) => tick + 1)
       },
@@ -189,7 +194,7 @@ export function StudyGroupChatPanel({
       clientRef.current = null
       void client.deactivate()
     }
-  }, [currentUserId, groupId, onIncomingMessage])
+  }, [currentUserId, groupId])
 
   // 새로고침·그룹 진입 후 이력이 처음 그려질 때 최신 메시지가 바로 보이게 한다.
   useLayoutEffect(() => {

@@ -4,8 +4,6 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { StudyApplicationModal } from '@/components/study/StudyApplicationModal'
 import { StudyCalendar } from '@/components/study/StudyCalendar'
-import { StudyChatFloatingButton } from '@/components/study/StudyChatFloatingButton'
-import { StudyChatModal } from '@/components/study/StudyChatModal'
 import { StudyGroupChatPanel } from '@/components/study/StudyGroupChatPanel'
 import { StudyGroupManagerPanel } from '@/components/study/StudyGroupManagerPanel'
 import {
@@ -61,8 +59,6 @@ export function StudyGroupPage() {
   const [isRecruiting, setIsRecruiting] = useState(true)
   const [statusError, setStatusError] = useState<string | null>(null)
   const [hasActiveSession, setHasActiveSession] = useState(false)
-  const [isChatOpen, setIsChatOpen] = useState(false)
-  const [unreadChatCount, setUnreadChatCount] = useState(0)
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false)
   const [applicantCount, setApplicantCount] = useState(0)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -156,15 +152,6 @@ export function StudyGroupPage() {
   useEffect(() => {
     loadApplicantCount()
   }, [loadApplicantCount])
-
-  const handleIncomingChatMessage = useCallback(() => {
-    setUnreadChatCount((count) => count + 1)
-  }, [])
-
-  const handleChatOpenChange = (open: boolean) => {
-    setIsChatOpen(open)
-    setUnreadChatCount(0)
-  }
 
   if (!isValidGroupId) {
     return (
@@ -478,20 +465,12 @@ export function StudyGroupPage() {
             currentUserId={currentUserId}
             isOwner={isLeader}
             initialNotice={detail.notice}
-            onIncomingMessage={handleIncomingChatMessage}
           />
         </div>
 
         <div className="my-6 border-t border-status-achievement" />
         <StudyCalendar groupId={groupId} canManage={isLeader} />
       </section>
-
-      <StudyChatFloatingButton
-        unreadCount={unreadChatCount}
-        open={isChatOpen}
-        onClick={() => handleChatOpenChange(!isChatOpen)}
-      />
-      <StudyChatModal open={isChatOpen} onOpenChange={handleChatOpenChange} />
 
       <StudyApplicationModal
         groupId={groupId}

@@ -10,8 +10,6 @@ import type {
   StudyCardData,
 } from '@/components/study/StudyCard'
 import { StudyCardGrid } from '@/components/study/StudyCardGrid'
-import { StudyChatFloatingButton } from '@/components/study/StudyChatFloatingButton'
-import { StudyChatModal } from '@/components/study/StudyChatModal'
 import { StudyCreateDialog } from '@/components/study/StudyCreateDialog'
 import {
   StudySearchFilters,
@@ -92,7 +90,6 @@ export function StudyPage() {
   const [toast, setToast] = useState<
     { message: string; variant: 'success' | 'error' } | null
   >(null)
-  const [isChatOpen, setIsChatOpen] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [applicationTarget, setApplicationTarget] =
     useState<StudyCardData | null>(null)
@@ -345,11 +342,6 @@ export function StudyPage() {
         )}
       </section>
 
-      <StudyChatFloatingButton
-        open={isChatOpen}
-        onClick={() => setIsChatOpen((current) => !current)}
-      />
-      <StudyChatModal open={isChatOpen} onOpenChange={setIsChatOpen} />
       <StudyCreateDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
