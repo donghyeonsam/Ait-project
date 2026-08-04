@@ -19,7 +19,7 @@ export function AuthLayout({
 }: AuthLayoutProps) {
   return (
     <div className="flex min-h-svh flex-col bg-background-default text-text-primary">
-      <LandingHeader />
+      <LandingHeader showSectionNav={false} />
 
       <main id="main-content" className="flex flex-1 items-start px-4 py-4 sm:px-8 sm:py-6">
         <div className="mx-auto flex w-full max-w-dashboard flex-col">

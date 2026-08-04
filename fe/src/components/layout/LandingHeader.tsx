@@ -11,8 +11,13 @@ const sectionAnchors = [
   { label: '미리보기', href: '#gallery' },
 ]
 
+interface LandingHeaderProps {
+  // 섹션 앵커는 랜딩 본문에만 존재해, 로그인·회원가입 같은 다른 화면에서는 내비게이션을 끈다.
+  showSectionNav?: boolean
+}
+
 // 비로그인 랜딩 상단에서 홈 로고, 섹션 내비게이션, 로그인·회원가입 경로를 제공한다.
-export function LandingHeader() {
+export function LandingHeader({ showSectionNav = true }: LandingHeaderProps) {
   const reduceMotion = useReducedMotion()
   const [isScrolled, setIsScrolled] = useState(false)
   const [activeSection, setActiveSection] = useState(-1)
@@ -65,12 +70,14 @@ export function LandingHeader() {
           />
         </Link>
 
-        <GooeyNav
-          className="landing-header__nav"
-          items={sectionAnchors}
-          activeIndex={activeSection}
-          onSelect={handleNavSelect}
-        />
+        {showSectionNav ? (
+          <GooeyNav
+            className="landing-header__nav"
+            items={sectionAnchors}
+            activeIndex={activeSection}
+            onSelect={handleNavSelect}
+          />
+        ) : null}
 
         <nav className="landing-header__auth" aria-label="회원 메뉴">
           <Link to={landingRoutes.login}>로그인</Link>
