@@ -16,7 +16,6 @@ import { OAuthCallbackPage } from '@/pages/auth/OAuthCallbackPage'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { getGithubRedirectUri, consumeGithubOAuthState } from '@/lib/githubOAuth'
 import { getGoogleRedirectUri, consumeGoogleOAuthState } from '@/lib/googleOAuth'
-import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
 import { MyPage } from '@/pages/MyPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { PrivacyPage } from '@/pages/PrivacyPage'
@@ -83,7 +82,6 @@ export function AppRouter() {
           </GuestOnlyRoute>
         }
       />
-      <Route path="/reset-password" element={<GuestOnlyRoute><ResetPasswordPage /></GuestOnlyRoute>} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/recording-notice" element={<RecordingNoticePage />} />

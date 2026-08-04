@@ -23,7 +23,7 @@ const emoticonIds = [
   '13_긴장',
   '14_슬픔',
   '15_궁금함',
-  '16_정중한인사',
+  '16_정중한_인사',
 ]
 
 export const aitEmoticons: AitEmoticon[] = emoticonIds.map((id) => ({

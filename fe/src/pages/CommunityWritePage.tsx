@@ -376,7 +376,7 @@ export function CommunityWritePage() {
         files: requestFiles,
         thumbnail: effectiveThumbnail,
         allowComments,
-        notify: allowComments && notify,
+        notify,
       }
       let targetPostId: string
       if (isEditMode && postId) {
@@ -663,12 +663,7 @@ export function CommunityWritePage() {
                     />
                   </div>
 
-                  <div
-                    className={cn(
-                      'flex items-start justify-between gap-3 transition-opacity',
-                      !allowComments && 'opacity-45',
-                    )}
-                  >
+                  <div className="flex items-start justify-between gap-3">
                     <div>
                       <span id="write-notify" className="text-body-2 text-ink-700">
                         알림 받기
@@ -680,7 +675,6 @@ export function CommunityWritePage() {
                     <Toggle
                       checked={notify}
                       onChange={setNotify}
-                      disabled={!allowComments}
                       aria-labelledby="write-notify"
                     />
                   </div>

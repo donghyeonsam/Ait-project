@@ -3,6 +3,7 @@ import { deleteGithubRepo } from '@/api/github'
 import { ApiError, getBackendAssetUrl, toErrorMessage } from '@/api/http'
 import { checkNicknameAvailability, updateMyPageProfile } from '@/api/my-page'
 import { AccountDeletionSection } from '@/components/mypage/AccountDeletionSection'
+import { PasswordChangeSection } from '@/components/mypage/PasswordChangeSection'
 import { ProfileCard } from '@/components/mypage/ProfileCard'
 import { ProfileInfo } from '@/components/mypage/ProfileInfo'
 import type { ProfileData } from '@/types/profile'
@@ -172,6 +173,9 @@ export function ProfileSection({
   }
 
   const cancelEditing = () => {
+    setDraft(savedProfile)
+    setSkillsText(toCommaText(savedProfile.skills))
+    setRolesText(toCommaText(savedProfile.roles))
     setSaveError(null)
     setNicknameError(null)
     setRolesError(null)
@@ -285,7 +289,8 @@ export function ProfileSection({
           avatarError={avatarError}
         />
         {isEditing ? (
-          <div className="mt-auto flex justify-start pt-4">
+          <div className="mt-auto flex flex-col items-start gap-2 pt-4">
+            <PasswordChangeSection />
             <AccountDeletionSection />
           </div>
         ) : null}

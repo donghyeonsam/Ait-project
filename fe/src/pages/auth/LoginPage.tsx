@@ -1,11 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Check, Mail } from 'lucide-react'
+import { Mail } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { login } from '@/api/auth'
 import { toErrorMessage } from '@/api/http'
-import loginIllustration from '@/assets/images/auth/login-illustration.svg'
 import { AuthCard } from '@/components/auth/AuthCard'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { PasswordInput } from '@/components/auth/PasswordInput'
@@ -23,54 +22,6 @@ const loginSchema = z.object({
 })
 
 type LoginFormValues = z.infer<typeof loginSchema>
-
-const loginBenefits = [
-  '맞춤형 AI 면접',
-  '상세한 역량 분석',
-  '실시간 면접 스터디',
-]
-
-// 로그인 화면 좌측에 노출하는 서비스 소개 영역.
-function LoginAside() {
-  return (
-    <>
-      <div>
-        <p className="flex items-center gap-2 text-body-2 font-bold tracking-widest text-action-primary">
-          <span className="h-1 w-6 rounded-ait-pill bg-status-achievement" aria-hidden="true" />
-          AI INTERVIEW TRAINING
-        </p>
-        <h2 className="mt-6 text-display text-text-primary">
-          면접 준비의 시작,
-          <br />
-          Ait와 함께하세요
-        </h2>
-        <p className="mt-4 text-body-1 text-text-secondary">
-          AI 모의면접부터 스터디까지
-          <br />
-          실전처럼 연습하고 성장할 수 있어요.
-        </p>
-      </div>
-
-      <ul className="mt-8 space-y-3">
-        {loginBenefits.map((benefit) => (
-          <li key={benefit} className="flex items-center gap-3 text-body-1 font-semibold">
-            <span className="flex size-8 items-center justify-center rounded-ait-pill bg-status-achievement-surface text-action-primary">
-              <Check className="size-5" aria-hidden="true" />
-            </span>
-            {benefit}
-          </li>
-        ))}
-      </ul>
-
-      <img
-        src={loginIllustration}
-        alt=""
-        aria-hidden="true"
-        className="absolute bottom-0 right-4 z-[var(--z-index-base)] w-2/5 max-w-xs"
-      />
-    </>
-  )
-}
 
 // 로그인 화면. 이메일/비밀번호로 인증하고 원래 가려던 경로(state.from) 또는 대시보드로 이동한다.
 export function LoginPage() {
@@ -105,7 +56,7 @@ export function LoginPage() {
   }
 
   return (
-    <AuthLayout aside={<LoginAside />} showFooter showWave>
+    <AuthLayout showFooter>
       <AuthCard title="다시 만나서 반가워요" description="Ait 계정으로 로그인하세요.">
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <div>
@@ -142,14 +93,6 @@ export function LoginPage() {
               placeholder="비밀번호를 입력하세요"
               autoComplete="current-password"
               error={errors.password?.message}
-              labelAction={
-                <Link
-                  to="/reset-password"
-                  className="text-body-2 font-semibold text-action-primary decoration-status-achievement underline decoration-2 underline-offset-4"
-                >
-                  비밀번호 찾기
-                </Link>
-              }
               {...register('password')}
             />
           </div>

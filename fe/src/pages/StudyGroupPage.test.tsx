@@ -226,6 +226,18 @@ describe('StudyGroupPage', () => {
     expect(
       screen.getByRole('heading', { name: '구성원 5 / 8' }),
     ).toBeInTheDocument()
+    const memberPanel = screen
+      .getByRole('heading', { name: '구성원 5 / 8' })
+      .closest('section')
+    expect(memberPanel).not.toBeNull()
+    expect(
+      within(memberPanel as HTMLElement).getAllByRole('img', {
+        name: '그룹장',
+      }),
+    ).toHaveLength(1)
+    expect(
+      within(memberPanel as HTMLElement).queryByText(/· (그룹장|그룹원)/),
+    ).toBeNull()
 
     const recruitmentToggle = screen.getByRole('group', {
       name: '모집 상태 변경',
@@ -263,15 +275,9 @@ describe('StudyGroupPage', () => {
       await screen.findByRole('heading', { name: '구성원 4 / 8' }),
     ).toBeInTheDocument()
 
-    await user.click(
-      screen.getByRole('button', { name: '닉네임으로 초대하기' }),
-    )
-    await user.type(
-      screen.getByRole('textbox', { name: '초대할 닉네임' }),
-      '새멤버',
-    )
-    await user.click(screen.getByRole('button', { name: '초대' }))
-    expect(screen.getByText('새멤버')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '닉네임으로 초대하기' }),
+    ).not.toBeInTheDocument()
   })
 
   it('그룹 삭제 시 그룹장의 나가기 API로 그룹을 논리 삭제한다', async () => {
@@ -447,12 +453,20 @@ describe('StudyGroupPage', () => {
       ).not.toBeInTheDocument(),
     )
     expect(screen.getByText(/그룹장 김구미/)).toBeInTheDocument()
-    expect(screen.getByText('김구미').closest('li')).toHaveTextContent(
-      '김구미 · 그룹장',
-    )
-    expect(screen.getByText('김아이').closest('li')).toHaveTextContent(
-      '김아이 · 그룹원',
-    )
+    const nextLeaderCard = screen.getByText('김구미').closest('li')
+    const previousLeaderCard = screen.getByText('김아이').closest('li')
+    expect(nextLeaderCard).not.toBeNull()
+    expect(previousLeaderCard).not.toBeNull()
+    expect(
+      within(nextLeaderCard as HTMLElement).getByRole('img', {
+        name: '그룹장',
+      }),
+    ).toBeInTheDocument()
+    expect(
+      within(previousLeaderCard as HTMLElement).queryByRole('img', {
+        name: '그룹장',
+      }),
+    ).not.toBeInTheDocument()
   })
 
   it('위임 요청이 실패하면 대화상자에 오류를 보여주고 방장 권한을 유지한다', async () => {
@@ -530,6 +544,9 @@ describe('StudyGroupPage', () => {
       within(screen.getByLabelText('그룹톡 메시지')).getByText(
         '일정 확인했습니다.',
       ),
+    ).toBeInTheDocument()
+    expect(
+      within(screen.getByLabelText('그룹톡 메시지')).getByText('오전 10:00'),
     ).toBeInTheDocument()
   })
 

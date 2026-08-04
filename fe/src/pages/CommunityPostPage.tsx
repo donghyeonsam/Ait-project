@@ -1,10 +1,22 @@
 import DOMPurify from 'dompurify'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Bookmark, Heart, Pencil, Share2, Trash2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  Bookmark,
+  Download,
+  FileText,
+  Heart,
+  Loader2,
+  Paperclip,
+  Pencil,
+  Share2,
+  Trash2,
+} from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   deletePost,
+  downloadPostFile,
   fetchPost,
   toggleBookmark,
   toggleLike,
@@ -19,7 +31,7 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToastStack } from '@/components/ui/toast'
-import { formatNumber, formatPostDate } from '@/lib/format'
+import { formatDateTime, formatNumber } from '@/lib/format'
 import { useAuth } from '@/lib/useAuth'
 import { useToasts } from '@/lib/useToasts'
 import { cn } from '@/lib/utils'
@@ -33,6 +45,7 @@ export function CommunityPostPage() {
   const [post, setPost] = useState<CommunityPost | null>(null)
   const [isDeleteOpen, setDeleteOpen] = useState(false)
   const [isDeleting, setDeleting] = useState(false)
+  const [downloadingFile, setDownloadingFile] = useState<string | null>(null)
   const { toasts, showToast } = useToasts()
 
   // 마지막으로 로딩을 마친 글과 현재 주소의 글이 다르면 로딩 중으로 본다.
@@ -65,6 +78,8 @@ export function CommunityPostPage() {
     [post],
   )
   const isAuthor = Boolean(post && user?.nickname === post.author)
+  const attachments =
+    post?.files?.filter((file) => file.usageType === 'ATTACHMENT') ?? []
 
   const handleToggleLike = () => {
     if (!post) return
@@ -89,6 +104,18 @@ export function CommunityPostPage() {
       showToast('링크를 복사했어요.')
     } catch {
       showToast('링크 복사에 실패했어요. 주소창에서 직접 복사해주세요.')
+    }
+  }
+
+  const handleDownload = async (file: NonNullable<CommunityPost['files']>[number]) => {
+    if (downloadingFile) return
+    setDownloadingFile(file.storedFilename)
+    try {
+      await downloadPostFile(file)
+    } catch {
+      showToast('첨부파일을 다운로드하지 못했어요. 잠시 후 다시 시도해주세요.')
+    } finally {
+      setDownloadingFile(null)
     }
   }
 
@@ -172,7 +199,7 @@ export function CommunityPostPage() {
               <div className="mt-4 flex items-center gap-3 text-body-2 text-ink-500">
                 <span aria-hidden="true" className="size-9 rounded-ait-pill bg-profile-avatar" />
                 <span className="font-medium text-ink-700">{post.author}</span>
-                <span>{formatPostDate(post.createdAt)}</span>
+                <time dateTime={post.createdAt}>{formatDateTime(post.createdAt)}</time>
                 <span aria-hidden="true">·</span>
                 <span>조회 {formatNumber(post.viewCount)}</span>
               </div>
@@ -183,6 +210,53 @@ export function CommunityPostPage() {
                 html={safeContent}
                 className="community-prose mt-6"
               />
+
+              {attachments.length > 0 ? (
+                <section
+                  aria-labelledby="post-attachments-title"
+                  className="mt-6 rounded-ait-s border border-line bg-surface-muted/50 p-4"
+                >
+                  <div className="flex items-center gap-2 text-body-2 font-semibold text-ink-800">
+                    <Paperclip aria-hidden="true" className="size-4 text-ink-500" />
+                    <h2 id="post-attachments-title">첨부파일</h2>
+                    <span className="text-caption font-medium text-ink-400">
+                      {attachments.length}
+                    </span>
+                  </div>
+                  <ul className="mt-3 divide-y divide-line overflow-hidden rounded-ait-s border border-line bg-surface-default">
+                    {attachments.map((file) => {
+                      const isDownloading = downloadingFile === file.storedFilename
+                      return (
+                        <li
+                          key={file.storedFilename}
+                          className="flex items-center gap-3 px-4 py-3"
+                        >
+                          <span className="flex size-8 shrink-0 items-center justify-center rounded-ait-s bg-surface-muted text-ink-500">
+                            <FileText aria-hidden="true" className="size-4" />
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-body-2 text-ink-700">
+                            {file.originalFilename}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={downloadingFile !== null}
+                            aria-label={`${file.originalFilename} 다운로드`}
+                            onClick={() => void handleDownload(file)}
+                            className="inline-flex shrink-0 items-center gap-1.5 rounded-ait-s px-3 py-1.5 text-caption font-semibold text-action-primary transition-colors hover:bg-surface-muted disabled:cursor-wait disabled:opacity-50"
+                          >
+                            {isDownloading ? (
+                              <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />
+                            ) : (
+                              <Download aria-hidden="true" className="size-3.5" />
+                            )}
+                            다운로드
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </section>
+              ) : null}
 
               <div className="mt-6 flex flex-wrap gap-1.5">
                 {post.tags.map((tag) => (

@@ -52,8 +52,10 @@ public class PeerFeedbackServiceImpl implements PeerFeedbackService{
     }
 
     @Override
-    public PeerFeedbackReceiveResponse getPeerFeedbackReceiveList(Long userId, Long sessionId) {
-
+    public PeerFeedbackReceiveResponse getPeerFeedbackReceiveList(
+            Long userId,
+            Long sessionId
+    ) {
         List<PeerFeedback> list = peerFeedbackRepository.findAllByStudySessionIdAndEvaluateeId(sessionId, userId);
 
         List<PeerFeedbackDetailResponse> responseList =
@@ -63,10 +65,12 @@ public class PeerFeedbackServiceImpl implements PeerFeedbackService{
 
         AiPeerSummary aiPeerSummary = aiPeerSummaryRepository.findByStudySessionIdAndEvaluateeId(sessionId, userId);
 
-
-
-        return  PeerFeedbackReceiveResponse.builder()
-                .aiSummary(aiPeerSummary.getContent())
+        return PeerFeedbackReceiveResponse.builder()
+                .aiSummary(
+                        aiPeerSummary != null
+                                ? aiPeerSummary.getContent()
+                                : null
+                )
                 .details(responseList)
                 .build();
     }

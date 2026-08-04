@@ -73,13 +73,13 @@ describe('backendRequest', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const result = await fetchBackendAssetBlob(
-      '/backend/images/stored-image.png',
+      '/backend/images/boards%2Fstored-image.png',
     )
 
     expect(result).toBeInstanceOf(Blob)
     expect(result.type).toBe('image/png')
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      '/backend/images/stored-image.png',
+      '/backend/images/boards/stored-image.png',
     )
     const headers = fetchMock.mock.calls[0]?.[1]?.headers as Headers
     expect(headers.get('Authorization')).toBe('Bearer image-token')
