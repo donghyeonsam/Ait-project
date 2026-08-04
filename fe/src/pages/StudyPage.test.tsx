@@ -345,6 +345,7 @@ describe('StudyPage', () => {
     await user.click(chatButton)
     const chatDialog = screen.getByRole('dialog')
     expect(chatDialog).toHaveClass('study-chat-dialog')
+    expect(chatDialog).toHaveAttribute('data-study-chat-surface')
     expect(chatDialog).not.toHaveClass('left-1/2', 'top-1/2')
     const groupTrigger = await within(chatDialog).findByRole('button', {
       name: /금융권 면접 PT 대비/,
@@ -432,9 +433,7 @@ describe('StudyPage', () => {
       name: '모달 투명도',
     })
     fireEvent.change(opacitySlider, { target: { value: '65' } })
-    expect(
-      chatDialog.querySelector('[data-study-chat-surface]'),
-    ).toHaveStyle({ opacity: '0.65' })
+    expect(chatDialog).toHaveStyle({ opacity: '0.65' })
 
     const dragHandle = within(chatDialog).getByRole('banner')
     fireEvent.pointerDown(dragHandle, {

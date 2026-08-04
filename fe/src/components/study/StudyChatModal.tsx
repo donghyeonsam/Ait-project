@@ -397,12 +397,13 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
       <DialogContent
         ref={dialogRef}
         id="study-chat-dialog"
+        data-study-chat-surface
         centered={false}
         showCloseButton={false}
         overlayClassName="study-chat-overlay"
-        className="study-chat-dialog flex min-h-0 flex-col overflow-hidden border border-border-default bg-transparent p-0"
+        className="study-chat-dialog flex min-h-0 flex-col overflow-hidden border border-border-default bg-surface-default p-0 transition-opacity"
         style={{
-          backgroundColor: 'transparent',
+          opacity: opacityPercent / 100,
           transform: `translate3d(${chatPosition.x}px, ${chatPosition.y}px, 0)`,
         }}
         onOpenAutoFocus={(event) => {
@@ -421,15 +422,10 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
           }
         }}
       >
-        <div
-          data-study-chat-surface
-          className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-default transition-opacity"
-          style={{ opacity: opacityPercent / 100 }}
-        >
-          <DialogTitle className="sr-only">그룹톡</DialogTitle>
-          <DialogDescription className="sr-only">
-            참여 중인 스터디 그룹을 전환하고 공지와 메시지를 확인합니다.
-          </DialogDescription>
+        <DialogTitle className="sr-only">그룹톡</DialogTitle>
+        <DialogDescription className="sr-only">
+          참여 중인 스터디 그룹을 전환하고 공지와 메시지를 확인합니다.
+        </DialogDescription>
 
         <div
           ref={headerAreaRef}
@@ -533,7 +529,6 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
           replyTarget={replyTarget}
           onCancelReply={() => setReplyTarget(null)}
         />
-        </div>
       </DialogContent>
     </Dialog>
   )
