@@ -520,3 +520,4 @@ application-prod.yml
 *.key
 .vercel
 .env*
+.claude
