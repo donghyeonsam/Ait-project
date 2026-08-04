@@ -24,7 +24,7 @@
 - 실제 로그인, 파일 업로드, 결제 등 서버가 필요한 기능
 - WebRTC·LiveKit을 이용한 실제 면접 세션 연결(화상 통화, 녹화, 재연결 로직) — 단, 스터디 세션(`StudySessionRoom`)의 LiveKit 화상 연결은 예외적으로 실연동 완료됨
 - 아이트래킹 수집·계산·전송 로직 — 단, 표정·시선(비언어적 요소) 캡처는 예외적으로 실연동 완료됨:
-  MediaPipe FaceLandmarker로 답변 녹음 구간의 blendshape/EAR/MAR/코끝 위치를 프레임 단위로 뽑아
+  MediaPipe FaceLandmarker로 답변 녹음 구간의 blendshape/EAR/MAR/홍채 중심 위치를 프레임 단위로 뽑아
   BE의 `POST /api/ai-interviews/{id}/non-verbal`에 원시 프레임을 전송한다(`useNonVerbalCapture`,
   `face-metrics.ts`, `api/ai-interviews.ts`의 `sendNonVerbalData`). 점수 계산은 BE와 ai-evaluate가
   담당하고, 프론트는 캡처·전송까지만 책임진다.
