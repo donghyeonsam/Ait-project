@@ -157,9 +157,9 @@ function CoverLetterDocumentView({ coverLetter }: { coverLetter: CoverLetterDeta
         {coverLetter.companyName} · {coverLetter.role}
       </p>
 
-      <section className="flex flex-col gap-4">
+      <section className="divide-y divide-border-default">
         {sortedContents.map((content) => (
-          <div key={content.contentId}>
+          <div key={content.contentId} className="py-4 first:pt-0 last:pb-0">
             <h3 className="text-body-2 font-semibold text-text-primary">{content.question}</h3>
             <p className="mt-2 whitespace-pre-wrap text-body-1 leading-relaxed text-text-primary">
               {content.answer}
