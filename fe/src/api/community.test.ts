@@ -128,7 +128,7 @@ describe('fetchPosts', () => {
     expect(result.items[0]?.thumbnail).toBeNull()
   })
 
-  it('검색어를 다듬어 keyword 파라미터로 전달한다', async () => {
+  it('제목+내용 검색어를 다듬어 keyword 파라미터로 전달한다', async () => {
     const fetchMock = vi.fn().mockResolvedValue(pageResponse())
     vi.stubGlobal('fetch', fetchMock)
 
@@ -138,10 +138,65 @@ describe('fetchPosts', () => {
       offset: 0,
       limit: 3,
       query: '  카카오 면접  ',
+      searchTargets: { titleContent: true, tags: false },
     })
 
     const url = new URL(String(fetchMock.mock.calls[0]?.[0]), 'http://localhost')
     expect(url.searchParams.get('keyword')).toBe('카카오 면접')
+    expect(url.searchParams.has('tag')).toBe(false)
+  })
+
+  it('태그만 선택하면 tag 파라미터만 전달한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(pageResponse())
+    vi.stubGlobal('fetch', fetchMock)
+
+    await fetchPosts({
+      tab: 'latest',
+      category: 'all',
+      offset: 0,
+      limit: 3,
+      query: '삼성전자',
+      searchTargets: { titleContent: false, tags: true },
+    })
+
+    const url = new URL(String(fetchMock.mock.calls[0]?.[0]), 'http://localhost')
+    expect(url.searchParams.has('keyword')).toBe(false)
+    expect(url.searchParams.get('tag')).toBe('삼성전자')
+  })
+
+  it('제목+내용과 태그를 모두 선택하면 같은 검색어를 두 파라미터로 전달한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(pageResponse())
+    vi.stubGlobal('fetch', fetchMock)
+
+    await fetchPosts({
+      tab: 'latest',
+      category: 'all',
+      offset: 0,
+      limit: 3,
+      query: '삼성전자',
+      searchTargets: { titleContent: true, tags: true },
+    })
+
+    const url = new URL(String(fetchMock.mock.calls[0]?.[0]), 'http://localhost')
+    expect(url.searchParams.get('keyword')).toBe('삼성전자')
+    expect(url.searchParams.get('tag')).toBe('삼성전자')
+  })
+
+  it('검색 범위를 모두 해제하면 백엔드를 조회하지 않고 빈 결과를 반환한다', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      fetchPosts({
+        tab: 'latest',
+        category: 'all',
+        offset: 0,
+        limit: 3,
+        query: '삼성전자',
+        searchTargets: { titleContent: false, tags: false },
+      }),
+    ).resolves.toEqual({ items: [], hasMore: false })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('빈 검색어는 keyword 파라미터를 보내지 않는다', async () => {
@@ -154,6 +209,7 @@ describe('fetchPosts', () => {
       offset: 0,
       limit: 3,
       query: '   ',
+      searchTargets: { titleContent: true, tags: true },
     })
 
     const url = new URL(String(fetchMock.mock.calls[0]?.[0]), 'http://localhost')

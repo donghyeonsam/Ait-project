@@ -10,6 +10,7 @@ import type {
   CommunityPostFileType,
   CommunityPostFileUsageType,
   CommunityReply,
+  CommunitySearchTargets,
   CommunityTab,
   TrendingKeyword,
 } from '@/types/community'
@@ -113,6 +114,7 @@ export interface FetchPostsParams {
   offset: number
   limit: number
   query?: string
+  searchTargets?: CommunitySearchTargets
 }
 
 export interface FetchPostsResult {
@@ -169,10 +171,21 @@ export async function fetchPosts({
   offset,
   limit,
   query,
+  searchTargets,
 }: FetchPostsParams): Promise<FetchPostsResult> {
   const searchParams = new URLSearchParams()
-  if (query?.trim()) {
-    searchParams.set('keyword', query.trim())
+  const keyword = query?.trim()
+  const targets = searchTargets ?? { titleContent: true, tags: false }
+
+  // 검색 범위를 모두 해제한 상태에서 백엔드가 전체 목록을 반환하지 않도록 빈 결과로 처리한다.
+  if (keyword && !targets.titleContent && !targets.tags) {
+    return { items: [], hasMore: false }
+  }
+  if (keyword && targets.titleContent) {
+    searchParams.set('keyword', keyword)
+  }
+  if (keyword && targets.tags) {
+    searchParams.set('tag', keyword)
   }
   if (category !== 'all') {
     searchParams.set('category', CATEGORY_META[category].label)

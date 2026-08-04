@@ -20,6 +20,7 @@ import { EASE_OUT, listContainer } from '@/lib/motion'
 import type {
   CommunityCategory,
   CommunityPost,
+  CommunitySearchTargets,
   CommunityTab,
   TrendingKeyword,
 } from '@/types/community'
@@ -34,6 +35,10 @@ const CATEGORY_FILTER_OPTIONS = [
 // 커뮤니티 목록 화면. 검색·인기 태그 롤링·탭·필터·게시글 카드·더보기를 담당한다.
 export function CommunityPage() {
   const [query, setQuery] = useState('')
+  const [searchTargets, setSearchTargets] = useState<CommunitySearchTargets>({
+    titleContent: true,
+    tags: true,
+  })
   const [tab, setTab] = useState<CommunityTab>('recommend')
   const [category, setCategory] = useState<CommunityCategory | 'all'>('all')
 
@@ -46,7 +51,7 @@ export function CommunityPage() {
   const requestId = useRef(0)
 
   // 현재 필터 조합과 마지막으로 로딩을 마친 조합이 다르면 로딩 중으로 본다.
-  const listKey = `${tab}-${category}-${query}`
+  const listKey = `${tab}-${category}-${query}-${searchTargets.titleContent}-${searchTargets.tags}`
   const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const isLoadingList = loadedKey !== listKey
 
@@ -73,6 +78,7 @@ export function CommunityPage() {
       offset: 0,
       limit: PAGE_SIZE,
       query,
+      searchTargets,
     }).then(
       ({ items, hasMore: more }) => {
         if (id !== requestId.current) return
@@ -81,7 +87,7 @@ export function CommunityPage() {
         setLoadedKey(listKey)
       },
     )
-  }, [tab, category, query, listKey])
+  }, [tab, category, query, searchTargets, listKey])
 
   const loadMore = async () => {
     if (isLoadingMore) return
@@ -92,6 +98,7 @@ export function CommunityPage() {
       offset: posts.length,
       limit: PAGE_SIZE,
       query,
+      searchTargets,
     })
     setPosts((prev) => [...prev, ...items])
     setHasMore(more)
@@ -136,9 +143,14 @@ export function CommunityPage() {
                 오늘도 면접 준비의 모든 순간을 함께해요.
               </p>
               <div className="mt-6">
-                <HeroSearch value={query} onSearch={setQuery} />
+                <HeroSearch
+                  value={query}
+                  searchTargets={searchTargets}
+                  onSearch={setQuery}
+                  onSearchTargetsChange={setSearchTargets}
+                />
               </div>
-              <div className="mt-4">
+              <div className="mt-6">
                 <TrendingKeywordTicker keywords={keywords} onSelect={setQuery} />
               </div>
             </div>
