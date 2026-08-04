@@ -158,7 +158,7 @@ public class FastApiClient {
             Long userId,
             Long coverLetterId
     ) {
-        String uri = "/api/v1/embeddings/" + userId;
+        String uri = "/api/v1/embeddings/delete";
 
         DeleteEmbeddingItemRequest item =
                 DeleteEmbeddingItemRequest.builder()
