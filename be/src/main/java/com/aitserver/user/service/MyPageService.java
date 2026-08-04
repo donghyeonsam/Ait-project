@@ -49,14 +49,9 @@ public class MyPageService {
         List<UserSkill> userSkills =
                 userSkillRepository.findAllByUserIdOrderByIdAsc(userId);
 
-        Optional<GithubApp> githubAppOptional =
-                githubAppRepository.findByUserId(userId);
+        List<GithubApp> githubApps = githubAppRepository.findByUserId(userId);
 
-        return createMyPageResponse(
-                user,
-                userSkills,
-                githubAppOptional.orElse(null)
-        );
+        return createMyPageResponse(user, userSkills, githubApps);
     }
 
     /**
@@ -108,15 +103,9 @@ public class MyPageService {
         List<UserSkill> updatedSkills =
                 userSkillRepository.findAllByUserIdOrderByIdAsc(userId);
 
-        GithubApp githubApp =
-                githubAppRepository.findByUserId(userId)
-                        .orElse(null);
+        List<GithubApp> githubApps = githubAppRepository.findByUserId(userId);
 
-        return createMyPageResponse(
-                user,
-                updatedSkills,
-                githubApp
-        );
+        return createMyPageResponse(user, updatedSkills, githubApps);
     }
 
     @Transactional(readOnly = true)
@@ -229,13 +218,12 @@ public class MyPageService {
             return;
         }
 
-        GithubApp githubApp =
-                githubAppRepository.findByUserId(userId)
-                        .orElseThrow(() ->
-                                new BusinessException(
-                                        ErrorCode.GITHUB_APP_NOT_FOUND
-                                )
-                        );
+        List<GithubApp> githubApps = githubAppRepository.findByUserId(userId);
+        if (githubApps.isEmpty()) {
+            throw new BusinessException(ErrorCode.GITHUB_APP_NOT_FOUND);
+        }
+
+        List<Long> appIds = githubApps.stream().map(GithubApp::getId).toList();
 
         // 같은 repoId가 요청에 두 번 들어오는 것을 방지
         Set<Long> requestedRepoIds =
@@ -253,12 +241,7 @@ public class MyPageService {
         }
 
         // 현재 사용자의 GithubApp에 속한 레포만 조회
-        List<GithubRepo> githubRepos =
-                githubRepoRepository
-                        .findAllByIdInAndGithubApp_Id(
-                                requestedRepoIds,
-                                githubApp.getId()
-                        );
+        List<GithubRepo> githubRepos = githubRepoRepository.findAllByIdInAndGithubApp_IdIn(requestedRepoIds, appIds);
 
         // 요청한 ID 중 본인 소유가 아닌 레포가 포함된 경우
         if (githubRepos.size()
@@ -295,7 +278,7 @@ public class MyPageService {
     private MyPageResponse createMyPageResponse(
             User user,
             List<UserSkill> userSkills,
-            GithubApp githubApp
+            List<GithubApp> githubApps
     ) {
         List<String> skills =
                 userSkills.stream()
@@ -308,44 +291,26 @@ public class MyPageService {
         List<MyPageGithubRepoResponse> repositories =
                 Collections.emptyList();
 
-        if (githubApp != null) {
-            githubUsername =
-                    githubApp.getGithubUsername();
+        if (githubApps != null && !githubApps.isEmpty()) {
+            // 대표 프로필 이름은 첫 번째 연동된 계정으로 설정
+            GithubApp mainApp = githubApps.get(0);
+            githubUsername = mainApp.getGithubUsername();
+            githubUrl = createGithubUserUrl(githubUsername);
 
-            githubUrl =
-                    createGithubUserUrl(
-                            githubUsername
-                    );
+            List<Long> appIds = githubApps.stream().map(GithubApp::getId).toList();
 
-            List<GithubRepo> githubRepos =
-                    githubRepoRepository
-                            .findAllByGithubApp_IdOrderByIdAsc(
-                                    githubApp.getId()
-                            );
+            // 유저의 모든 조직 레포지토리 가져오기
+            List<GithubRepo> githubRepos = githubRepoRepository.findAllByGithubApp_IdInOrderByIdAsc(appIds);
 
-            String finalGithubUsername =
-                    githubUsername;
-
-            repositories =
-                    githubRepos.stream()
-                            .map(repo ->
-                                    MyPageGithubRepoResponse
-                                            .builder()
-                                            .githubRepoId(
-                                                    repo.getId()
-                                            )
-                                            .repoNickname(
-                                                    repo.getRepoNickname()
-                                            )
-                                            .repoUrl(
-                                                    createGithubRepoUrl(
-                                                            finalGithubUsername,
-                                                            repo.getRepoName()
-                                                    )
-                                            )
-                                            .build()
-                            )
-                            .toList();
+            repositories = githubRepos.stream()
+                    .map(repo -> MyPageGithubRepoResponse.builder()
+                            .githubRepoId(repo.getId())
+                            .repoNickname(repo.getRepoNickname())
+                            // 각 레포지토리가 속한 조직(App)의 이름으로 URL 생성
+                            .repoUrl(createGithubRepoUrl(repo.getGithubApp().getGithubUsername(), repo.getRepoName()))
+                            .build()
+                    )
+                    .toList();
         }
 
         return MyPageResponse.builder()
