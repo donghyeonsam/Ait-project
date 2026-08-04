@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { sendSignupEmailCode, signup, verifySignupEmailCode } from '@/api/auth'
 import { toErrorMessage } from '@/api/http'
+import { checkNicknameAvailability } from '@/api/my-page'
 import { AuthCard } from '@/components/auth/AuthCard'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { PasswordInput } from '@/components/auth/PasswordInput'
@@ -97,7 +98,7 @@ export function SignupPage() {
   const [verificationError, setVerificationError] = useState<string | null>(null)
   const [isCodeSent, setIsCodeSent] = useState(false)
   const [isCheckingNickname, setIsCheckingNickname] = useState(false)
-  const [isCheckingEmail, setIsCheckingEmail] = useState(false)
+  const [nicknameDuplicateError, setNicknameDuplicateError] = useState<string | null>(null)
   const [isSendingCode, setIsSendingCode] = useState(false)
   const [isVerifyingCode, setIsVerifyingCode] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
@@ -118,30 +119,39 @@ export function SignupPage() {
     return () => clearTimeout(timer)
   }, [isCodeSent, emailVerified, codeValiditySeconds])
 
-  // 닉네임 입력이 멈추면 자동으로 중복확인을 수행한다.
-  // TODO: 실제 API 연동 필요 - BE에 닉네임 중복확인 엔드포인트가 없어 형식 검사만 통과하면 사용 가능한 것으로 처리한다.
+  // 닉네임 입력이 멈추면 형식 검사 후 실제 중복확인 API를 호출한다.
   useEffect(() => {
     if (!nickname?.trim()) return
+    let cancelled = false
     const timer = setTimeout(async () => {
-      const isValid = await trigger('nickname')
-      setValue('nicknameChecked', isValid, { shouldValidate: true })
-      setIsCheckingNickname(false)
+      const isValidFormat = await trigger('nickname')
+      if (!isValidFormat) {
+        if (!cancelled) {
+          setValue('nicknameChecked', false, { shouldValidate: true })
+          setNicknameDuplicateError(null)
+          setIsCheckingNickname(false)
+        }
+        return
+      }
+      try {
+        const result = await checkNicknameAvailability(nickname.trim())
+        if (cancelled) return
+        setValue('nicknameChecked', result.canUse, { shouldValidate: true })
+        setNicknameDuplicateError(result.canUse ? null : '이미 사용 중인 닉네임이에요.')
+      } catch {
+        // 중복확인 조회 실패는 조용히 넘어가고, 가입 시점의 서버 검증에 맡긴다.
+      } finally {
+        if (!cancelled) setIsCheckingNickname(false)
+      }
     }, DUPLICATE_CHECK_DELAY_MS)
-    return () => clearTimeout(timer)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
   }, [nickname, trigger, setValue])
 
-  // 이메일 입력이 멈추면 자동으로 중복확인을 수행한다.
-  // TODO: 실제 API 연동 필요 - BE에 이메일 중복확인 엔드포인트가 없어 형식 검사만 통과하면 사용 가능한 것으로 처리한다.
-  useEffect(() => {
-    if (!email?.trim()) return
-    const timer = setTimeout(async () => {
-      const isValid = await trigger('email')
-      setValue('emailChecked', isValid, { shouldValidate: true })
-      setIsCheckingEmail(false)
-    }, DUPLICATE_CHECK_DELAY_MS)
-    return () => clearTimeout(timer)
-  }, [email, trigger, setValue])
-
+  // 이메일 중복 여부는 별도 API 없이, 인증코드 발송 시 BE가 이미 가입된 이메일을 에러로
+  // 거절하는 것으로 확인한다(발송 성공 = 사용 가능한 이메일).
   const requestVerificationCode = async () => {
     const isValid = await trigger('email')
     if (!isValid) return
@@ -149,6 +159,7 @@ export function SignupPage() {
     setVerificationError(null)
     try {
       await sendSignupEmailCode(email)
+      setValue('emailChecked', true, { shouldValidate: true })
       setIsCodeSent(true)
       setVerificationCode('')
       setValue('emailVerified', false)
@@ -210,7 +221,6 @@ export function SignupPage() {
     !emailChecked ||
     !emailVerified ||
     isCheckingNickname ||
-    isCheckingEmail ||
     isSubmitting
 
   return (
@@ -344,6 +354,7 @@ export function SignupPage() {
                       {...register('nickname', {
                         onChange: (event) => {
                           setValue('nicknameChecked', false)
+                          setNicknameDuplicateError(null)
                           setIsCheckingNickname(Boolean(event.target.value.trim()))
                         },
                       })}
@@ -355,6 +366,8 @@ export function SignupPage() {
                         </p>
                       ) : isCheckingNickname ? (
                         <p className="text-caption leading-tight text-text-secondary">중복확인 중...</p>
+                      ) : nicknameDuplicateError ? (
+                        <p className="text-caption leading-tight text-status-error">{nicknameDuplicateError}</p>
                       ) : errors.nicknameChecked ? (
                         <p className="text-caption leading-tight text-status-error">
                           {errors.nicknameChecked.message}
@@ -379,13 +392,12 @@ export function SignupPage() {
                         aria-invalid={Boolean(errors.email)}
                         aria-describedby={errors.email ? 'signup-email-error' : undefined}
                         {...register('email', {
-                          onChange: (event) => {
+                          onChange: () => {
                             setValue('emailChecked', false)
                             setValue('emailVerified', false)
                             setVerificationCode('')
                             setVerificationError(null)
                             setIsCodeSent(false)
-                            setIsCheckingEmail(Boolean(event.target.value.trim()))
                             setResendCooldown(0)
                             setCodeValiditySeconds(0)
                           },
@@ -412,8 +424,6 @@ export function SignupPage() {
                         <p id="signup-email-error" className="text-caption leading-tight text-status-error">
                           {errors.email.message}
                         </p>
-                      ) : isCheckingEmail ? (
-                        <p className="text-caption leading-tight text-text-secondary">중복확인 중...</p>
                       ) : errors.emailChecked ? (
                         <p className="text-caption leading-tight text-status-error">{errors.emailChecked.message}</p>
                       ) : emailChecked ? (
