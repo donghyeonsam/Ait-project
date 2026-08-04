@@ -95,6 +95,48 @@ describe('CommunityPostPage', () => {
     expect(screen.queryByRole('button', { name: '삭제' })).not.toBeInTheDocument()
   })
 
+  it('댓글을 허용하지 않은 게시글에서는 댓글과 답글 작성 UI를 숨긴다', async () => {
+    vi.mocked(fetchPost).mockResolvedValue({ ...post, allowComments: false })
+    vi.mocked(fetchComments).mockResolvedValue([
+      {
+        id: 'comment-1',
+        authorId: 2,
+        author: '기존작성자',
+        createdAt: '2026-07-28T11:00:00+09:00',
+        content: '기존 댓글은 계속 조회됩니다.',
+        likeCount: 0,
+        liked: false,
+        deleted: false,
+        replies: [],
+      },
+    ])
+
+    renderPage()
+
+    expect(
+      await screen.findByText('이 게시글은 댓글 작성을 허용하지 않습니다.'),
+    ).toBeInTheDocument()
+    expect(await screen.findByText('기존 댓글은 계속 조회됩니다.')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('textbox', { name: '댓글 등록' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '답글 쓰기' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('댓글을 허용하지 않은 게시글에서는 댓글 로딩 스켈레톤을 표시하지 않는다', async () => {
+    vi.mocked(fetchPost).mockResolvedValue({ ...post, allowComments: false })
+    vi.mocked(fetchComments).mockReturnValue(new Promise(() => {}))
+
+    const { container } = renderPage()
+
+    expect(
+      await screen.findByText('이 게시글은 댓글 작성을 허용하지 않습니다.'),
+    ).toBeInTheDocument()
+    expect(container.querySelector('.analyzing-shimmer')).not.toBeInTheDocument()
+  })
+
   it('헤더와 푸터를 제외한 상세 콘텐츠를 90%로 축소한다', async () => {
     renderPage()
 

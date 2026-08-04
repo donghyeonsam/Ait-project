@@ -55,6 +55,7 @@ public enum ErrorCode {
     GROUP_FULL_CANNOT_RECRUIT(HttpStatus.BAD_REQUEST, "G004", "이미 정원이 다 차서 모집 중으로 변경할 수 없습니다."),
     NOT_GROUP_MEMBER(HttpStatus.BAD_REQUEST, "G005", "해당 그룹의 멤버가 아닙니다."),
     OWNER_CANNOT_LEAVE_WITH_MEMBERS(HttpStatus.BAD_REQUEST, "G006", "다른 멤버가 존재할 경우 방장은 그룹을 탈퇴할 수 없습니다."),
+    INVALID_DELEGATION_TARGET(HttpStatus.BAD_REQUEST, "G007", "자기 자신에게 권한을 위임할 수 없습니다."),
 
     // Community (Post, Comment)
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMUNITY_001", "게시글을 찾을 수 없습니다."),
@@ -67,6 +68,7 @@ public enum ErrorCode {
     SCRAP_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMUNITY_008", "스크랩 내역을 찾을 수 없습니다."),
     COMMENT_ALREADY_DELETED(HttpStatus.BAD_REQUEST, "COMMUNITY_009", "이미 삭제된 댓글입니다."),
     ALREADY_LIKED_COMMENT(HttpStatus.CONFLICT, "COMMUNITY_010", "이미 좋아요를 누른 댓글입니다."),
+    COMMENTS_NOT_ALLOWED(HttpStatus.FORBIDDEN, "COMMUNITY_011", "해당 게시글은 댓글 작성이 허용되지 않았습니다."),
 
     // Study Group
     STUDY_GROUP_NOT_FOUND(HttpStatus.NOT_FOUND, "STUDY_GROUP_001", "스터디 그룹을 찾을 수 없습니다."),

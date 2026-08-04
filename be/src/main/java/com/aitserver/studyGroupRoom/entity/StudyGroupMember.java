@@ -192,4 +192,8 @@ public class StudyGroupMember {
     public void updateMessage(String newMessage) {
         this.message = newMessage;
     }
+
+    public void updateRole(StudyGroupMemberRole newRole) {
+        this.role = newRole;
+    }
 }

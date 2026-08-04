@@ -2,10 +2,7 @@ package com.aitserver.studyGroupRoom.controller;
 
 import com.aitserver.global.response.ApiResponse;
 import com.aitserver.studyGroupRoom.domain.StudyGroupStatus;
-import com.aitserver.studyGroupRoom.dto.group.GroupDetailResponse;
-import com.aitserver.studyGroupRoom.dto.group.MyStudyGroupResponseDto;
-import com.aitserver.studyGroupRoom.dto.group.StudyGroupListResponseDto;
-import com.aitserver.studyGroupRoom.dto.group.StudyGroupRequestDto;
+import com.aitserver.studyGroupRoom.dto.group.*;
 import com.aitserver.studyGroupRoom.service.group.StudyGroupCommandService;
 import com.aitserver.studyGroupRoom.service.group.StudyGroupService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -165,5 +162,18 @@ public class StudyGroupController {
                 null,
                 servletRequest
         ));
+    }
+
+    // 그룹장 위임
+    @PatchMapping("/{groupId}/delegate")
+    public ResponseEntity<ApiResponse<Void>> delegateOwner(
+            @PathVariable("groupId") Long groupId,
+            @RequestBody GroupDto.DelegateRequest request,
+            @AuthenticationPrincipal Long currentUserId,
+            HttpServletRequest servletRequest) { // 현재 로그인한 사람(요청자)
+
+        studyGroupCommandService.delegateOwner(groupId, currentUserId, request.getTargetUserId());
+
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "그룹장 위임이 완료되었습니다.",servletRequest));
     }
 }

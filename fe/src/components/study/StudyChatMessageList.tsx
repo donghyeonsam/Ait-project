@@ -68,6 +68,7 @@ export function StudyChatMessageList({
   const listRef = useRef<HTMLDivElement>(null)
   const shouldStickToBottomRef = useRef(true)
   const previousGroupIdRef = useRef<number | null>(null)
+  const needsInitialScrollRef = useRef(true)
 
   useLayoutEffect(() => {
     const list = listRef.current
@@ -75,13 +76,19 @@ export function StudyChatMessageList({
 
     const didSwitchGroup = previousGroupIdRef.current !== groupId
     previousGroupIdRef.current = groupId
-    if (didSwitchGroup) shouldStickToBottomRef.current = true
+    if (didSwitchGroup || isLoading) {
+      shouldStickToBottomRef.current = true
+      needsInitialScrollRef.current = true
+    }
+
+    if (isLoading) return
 
     if (shouldStickToBottomRef.current) {
       list.scrollTo({
         top: list.scrollHeight,
-        behavior: didSwitchGroup ? 'auto' : 'smooth',
+        behavior: needsInitialScrollRef.current ? 'auto' : 'smooth',
       })
+      needsInitialScrollRef.current = false
     }
   }, [groupId, isLoading, messages.length])
 

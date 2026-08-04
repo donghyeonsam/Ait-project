@@ -6,6 +6,7 @@ import com.aitserver.community.repository.*;
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import com.nimbusds.jose.jwk.ThumbprintURI;
+import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.JPAExpressions;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 
 import static com.aitserver.user.entity.QUser.user;
 import static com.aitserver.community.entity.QPost.post;
+import static com.aitserver.community.entity.QPostTag.postTag;
 
 @Service
 @RequiredArgsConstructor
@@ -48,8 +50,7 @@ public class PostSearchService {
                 .join(post.user, user).fetchJoin() // 작성자 닉네임 한 번에 조인
                 .where(
                         categoryEq(condition.getCategory()),
-                        keywordContains(condition.getKeyword()),
-                        tagEq(condition.getTag())
+                        buildSearchCondition(condition.getKeyword(), condition.getTag())
                 )
                 .orderBy(createOrderSpecifier(condition.getSortType()))
                 .offset(pageable.getOffset())
@@ -61,8 +62,7 @@ public class PostSearchService {
                 .from(post)
                 .where(
                         categoryEq(condition.getCategory()),
-                        keywordContains(condition.getKeyword()),
-                        tagEq(condition.getTag())
+                        buildSearchCondition(condition.getKeyword(), condition.getTag())
                 );
 
         Page<Post> postPage = PageableExecutionUtils.getPage(posts, pageable, countQuery::fetchOne);
@@ -126,7 +126,7 @@ public class PostSearchService {
      * 게시글 상세 조회
      */
     @Transactional
-    public PostDto.Response getPostDetail(Long postId) {
+    public PostDto.Response getPostDetail(Long postId, Long userId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
@@ -135,7 +135,19 @@ public class PostSearchService {
         List<PostFile> files = postFileRepository.findByPostId(postId);
         List<PostTag> postTags = postTagRepository.findByPostId(postId);
 
-        return new PostDto.Response(post, files, postTags);
+        boolean isLiked = false;
+        boolean isScrapped = false;
+
+        if (userId != null) { // 로그인한 유저인 경우에만 DB 조회
+            isLiked = postLikeScrapRepository.existsByPostIdAndUserIdAndType(
+                    postId, userId, PostLikeScrap.ActionType.LIKE
+            );
+            isScrapped = postLikeScrapRepository.existsByPostIdAndUserIdAndType(
+                    postId, userId, PostLikeScrap.ActionType.SCRAP
+            );
+        }
+
+        return new PostDto.Response(post, files, postTags, isLiked, isScrapped);
     }
 
     // --- 동적 쿼리용 private 메서드 ---
@@ -147,29 +159,28 @@ public class PostSearchService {
         return post.category.eq(category);
     }
 
-    private BooleanExpression keywordContains(String keyword) {
-        if (!StringUtils.hasText(keyword)) {
-            return null;
-        }
-        return post.title.containsIgnoreCase(keyword).or(post.content.containsIgnoreCase(keyword));
-    }
+    private BooleanBuilder buildSearchCondition(String keyword, String tag) {
+        BooleanBuilder builder = new BooleanBuilder();
 
-    private BooleanExpression tagEq(String tagName) {
-        if (!StringUtils.hasText(tagName)) {
-            return null;
+        // 1. keyword가 있는 경우 (제목+내용 부분 일치)
+        if (StringUtils.hasText(keyword)) {
+            builder.or(post.title.containsIgnoreCase(keyword)
+                    .or(post.content.containsIgnoreCase(keyword)));
         }
 
-        QPostTag postTag = QPostTag.postTag;
-        QTag tag = QTag.tag;
+        // 2. tag가 있는 경우 (태그 완전 일치)
+        if (StringUtils.hasText(tag)) {
+            builder.or(post.id.in(
+                    JPAExpressions
+                            .select(postTag.post.id)
+                            .from(postTag)
+                            .join(postTag.tag, QTag.tag)
+                            .where(QTag.tag.name.eq(tag))
+            ));
+        }
 
-        // "해당 이름(tagName)을 가진 태그가 연결된 게시글 ID 목록"을 찾아서 IN 절로 필터링
-        return post.id.in(
-                JPAExpressions
-                        .select(postTag.post.id)
-                        .from(postTag)
-                        .join(postTag.tag, tag)
-                        .where(tag.name.eq(tagName))
-        );
+        // 조건이 하나라도 들어갔으면 builder 반환, 둘 다 빈 값이면 null 반환(전체조회)
+        return builder.hasValue() ? builder : null;
     }
 
     private OrderSpecifier<?>[] createOrderSpecifier(String sortType) {

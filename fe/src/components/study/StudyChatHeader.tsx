@@ -130,11 +130,11 @@ export function StudyChatHeader({
                       />
                     ) : null}
                     <AvatarFallback className="border-0 bg-profile-avatar text-caption font-semibold text-action-primary">
-                      {member.name.trim().charAt(0) || '?'}
+                      {member.nickname.trim().charAt(0) || '?'}
                     </AvatarFallback>
                   </Avatar>
                   <span className="min-w-0 flex-1 truncate text-body-2 text-text-primary">
-                    {member.name}
+                    {member.nickname}
                   </span>
                   {member.owner ? (
                     <span className="rounded-ait-pill bg-status-neutral-surface px-2 py-0.5 text-caption text-text-secondary">

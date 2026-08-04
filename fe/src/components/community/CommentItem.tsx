@@ -15,6 +15,7 @@ const REPLY_PREVIEW_THRESHOLD = 5
 interface CommentItemProps {
   comment: CommunityComment
   currentUserId: number | null
+  canReply: boolean
   isHighlighted: boolean
   highlightedReplyId: string | null
   onSubmitReply: (commentId: string, content: string) => Promise<void>
@@ -27,6 +28,7 @@ interface CommentItemProps {
 export function CommentItem({
   comment,
   currentUserId,
+  canReply,
   isHighlighted,
   highlightedReplyId,
   onSubmitReply,
@@ -112,7 +114,7 @@ export function CommentItem({
               {isThreadOpen ? '답글 접기' : `답글 ${replyCount}개`}
             </button>
           ) : null}
-          {!comment.deleted ? (
+          {canReply && !comment.deleted ? (
             <button
               type="button"
               onClick={() => setReplyOpen((open) => !open)}
@@ -144,7 +146,7 @@ export function CommentItem({
 
       {/* 답글 쓰기 입력창 — 슬라이드 다운으로 열리고 @닉네임이 채워진다. */}
       <AnimatePresence initial={false}>
-        {isReplyOpen ? (
+        {canReply && isReplyOpen ? (
           <motion.div
             variants={collapseSection}
             initial="collapsed"

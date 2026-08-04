@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
@@ -189,6 +190,17 @@ export function StudyGroupChatPanel({
       void client.deactivate()
     }
   }, [currentUserId, groupId, onIncomingMessage])
+
+  // 새로고침·그룹 진입 후 이력이 처음 그려질 때 최신 메시지가 바로 보이게 한다.
+  useLayoutEffect(() => {
+    if (isLoadingHistory) return
+
+    const messageList = messageListRef.current
+    messageList?.scrollTo({
+      top: messageList.scrollHeight,
+      behavior: 'auto',
+    })
+  }, [groupId, isLoadingHistory])
 
   useEffect(() => {
     messageListRef.current?.scrollTo({

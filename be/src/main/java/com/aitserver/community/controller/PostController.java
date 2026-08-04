@@ -47,9 +47,10 @@ public class PostController {
     @GetMapping("/{postId}")
     public ResponseEntity<ApiResponse<PostDto.Response>> getPostDetail(
             @PathVariable("postId") Long postId,
+            @AuthenticationPrincipal Long userId,
             HttpServletRequest request) {
 
-        PostDto.Response response = postSearchService.getPostDetail(postId);
+        PostDto.Response response = postSearchService.getPostDetail(postId, userId);
 
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "게시글 상세 조회 성공", response, request));
     }

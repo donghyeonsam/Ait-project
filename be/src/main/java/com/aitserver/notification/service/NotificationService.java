@@ -25,7 +25,7 @@ public class NotificationService {
     public NotificationResponse.ScrollResponse getNotifications(Long userId, Pageable pageable) {
 
         Slice<Notification> notificationSlice = notificationRepository
-                .findByUserIdOrderByCreatedAtDesc(userId, pageable);
+                .findByUserIdAndDeletedAtIsNullOrderByIsCheckedAscCreatedAtDesc(userId, pageable);
 
         List<NotificationResponse> notificationList = notificationSlice.getContent().stream()
                 .map(NotificationResponse::from)
@@ -58,6 +58,12 @@ public class NotificationService {
     @Transactional
     public void deleteAllNotifications(Long userId) {
         notificationRepository.softDeleteAllByUserId(userId, LocalDateTime.now());
+    }
+
+    // 읽지 않은 알림 개수 확인
+    public NotificationResponse.UnreadCount getUnreadCount(Long userId) {
+        long count = notificationRepository.countByUserIdAndIsCheckedFalseAndDeletedAtIsNull(userId);
+        return new NotificationResponse.UnreadCount(count);
     }
 
     // --- 공통 검증 로직 ---
