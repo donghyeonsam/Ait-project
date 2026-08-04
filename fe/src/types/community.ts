@@ -4,6 +4,11 @@ export type CommunityCategory = 'review' | 'qna' | 'tip' | 'study'
 
 export type CommunityTab = 'recommend' | 'popular' | 'latest'
 
+export interface CommunitySearchTargets {
+  titleContent: boolean
+  tags: boolean
+}
+
 export type CommunityPostFileType = 'IMAGE' | 'PDF' | 'OTHER'
 
 export type CommunityPostFileUsageType = 'INLINE' | 'ATTACHMENT'

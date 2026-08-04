@@ -1,43 +1,40 @@
-import { ChevronDown, UserRoundPlus, UsersRound, X } from 'lucide-react'
-import type {
-  MyStudyGroup,
-  StudyGroupMemberInfo,
-} from '@/api/study-groups'
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from '@/components/ui/avatar'
+import { ChevronDown, Eye, GripHorizontal, UsersRound, X } from 'lucide-react'
+import type { MyStudyGroup } from '@/api/study-groups'
 import { DialogClose } from '@/components/ui/dialog'
 
 interface StudyChatHeaderProps {
   group: MyStudyGroup | null
-  members: StudyGroupMemberInfo[]
   isLoadingGroup: boolean
   isConnected: boolean
   isGroupSwitcherOpen: boolean
-  isMemberListOpen: boolean
   groupSwitcherId: string
   groupTriggerRef: React.RefObject<HTMLButtonElement | null>
+  opacityPercent: number
   onToggleGroupSwitcher: () => void
-  onToggleMemberList: () => void
+  onOpacityChange: (opacityPercent: number) => void
 }
 
-// 현재 그룹과 연결 상태를 요약하고 그룹 전환·멤버·닫기 동작을 제공한다.
+// 현재 그룹과 연결 상태를 요약하고 그룹 전환·닫기 동작을 제공한다.
 export function StudyChatHeader({
   group,
-  members,
   isLoadingGroup,
   isConnected,
   isGroupSwitcherOpen,
-  isMemberListOpen,
   groupSwitcherId,
   groupTriggerRef,
+  opacityPercent,
   onToggleGroupSwitcher,
-  onToggleMemberList,
+  onOpacityChange,
 }: StudyChatHeaderProps) {
   return (
-    <header className="relative flex h-[5.25rem] shrink-0 items-center justify-between gap-3 border-b border-border-default px-4 sm:px-6">
+    <header
+      data-study-chat-drag-handle
+      className="relative flex h-[5.25rem] shrink-0 cursor-move select-none items-center justify-between gap-3 border-b border-border-default px-4 sm:px-6"
+    >
+      <GripHorizontal
+        className="pointer-events-none absolute left-1/2 top-1 size-5 -translate-x-1/2 text-text-secondary/55"
+        aria-hidden="true"
+      />
       <button
         ref={groupTriggerRef}
         type="button"
@@ -83,74 +80,36 @@ export function StudyChatHeader({
         </span>
       </button>
 
-      <div className="flex shrink-0 items-center gap-1.5">
-        <button
-          type="button"
-          onClick={onToggleMemberList}
-          disabled={!group}
-          aria-expanded={isMemberListOpen}
-          aria-controls="study-chat-member-list"
-          className="inline-flex h-10 items-center gap-2 rounded-ait-s border border-border-default bg-surface-default px-3 text-body-2 font-semibold text-action-primary transition-colors hover:bg-status-neutral-surface focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25 disabled:opacity-50"
+      <div className="flex shrink-0 items-center gap-2">
+        <label
+          className="flex items-center gap-1.5 text-text-secondary"
+          title={`모달 투명도 ${opacityPercent}%`}
         >
-          <UserRoundPlus className="size-5" aria-hidden="true" />
-          <span className="hidden min-[24rem]:inline">멤버</span>
-        </button>
+          <Eye className="hidden size-4 min-[28rem]:block" aria-hidden="true" />
+          <span className="sr-only">모달 투명도</span>
+          <input
+            type="range"
+            min="40"
+            max="100"
+            step="5"
+            value={opacityPercent}
+            onChange={(event) => onOpacityChange(Number(event.target.value))}
+            aria-label="모달 투명도"
+            aria-valuetext={`${opacityPercent}%`}
+            className="h-1.5 w-16 cursor-pointer accent-action-primary min-[28rem]:w-24"
+          />
+        </label>
+
         <DialogClose asChild>
           <button
             type="button"
-            className="flex size-10 items-center justify-center rounded-ait-s text-text-secondary transition-colors hover:bg-status-neutral-surface hover:text-action-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25"
+            className="flex size-10 shrink-0 items-center justify-center rounded-ait-s text-text-secondary transition-colors hover:bg-status-neutral-surface hover:text-action-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25"
             aria-label="그룹톡 닫기"
           >
             <X className="size-6" aria-hidden="true" />
           </button>
         </DialogClose>
       </div>
-
-      {isMemberListOpen ? (
-        <div
-          id="study-chat-member-list"
-          className="study-chat-popover absolute right-14 top-[4.65rem] z-(--z-index-dropdown) w-[min(18rem,calc(100vw-2rem))] rounded-ait-l border border-border-default bg-surface-default p-2 shadow-elevation-3"
-        >
-          <p className="px-3 pb-2 pt-2 text-body-2 font-semibold text-action-primary">
-            그룹 멤버 <span className="text-text-secondary">{members.length}</span>
-          </p>
-          <div className="max-h-72 overflow-y-auto">
-            {members.length > 0 ? (
-              members.map((member) => (
-                <div
-                  key={member.userId}
-                  className="flex items-center gap-3 rounded-ait-s px-3 py-2"
-                >
-                  <Avatar className="size-9 border border-border-default bg-profile-avatar">
-                    {member.profileImageUrl ? (
-                      <AvatarImage
-                        src={member.profileImageUrl}
-                        alt=""
-                        className="object-cover"
-                      />
-                    ) : null}
-                    <AvatarFallback className="border-0 bg-profile-avatar text-caption font-semibold text-action-primary">
-                      {member.nickname.trim().charAt(0) || '?'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="min-w-0 flex-1 truncate text-body-2 text-text-primary">
-                    {member.nickname}
-                  </span>
-                  {member.owner ? (
-                    <span className="rounded-ait-pill bg-status-neutral-surface px-2 py-0.5 text-caption text-text-secondary">
-                      방장
-                    </span>
-                  ) : null}
-                </div>
-              ))
-            ) : (
-              <p className="px-3 py-5 text-center text-caption text-text-secondary">
-                멤버 정보를 불러오는 중입니다.
-              </p>
-            )}
-          </div>
-        </div>
-      ) : null}
     </header>
   )
 }

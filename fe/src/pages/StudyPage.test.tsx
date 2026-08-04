@@ -16,9 +16,11 @@ import {
 } from '@/api/study-groups'
 import {
   connectStudyGroupChat,
+  connectStudyGroupChatMulti,
   getStudyGroupChats,
   sendStudyGroupChatMessage,
 } from '@/api/study-group-chat'
+import { StudyChatProvider } from '@/app/StudyChatProvider'
 
 vi.mock('@/api/auth', () => ({
   logout: vi.fn(),
@@ -36,6 +38,7 @@ vi.mock('@/api/study-groups', () => ({
 vi.mock('@/api/study-group-chat', () => ({
   getStudyGroupChats: vi.fn(),
   connectStudyGroupChat: vi.fn(),
+  connectStudyGroupChatMulti: vi.fn(),
   sendStudyGroupChatMessage: vi.fn(),
 }))
 
@@ -111,10 +114,13 @@ function toPage(content: StudyGroupListItem[]): StudyGroupPage {
   }
 }
 
+// 그룹톡 진입 버튼과 모달이 전역 프로바이더로 옮겨져 실제 앱과 같은 구성으로 감싼다.
 function renderStudyPage() {
   return render(
     <MemoryRouter initialEntries={['/study']}>
-      <StudyPage />
+      <StudyChatProvider>
+        <StudyPage />
+      </StudyChatProvider>
     </MemoryRouter>,
   )
 }
@@ -125,6 +131,8 @@ describe('StudyPage', () => {
   })
 
   beforeEach(() => {
+    // 첫 방문 기준점 기록이 테스트 간에 누적되지 않게 한다.
+    localStorage.clear()
     vi.mocked(getStudyGroups).mockResolvedValue(toPage(studyGroups))
     vi.mocked(getMyStudyGroups).mockResolvedValue(myStudyGroups)
     vi.mocked(applyToStudyGroup).mockResolvedValue(undefined)
@@ -159,6 +167,10 @@ describe('StudyPage', () => {
         } as unknown as ReturnType<typeof connectStudyGroupChat>
       },
     )
+    vi.mocked(connectStudyGroupChatMulti).mockReturnValue({
+      connected: true,
+      deactivate: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ReturnType<typeof connectStudyGroupChatMulti>)
   })
 
   it('서버에서 받은 스터디 목록에 검색과 더보기를 반영한다', async () => {
@@ -367,6 +379,79 @@ describe('StudyPage', () => {
     expect(
       within(chatDialog).getByText('자료 확인했습니다.'),
     ).toBeInTheDocument()
+  })
+
+  it('그룹톡 작성 도구를 오른쪽에 배치하고 투명도와 드래그 이동을 지원한다', async () => {
+    const user = userEvent.setup()
+    renderStudyPage()
+    await screen.findAllByRole('article', { name: /상세 정보$/ })
+
+    await user.click(screen.getByRole('button', { name: '그룹톡 열기' }))
+    const chatDialog = screen.getByRole('dialog')
+    const messageInput = await within(chatDialog).findByRole('textbox', {
+      name: '메시지 입력',
+    })
+    const emojiButton = within(chatDialog).getByRole('button', {
+      name: '이모지 추가',
+    })
+    const emoticonButton = within(chatDialog).getByRole('button', {
+      name: '이모티콘 추가',
+    })
+
+    expect(
+      within(chatDialog).queryByRole('button', { name: '파일 첨부' }),
+    ).not.toBeInTheDocument()
+    expect(
+      within(chatDialog).queryByText('Enter 전송 · Shift+Enter 줄바꿈'),
+    ).not.toBeInTheDocument()
+    expect(
+      messageInput.compareDocumentPosition(emojiButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      messageInput.compareDocumentPosition(emoticonButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    await user.click(emoticonButton)
+    const emoticonPicker = within(chatDialog).getByRole('dialog', {
+      name: '메시지 이모티콘 선택',
+    })
+    await user.click(
+      within(emoticonPicker).getByRole('button', {
+        name: '인사 이모티콘 전송',
+      }),
+    )
+    expect(sendStudyGroupChatMessage).toHaveBeenCalledWith(
+      expect.anything(),
+      myStudyGroups[0].id,
+      '[emoticon:01_인사]',
+    )
+
+    const opacitySlider = within(chatDialog).getByRole('slider', {
+      name: '모달 투명도',
+    })
+    fireEvent.change(opacitySlider, { target: { value: '65' } })
+    expect(
+      chatDialog.querySelector('[data-study-chat-surface]'),
+    ).toHaveStyle({ opacity: '0.65' })
+
+    const dragHandle = within(chatDialog).getByRole('banner')
+    fireEvent.pointerDown(dragHandle, {
+      pointerId: 1,
+      button: 0,
+      clientX: 100,
+      clientY: 100,
+    })
+    fireEvent.pointerMove(dragHandle, {
+      pointerId: 1,
+      clientX: 140,
+      clientY: 130,
+    })
+    fireEvent.pointerUp(dragHandle, { pointerId: 1 })
+    expect(chatDialog).toHaveStyle({
+      transform: 'translate3d(40px, 30px, 0)',
+    })
   })
 
   it('플로팅 그룹톡에 그룹 페이지와 같은 공지 문구를 표시한다', async () => {

@@ -7,7 +7,6 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
-import { DepthCard } from '@/components/reactbits/DepthCard'
 import { LANDING_ASSET_ROOT } from '@/components/landing/landing.data'
 
 const waveformBars = [
@@ -58,7 +57,7 @@ export function InterviewPreview() {
         aria-hidden="true"
       />
 
-      <DepthCard className="landing-preview">
+      <div className="landing-preview">
         <div className="landing-preview__topbar">
           <div>
             <span className="landing-preview__brand">AI 모의면접</span>
@@ -170,7 +169,7 @@ export function InterviewPreview() {
             </div>
           </div>
         </div>
-      </DepthCard>
+      </div>
     </div>
   )
 }

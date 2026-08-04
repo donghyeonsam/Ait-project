@@ -19,6 +19,13 @@ export function formatPostDate(iso: string): string {
   return `${date.getFullYear()}. ${pad(date.getMonth() + 1)}. ${pad(date.getDate())}`
 }
 
+// 2026. 07. 28 10:04:05 형태로 초까지 포함한 작성 시각 표기.
+export function formatDateTime(iso: string): string {
+  const date = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${formatPostDate(iso)} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
 // n분 전 / n시간 전 / n일 전 상대 시각 표기. 하루가 넘으면 날짜로 보여준다.
 export function formatRelativeTime(iso: string, now: Date = new Date()): string {
   const diffMs = now.getTime() - new Date(iso).getTime()

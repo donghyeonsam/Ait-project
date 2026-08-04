@@ -1,5 +1,10 @@
 import { Pin, UsersRound } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toErrorMessage } from '@/api/http'
 import {
@@ -15,7 +20,6 @@ import {
   getMyActiveStudyGroups,
   getStudyGroupDetail,
   type MyStudyGroup,
-  type StudyGroupDetail,
 } from '@/api/study-groups'
 import { StudyChatComposer } from '@/components/study/StudyChatComposer'
 import {
@@ -31,7 +35,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
+import { markStudyChatRead } from '@/lib/study-chat-read-state'
+import type { StudyChatReplyTarget } from '@/lib/study-chat-reply'
 import { useAuth } from '@/lib/useAuth'
+import { useStudyChat } from '@/lib/useStudyChat'
 import type { Client } from '@stomp/stompjs'
 
 interface StudyChatModalProps {
@@ -39,13 +46,27 @@ interface StudyChatModalProps {
   onOpenChange: (open: boolean) => void
 }
 
-type HeaderPopover = 'groups' | 'members' | null
+interface ChatPosition {
+  x: number
+  y: number
+}
+
+interface ChatDragState {
+  pointerId: number
+  startPointerX: number
+  startPointerY: number
+  startPosition: ChatPosition
+  startRect: DOMRect
+}
+
+const minimumVisibleChatEdge = 72
 
 // 참여 중인 그룹을 전환하며 실제 공지와 실시간 메시지를 주고받는 플로팅 그룹톡 Dialog다.
 export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const currentUserId = user?.userId ?? null
+  const { unreadByGroup, markAllRead } = useStudyChat()
 
   const [groups, setGroups] = useState<MyStudyGroup[]>([])
   const [isLoadingGroups, setIsLoadingGroups] = useState(false)
@@ -53,20 +74,25 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null)
   const [groupPreviews, setGroupPreviews] = useState<StudyChatPreviewMap>({})
 
-  const [selectedGroupDetail, setSelectedGroupDetail] =
-    useState<StudyGroupDetail | null>(null)
   const [messages, setMessages] = useState<StudyGroupChatMessage[]>([])
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [messagesError, setMessagesError] = useState<string | null>(null)
   const [notice, setNotice] = useState('')
   const [isConnected, setIsConnected] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
-  const [headerPopover, setHeaderPopover] = useState<HeaderPopover>(null)
+  const [isGroupSwitcherOpen, setIsGroupSwitcherOpen] = useState(false)
+  const [replyTarget, setReplyTarget] = useState<StudyChatReplyTarget | null>(
+    null,
+  )
+  const [opacityPercent, setOpacityPercent] = useState(100)
+  const [chatPosition, setChatPosition] = useState<ChatPosition>({ x: 0, y: 0 })
 
   const clientRef = useRef<Client | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
   const headerAreaRef = useRef<HTMLDivElement>(null)
   const groupTriggerRef = useRef<HTMLButtonElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
+  const dragStateRef = useRef<ChatDragState | null>(null)
   const selectedGroup =
     groups.find((group) => group.id === selectedGroupId) ?? null
 
@@ -83,10 +109,10 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
         if (cancelled) return
         setMessages([])
         setNotice('')
-        setSelectedGroupDetail(null)
         setIsLoadingMessages(myGroups.length > 0)
         setMessagesError(null)
         setConnectError(null)
+        setReplyTarget(null)
         setGroupPreviews(
           Object.fromEntries(myGroups.map((group) => [group.id, undefined])),
         )
@@ -154,6 +180,12 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
           ...current,
           [selectedGroupId]: result.chats[0] ?? null,
         }))
+        // 보고 있는 그룹은 불러온 최신 메시지까지 읽음으로 기록한다.
+        // TODO: 실제 API 연동 필요 - 읽음 상태는 현재 이 기기 localStorage에만 기록하며 서버 읽음 API가 생기면 대체한다.
+        const latestChatId = result.chats[0]?.chatId
+        if (currentUserId !== null && latestChatId !== undefined) {
+          markStudyChatRead(currentUserId, selectedGroupId, latestChatId)
+        }
       })
       .catch((error: unknown) => {
         if (!cancelled) setMessagesError(toErrorMessage(error))
@@ -165,7 +197,6 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
     getStudyGroupDetail(selectedGroupId)
       .then((detail) => {
         if (cancelled) return
-        setSelectedGroupDetail(detail)
         setNotice(detail.notice ?? '')
       })
       .catch(() => {})
@@ -173,7 +204,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
     return () => {
       cancelled = true
     }
-  }, [open, selectedGroupId])
+  }, [currentUserId, open, selectedGroupId])
 
   // 선택한 그룹의 실시간 메시지·공지·반응 연결을 열고 그룹 전환 시 이전 연결을 정리한다.
   useEffect(() => {
@@ -190,6 +221,10 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
           ...current,
           [incoming.groupId]: incoming,
         }))
+        // 보고 있는 그룹의 실시간 수신은 즉시 읽음으로 기록한다.
+        if (currentUserId !== null && incoming.groupId === selectedGroupId) {
+          markStudyChatRead(currentUserId, selectedGroupId, incoming.chatId)
+        }
       },
       onNotice: (payload) => setNotice(payload.notice ?? ''),
       onReaction: (payload) => {
@@ -225,17 +260,17 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
   }, [currentUserId, open, selectedGroupId])
 
   useEffect(() => {
-    if (!open || headerPopover === null) return
+    if (!open || !isGroupSwitcherOpen) return
 
     const closeOnOutsidePointer = (event: PointerEvent) => {
       if (!headerAreaRef.current?.contains(event.target as Node)) {
-        setHeaderPopover(null)
+        setIsGroupSwitcherOpen(false)
       }
     }
     document.addEventListener('pointerdown', closeOnOutsidePointer)
     return () =>
       document.removeEventListener('pointerdown', closeOnOutsidePointer)
-  }, [headerPopover, open])
+  }, [isGroupSwitcherOpen, open])
 
   const sendMessage = (content: string) => {
     if (selectedGroupId === null || !clientRef.current?.connected) return false
@@ -278,32 +313,98 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
   }
 
   const selectGroup = (groupId: number) => {
-    setHeaderPopover(null)
+    setIsGroupSwitcherOpen(false)
     if (groupId === selectedGroupId) return
-    // TODO: 실제 API 연동 필요 - 백엔드에 그룹별 읽음 처리 API가 추가되면 전환 시 호출한다.
     setMessages([])
     setNotice('')
-    setSelectedGroupDetail(null)
     setIsLoadingMessages(true)
     setMessagesError(null)
     setConnectError(null)
+    setReplyTarget(null)
     setSelectedGroupId(groupId)
   }
 
   const findNewGroup = () => {
-    setHeaderPopover(null)
+    setIsGroupSwitcherOpen(false)
     onOpenChange(false)
     navigate('/study')
+  }
+
+  const startDragging = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const target = event.target
+    if (
+      event.button !== 0 ||
+      !(target instanceof Element) ||
+      !target.closest('[data-study-chat-drag-handle]') ||
+      target.closest('button, input, textarea, select, a, [role="button"]')
+    ) {
+      return
+    }
+
+    const dialog = dialogRef.current
+    if (!dialog) return
+
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      startPointerX: event.clientX,
+      startPointerY: event.clientY,
+      startPosition: chatPosition,
+      startRect: dialog.getBoundingClientRect(),
+    }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    event.preventDefault()
+  }
+
+  const moveWhileDragging = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const dragState = dragStateRef.current
+    if (!dragState || dragState.pointerId !== event.pointerId) return
+
+    const deltaX = event.clientX - dragState.startPointerX
+    const deltaY = event.clientY - dragState.startPointerY
+    let nextX = dragState.startPosition.x + deltaX
+    let nextY = dragState.startPosition.y + deltaY
+
+    // 모달을 옮긴 뒤에도 헤더를 다시 잡을 수 있도록 최소 영역은 화면 안에 남긴다.
+    if (dragState.startRect.width > 0 && dragState.startRect.height > 0) {
+      const unclampedLeft = dragState.startRect.left + deltaX
+      const unclampedTop = dragState.startRect.top + deltaY
+      const left = Math.min(
+        Math.max(
+          unclampedLeft,
+          minimumVisibleChatEdge - dragState.startRect.width,
+        ),
+        window.innerWidth - minimumVisibleChatEdge,
+      )
+      const top = Math.min(
+        Math.max(unclampedTop, 0),
+        window.innerHeight - minimumVisibleChatEdge,
+      )
+      nextX = dragState.startPosition.x + left - dragState.startRect.left
+      nextY = dragState.startPosition.y + top - dragState.startRect.top
+    }
+
+    setChatPosition({ x: nextX, y: nextY })
+  }
+
+  const stopDragging = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (dragStateRef.current?.pointerId !== event.pointerId) return
+    dragStateRef.current = null
+    event.currentTarget.releasePointerCapture?.(event.pointerId)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        ref={dialogRef}
         id="study-chat-dialog"
         centered={false}
         showCloseButton={false}
         overlayClassName="study-chat-overlay"
-        className="study-chat-dialog flex min-h-0 flex-col overflow-hidden border border-border-default bg-surface-default p-0"
+        className="study-chat-dialog flex min-h-0 flex-col overflow-hidden border border-border-default bg-transparent p-0"
+        style={{
+          backgroundColor: 'transparent',
+          transform: `translate3d(${chatPosition.x}px, ${chatPosition.y}px, 0)`,
+        }}
         onOpenAutoFocus={(event) => {
           event.preventDefault()
           previousFocusRef.current = document.activeElement as HTMLElement | null
@@ -314,52 +415,58 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
           previousFocusRef.current?.focus()
         }}
         onEscapeKeyDown={(event) => {
-          if (headerPopover !== null) {
+          if (isGroupSwitcherOpen) {
             event.preventDefault()
-            setHeaderPopover(null)
+            setIsGroupSwitcherOpen(false)
           }
         }}
       >
-        <DialogTitle className="sr-only">그룹톡</DialogTitle>
-        <DialogDescription className="sr-only">
-          참여 중인 스터디 그룹을 전환하고 공지와 메시지를 확인합니다.
-        </DialogDescription>
+        <div
+          data-study-chat-surface
+          className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-default transition-opacity"
+          style={{ opacity: opacityPercent / 100 }}
+        >
+          <DialogTitle className="sr-only">그룹톡</DialogTitle>
+          <DialogDescription className="sr-only">
+            참여 중인 스터디 그룹을 전환하고 공지와 메시지를 확인합니다.
+          </DialogDescription>
 
-        <div ref={headerAreaRef} className="relative shrink-0">
+        <div
+          ref={headerAreaRef}
+          className="relative shrink-0"
+          onPointerDown={startDragging}
+          onPointerMove={moveWhileDragging}
+          onPointerUp={stopDragging}
+          onPointerCancel={stopDragging}
+        >
           <StudyChatHeader
             group={selectedGroup}
-            members={selectedGroupDetail?.members ?? []}
             isLoadingGroup={isLoadingGroups}
             isConnected={isConnected}
-            isGroupSwitcherOpen={headerPopover === 'groups'}
-            isMemberListOpen={headerPopover === 'members'}
+            isGroupSwitcherOpen={isGroupSwitcherOpen}
             groupSwitcherId="study-chat-group-switcher"
             groupTriggerRef={groupTriggerRef}
+            opacityPercent={opacityPercent}
             onToggleGroupSwitcher={() =>
-              setHeaderPopover((current) =>
-                current === 'groups' ? null : 'groups',
-              )
+              setIsGroupSwitcherOpen((current) => !current)
             }
-            onToggleMemberList={() =>
-              setHeaderPopover((current) =>
-                current === 'members' ? null : 'members',
-              )
-            }
+            onOpacityChange={setOpacityPercent}
           />
 
-          {headerPopover === 'groups' ? (
+          {isGroupSwitcherOpen ? (
             <StudyChatGroupSwitcher
               id="study-chat-group-switcher"
               groups={groups}
               selectedGroupId={selectedGroupId}
               previews={groupPreviews}
+              unreadCounts={unreadByGroup}
               onSelect={selectGroup}
               onFindGroup={findNewGroup}
               onClose={() => {
-                setHeaderPopover(null)
+                setIsGroupSwitcherOpen(false)
                 groupTriggerRef.current?.focus()
               }}
-              // TODO: 실제 API 연동 필요 - 백엔드에 읽음 상태와 모두 읽음 API가 아직 없다.
+              onMarkAllRead={markAllRead}
             />
           ) : null}
         </div>
@@ -414,6 +521,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
             isLoading={isLoadingMessages}
             error={messagesError}
             onToggleReaction={toggleReaction}
+            onReply={setReplyTarget}
           />
         )}
 
@@ -422,7 +530,10 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
           isConnected={isConnected}
           connectError={connectError}
           onSend={sendMessage}
+          replyTarget={replyTarget}
+          onCancelReply={() => setReplyTarget(null)}
         />
+        </div>
       </DialogContent>
     </Dialog>
   )

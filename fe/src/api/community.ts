@@ -1,4 +1,9 @@
-import { ApiError, backendRequest, getBackendAssetUrl } from '@/api/http'
+import {
+  ApiError,
+  backendRequest,
+  fetchBackendAssetBlob,
+  getBackendAssetUrl,
+} from '@/api/http'
 import { CATEGORY_META } from '@/lib/community-categories'
 import { COMMUNITY_SEARCH_SUGGESTIONS } from '@/lib/community-suggestions'
 import type {
@@ -10,6 +15,7 @@ import type {
   CommunityPostFileType,
   CommunityPostFileUsageType,
   CommunityReply,
+  CommunitySearchTargets,
   CommunityTab,
   TrendingKeyword,
 } from '@/types/community'
@@ -60,9 +66,15 @@ interface PostFileResponse {
   usageType: CommunityPostFileUsageType
 }
 
-// 서버는 업로드된 파일을 저장 파일명으로만 내려주므로 화면에서 쓸 이미지 URL로 조립한다.
-const toPostImageUrl = (storedFilename: string) =>
-  getBackendAssetUrl(`/images/${encodeURIComponent(storedFilename)}`)
+// boards/ 같은 폴더 구분자는 유지하고 각 경로 조각만 인코딩해 서버 리소스 경로와 맞춘다.
+const toPostFileUrl = (storedFilename: string) => {
+  const encodedPath = storedFilename
+    .replace(/\\/g, '/')
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/')
+  return getBackendAssetUrl(`/images/${encodedPath}`)
+}
 
 const toPostFile = ({
   id,
@@ -76,7 +88,7 @@ const toPostFile = ({
   storedFilename,
   fileType,
   usageType,
-  url: toPostImageUrl(storedFilename),
+  url: toPostFileUrl(storedFilename),
 })
 
 // 서버가 요약을 길이 기준으로 잘라 태그 중간이 끊길 수 있어, 완성 태그와 잘린 꼬리 태그를 모두 제거한다.
@@ -104,7 +116,7 @@ const toPostSummary = (item: PostListItemResponse): CommunityPost => ({
   likeCount: item.likeCount,
   liked: item.liked ?? false,
   bookmarked: item.bookmarked ?? false,
-  thumbnail: item.thumbnailUrl ? toPostImageUrl(item.thumbnailUrl) : null,
+  thumbnail: item.thumbnailUrl ? toPostFileUrl(item.thumbnailUrl) : null,
 })
 
 export interface FetchPostsParams {
@@ -113,6 +125,7 @@ export interface FetchPostsParams {
   offset: number
   limit: number
   query?: string
+  searchTargets?: CommunitySearchTargets
 }
 
 export interface FetchPostsResult {
@@ -122,11 +135,39 @@ export interface FetchPostsResult {
 
 export type MyPostActivity = 'written' | 'scrapped' | 'liked'
 
-const MY_POST_ACTIVITY_QUERY: Record<MyPostActivity, string> = {
-  written: 'WRITTEN',
-  scrapped: 'SCRAPPED',
-  liked: 'LIKED',
+// 마이페이지 활동 조회 전용 엔드포인트 응답. 목록 API(/api/posts)와 달리 작성자·태그·
+// 댓글수·좋아요/저장 여부·썸네일·작성일이 없다 — 나의 활동 탭 카드가 쓰지 않는 값들이라 비워 채운다.
+interface MyPagePostItemResponse {
+  id: number
+  category: string
+  title: string
+  content: string
+  likeCount: number
+  viewCount: number
 }
+
+const MY_ACTIVITY_PATH: Record<MyPostActivity, string> = {
+  written: '/api/users/me/post',
+  scrapped: '/api/users/me/post/scrap',
+  liked: '/api/users/me/post/like',
+}
+
+const toMyActivityPost = (item: MyPagePostItemResponse): CommunityPost => ({
+  id: String(item.id),
+  category: toCategoryValue(item.category),
+  title: item.title,
+  excerpt: htmlToExcerpt(item.content ?? ''),
+  contentHtml: '',
+  author: '',
+  createdAt: '',
+  tags: [],
+  viewCount: item.viewCount,
+  commentCount: 0,
+  likeCount: item.likeCount,
+  liked: false,
+  bookmarked: false,
+  thumbnail: null,
+})
 
 const toFetchPostsResult = (
   page: SpringPage<PostListItemResponse>,
@@ -141,10 +182,21 @@ export async function fetchPosts({
   offset,
   limit,
   query,
+  searchTargets,
 }: FetchPostsParams): Promise<FetchPostsResult> {
   const searchParams = new URLSearchParams()
-  if (query?.trim()) {
-    searchParams.set('keyword', query.trim())
+  const keyword = query?.trim()
+  const targets = searchTargets ?? { titleContent: true, tags: false }
+
+  // 검색 범위를 모두 해제한 상태에서 백엔드가 전체 목록을 반환하지 않도록 빈 결과로 처리한다.
+  if (keyword && !targets.titleContent && !targets.tags) {
+    return { items: [], hasMore: false }
+  }
+  if (keyword && targets.titleContent) {
+    searchParams.set('keyword', keyword)
+  }
+  if (keyword && targets.tags) {
+    searchParams.set('tag', keyword)
   }
   if (category !== 'all') {
     searchParams.set('category', CATEGORY_META[category].label)
@@ -166,15 +218,16 @@ export async function fetchMyActivityPosts(
   limit = 10,
 ): Promise<FetchPostsResult> {
   const searchParams = new URLSearchParams({
-    activityType: MY_POST_ACTIVITY_QUERY[activity],
-    sortType: 'LATEST',
     page: '0',
     size: String(limit),
   })
-  const page = await backendRequest<SpringPage<PostListItemResponse>>(
-    `/api/posts?${searchParams}`,
+  const page = await backendRequest<SpringPage<MyPagePostItemResponse>>(
+    `${MY_ACTIVITY_PATH[activity]}?${searchParams}`,
   )
-  return toFetchPostsResult(page)
+  return {
+    items: page.content.map(toMyActivityPost),
+    hasMore: !page.last,
+  }
 }
 
 // 백엔드 게시글 상세 응답 중 화면이 쓰는 필드만 취한다.
@@ -192,6 +245,8 @@ interface PostDetailResponse {
   tags: string[] | null
   files: PostFileResponse[] | null
   createdAt: string
+  liked: boolean
+  scrapped: boolean
 }
 
 export async function fetchPost(postId: string): Promise<CommunityPost | null> {
@@ -214,10 +269,10 @@ export async function fetchPost(postId: string): Promise<CommunityPost | null> {
     tags: data.tags ?? [],
     viewCount: data.viewCount,
     likeCount: data.likeCount,
-    // 상세 응답에는 댓글 수와 좋아요·저장 여부가 없어 기본값을 쓴다. TODO: 백엔드 보완 후 연동 필요
+    // 상세 응답에는 댓글 수가 없어 기본값을 쓴다. TODO: 백엔드 보완 후 연동 필요
     commentCount: 0,
-    liked: false,
-    bookmarked: false,
+    liked: data.liked ?? false,
+    bookmarked: data.scrapped ?? false,
     files: (data.files ?? []).map(toPostFile),
     thumbnail: data.thumbnail ?? null,
     allowComments: data.allowComments ?? true,
@@ -240,6 +295,11 @@ interface CommentResponse {
   replies: CommentResponse[] | null
 }
 
+interface CommentScrollResponse {
+  comments: CommentResponse[]
+  hasNext: boolean
+}
+
 const toReply = (item: CommentResponse): CommunityReply => ({
   id: String(item.id),
   authorId: item.userId,
@@ -259,10 +319,10 @@ const toComment = (item: CommentResponse): CommunityComment => ({
 export async function fetchComments(
   postId: string,
 ): Promise<CommunityComment[]> {
-  const comments = await backendRequest<CommentResponse[]>(
+  const response = await backendRequest<CommentScrollResponse>(
     `/api/posts/${postId}/comments`,
   )
-  return comments.map(toComment)
+  return response.comments.map(toComment)
 }
 
 // 작성된 댓글의 id를 문자열로 돌려준다. parentId를 주면 해당 원댓글의 답글로 등록된다.
@@ -336,7 +396,7 @@ const toUploadedPostFile = (
   storedFilename,
   fileType: inferPostFileType(file),
   usageType,
-  url: getBackendAssetUrl(`/images/${encodeURIComponent(storedFilename)}`),
+  url: toPostFileUrl(storedFilename),
 })
 
 export async function uploadPostFile(
@@ -372,6 +432,23 @@ export async function uploadPostFiles(
   return files.map((file, index) =>
     toUploadedPostFile(file, storedFilenames[index], usageType),
   )
+}
+
+// 보호된 첨부파일을 인증 요청으로 받은 뒤 원본 파일명으로 내려받는다.
+export async function downloadPostFile(file: CommunityPostFile): Promise<void> {
+  const blob = await fetchBackendAssetBlob(file.url)
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = file.originalFilename
+  link.hidden = true
+  document.body.append(link)
+  try {
+    link.click()
+  } finally {
+    link.remove()
+    URL.revokeObjectURL(objectUrl)
+  }
 }
 
 // 대표 사진(thumbnail)은 아직 대응하는 백엔드 필드가 없어 서버에 저장되지 않는다.

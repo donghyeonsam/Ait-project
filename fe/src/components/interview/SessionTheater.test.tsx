@@ -59,15 +59,26 @@ describe('SessionTheater recording controls', () => {
     const media = container.querySelector('.interviewer-media')
     const selfView = screen.getByTestId('session-self-view')
     const header = container.querySelector('.session-theater-header')
-    const side = container.querySelector('.session-theater-side')
+    const primaryRow = container.querySelector<HTMLElement>(
+      '.session-theater-primary-row',
+    )
     const bottom = container.querySelector('.session-theater-bottom')
+    const glassCard = container.querySelector<HTMLElement>(
+      '.session-theater-glass-card',
+    )
+    const controls = container.querySelector<HTMLElement>(
+      '.session-theater-controls-row',
+    )
 
     expect(media).toHaveClass('interviewer-media')
     expect(selfView).toHaveClass('session-theater-self-view')
-    expect(side).toContainElement(selfView)
-    expect(screen.getByRole('heading', { name: '실시간 답변' })).toBeVisible()
+    expect(primaryRow).toContainElement(selfView)
+    expect(primaryRow).toContainElement(controls)
+    expect(glassCard).not.toContainElement(controls)
+    expect(screen.queryByRole('heading', { name: '실시간 답변' })).toBeNull()
     expect(header).toHaveClass('session-theater-header')
     expect(bottom).toHaveClass('session-theater-bottom')
+    expect(bottom).toHaveAttribute('data-answer-state', 'idle')
 
     rerender(
       <SessionTheater
@@ -77,8 +88,11 @@ describe('SessionTheater recording controls', () => {
       />,
     )
     expect(screen.getByRole('timer')).toBeVisible()
+    expect(screen.getByRole('heading', { name: '실시간 답변' })).toBeVisible()
     expect(
-      screen.getByText('STT 기능으로 실시간 답변을 기록 중입니다.'),
+      screen.getByText(
+        '실시간 답변 기록 중 · 시간이 끝나면 자동 종료됩니다.',
+      ),
     ).toBeVisible()
     expect(screen.getByRole('button', { name: '질문 다시 듣기' })).toBeVisible()
   })

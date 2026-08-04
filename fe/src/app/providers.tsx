@@ -2,6 +2,7 @@ import { MotionConfig } from 'framer-motion'
 import type { ReactNode } from 'react'
 import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from '@/app/AuthProvider'
+import { StudyChatProvider } from '@/app/StudyChatProvider'
 
 interface AppProvidersProps {
   children: ReactNode
@@ -13,7 +14,9 @@ export function AppProviders({ children }: AppProvidersProps) {
   return (
     <BrowserRouter>
       <MotionConfig reducedMotion="user">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <StudyChatProvider>{children}</StudyChatProvider>
+        </AuthProvider>
       </MotionConfig>
     </BrowserRouter>
   )

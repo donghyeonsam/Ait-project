@@ -60,6 +60,7 @@ import { Dropdown } from '@/components/ui/dropdown'
 import { toDeviceOptions, type DeviceOption } from '@/components/interview/useMediaDevices'
 import type { StudyParticipant } from '@/mocks/study'
 import { getMyCoverLetters, type CoverLetterListItem } from '@/api/cover-letters'
+import { generatePeerSummaries } from '@/api/peer-feedback'
 import {
   createStudySessionConnection,
   endStudySession,
@@ -905,6 +906,9 @@ function StudySessionRoomStage({
     setLeaveError(null)
     try {
       await endStudySession(connection.sessionId)
+      // 세션 종료 시점에 한 번만 AI 요약 생성을 미리 트리거해, 이후 결과 모달을 여는 사람마다
+      // 새로 기다리지 않게 한다. 실패해도 모달 쪽 재시도 로직이 안전망이라 나가기는 막지 않는다.
+      void generatePeerSummaries(connection.sessionId).catch(() => {})
       setLeaveDialogOpen(false)
       onLeave()
     } catch (error) {
