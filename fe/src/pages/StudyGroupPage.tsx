@@ -155,7 +155,7 @@ export function StudyGroupPage() {
 
   if (!isValidGroupId) {
     return (
-      <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8">
+      <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8 [zoom:0.9]">
         <div className="flex flex-col items-center gap-4 py-24 text-center">
           <p className="text-body-1 text-status-error" role="alert">
             올바르지 않은 스터디 그룹입니다.
@@ -170,7 +170,7 @@ export function StudyGroupPage() {
 
   if (isLoading) {
     return (
-      <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8">
+      <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8 [zoom:0.9]">
         <p className="py-24 text-center text-body-1 text-text-secondary" role="status">
           스터디 그룹 정보를 불러오고 있어요...
         </p>
@@ -180,7 +180,7 @@ export function StudyGroupPage() {
 
   if (loadError || !detail) {
     return (
-      <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8">
+      <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8 [zoom:0.9]">
         <div className="flex flex-col items-center gap-4 py-24 text-center">
           <p className="text-body-1 text-status-error" role="alert">
             {loadError ?? '스터디 그룹을 찾을 수 없습니다.'}
@@ -196,9 +196,7 @@ export function StudyGroupPage() {
   const isLeader = currentUserId !== null && detail.ownerId === currentUserId
   const leaderNickname =
     detail.members.find((member) => member.owner)?.nickname ?? '알 수 없음'
-  const leaderCandidates = members.filter(
-    (member) => !member.isSelf && member.role !== '초대 대기',
-  )
+  const leaderCandidates = members.filter((member) => !member.isSelf)
 
   const changeRecruiting = async (nextIsRecruiting: boolean) => {
     const previous = isRecruiting
@@ -222,20 +220,6 @@ export function StudyGroupPage() {
     navigate(`/study/groups/${groupId}/session/prejoin`)
   }
 
-  const inviteMember = (nickname: string) => {
-    if (members.length >= detail.capacity) return
-    // TODO: 실제 API 연동 필요 — 초대 엔드포인트가 없어 화면에서만 대기 항목을 추가한다.
-    setMembers((currentMembers) => [
-      ...currentMembers,
-      {
-        id: Date.now(),
-        nickname,
-        role: '초대 대기',
-        isSelf: false,
-      },
-    ])
-  }
-
   const dropMemberFromView = (memberId: number) => {
     setMembers((currentMembers) =>
       currentMembers.filter((member) => member.id !== memberId),
@@ -256,15 +240,6 @@ export function StudyGroupPage() {
   const confirmMemberRemoval = async () => {
     if (!memberToRemove) return
     const target = memberToRemove
-
-    // 초대 대기는 초대 API가 없어 화면에만 존재하는 항목이라 서버에 요청할 대상이 없다.
-    if (target.role === '초대 대기') {
-      setMembers((currentMembers) =>
-        currentMembers.filter((member) => member.id !== target.id),
-      )
-      setMemberToRemove(null)
-      return
-    }
 
     setIsRemovingMember(true)
     setMemberRemovalError(null)
@@ -309,9 +284,7 @@ export function StudyGroupPage() {
   // 위임이 성공하면 상세를 다시 조회하지 않고 방장 정보와 구성원 역할을 화면에서 함께 갱신한다.
   const transferLeadership = async (memberId: number) => {
     const nextLeader = members.find((member) => member.id === memberId)
-    if (!nextLeader || nextLeader.isSelf || nextLeader.role === '초대 대기') {
-      return
-    }
+    if (!nextLeader || nextLeader.isSelf) return
 
     await delegateStudyGroupLeader(groupId, memberId)
     setMembers((currentMembers) =>
@@ -338,7 +311,8 @@ export function StudyGroupPage() {
   }
 
   return (
-    <PageLayout contentClassName="relative isolate max-w-dashboard px-4 sm:px-8">
+    // zoom 0.9로 페이지 전체를 90% 크기로 보여 한 화면에 더 많은 내용이 들어오게 한다.
+    <PageLayout contentClassName="relative isolate max-w-dashboard px-4 sm:px-8 [zoom:0.9]">
       <section className="py-8" aria-labelledby="study-group-title">
         <Link
           to="/study"
@@ -458,7 +432,6 @@ export function StudyGroupPage() {
               )
               if (selectedMember) setMemberToRemove(selectedMember)
             }}
-            onInviteMember={inviteMember}
           />
           <StudyGroupChatPanel
             groupId={groupId}
