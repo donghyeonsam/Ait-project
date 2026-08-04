@@ -1,5 +1,6 @@
 package com.aitserver.studyGroupRoom.repository;
 
+import com.aitserver.studyGroupRoom.domain.StudyGroupMemberStatus;
 import com.aitserver.studyGroupRoom.entity.StudyGroupCalendar;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -31,4 +32,35 @@ public interface StudyGroupCalendarRepository extends JpaRepository<StudyGroupCa
             @Param("startOfDay") LocalDateTime startOfDay,
             @Param("startOfNextDay") LocalDateTime startOfNextDay
     );
+
+
+    @Query("""
+            SELECT calendar
+            FROM StudyGroupCalendar calendar
+            JOIN FETCH calendar.studyGroup studyGroup
+            WHERE calendar.deletedAt IS NULL
+              AND studyGroup.deletedAt IS NULL
+              AND calendar.startTime >= :startAt
+              AND calendar.startTime < :endAt
+              AND (
+                    studyGroup.owner.id = :userId
+                    OR EXISTS (
+                        SELECT member.id
+                        FROM StudyGroupMember member
+                        WHERE member.studyGroup.id = studyGroup.id
+                          AND member.user.id = :userId
+                          AND member.status = :memberStatus
+                          AND member.deletedAt IS NULL
+                    )
+              )
+            ORDER BY calendar.startTime ASC
+            """)
+    List<StudyGroupCalendar> findMyCalendarsBetween(
+            @Param("userId") Long userId,
+            @Param("memberStatus")
+            StudyGroupMemberStatus memberStatus,
+            @Param("startAt") LocalDateTime startAt,
+            @Param("endAt") LocalDateTime endAt
+    );
+
 }

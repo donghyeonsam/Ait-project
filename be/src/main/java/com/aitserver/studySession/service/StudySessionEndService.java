@@ -6,10 +6,12 @@ import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.global.livekit.LiveKitRoomClient;
 import com.aitserver.studySession.entity.StudySession;
 import com.aitserver.studySession.entity.StudySessionParticipant;
+import com.aitserver.studySession.event.StudySessionEndedEvent;
 import com.aitserver.studySession.repository.StudySessionParticipantRepository;
 import com.aitserver.studySession.repository.StudySessionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,8 @@ public class StudySessionEndService {
     private final LiveKitRoomClient
             liveKitRoomClient;
 
+    private final ApplicationEventPublisher eventPublisher;
+
     @Transactional
     public void endSession(
             Long sessionId,
@@ -39,8 +43,7 @@ public class StudySessionEndService {
                         .findForEnd(sessionId)
                         .orElseThrow(() ->
                                 new BusinessException(
-                                        ErrorCode
-                                                .STUDY_SESSION_NOT_FOUND
+                                        ErrorCode.STUDY_SESSION_NOT_FOUND
                                 )
                         );
 
@@ -49,32 +52,28 @@ public class StudySessionEndService {
                 requesterUserId
         );
 
-        /*
-         * 이미 DB상 ENDED이더라도 LiveKit 방이 남아 있을 수 있으므로
-         * 방 삭제는 한 번 더 시도합니다.
-         *
-         * deleteRoomIfExists가 방 없음 상태를 정상 처리하므로
-         * API를 멱등적으로 사용할 수 있습니다.
-         */
         boolean roomDeleted =
-                liveKitRoomClient
-                        .deleteRoomIfExists(
-                                studySession
-                                        .getLiveKitRoomName()
-                        );
+                liveKitRoomClient.deleteRoomIfExists(
+                        studySession.getLiveKitRoomName()
+                );
 
+        /*
+         * 처음 종료되는 경우에만
+         * 참가자 상태 변경과 AI 요약 생성 이벤트를 실행
+         */
         if (!studySession.isEnded()) {
             studySession.end();
 
             List<StudySessionParticipant> participants =
                     participantRepository
-                            .findAllByStudySessionId(
-                                    sessionId
-                            );
+                            .findAllByStudySessionId(sessionId);
 
             participants.forEach(
-                    StudySessionParticipant
-                            ::leaveBySessionEnd
+                    StudySessionParticipant::leaveBySessionEnd
+            );
+
+            eventPublisher.publishEvent(
+                    new StudySessionEndedEvent(sessionId)
             );
         }
 
@@ -87,6 +86,65 @@ public class StudySessionEndService {
                 roomDeleted
         );
     }
+
+//    @Transactional
+//    public void endSession(
+//            Long sessionId,
+//            Long requesterUserId
+//    ) {
+//        StudySession studySession =
+//                studySessionRepository
+//                        .findForEnd(sessionId)
+//                        .orElseThrow(() ->
+//                                new BusinessException(
+//                                        ErrorCode
+//                                                .STUDY_SESSION_NOT_FOUND
+//                                )
+//                        );
+//
+//        validateHost(
+//                studySession,
+//                requesterUserId
+//        );
+//
+//        /*
+//         * 이미 DB상 ENDED이더라도 LiveKit 방이 남아 있을 수 있으므로
+//         * 방 삭제는 한 번 더 시도합니다.
+//         *
+//         * deleteRoomIfExists가 방 없음 상태를 정상 처리하므로
+//         * API를 멱등적으로 사용할 수 있습니다.
+//         */
+//        boolean roomDeleted =
+//                liveKitRoomClient
+//                        .deleteRoomIfExists(
+//                                studySession
+//                                        .getLiveKitRoomName()
+//                        );
+//
+//        if (!studySession.isEnded()) {
+//            studySession.end();
+//
+//            List<StudySessionParticipant> participants =
+//                    participantRepository
+//                            .findAllByStudySessionId(
+//                                    sessionId
+//                            );
+//
+//            participants.forEach(
+//                    StudySessionParticipant
+//                            ::leaveBySessionEnd
+//            );
+//        }
+//
+//        log.info(
+//                "화상 스터디 세션 종료 완료: "
+//                        + "sessionId={}, requesterUserId={}, "
+//                        + "roomDeleted={}",
+//                sessionId,
+//                requesterUserId,
+//                roomDeleted
+//        );
+//    }
 
     private void validateHost(
             StudySession studySession,
