@@ -93,18 +93,30 @@ function RadarChart({ axes, active }: { axes: RadarAxis[]; active: boolean }) {
         {axes.map((axis, index) => {
           const [x, y] = polarPoint(index, 111, axes.length).split(',').map(Number)
           return (
-            <text
-              key={axis.label}
-              x={x}
-              y={y}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fill="var(--color-text-secondary)"
-              fontSize="13"
-              className={cn('radar-label', active && 'is-visible')}
-            >
-              {axis.label}
-            </text>
+            <g key={axis.label} className={cn('radar-label', active && 'is-visible')}>
+              <text
+                x={x}
+                y={y}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill="var(--color-text-secondary)"
+                fontSize="13"
+              >
+                {axis.label}
+              </text>
+              <text
+                x={x}
+                y={y + 15}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill="var(--color-text-primary)"
+                fontSize="12"
+                fontWeight="600"
+                style={{ fontVariantNumeric: 'tabular-nums' }}
+              >
+                {axis.score.toFixed(1)}
+              </text>
+            </g>
           )
         })}
       </svg>
