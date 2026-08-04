@@ -53,6 +53,23 @@ export function createPeerFeedback(sessionId: number, request: PeerFeedbackCreat
   })
 }
 
+export interface PeerFeedbackUpdateRequest {
+  logicalScore: number
+  communicationScore: number
+  attitudeScore: number
+  jobCompetencyScore: number
+  confidenceScore: number
+  feedback: string
+}
+
+// 이미 제출한 평가 내용을 수정한다. 본인이 작성한 평가만 수정할 수 있다.
+export function updatePeerFeedback(peerFeedbackId: number, request: PeerFeedbackUpdateRequest) {
+  return backendRequest<PeerFeedback>(`/api/peer-feedback/${peerFeedbackId}/update`, {
+    method: 'PATCH',
+    body: JSON.stringify(request),
+  })
+}
+
 export interface PeerFeedbackSessionSummary {
   sessionId: number
   /** TODO: 실제 API 연동 필요 — 백엔드 응답에 아직 없는 필드라 그룹 필터·비교는 sessionTitle(그룹명)로 대체한다. */
