@@ -9,13 +9,13 @@ import {
   getNotificationRoute,
   markAllNotificationsAsRead,
   markNotificationAsRead,
-  subscribeNotifications,
 } from '@/api/notifications'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatRelativeTime } from '@/lib/format'
 import { dropdownPanel, filterSlide } from '@/lib/motion'
+import { addNotificationListener } from '@/lib/notification-stream'
 import { cn } from '@/lib/utils'
 import type { NotificationCategory, NotificationItem } from '@/types/notification'
 
@@ -76,13 +76,11 @@ export function NotificationBell() {
 
   // SSE로 새 알림을 실시간 수신해 목록 맨 앞에 붙인다. 새로고침 재조회와 겹칠 수 있어 id로 중복을 거른다.
   useEffect(() => {
-    const controller = new AbortController()
-    void subscribeNotifications((item) => {
+    return addNotificationListener((item) => {
       setNotifications((prev) =>
         prev.some((n) => n.id === item.id) ? prev : [item, ...prev],
       )
-    }, controller.signal)
-    return () => controller.abort()
+    })
   }, [])
 
   // 스크롤이 바닥에 닿으면 다음 페이지를 이어 붙인다. 실패는 조용히 넘기고 다음 스크롤에서 다시 시도한다.
