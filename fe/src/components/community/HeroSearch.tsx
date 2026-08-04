@@ -4,20 +4,29 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { fetchSearchSuggestions } from '@/api/community'
 import { dropdownPanel } from '@/lib/motion'
 import { cn } from '@/lib/utils'
+import type { CommunitySearchTargets } from '@/types/community'
 
 interface HeroSearchProps {
   value: string
+  searchTargets: CommunitySearchTargets
   onSearch: (query: string) => void
+  onSearchTargetsChange: (targets: CommunitySearchTargets) => void
 }
 
 // 히어로 검색 입력. 2자 이상 입력하면 자동완성을 보여주고 ↑↓/Enter/Esc로 조작한다.
-export function HeroSearch({ value, onSearch }: HeroSearchProps) {
+export function HeroSearch({
+  value,
+  searchTargets,
+  onSearch,
+  onSearchTargetsChange,
+}: HeroSearchProps) {
   const [input, setInput] = useState(value)
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [isOpen, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const rootRef = useRef<HTMLDivElement>(null)
   const listboxId = useId()
+  const allTargetsSelected = searchTargets.titleContent && searchTargets.tags
 
   // 인기 태그 클릭 등 바깥에서 검색어가 바뀌면 입력값을 동기화한다(렌더 중 파생 상태 보정).
   const [lastExternalValue, setLastExternalValue] = useState(value)
@@ -124,6 +133,52 @@ export function HeroSearch({ value, onSearch }: HeroSearchProps) {
           className="w-full border-0 bg-transparent text-body-2 text-ink-900 outline-none placeholder:text-ink-400 focus-visible:outline-none [&::-webkit-search-cancel-button]:hidden"
         />
       </div>
+
+      <fieldset className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 px-2 text-caption text-ink-600">
+        <legend className="sr-only">검색 범위</legend>
+        <label className="flex cursor-pointer items-center gap-2 font-medium text-ink-700">
+          <input
+            type="checkbox"
+            checked={allTargetsSelected}
+            onChange={(event) =>
+              onSearchTargetsChange({
+                titleContent: event.currentTarget.checked,
+                tags: event.currentTarget.checked,
+              })
+            }
+            className="size-4 accent-action-primary"
+          />
+          전체
+        </label>
+        <label className="flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            checked={searchTargets.titleContent}
+            onChange={(event) =>
+              onSearchTargetsChange({
+                ...searchTargets,
+                titleContent: event.currentTarget.checked,
+              })
+            }
+            className="size-4 accent-action-primary"
+          />
+          제목+내용
+        </label>
+        <label className="flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            checked={searchTargets.tags}
+            onChange={(event) =>
+              onSearchTargetsChange({
+                ...searchTargets,
+                tags: event.currentTarget.checked,
+              })
+            }
+            className="size-4 accent-action-primary"
+          />
+          태그
+        </label>
+      </fieldset>
 
       <AnimatePresence>
         {isOpen ? (
