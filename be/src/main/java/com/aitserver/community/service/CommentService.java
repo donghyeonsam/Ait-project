@@ -67,19 +67,19 @@ public class CommentService {
 
         PostComment savedComment = commentRepository.save(comment);
 
-        if(post.getReceiveNotifications() && !post.getUser().getId().equals(userId)) {
-            eventPublisher.publishEvent(new NotificationEvent(
-                    post.getUser().getId(),
-                    NotificationType.COMMENT,
-                    post.getId(),
-                    "[" + post.getTitle() + "] 게시글에 새로운 댓글이 달렸습니다."
-            ));
-        }
-
-        if (parent != null) {
+        if (parent == null) {
+            if (post.getReceiveNotifications() && !post.getUser().getId().equals(userId)) {
+                eventPublisher.publishEvent(new NotificationEvent(
+                        post.getUser().getId(),
+                        NotificationType.COMMENT,
+                        post.getId(),
+                        "[" + post.getTitle() + "] 게시글에 새로운 댓글이 달렸습니다."
+                ));
+            }
+        } else {
             Long parentAuthorId = parent.getUser().getId();
 
-            if (!parentAuthorId.equals(userId) && !parentAuthorId.equals(post.getUser().getId())) {
+            if (!parentAuthorId.equals(userId)) {
                 eventPublisher.publishEvent(new NotificationEvent(
                         parentAuthorId,
                         NotificationType.REPLY,
