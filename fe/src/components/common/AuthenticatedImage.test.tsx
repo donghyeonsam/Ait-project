@@ -58,11 +58,14 @@ describe('authenticated community images', () => {
       />,
     )
 
-    const image = screen.getByRole('img', { name: '본문 이미지' })
+    // Blob URL이 반영되면 본문 HTML이 통째로 교체되므로 이미지 요소를 다시 조회한다.
     await waitFor(() => {
-      expect(image).toHaveAttribute('src', 'blob:authenticated-image')
+      expect(screen.getByRole('img', { name: '본문 이미지' })).toHaveAttribute(
+        'src',
+        'blob:authenticated-image',
+      )
     })
-    expect(image).toHaveAttribute(
+    expect(screen.getByRole('img', { name: '본문 이미지' })).toHaveAttribute(
       'data-authenticated-image-src',
       '/backend/images/stored-image.png',
     )
