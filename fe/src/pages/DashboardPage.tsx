@@ -142,6 +142,17 @@ export function DashboardPage() {
       .slice(0, UPCOMING_CALENDAR_COUNT)
   }, [summary])
 
+  // 가장 가까운 일정까지 남은 일수. 오늘 시작하는 일정이면 0이다.
+  const nextStudyDday = useMemo(() => {
+    const next = upcomingCalendars[0]
+    if (!next) return null
+    const start = new Date(next.startTime)
+    start.setHours(0, 0, 0, 0)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return Math.round((start.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
+  }, [upcomingCalendars])
+
   const metrics = [
     {
       label: '이번 주 모의면접',
@@ -171,6 +182,22 @@ export function DashboardPage() {
       icon: ClipboardList,
       value: summary ? String(summary.studyCount) : null,
       caption: '평가를 받은 스터디 세션 기준',
+    },
+    {
+      label: '다음 스터디 일정',
+      unit: '',
+      icon: CalendarDays,
+      value:
+        summary === null
+          ? null
+          : nextStudyDday === null
+            ? '—'
+            : nextStudyDday === 0
+              ? 'D-Day'
+              : `D-${nextStudyDday}`,
+      caption: upcomingCalendars[0]
+        ? `${formatCalendarTime(upcomingCalendars[0].startTime)} · ${upcomingCalendars[0].groupTitle}`
+        : '등록된 일정이 없습니다.',
     },
   ]
 
@@ -216,7 +243,7 @@ export function DashboardPage() {
         ) : (
           <>
             <section
-              className="study-reveal is-visible dashboard-stats grid grid-cols-3 gap-4"
+              className="study-reveal is-visible dashboard-stats grid grid-cols-4 gap-4"
               style={{ '--reveal-order': 1 } as React.CSSProperties}
               aria-label="활동 요약"
             >
@@ -233,12 +260,12 @@ export function DashboardPage() {
                       ) : (
                         <p className="mt-1 flex items-baseline gap-1">
                           <strong className="tabular-nums text-h2">{value}</strong>
-                          <span className="text-caption">{unit}</span>
+                          {unit ? <span className="text-caption">{unit}</span> : null}
                         </p>
                       )}
                     </div>
                   </div>
-                  <p className="mt-4 text-caption text-text-secondary">{caption}</p>
+                  <p className="mt-4 truncate text-caption text-text-secondary">{caption}</p>
                 </article>
               ))}
             </section>
