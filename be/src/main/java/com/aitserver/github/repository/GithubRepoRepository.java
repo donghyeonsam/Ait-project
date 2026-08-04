@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface GithubRepoRepository extends JpaRepository<GithubRepo, Long> {
     // 깃허브 앱(연동 정보) PK로 저장된 레포지토리 목록을 불러오는 메서드
@@ -20,4 +21,11 @@ public interface GithubRepoRepository extends JpaRepository<GithubRepo, Long> {
     List<GithubRepo> findAllByGithubApp_IdOrderByIdAsc(Long githubAppId);
 
     List<GithubRepo> findAllByIdInAndGithubApp_Id(Collection<Long> ids, Long githubAppId);
+
+    // 추가: 여러 App(조직)의 ID들로 속한 모든 레포지토리 조회
+    List<GithubRepo> findByGithubAppIdIn(List<Long> appIds);
+    List<GithubRepo> findAllByGithubApp_IdInOrderByIdAsc(List<Long> appIds);
+
+    // 추가: 마이페이지 수정 시 여러 App에 속한 특정 레포지토리들 조회
+    List<GithubRepo> findAllByIdInAndGithubApp_IdIn(Set<Long> repoIds, List<Long> appIds);
 }
