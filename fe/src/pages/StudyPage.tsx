@@ -63,8 +63,7 @@ function matchesRecruitmentFilter(
 ) {
   if (filter === 'all') return true
   if (filter === 'recruiting') return groupStatus === 'RECRUITING'
-  if (filter === 'active') return groupStatus === 'ACTIVE'
-  return groupStatus === 'CLOSED'
+  return groupStatus === 'ACTIVE'
 }
 
 // 스터디 탐색부터 신청, 그룹 대화까지 라운지 UI 흐름을 조합한다.
