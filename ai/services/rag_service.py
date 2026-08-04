@@ -288,10 +288,9 @@ def retrieve_context(
 # 보장하는 실질적인 매핑 테이블이다.
 #
 # ⚠️ 매핑 판단 노트 (팀 확인 필요):
-#  - SECURITY(보안): 현재 시드 데이터(cs_knowledge.json)에 보안 관련 category가 전혀 없다.
-#    즉 사용자가 "보안"을 고르면 CS 지식 검색 결과가 항상 0건이며, 질문 생성은 전적으로
-#    LLM의 일반 지식(prompts/templates.py 안내 문구: "문서가 부족하면 일반 질문으로 채우세요")
-#    에 의존한다. 추후 보안 카테고리 시드 데이터 보강이 필요하다.
+#  - SECURITY(보안): 행정안전부 소프트웨어 개발보안 가이드(2021.12.29) 제4장 49개 보안약점
+#    항목(개요+보안대책)과 기존 SQL Injection/HTTP&HTTPS/TLS HandShake/대칭키&공개키 4건의
+#    복제분을 합쳐 총 53건을 Security > Web/Auth/Crypto/System 4개 category로 시드했다.
 #  - OPERATING_SYSTEM 에 "Computer Science > Computer Architecture"(컴퓨터 구조)를 함께
 #    묶었다 — 사용자가 고른 9개 카테고리에 별도의 "컴퓨터 구조" 항목이 없어서 커리큘럼상
 #    가장 가까운 운영체제 카테고리에 포함시킨 임의 판단이다.
@@ -317,13 +316,20 @@ CS_CATEGORY_RAW_MAP: dict[CSCategory, list[str]] = {
     CSCategory.DATABASE: [
         "Computer Science > Database",
     ],
-    CSCategory.SECURITY: [],  # 시드 데이터 없음 (위 노트 참고)
+    CSCategory.SECURITY: [
+        "Security > Web",
+        "Security > Auth",
+        "Security > Crypto",
+        "Security > System",
+    ],
     CSCategory.SOFTWARE_ENGINEERING: [
         "Computer Science > Software Engineering",
         "Design Pattern",
     ],
     CSCategory.AI: [
         "New Technology > AI",
+        "AI > Machine Learning",
+        "AI > Deep Learning",
     ],
     CSCategory.LANGUAGE_FRAMEWORK: [
         "Web > DevOps",

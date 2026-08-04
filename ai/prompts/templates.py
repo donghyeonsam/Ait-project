@@ -26,8 +26,8 @@ INTERVIEW_TYPE_GUIDE: dict[InterviewType, str] = {
 }
 
 DIFFICULTY_GUIDE: dict[Difficulty, str] = {
-    Difficulty.EASY: "난이도는 낮게 - 기본 개념과 경험을 확인하는 수준.",
-    Difficulty.NORMAL: "난이도는 보통 - 실무 적용과 이유를 묻는 수준.",
+    Difficulty.EASY: "난이도는 낮게 - 기본적인 큰 틀의 개념과, 그 개념을 활용한 경험을 확인하는 수준.",
+    Difficulty.NORMAL: "난이도는 보통 - 개념의 세부적인 내용과 그 내용을 토대로 실무 적용과 이유를 묻는 수준.",
     Difficulty.HARD: "난이도는 높게 - 심화 원리, 트레이드오프, 엣지케이스를 파고드는 수준.",
 }
 
