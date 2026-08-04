@@ -157,10 +157,6 @@ export function StudyGroupPage() {
     loadApplicantCount()
   }, [loadApplicantCount])
 
-  const handleIncomingChatMessage = useCallback(() => {
-    setUnreadChatCount((count) => count + 1)
-  }, [])
-
   const handleChatOpenChange = (open: boolean) => {
     setIsChatOpen(open)
     setUnreadChatCount(0)
@@ -478,7 +474,6 @@ export function StudyGroupPage() {
             currentUserId={currentUserId}
             isOwner={isLeader}
             initialNotice={detail.notice}
-            onIncomingMessage={handleIncomingChatMessage}
           />
         </div>
 
