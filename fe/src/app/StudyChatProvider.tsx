@@ -58,13 +58,23 @@ export function StudyChatProvider({ children }: StudyChatProviderProps) {
     setRefreshTick((tick) => tick + 1)
   }, [])
 
-  // 활동 중인 그룹 목록과 그룹별 최근 이력으로 안읽음 집합을 계산하고 STOMP 구독 대상 그룹을 반환한다.
-  const loadUnreadState = useCallback(
-    async (targetUserId: number) => {
+  // 초기 계산 후 전 그룹 메시지 토픽을 한 연결로 구독해 어느 화면에서든 배지를 실시간 갱신한다.
+  // 로그아웃 시 상태를 직접 리셋하지 않고 아래 파생값에서 userId 부재로 감춘다 (effect 내 동기 setState 회피).
+  useEffect(() => {
+    if (userId === null) {
+      unreadSetsRef.current = new Map()
+      return
+    }
+
+    let cancelled = false
+    let client: Client | null = null
+
+    // 활동 중인 그룹 목록과 그룹별 최근 이력으로 안읽음 집합을 계산한 뒤 실시간 구독을 연다.
+    const loadUnreadState = async () => {
       lastLoadedAtRef.current = Date.now()
       const groups = await getMyActiveStudyGroups()
       const groupIds = groups.map((group) => group.id)
-      const lastReadMap = readLastReadMap(targetUserId)
+      const lastReadMap = readLastReadMap(userId)
 
       const results = await Promise.all(
         groupIds.map(async (groupId) => {
@@ -77,6 +87,7 @@ export function StudyChatProvider({ children }: StudyChatProviderProps) {
           }
         }),
       )
+      if (cancelled) return
 
       const nextSets = new Map<number, Set<number>>()
       results.forEach(({ groupId, chats }) => {
@@ -86,7 +97,7 @@ export function StudyChatProvider({ children }: StudyChatProviderProps) {
         if (lastReadChatId === undefined) {
           const latestChatId = chats[0]?.chatId
           if (latestChatId !== undefined) {
-            markStudyChatRead(targetUserId, groupId, latestChatId)
+            markStudyChatRead(userId, groupId, latestChatId)
           }
           nextSets.set(groupId, new Set())
           return
@@ -96,58 +107,41 @@ export function StudyChatProvider({ children }: StudyChatProviderProps) {
         const unreadChatIds = chats
           .filter(
             (chat) =>
-              chat.chatId > lastReadChatId && chat.senderId !== targetUserId,
+              chat.chatId > lastReadChatId && chat.senderId !== userId,
           )
           .map((chat) => chat.chatId)
         nextSets.set(groupId, new Set(unreadChatIds))
       })
 
       unreadSetsRef.current = nextSets
-      pruneStudyChatReadState(targetUserId, new Set(groupIds))
+      pruneStudyChatReadState(userId, new Set(groupIds))
       recomputeCounts()
-      return groupIds
-    },
-    [recomputeCounts],
-  )
 
-  // 초기 계산 후 전 그룹 메시지 토픽을 한 연결로 구독해 어느 화면에서든 배지를 실시간 갱신한다.
-  useEffect(() => {
-    if (userId === null) {
-      unreadSetsRef.current = new Map()
-      setUnreadByGroup(null)
-      return
+      if (groupIds.length === 0) return
+      client = connectStudyGroupChatMulti(groupIds, {
+        onMessage: (incoming) => {
+          if (incoming.senderId === userId) return
+          const lastReadChatId = readLastReadMap(userId)[incoming.groupId] ?? 0
+          if (incoming.chatId <= lastReadChatId) return
+
+          const chatIds =
+            unreadSetsRef.current.get(incoming.groupId) ?? new Set<number>()
+          chatIds.add(incoming.chatId)
+          unreadSetsRef.current.set(incoming.groupId, chatIds)
+          recomputeCounts()
+        },
+      })
     }
 
-    let cancelled = false
-    let client: Client | null = null
-
-    loadUnreadState(userId)
-      .then((groupIds) => {
-        if (cancelled || groupIds.length === 0) return
-        client = connectStudyGroupChatMulti(groupIds, {
-          onMessage: (incoming) => {
-            if (incoming.senderId === userId) return
-            const lastReadChatId =
-              readLastReadMap(userId)[incoming.groupId] ?? 0
-            if (incoming.chatId <= lastReadChatId) return
-
-            const chatIds =
-              unreadSetsRef.current.get(incoming.groupId) ?? new Set<number>()
-            chatIds.add(incoming.chatId)
-            unreadSetsRef.current.set(incoming.groupId, chatIds)
-            recomputeCounts()
-          },
-        })
-      })
-      .catch(() => {
-        // 목록 조회 실패 시 배지를 숨긴 채 두고 다음 재계산 트리거에서 다시 시도한다.
-      })
+    loadUnreadState().catch(() => {
+      // 목록 조회 실패 시 배지를 숨긴 채 두고 다음 재계산 트리거에서 다시 시도한다.
+    })
 
     return () => {
       cancelled = true
       if (client) void client.deactivate()
     }
-  }, [userId, refreshTick, loadUnreadState, recomputeCounts])
+  }, [userId, refreshTick, recomputeCounts])
 
   // 모달·인라인 패널 어디서든 읽음 기록이 갱신되면 해당 chatId를 집합에서 걷어내 배지를 즉시 줄인다.
   useEffect(() => {
@@ -203,15 +197,20 @@ export function StudyChatProvider({ children }: StudyChatProviderProps) {
     [refresh],
   )
 
+  // 로그아웃 상태거나 첫 계산 전이면 undefined로 두어 배지를 감춘다. 재로그인하면 로드가 다시 채운다.
+  const visibleUnreadByGroup = userId === null ? null : unreadByGroup
   const totalUnread = useMemo(() => {
-    if (unreadByGroup === null) return undefined
-    return Object.values(unreadByGroup).reduce((sum, count) => sum + count, 0)
-  }, [unreadByGroup])
+    if (visibleUnreadByGroup === null) return undefined
+    return Object.values(visibleUnreadByGroup).reduce(
+      (sum, count) => sum + count,
+      0,
+    )
+  }, [visibleUnreadByGroup])
 
   const value = useMemo(
     () => ({
       totalUnread,
-      unreadByGroup: unreadByGroup ?? {},
+      unreadByGroup: visibleUnreadByGroup ?? {},
       isChatOpen,
       openChat,
       closeChat,
@@ -220,7 +219,7 @@ export function StudyChatProvider({ children }: StudyChatProviderProps) {
     }),
     [
       totalUnread,
-      unreadByGroup,
+      visibleUnreadByGroup,
       isChatOpen,
       openChat,
       closeChat,
