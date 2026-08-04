@@ -74,7 +74,7 @@ const studyGroups: StudyGroupListItem[] = groupTitles.map((title, index) => ({
   description: `${title} 소개`,
   capacity: 6,
   currentMemberCount: 3,
-  groupStatus: index === 8 ? 'CLOSED' : 'RECRUITING',
+  groupStatus: index === 8 ? 'ACTIVE' : 'RECRUITING',
   createdAt: `2026-07-${String(20 - index).padStart(2, '0')}T09:00:00`,
 }))
 
@@ -203,10 +203,14 @@ describe('StudyPage', () => {
     renderStudyPage()
     await screen.findAllByRole('article', { name: /상세 정보$/ })
 
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: '모집 상태 선택' }),
-      'closed',
-    )
+    const recruitmentSelect = screen.getByRole('combobox', {
+      name: '모집 상태 선택',
+    })
+    expect(
+      within(recruitmentSelect).queryByRole('option', { name: '종료' }),
+    ).toBeNull()
+
+    await user.selectOptions(recruitmentSelect, 'active')
 
     expect(screen.getByText('총 1개의 스터디')).toBeInTheDocument()
     expect(

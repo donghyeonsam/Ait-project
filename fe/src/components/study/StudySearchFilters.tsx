@@ -1,6 +1,6 @@
 import { ChevronDown, Search } from 'lucide-react'
 
-export type RecruitmentFilter = 'all' | 'recruiting' | 'active' | 'closed'
+export type RecruitmentFilter = 'all' | 'recruiting' | 'active'
 export type StudySort = 'latest' | 'oldest'
 
 interface StudySearchFiltersProps {
@@ -61,7 +61,6 @@ export function StudySearchFilters({
             <option value="all">모집 상태</option>
             <option value="recruiting">모집 중</option>
             <option value="active">활동 중</option>
-            <option value="closed">종료</option>
           </select>
           <SelectChevron />
         </label>
