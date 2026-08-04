@@ -1931,18 +1931,31 @@ button:not(:disabled) {
   animation: dialog-content-out var(--duration-base) var(--easing-standard) both;
 }
 
+/* 세로 중앙 정렬 대신 아래 기준으로 붙여, 큰 화면에서도 상단 전역 헤더를 가리지 않는다. */
 .ait-dialog-content.study-chat-dialog {
-  top: 50%;
+  top: auto;
   right: clamp(1rem, 3.5vw, 3.5rem);
-  bottom: auto;
+  bottom: 1.25rem;
   left: auto;
   width: min(37rem, calc(100vw - 2rem));
   min-width: 0;
   min-height: 0;
-  height: min(47.5rem, calc(100svh - 4rem));
+  height: min(
+    47.5rem,
+    calc(100svh - var(--header-height-compact) - 2.5rem)
+  );
   border-radius: 1.25rem;
-  transform: translateY(-50%);
-  transform-origin: right center;
+  transform: none;
+  transform-origin: right bottom;
+}
+
+@media (min-width: 64rem) {
+  .ait-dialog-content.study-chat-dialog {
+    height: min(
+      47.5rem,
+      calc(100svh - var(--header-height-wide) - 2.5rem)
+    );
+  }
 }
 
 @media (max-width: 40rem) {
