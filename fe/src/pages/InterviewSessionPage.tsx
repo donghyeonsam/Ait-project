@@ -580,9 +580,16 @@ function ActiveInterviewSession({
       if (
         endDialogOpen ||
         event.code !== 'Space' ||
-        voiceAnswer.status !== 'review' ||
         isTypingTarget(event.target)
       ) {
+        return
+      }
+      if (voiceAnswer.status === 'recording') {
+        event.preventDefault()
+        handleFinishAnswer()
+        return
+      }
+      if (voiceAnswer.status !== 'review') {
         return
       }
       event.preventDefault()
@@ -591,7 +598,7 @@ function ActiveInterviewSession({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [endDialogOpen, handlePrimaryAction, voiceAnswer.status])
+  }, [endDialogOpen, handleFinishAnswer, handlePrimaryAction, voiceAnswer.status])
 
   // 답변을 하나라도 제출했으면 분석 대기 기록으로 이동하고, 아니면 면접 설정으로 돌아간다.
   const handleConfirmEnd = () => {
