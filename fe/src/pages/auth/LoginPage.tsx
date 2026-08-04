@@ -93,14 +93,6 @@ export function LoginPage() {
               placeholder="비밀번호를 입력하세요"
               autoComplete="current-password"
               error={errors.password?.message}
-              labelAction={
-                <Link
-                  to="/reset-password"
-                  className="text-body-2 font-semibold text-action-primary decoration-status-achievement underline decoration-2 underline-offset-4"
-                >
-                  비밀번호 찾기
-                </Link>
-              }
               {...register('password')}
             />
           </div>
