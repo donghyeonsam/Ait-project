@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createPost,
   deletePost,
+  downloadPostFile,
+  fetchComments,
   fetchMyActivityPosts,
   fetchPost,
   fetchPosts,
@@ -214,6 +216,7 @@ describe('fetchPosts', () => {
 
     const url = new URL(String(fetchMock.mock.calls[0]?.[0]), 'http://localhost')
     expect(url.searchParams.has('keyword')).toBe(false)
+    expect(url.searchParams.has('tag')).toBe(false)
   })
 
   it('전체 카테고리·최신 탭이면 category 없이 LATEST로 조회한다', async () => {
@@ -340,7 +343,7 @@ describe('fetchPost', () => {
               {
                 id: 1,
                 originalFilename: 'guide.pdf',
-                storedFilename: 'stored-guide.pdf',
+                storedFilename: 'boards/stored-guide.pdf',
                 fileType: 'PDF',
                 usageType: 'ATTACHMENT',
               },
@@ -373,10 +376,10 @@ describe('fetchPost', () => {
         expect.objectContaining({
           id: 1,
           originalFilename: 'guide.pdf',
-          storedFilename: 'stored-guide.pdf',
+          storedFilename: 'boards/stored-guide.pdf',
           fileType: 'PDF',
           usageType: 'ATTACHMENT',
-          url: '/backend/images/stored-guide.pdf',
+          url: '/backend/images/boards/stored-guide.pdf',
         }),
       ],
     })
@@ -397,6 +400,82 @@ describe('fetchPost', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(fetchPost('999')).resolves.toBeNull()
+  })
+})
+
+describe('fetchComments', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('페이지네이션 응답의 comments를 화면 모델로 변환한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 200,
+          message: '댓글 목록 조회 성공',
+          data: {
+            comments: [
+              {
+                id: 7,
+                parentId: null,
+                userId: 2,
+                nickname: '댓글작성자',
+                content: '원댓글입니다.',
+                likeCount: 3,
+                liked: true,
+                createdAt: '2026-08-04T10:00:00',
+                deletedAt: null,
+                replies: [
+                  {
+                    id: 8,
+                    parentId: 7,
+                    userId: 3,
+                    nickname: '답글작성자',
+                    content: '답글입니다.',
+                    likeCount: 0,
+                    liked: false,
+                    createdAt: '2026-08-04T10:01:00',
+                    deletedAt: null,
+                    replies: [],
+                  },
+                ],
+              },
+            ],
+            hasNext: false,
+          },
+          error: null,
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(fetchComments('11')).resolves.toEqual([
+      {
+        id: '7',
+        authorId: 2,
+        author: '댓글작성자',
+        createdAt: '2026-08-04T10:00:00',
+        content: '원댓글입니다.',
+        likeCount: 3,
+        liked: true,
+        deleted: false,
+        replies: [
+          {
+            id: '8',
+            authorId: 3,
+            author: '답글작성자',
+            createdAt: '2026-08-04T10:01:00',
+            content: '답글입니다.',
+            likeCount: 0,
+            liked: false,
+            deleted: false,
+          },
+        ],
+      },
+    ])
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/backend/api/posts/11/comments')
   })
 })
 
@@ -457,7 +536,7 @@ describe('post file upload', () => {
         JSON.stringify({
           statusCode: 201,
           message: '파일 업로드 성공',
-          data: 'stored-image.png',
+          data: 'boards/stored-image.png',
           error: null,
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
@@ -475,10 +554,10 @@ describe('post file upload', () => {
     expect((init.body as FormData).get('file')).toBe(file)
     expect(result).toEqual({
       originalFilename: 'profile.png',
-      storedFilename: 'stored-image.png',
+      storedFilename: 'boards/stored-image.png',
       fileType: 'IMAGE',
       usageType: 'INLINE',
-      url: '/backend/images/stored-image.png',
+      url: '/backend/images/boards/stored-image.png',
     })
   })
 
@@ -488,7 +567,7 @@ describe('post file upload', () => {
         JSON.stringify({
           statusCode: 201,
           message: '파일 업로드 성공',
-          data: ['stored-guide.pdf', 'stored-note.txt'],
+          data: ['boards/stored-guide.pdf', 'boards/stored-note.txt'],
           error: null,
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
@@ -509,6 +588,46 @@ describe('post file upload', () => {
       { fileType: 'PDF', usageType: 'ATTACHMENT' },
       { fileType: 'OTHER', usageType: 'ATTACHMENT' },
     ])
+    expect(result.map((file) => file.url)).toEqual([
+      '/backend/images/boards/stored-guide.pdf',
+      '/backend/images/boards/stored-note.txt',
+    ])
+  })
+
+  it('보호된 첨부파일을 원본 파일명으로 다운로드한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(new Blob(['pdf'], { type: 'application/pdf' }), {
+        status: 200,
+        headers: { 'content-type': 'application/pdf' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const createObjectURL = vi
+      .spyOn(URL, 'createObjectURL')
+      .mockReturnValue('blob:attachment')
+    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL')
+    let downloadedFilename = ''
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        downloadedFilename = this.download
+      })
+
+    await downloadPostFile({
+      originalFilename: '면접 자료.pdf',
+      storedFilename: 'boards/stored-guide.pdf',
+      fileType: 'PDF',
+      usageType: 'ATTACHMENT',
+      url: '/backend/images/boards/stored-guide.pdf',
+    })
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/backend/images/boards/stored-guide.pdf',
+    )
+    expect(downloadedFilename).toBe('면접 자료.pdf')
+    expect(createObjectURL).toHaveBeenCalledOnce()
+    expect(click).toHaveBeenCalledOnce()
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:attachment')
   })
 })
 
