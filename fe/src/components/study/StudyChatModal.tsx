@@ -31,7 +31,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
+import { markStudyChatRead } from '@/lib/study-chat-read-state'
 import { useAuth } from '@/lib/useAuth'
+import { useStudyChat } from '@/lib/useStudyChat'
 import type { Client } from '@stomp/stompjs'
 
 interface StudyChatModalProps {
@@ -46,6 +48,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const currentUserId = user?.userId ?? null
+  const { unreadByGroup, markAllRead } = useStudyChat()
 
   const [groups, setGroups] = useState<MyStudyGroup[]>([])
   const [isLoadingGroups, setIsLoadingGroups] = useState(false)
@@ -154,6 +157,12 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
           ...current,
           [selectedGroupId]: result.chats[0] ?? null,
         }))
+        // 보고 있는 그룹은 불러온 최신 메시지까지 읽음으로 기록한다.
+        // TODO: 실제 API 연동 필요 - 읽음 상태는 현재 이 기기 localStorage에만 기록하며 서버 읽음 API가 생기면 대체한다.
+        const latestChatId = result.chats[0]?.chatId
+        if (currentUserId !== null && latestChatId !== undefined) {
+          markStudyChatRead(currentUserId, selectedGroupId, latestChatId)
+        }
       })
       .catch((error: unknown) => {
         if (!cancelled) setMessagesError(toErrorMessage(error))
@@ -173,7 +182,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
     return () => {
       cancelled = true
     }
-  }, [open, selectedGroupId])
+  }, [currentUserId, open, selectedGroupId])
 
   // 선택한 그룹의 실시간 메시지·공지·반응 연결을 열고 그룹 전환 시 이전 연결을 정리한다.
   useEffect(() => {
@@ -190,6 +199,10 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
           ...current,
           [incoming.groupId]: incoming,
         }))
+        // 보고 있는 그룹의 실시간 수신은 즉시 읽음으로 기록한다.
+        if (currentUserId !== null && incoming.groupId === selectedGroupId) {
+          markStudyChatRead(currentUserId, selectedGroupId, incoming.chatId)
+        }
       },
       onNotice: (payload) => setNotice(payload.notice ?? ''),
       onReaction: (payload) => {
@@ -280,7 +293,6 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
   const selectGroup = (groupId: number) => {
     setHeaderPopover(null)
     if (groupId === selectedGroupId) return
-    // TODO: 실제 API 연동 필요 - 백엔드에 그룹별 읽음 처리 API가 추가되면 전환 시 호출한다.
     setMessages([])
     setNotice('')
     setSelectedGroupDetail(null)
@@ -353,13 +365,14 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
               groups={groups}
               selectedGroupId={selectedGroupId}
               previews={groupPreviews}
+              unreadCounts={unreadByGroup}
               onSelect={selectGroup}
               onFindGroup={findNewGroup}
               onClose={() => {
                 setHeaderPopover(null)
                 groupTriggerRef.current?.focus()
               }}
-              // TODO: 실제 API 연동 필요 - 백엔드에 읽음 상태와 모두 읽음 API가 아직 없다.
+              onMarkAllRead={markAllRead}
             />
           ) : null}
         </div>

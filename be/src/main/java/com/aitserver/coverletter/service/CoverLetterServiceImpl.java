@@ -1,5 +1,6 @@
 package com.aitserver.coverletter.service;
 
+import com.aitserver.aiInterview.client.FastApiClient;
 import com.aitserver.user.entity.User;
 import com.aitserver.user.repository.UserRepository;
 import com.aitserver.coverletter.analysis.event.CoverLetterAnalysisRequestedEvent;
@@ -30,6 +31,7 @@ public class CoverLetterServiceImpl implements CoverLetterService{
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final CoverLetterChangeDetector coverLetterChangeDetector;
+    private final FastApiClient fastApiClient;
 
     @Override
     public CoverLetterListResponse getList(Long userId) {
@@ -267,6 +269,12 @@ public class CoverLetterServiceImpl implements CoverLetterService{
                                 ErrorCode.COVER_LETTER_NOT_FOUND
                         )
                 );
+
+        // 벡터 DB에서 해당 자기소개서 임베딩 삭제
+        fastApiClient.deleteCoverLetterEmbedding(
+                userId,
+                coverLetterId
+        );
 
         coverLetter.softDelete();
         // save 안해도됨 트랜잭션시에는 영속상태라 coverLetter상태를 자동 변경해줌..?

@@ -44,6 +44,14 @@ describe('fetchNotifications', () => {
           },
           {
             id: 2,
+            type: 'REPLY',
+            targetId: 42,
+            content: '회원님의 댓글에 새로운 답글이 달렸습니다.',
+            checked: false,
+            createdAt: '2026-08-02T11:00:00',
+          },
+          {
+            id: 3,
             type: 'GROUP_APPROVE',
             targetId: 7,
             content: '[면접 스터디] 그룹 가입이 승인되었습니다!',
@@ -74,6 +82,15 @@ describe('fetchNotifications', () => {
         },
         {
           id: '2',
+          type: 'REPLY',
+          category: 'board',
+          targetId: 42,
+          title: '회원님의 댓글에 새로운 답글이 달렸습니다.',
+          createdAt: '2026-08-02T11:00:00',
+          read: false,
+        },
+        {
+          id: '3',
           type: 'GROUP_APPROVE',
           category: 'group',
           targetId: 7,

@@ -2,6 +2,10 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  StudyChatContext,
+  studyChatDefaultValue,
+} from '@/app/study-chat-context'
 import { Header } from '@/components/layout/Header'
 
 const mocks = vi.hoisted(() => ({
@@ -62,5 +66,41 @@ describe('Header 로그아웃', () => {
     expect(
       screen.getByRole('link', { name: '스터디 라운지' }),
     ).toHaveAttribute('aria-current', 'page')
+  })
+})
+
+describe('Header 그룹톡 버튼', () => {
+  it('안읽은 메시지 수를 99+로 축약해 배지와 접근성 라벨로 알리고 클릭 시 모달을 연다', async () => {
+    const openChat = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <StudyChatContext.Provider
+          value={{ ...studyChatDefaultValue, totalUnread: 120, openChat }}
+        >
+          <Header />
+        </StudyChatContext.Provider>
+      </MemoryRouter>,
+    )
+
+    const chatButton = screen.getByRole('button', {
+      name: '그룹톡 열기, 읽지 않은 메시지 99+개',
+    })
+    expect(chatButton).toHaveTextContent('99+')
+
+    await user.click(chatButton)
+    expect(openChat).toHaveBeenCalledOnce()
+  })
+
+  it('안읽은 메시지가 없으면 배지 없이 열기 버튼만 보여준다', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Header />
+      </MemoryRouter>,
+    )
+
+    expect(
+      screen.getByRole('button', { name: '그룹톡 열기' }),
+    ).toBeInTheDocument()
   })
 })
