@@ -502,7 +502,7 @@ function StudySessionRoomStage({
           role: member?.role ?? null,
           resumeId: member?.resumeId ?? null,
           coverLetterTitle:
-            member?.coverLetterId != null ? '제출한 자소서' : '제출 안 함',
+            member?.coverLetterId != null ? '자소서' : '제출 안 함',
           coverLetterId: member?.coverLetterId ?? null,
         }
       },

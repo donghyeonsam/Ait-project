@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  Briefcase,
   CheckCircle2,
   FilePenLine,
   FileText,
+  FolderKanban,
+  GraduationCap,
+  MessageCircleQuestion,
   Search,
   UserRound,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { CoverLetterDetail } from '@/api/cover-letters'
 import { toErrorMessage } from '@/api/http'
 import {
@@ -56,19 +61,54 @@ const tabs: Array<{ id: SidePanelTab; label: string }> = [
 
 const commentMaxLength = 100
 
+// 이력서·자소서 항목 하나를 감싸는 카드(경력·프로젝트·자소서 문항: 항목마다 개별 카드).
 const documentCardClass = 'rounded-ait-s border border-border-default p-3'
+// 같은 종류의 항목을 하나의 카드 안에 묶고 내부는 구분선으로만 나누는 스타일(학력/교육).
+const documentCardGroupClass = 'divide-y divide-border-default rounded-ait-s border border-border-default'
+const documentCardGroupItemClass = 'p-3'
+
+interface DocumentSectionHeadingProps {
+  icon: LucideIcon
+  title: string
+  /** 자소서 문항 제목처럼 제목 아래에 짧은 강조선을 덧붙일 때만 켠다. */
+  underline?: boolean
+}
+
+// 이력서 섹션(경력/프로젝트/학력)·자소서 문항 제목 앞에 붙는 아이콘 배지.
+function DocumentSectionHeading({ icon: Icon, title, underline = false }: DocumentSectionHeadingProps) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-ait-s bg-status-info-surface text-status-info">
+        <Icon className="size-4" aria-hidden="true" />
+      </span>
+      <div className="flex flex-col gap-1">
+        <h3 className="text-body-2 font-semibold text-text-primary">{title}</h3>
+        {underline ? <span className="h-0.5 w-8 rounded-full bg-status-info" aria-hidden="true" /> : null}
+      </div>
+    </div>
+  )
+}
+
+// 프로젝트에서 맡은 역할을 보여주는 작은 태그.
+function DocumentRoleTag({ role }: { role: string }) {
+  return (
+    <span className="shrink-0 rounded-ait-pill bg-status-info-surface px-2.5 py-0.5 text-caption font-medium text-status-info">
+      {role}
+    </span>
+  )
+}
 
 // 이력서 상세: 경력·프로젝트·학력을 최신 항목이 먼저 오도록 그대로(서버 정렬 순서) 나열한다.
 // AI 분석(analysisContent)은 소유자 본인을 위한 내용이라, 다른 참가자를 열람하는 이 화면에는 보여주지 않는다.
 function ResumeDocumentView({ resume }: { resume: Resume }) {
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       <section>
-        <h3 className="text-body-2 font-semibold text-text-primary">경력</h3>
+        <DocumentSectionHeading icon={Briefcase} title="경력" />
         {resume.careers.length === 0 ? (
           <p className="mt-2 text-body-2 text-text-secondary">등록된 경력이 없습니다.</p>
         ) : (
-          <ul className="mt-2 flex flex-col gap-3">
+          <ul className="mt-3 flex flex-col gap-3">
             {resume.careers.map((career) => (
               <li key={career.careerId} className={documentCardClass}>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -91,16 +131,16 @@ function ResumeDocumentView({ resume }: { resume: Resume }) {
       </section>
 
       <section>
-        <h3 className="text-body-2 font-semibold text-text-primary">프로젝트</h3>
+        <DocumentSectionHeading icon={FolderKanban} title="프로젝트" />
         {resume.projects.length === 0 ? (
           <p className="mt-2 text-body-2 text-text-secondary">등록된 프로젝트가 없습니다.</p>
         ) : (
-          <ul className="mt-2 flex flex-col gap-3">
+          <ul className="mt-3 flex flex-col gap-3">
             {resume.projects.map((project) => (
               <li key={project.projectId} className={documentCardClass}>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="text-body-1 font-medium text-text-primary">{project.projectName}</p>
-                  <p className="text-caption text-text-secondary">{project.role}</p>
+                  <DocumentRoleTag role={project.role} />
                 </div>
                 <p className="mt-1 text-caption text-text-secondary">{project.techStacks}</p>
                 {project.description ? (
@@ -115,13 +155,13 @@ function ResumeDocumentView({ resume }: { resume: Resume }) {
       </section>
 
       <section>
-        <h3 className="text-body-2 font-semibold text-text-primary">학력/교육</h3>
+        <DocumentSectionHeading icon={GraduationCap} title="학력/교육" />
         {resume.trainings.length === 0 ? (
           <p className="mt-2 text-body-2 text-text-secondary">등록된 학력/교육이 없습니다.</p>
         ) : (
-          <ul className="mt-2 flex flex-col gap-3">
+          <div className={cn('mt-3', documentCardGroupClass)}>
             {resume.trainings.map((training) => (
-              <li key={training.trainingId} className={documentCardClass}>
+              <div key={training.trainingId} className={documentCardGroupItemClass}>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="text-body-1 font-medium text-text-primary">
                     {training.organization} · {training.course}
@@ -135,9 +175,9 @@ function ResumeDocumentView({ resume }: { resume: Resume }) {
                     {training.description}
                   </p>
                 ) : null}
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </section>
     </div>
@@ -157,16 +197,16 @@ function CoverLetterDocumentView({ coverLetter }: { coverLetter: CoverLetterDeta
         {coverLetter.companyName} · {coverLetter.role}
       </p>
 
-      <section className="divide-y divide-border-default">
+      <ul className="flex flex-col gap-3">
         {sortedContents.map((content) => (
-          <div key={content.contentId} className="py-4 first:pt-0 last:pb-0">
-            <h3 className="text-body-2 font-semibold text-text-primary">{content.question}</h3>
+          <li key={content.contentId} className={documentCardClass}>
+            <DocumentSectionHeading icon={MessageCircleQuestion} title={content.question} underline />
             <p className="mt-2 whitespace-pre-wrap text-body-1 leading-relaxed text-text-primary">
               {content.answer}
             </p>
-          </div>
+          </li>
         ))}
-      </section>
+      </ul>
     </div>
   )
 }
