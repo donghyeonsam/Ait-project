@@ -20,18 +20,17 @@ import {
 } from 'react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from '@/components/ui/avatar'
 import { studyChatEmojis } from '@/components/study/studyChatEmojis'
 import {
   aitEmoticons,
-  parseEmoticonToken,
   toEmoticonToken,
   type AitEmoticon,
 } from '@/lib/emoticons'
+import {
+  toReplyToken,
+  type StudyChatReplyTarget,
+} from '@/lib/study-chat-reply'
+import { useStudyChatQuoteScroll } from '@/lib/useStudyChatQuoteScroll'
 import { cn } from '@/lib/utils'
 import { toErrorMessage } from '@/api/http'
 import {
@@ -46,7 +45,7 @@ import {
   type StudyGroupChatMessage,
 } from '@/api/study-group-chat'
 import type { Client } from '@stomp/stompjs'
-import { StudyChatMessageReactions } from '@/components/study/StudyChatMessageReactions'
+import { StudyChatMessageItem } from '@/components/study/StudyChatMessageItem'
 import { markStudyChatRead } from '@/lib/study-chat-read-state'
 
 interface StudyGroupChatPanelProps {
@@ -76,15 +75,6 @@ function readRecentEmojis(): string[] {
   }
 }
 
-function formatMessageTime(createdAt: string) {
-  const date = new Date(createdAt)
-  if (Number.isNaN(date.getTime())) return ''
-  return new Intl.DateTimeFormat('ko-KR', {
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(date)
-}
-
 // 그룹톡 공지와 실시간 메시지를 서버(REST 이력 조회 + STOMP 실시간 송수신)와 연동해 보여준다.
 export function StudyGroupChatPanel({
   groupId,
@@ -111,6 +101,9 @@ export function StudyGroupChatPanel({
   const [isNoticeExpanded, setIsNoticeExpanded] = useState(false)
   const [isNoticeOverflowing, setIsNoticeOverflowing] = useState(false)
   const [draft, setDraft] = useState('')
+  const [replyTarget, setReplyTarget] = useState<StudyChatReplyTarget | null>(
+    null,
+  )
   const [composerPicker, setComposerPicker] = useState<
     'emoji' | 'emoticon' | null
   >(null)
@@ -122,7 +115,10 @@ export function StudyGroupChatPanel({
   const clientRef = useRef<Client | null>(null)
   const messageListRef = useRef<HTMLDivElement>(null)
   const noticeTextRef = useRef<HTMLParagraphElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const knownChatIdsRef = useRef<Set<number>>(new Set())
+  const { highlightedChatId, scrollToMessage } =
+    useStudyChatQuoteScroll(messageListRef)
 
   // 그룹의 최근 채팅 이력을 불러온다 (최신순 응답을 오래된 순으로 뒤집어 저장한다).
   useEffect(() => {
@@ -132,6 +128,8 @@ export function StudyGroupChatPanel({
     const loadHistory = async () => {
       setIsLoadingHistory(true)
       setHistoryError(null)
+      // 그룹이 바뀌면 이전 그룹 메시지를 향한 답장 대상도 함께 비운다.
+      setReplyTarget(null)
       try {
         const result = await getStudyGroupChats(groupId)
         if (cancelled) return
@@ -264,12 +262,17 @@ export function StudyGroupChatPanel({
       .finally(() => setIsLoadingMoreHistory(false))
   }
 
+  // 답장 중이면 답글 토큰을 앞에 붙여 어떤 메시지에 대한 답인지 함께 보낸다.
+  const withReplyToken = (content: string) =>
+    replyTarget ? `${toReplyToken(replyTarget)}\n${content}` : content
+
   const sendMessage = () => {
     const content = draft.trim()
     if (!content || !clientRef.current?.connected) return
 
-    sendStudyGroupChatMessage(clientRef.current, groupId, content)
+    sendStudyGroupChatMessage(clientRef.current, groupId, withReplyToken(content))
     setDraft('')
+    setReplyTarget(null)
     setComposerPicker(null)
   }
 
@@ -280,10 +283,16 @@ export function StudyGroupChatPanel({
     sendStudyGroupChatMessage(
       clientRef.current,
       groupId,
-      toEmoticonToken(emoticon),
+      withReplyToken(toEmoticonToken(emoticon)),
     )
+    setReplyTarget(null)
     setComposerPicker(null)
   }
+
+  // 답장 대상을 고르면 바로 입력을 이어갈 수 있게 입력란에 포커스를 준다.
+  useEffect(() => {
+    if (replyTarget) textareaRef.current?.focus()
+  }, [replyTarget])
 
   const toggleReaction = (chatId: number, emoji: string) => {
     if (!clientRef.current?.connected) return
@@ -342,6 +351,11 @@ export function StudyGroupChatPanel({
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Escape' && replyTarget) {
+      event.preventDefault()
+      setReplyTarget(null)
+      return
+    }
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
       sendMessage()
@@ -525,7 +539,7 @@ export function StudyGroupChatPanel({
 
       <div
         ref={messageListRef}
-        className="min-h-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto px-3 py-4 [scrollbar-gutter:stable]"
+        className="min-h-0 flex-1 space-y-2.5 overflow-x-hidden overflow-y-auto px-3 py-4 [scrollbar-gutter:stable]"
         aria-live="polite"
         aria-label="그룹톡 메시지"
       >
@@ -554,84 +568,17 @@ export function StudyGroupChatPanel({
           </p>
         ) : null}
 
-        {messages.map((message) => {
-          const isSelf = message.senderId === currentUserId
-          const emoticon = parseEmoticonToken(message.message)
-          const messageTime = formatMessageTime(message.createdAt)
-
-          return (
-            <div
-              key={message.chatId}
-              className={cn(
-                'study-chat-message flex items-start gap-3',
-                isSelf && 'justify-end',
-              )}
-            >
-              {!isSelf ? (
-                <Avatar
-                  className="mt-5 size-8 border border-border-default bg-profile-avatar"
-                  aria-hidden="true"
-                >
-                  {message.profileImageUrl ? (
-                    <AvatarImage
-                      src={message.profileImageUrl}
-                      alt=""
-                      className="object-cover"
-                    />
-                  ) : null}
-                  <AvatarFallback className="border-0 bg-profile-avatar text-caption font-semibold text-action-primary">
-                    {message.senderNickname.trim().charAt(0) || '?'}
-                  </AvatarFallback>
-                </Avatar>
-              ) : null}
-              <div
-                className={cn('max-w-[82%]', isSelf && 'text-right')}
-              >
-                {!isSelf ? (
-                  <p className="mb-1 text-caption text-text-secondary">
-                    {message.senderNickname}
-                  </p>
-                ) : null}
-                {emoticon ? (
-                  <img
-                    src={emoticon.src}
-                    alt={`${emoticon.label} 이모티콘`}
-                    className="inline-block size-28 object-contain"
-                  />
-                ) : (
-                  <div
-                    className={cn(
-                      'rounded-ait-m px-4 py-2 text-left text-body-2',
-                      isSelf
-                        ? 'rounded-br-none bg-action-primary text-surface-default'
-                        : 'rounded-bl-none bg-status-neutral-surface text-action-primary',
-                    )}
-                  >
-                    <p className="whitespace-pre-wrap break-words">
-                      {message.message}
-                    </p>
-                  </div>
-                )}
-                {messageTime ? (
-                  <time
-                    dateTime={message.createdAt}
-                    className="mt-1 block text-caption text-text-secondary"
-                  >
-                    {messageTime}
-                  </time>
-                ) : null}
-                {!isSelf ? (
-                  <StudyChatMessageReactions
-                    messageId={message.chatId}
-                    reactions={message.reactions ?? []}
-                    currentUserId={currentUserId}
-                    onToggle={toggleReaction}
-                  />
-                ) : null}
-              </div>
-            </div>
-          )
-        })}
+        {messages.map((message) => (
+          <StudyChatMessageItem
+            key={message.chatId}
+            message={message}
+            currentUserId={currentUserId}
+            isHighlighted={highlightedChatId === message.chatId}
+            onToggleReaction={toggleReaction}
+            onReply={setReplyTarget}
+            onQuoteClick={scrollToMessage}
+          />
+        ))}
       </div>
 
       <div
@@ -639,6 +586,26 @@ export function StudyGroupChatPanel({
         role="group"
         aria-label="메시지 작성"
       >
+        {replyTarget ? (
+          <div className="mb-2 flex items-start gap-2 rounded-ait-s border-l-2 border-action-primary bg-status-neutral-surface px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-caption font-semibold text-action-primary">
+                {replyTarget.nickname}에게 답장
+              </p>
+              <p className="truncate text-caption text-text-secondary">
+                {replyTarget.preview}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplyTarget(null)}
+              aria-label="답장 취소"
+              className="flex size-6 shrink-0 items-center justify-center rounded-ait-pill text-text-secondary transition-colors hover:bg-surface-default hover:text-action-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25"
+            >
+              <X className="size-3.5" aria-hidden="true" />
+            </button>
+          </div>
+        ) : null}
         <div
           data-message-input-card
             className="min-w-0 w-full rounded-ait-m border border-input bg-surface-default shadow-elevation-1 transition-[border-color,box-shadow] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--easing-standard)] focus-within:border-action-primary"
@@ -646,6 +613,7 @@ export function StudyGroupChatPanel({
           <label className="block w-full">
             <span className="sr-only">그룹톡 메시지 입력</span>
             <Textarea
+              ref={textareaRef}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={handleKeyDown}

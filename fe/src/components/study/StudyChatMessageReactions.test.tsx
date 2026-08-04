@@ -3,19 +3,31 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { StudyChatMessageReactions } from '@/components/study/StudyChatMessageReactions'
 
+function renderReactions(
+  props: Partial<React.ComponentProps<typeof StudyChatMessageReactions>> = {},
+) {
+  return render(
+    <StudyChatMessageReactions
+      messageId={17}
+      currentUserId={3}
+      reactions={[]}
+      onToggle={vi.fn()}
+      {...props}
+    >
+      <div>메시지 본문</div>
+    </StudyChatMessageReactions>,
+  )
+}
+
 describe('StudyChatMessageReactions', () => {
   it('내 반응 상태를 표시하고 같은 이모지를 다시 토글할 수 있다', async () => {
     const user = userEvent.setup()
     const onToggle = vi.fn()
 
-    render(
-      <StudyChatMessageReactions
-        messageId={17}
-        currentUserId={3}
-        reactions={[{ emoji: '👍', count: 2, userIds: [3, 8] }]}
-        onToggle={onToggle}
-      />,
-    )
+    renderReactions({
+      reactions: [{ emoji: '👍', count: 2, userIds: [3, 8] }],
+      onToggle,
+    })
 
     const reaction = screen.getByRole('button', {
       name: '👍 반응 2개, 내가 반응함',
@@ -30,14 +42,7 @@ describe('StudyChatMessageReactions', () => {
     const user = userEvent.setup()
     const onToggle = vi.fn()
 
-    render(
-      <StudyChatMessageReactions
-        messageId={21}
-        currentUserId={3}
-        reactions={[]}
-        onToggle={onToggle}
-      />,
-    )
+    renderReactions({ messageId: 21, onToggle })
 
     await user.click(
       screen.getByRole('button', { name: '이모지 반응 추가' }),
@@ -55,14 +60,7 @@ describe('StudyChatMessageReactions', () => {
   it('선택창 밖을 누르거나 Escape를 누르면 선택창을 닫는다', async () => {
     const user = userEvent.setup()
 
-    render(
-      <StudyChatMessageReactions
-        messageId={21}
-        currentUserId={3}
-        reactions={[]}
-        onToggle={vi.fn()}
-      />,
-    )
+    renderReactions({ messageId: 21 })
 
     const openPicker = () =>
       user.click(screen.getByRole('button', { name: '이모지 반응 추가' }))
@@ -78,5 +76,32 @@ describe('StudyChatMessageReactions', () => {
     expect(
       screen.queryByRole('dialog', { name: '메시지 반응 선택' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('onReply가 있을 때만 답장 버튼을 보여주고 누르면 콜백을 부른다', async () => {
+    const user = userEvent.setup()
+    const onReply = vi.fn()
+
+    const { rerender } = renderReactions()
+    expect(
+      screen.queryByRole('button', { name: '이 메시지에 답장' }),
+    ).not.toBeInTheDocument()
+
+    rerender(
+      <StudyChatMessageReactions
+        messageId={17}
+        currentUserId={3}
+        reactions={[]}
+        onToggle={vi.fn()}
+        onReply={onReply}
+      >
+        <div>메시지 본문</div>
+      </StudyChatMessageReactions>,
+    )
+
+    await user.click(
+      screen.getByRole('button', { name: '이 메시지에 답장' }),
+    )
+    expect(onReply).toHaveBeenCalledTimes(1)
   })
 })
