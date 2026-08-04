@@ -9,7 +9,7 @@ import { toErrorMessage } from '@/api/http'
 import { CategoryBadge } from '@/components/community/badges'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatNumber, formatRelativeTime } from '@/lib/format'
+import { formatNumber } from '@/lib/format'
 import type { CommunityPost } from '@/types/community'
 
 type ActivityTabId = MyPostActivity
@@ -192,9 +192,6 @@ function ActivityTabPanel({ tab }: { tab: ActivityTabConfig }) {
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <CategoryBadge category={post.category} />
-                <span className="text-caption text-text-secondary">
-                  {formatRelativeTime(post.createdAt)}
-                </span>
               </div>
               <p className="mt-2 truncate text-body-1 font-semibold text-text-primary">
                 {post.title}

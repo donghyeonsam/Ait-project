@@ -122,11 +122,39 @@ export interface FetchPostsResult {
 
 export type MyPostActivity = 'written' | 'scrapped' | 'liked'
 
-const MY_POST_ACTIVITY_QUERY: Record<MyPostActivity, string> = {
-  written: 'WRITTEN',
-  scrapped: 'SCRAPPED',
-  liked: 'LIKED',
+// 마이페이지 활동 조회 전용 엔드포인트 응답. 목록 API(/api/posts)와 달리 작성자·태그·
+// 댓글수·좋아요/저장 여부·썸네일·작성일이 없다 — 나의 활동 탭 카드가 쓰지 않는 값들이라 비워 채운다.
+interface MyPagePostItemResponse {
+  id: number
+  category: string
+  title: string
+  content: string
+  likeCount: number
+  viewCount: number
 }
+
+const MY_ACTIVITY_PATH: Record<MyPostActivity, string> = {
+  written: '/api/users/me/post',
+  scrapped: '/api/users/me/post/scrap',
+  liked: '/api/users/me/post/like',
+}
+
+const toMyActivityPost = (item: MyPagePostItemResponse): CommunityPost => ({
+  id: String(item.id),
+  category: toCategoryValue(item.category),
+  title: item.title,
+  excerpt: htmlToExcerpt(item.content ?? ''),
+  contentHtml: '',
+  author: '',
+  createdAt: '',
+  tags: [],
+  viewCount: item.viewCount,
+  commentCount: 0,
+  likeCount: item.likeCount,
+  liked: false,
+  bookmarked: false,
+  thumbnail: null,
+})
 
 const toFetchPostsResult = (
   page: SpringPage<PostListItemResponse>,
@@ -166,15 +194,16 @@ export async function fetchMyActivityPosts(
   limit = 10,
 ): Promise<FetchPostsResult> {
   const searchParams = new URLSearchParams({
-    activityType: MY_POST_ACTIVITY_QUERY[activity],
-    sortType: 'LATEST',
     page: '0',
     size: String(limit),
   })
-  const page = await backendRequest<SpringPage<PostListItemResponse>>(
-    `/api/posts?${searchParams}`,
+  const page = await backendRequest<SpringPage<MyPagePostItemResponse>>(
+    `${MY_ACTIVITY_PATH[activity]}?${searchParams}`,
   )
-  return toFetchPostsResult(page)
+  return {
+    items: page.content.map(toMyActivityPost),
+    hasMore: !page.last,
+  }
 }
 
 // 백엔드 게시글 상세 응답 중 화면이 쓰는 필드만 취한다.
