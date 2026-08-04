@@ -3,7 +3,7 @@ import { ChevronDown, ThumbsUp } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { CommentComposer } from '@/components/community/CommentComposer'
 import { splitEmoticonSegments } from '@/lib/emoticons'
-import { formatRelativeTime } from '@/lib/format'
+import { formatDateTime } from '@/lib/format'
 import { EASE_OUT, collapseSection } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 import type { CommunityComment, CommunityReply } from '@/types/community'
@@ -374,9 +374,9 @@ function CommentBody({
       <div className="min-w-0 flex-1">
         <p className="flex items-baseline gap-2">
           <span className="text-body-2 font-semibold text-ink-900">{author}</span>
-          <span className="text-caption text-ink-400">
-            {formatRelativeTime(createdAt)}
-          </span>
+          <time dateTime={createdAt} className="text-caption text-ink-400">
+            {formatDateTime(createdAt)}
+          </time>
         </p>
         <motion.div layout transition={{ duration: 0.26, ease: EASE_OUT }}>
           <p
