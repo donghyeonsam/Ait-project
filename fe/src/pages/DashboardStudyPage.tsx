@@ -128,6 +128,8 @@ export function DashboardStudyPage() {
   const [pendingSession, setPendingSession] = useState<
     { sessionId: number; groupId?: number } | null
   >(null)
+  // 방금 나온 세션이 실제로 종료됐는데도 목록에 안 나타나면(=아무 평가도 못 받음) 더 기다리지 않고 확정한다.
+  const [pendingHasNoFeedback, setPendingHasNoFeedback] = useState(false)
   const [groupFilter, setGroupFilter] = useState<number | 'all'>('all')
   const [sortOrder, setSortOrder] = useState<'latest' | 'oldest'>('latest')
   const [selectedRecord, setSelectedRecord] = useState<StudyRecord | null>(null)
@@ -211,19 +213,34 @@ export function DashboardStudyPage() {
     records.some((record) => record.sessionId === pendingSession.sessionId)
 
   // 세션 종료 감지가 아직 웹훅 기반이 아니라, 방금 나온 세션이 목록에 나타날 때까지 주기적으로 다시 확인한다.
+  // 목록엔 안 나타났는데 세션 자체는 이미 완전히 종료된 상태라면, 더 받을 평가가 없다는 뜻이라
+  // 폴링을 멈추고 "평가 없음"으로 확정한다.
   useEffect(() => {
-    if (!pendingSession || isPendingResolved) return
+    if (!pendingSession || isPendingResolved || pendingHasNoFeedback) return
 
     const timer = window.setInterval(() => {
       getPeerFeedbackList()
-        .then((result) => setRecords(toStudyRecords(result)))
+        .then((result) => {
+          const nextRecords = toStudyRecords(result)
+          setRecords(nextRecords)
+          if (nextRecords.some((record) => record.sessionId === pendingSession.sessionId)) {
+            return
+          }
+          return getStudySessionStatus(pendingSession.sessionId)
+            .then((status) => {
+              if (status.ended) setPendingHasNoFeedback(true)
+            })
+            .catch(() => {
+              // 상태 확인 실패는 무시하고 다음 주기에 다시 확인한다.
+            })
+        })
         .catch(() => {
           // 일시적인 조회 실패는 무시하고 다음 주기에 다시 확인한다.
         })
     }, PENDING_POLL_INTERVAL_MS)
 
     return () => window.clearInterval(timer)
-  }, [pendingSession, isPendingResolved])
+  }, [pendingSession, isPendingResolved, pendingHasNoFeedback])
 
   const pendingGroupTitle = pendingSession
     ? (myGroups.find((group) => group.id === pendingSession.groupId)?.title ?? '스터디 세션')
@@ -403,7 +420,7 @@ export function DashboardStudyPage() {
                         round:
                           records.filter((record) => record.groupId === pendingSession.groupId)
                             .length + 1,
-                        status: 'collecting',
+                        status: pendingHasNoFeedback ? 'noFeedback' : 'collecting',
                       }}
                       index={0}
                       onOpenReport={() => {}}

@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'framer-motion'
-import { Loader2 } from 'lucide-react'
+import { Inbox, Loader2 } from 'lucide-react'
 import BorderGlow from '@/components/BorderGlow'
 import { Button } from '@/components/ui/button'
 import { useInView } from '@/lib/useInView'
@@ -42,6 +42,25 @@ export function StudyRecordItem({
           <h3 className="mt-2 truncate text-h3 font-semibold">{record.groupTitle}</h3>
           <p className="mt-1 text-body-2 text-text-secondary">
             팀원들의 평가를 모으고 있어요. 모두 모이면 자동으로 결과가 채워져요.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (record.status === 'noFeedback') {
+    return (
+      <div className="flex min-h-28 items-center gap-4 rounded-[28px] border border-border-default bg-status-neutral-surface px-8 py-4 shadow-elevation-1">
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-ait-pill bg-surface-default text-text-secondary">
+          <Inbox className="size-5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <span className="text-caption font-medium text-text-secondary">
+            평가 없음 · {record.round}회차
+          </span>
+          <h3 className="mt-2 truncate text-h3 font-semibold">{record.groupTitle}</h3>
+          <p className="mt-1 text-body-2 text-text-secondary">
+            받은 팀원 평가가 없어요. 새로고침하면 이 카드는 다시 보이지 않아요.
           </p>
         </div>
       </div>

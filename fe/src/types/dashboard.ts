@@ -31,5 +31,5 @@ export interface StudyRecord {
   delta: number
   /** 같은 그룹에서 몇 번째 스터디인지(오래된 순 1부터). */
   round: number
-  status: 'collecting' | 'completed'
+  status: 'collecting' | 'completed' | 'noFeedback'
 }
