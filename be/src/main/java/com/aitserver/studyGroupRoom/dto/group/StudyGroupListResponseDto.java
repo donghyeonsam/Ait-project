@@ -17,8 +17,9 @@ public class StudyGroupListResponseDto {
     private StudyGroupStatus groupStatus;
     private LocalDateTime createdAt;
     private int currentMemberCount;
+    private boolean isPending;
 
-    public static StudyGroupListResponseDto from(StudyGroup studyGroup) {
+    public static StudyGroupListResponseDto of(StudyGroup studyGroup, boolean isPending) {
         return StudyGroupListResponseDto.builder()
                 .id(studyGroup.getId())
                 .title(studyGroup.getTitle())
@@ -27,6 +28,7 @@ public class StudyGroupListResponseDto {
                 .currentMemberCount(studyGroup.getCurrentMemberCount())
                 .groupStatus(studyGroup.getStatus())
                 .createdAt(studyGroup.getCreatedAt())
+                .isPending(isPending)
                 .build();
     }
 }

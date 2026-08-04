@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface StudyGroupMemberRepository
         extends JpaRepository<StudyGroupMember, Long> {
@@ -72,4 +73,11 @@ public interface StudyGroupMemberRepository
 
     @Query(value = "SELECT * FROM study_group_members WHERE group_id = :groupId AND user_id = :userId", nativeQuery = true)
     Optional<StudyGroupMember> findByGroupAndUserIncludeDeleted(@Param("groupId") Long groupId, @Param("userId") Long userId);
+
+    @Query("SELECT m.studyGroup.id FROM StudyGroupMember m " +
+            "WHERE m.user.id = :userId " +
+            "AND m.studyGroup.id IN :groupIds " +
+            "AND m.status = 'PENDING' " +
+            "AND m.deletedAt IS NULL")
+    Set<Long> findPendingGroupIds(@Param("userId") Long userId, @Param("groupIds") List<Long> groupIds);
 }
