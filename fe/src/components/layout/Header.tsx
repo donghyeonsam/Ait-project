@@ -1,4 +1,4 @@
-import { LogOut, Menu } from 'lucide-react'
+import { LogOut, Menu, MessageCircleMore } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { logout } from '@/api/auth'
@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/useAuth'
+import { useStudyChat } from '@/lib/useStudyChat'
 
 const navigationItems = [
   { label: '대시보드', to: '/dashboard' },
@@ -26,7 +27,13 @@ const navigationLinkClass = ({ isActive }: { isActive: boolean }) =>
 export function Header() {
   const navigate = useNavigate()
   const { isAuthenticated, user, signOut } = useAuth()
+  const { totalUnread, isChatOpen, openChat } = useStudyChat()
   const [isSigningOut, setIsSigningOut] = useState(false)
+
+  const hasUnread = typeof totalUnread === 'number' && totalUnread > 0
+  // 긴 개수가 뱃지 크기를 밀어내지 않도록 99+로 축약한다.
+  const unreadLabel =
+    totalUnread !== undefined && totalUnread > 99 ? '99+' : String(totalUnread ?? 0)
 
   const handleSignOut = async () => {
     if (isSigningOut) return
@@ -86,6 +93,30 @@ export function Header() {
                 <Menu aria-hidden="true" />
               </Button>
               <NotificationBell />
+              <Button
+                type="button"
+                variant="text"
+                size="icon"
+                className="relative"
+                onClick={openChat}
+                aria-haspopup="dialog"
+                aria-expanded={isChatOpen}
+                aria-label={
+                  hasUnread
+                    ? `그룹톡 열기, 읽지 않은 메시지 ${unreadLabel}개`
+                    : '그룹톡 열기'
+                }
+              >
+                <MessageCircleMore aria-hidden="true" />
+                {hasUnread ? (
+                  <span
+                    className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-ait-pill border-2 border-surface-default bg-status-error px-0.5 text-[10px] font-bold leading-none text-surface-default"
+                    aria-hidden="true"
+                  >
+                    {unreadLabel}
+                  </span>
+                ) : null}
+              </Button>
               <Link to="/mypage" className="rounded-ait-pill" aria-label="마이페이지로 이동">
                 <Avatar className="size-10">
                   <AvatarFallback className="border-0 bg-profile-avatar">

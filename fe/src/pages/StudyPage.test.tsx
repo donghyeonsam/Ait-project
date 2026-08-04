@@ -16,9 +16,11 @@ import {
 } from '@/api/study-groups'
 import {
   connectStudyGroupChat,
+  connectStudyGroupChatMulti,
   getStudyGroupChats,
   sendStudyGroupChatMessage,
 } from '@/api/study-group-chat'
+import { StudyChatProvider } from '@/app/StudyChatProvider'
 
 vi.mock('@/api/auth', () => ({
   logout: vi.fn(),
@@ -36,6 +38,7 @@ vi.mock('@/api/study-groups', () => ({
 vi.mock('@/api/study-group-chat', () => ({
   getStudyGroupChats: vi.fn(),
   connectStudyGroupChat: vi.fn(),
+  connectStudyGroupChatMulti: vi.fn(),
   sendStudyGroupChatMessage: vi.fn(),
 }))
 
@@ -111,10 +114,13 @@ function toPage(content: StudyGroupListItem[]): StudyGroupPage {
   }
 }
 
+// 그룹톡 진입 버튼과 모달이 전역 프로바이더로 옮겨져 실제 앱과 같은 구성으로 감싼다.
 function renderStudyPage() {
   return render(
     <MemoryRouter initialEntries={['/study']}>
-      <StudyPage />
+      <StudyChatProvider>
+        <StudyPage />
+      </StudyChatProvider>
     </MemoryRouter>,
   )
 }
@@ -125,6 +131,8 @@ describe('StudyPage', () => {
   })
 
   beforeEach(() => {
+    // 첫 방문 기준점 기록이 테스트 간에 누적되지 않게 한다.
+    localStorage.clear()
     vi.mocked(getStudyGroups).mockResolvedValue(toPage(studyGroups))
     vi.mocked(getMyStudyGroups).mockResolvedValue(myStudyGroups)
     vi.mocked(applyToStudyGroup).mockResolvedValue(undefined)
@@ -159,6 +167,10 @@ describe('StudyPage', () => {
         } as unknown as ReturnType<typeof connectStudyGroupChat>
       },
     )
+    vi.mocked(connectStudyGroupChatMulti).mockReturnValue({
+      connected: true,
+      deactivate: vi.fn().mockResolvedValue(undefined),
+    } as unknown as ReturnType<typeof connectStudyGroupChatMulti>)
   })
 
   it('서버에서 받은 스터디 목록에 검색과 더보기를 반영한다', async () => {

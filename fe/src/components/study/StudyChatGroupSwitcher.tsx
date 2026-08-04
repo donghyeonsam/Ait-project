@@ -14,6 +14,7 @@ interface StudyChatGroupSwitcherProps {
   groups: MyStudyGroup[]
   selectedGroupId: number | null
   previews: StudyChatPreviewMap
+  unreadCounts?: Record<number, number>
   onSelect: (groupId: number) => void
   onFindGroup: () => void
   onClose: () => void
@@ -56,6 +57,7 @@ export function StudyChatGroupSwitcher({
   groups,
   selectedGroupId,
   previews,
+  unreadCounts,
   onSelect,
   onFindGroup,
   onClose,
@@ -131,6 +133,7 @@ export function StudyChatGroupSwitcher({
         {groups.map((group, index) => {
           const isSelected = group.id === selectedGroupId
           const preview = previews[group.id]
+          const unreadCount = unreadCounts?.[group.id] ?? 0
 
           return (
             <button
@@ -173,9 +176,23 @@ export function StudyChatGroupSwitcher({
                   <Check className="size-4" aria-hidden="true" />
                   <span className="sr-only">현재 그룹</span>
                 </span>
-              ) : preview ? (
-                <span className="shrink-0 self-start pt-0.5 text-caption text-text-secondary">
-                  {formatPreviewTime(preview.createdAt)}
+              ) : preview || unreadCount > 0 ? (
+                <span className="flex shrink-0 flex-col items-end gap-1 self-start pt-0.5">
+                  {preview ? (
+                    <span className="text-caption text-text-secondary">
+                      {formatPreviewTime(preview.createdAt)}
+                    </span>
+                  ) : null}
+                  {unreadCount > 0 ? (
+                    <span className="flex h-4 min-w-4 items-center justify-center rounded-ait-pill bg-status-error px-1 text-[11px] font-bold leading-none text-surface-default">
+                      <span aria-hidden="true">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                      <span className="sr-only">
+                        읽지 않은 메시지 {unreadCount}개
+                      </span>
+                    </span>
+                  ) : null}
                 </span>
               ) : null}
             </button>
