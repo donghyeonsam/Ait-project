@@ -531,6 +531,9 @@ describe('StudyGroupPage', () => {
         '일정 확인했습니다.',
       ),
     ).toBeInTheDocument()
+    expect(
+      within(screen.getByLabelText('그룹톡 메시지')).getByText('오전 10:00'),
+    ).toBeInTheDocument()
   })
 
   it('새로고침 후 불러온 그룹톡 이력을 최신 메시지 위치에서 보여준다', async () => {

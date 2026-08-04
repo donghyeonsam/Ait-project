@@ -76,6 +76,15 @@ function readRecentEmojis(): string[] {
   }
 }
 
+function formatMessageTime(createdAt: string) {
+  const date = new Date(createdAt)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat('ko-KR', {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date)
+}
+
 // 그룹톡 공지와 실시간 메시지를 서버(REST 이력 조회 + STOMP 실시간 송수신)와 연동해 보여준다.
 export function StudyGroupChatPanel({
   groupId,
@@ -548,6 +557,7 @@ export function StudyGroupChatPanel({
         {messages.map((message) => {
           const isSelf = message.senderId === currentUserId
           const emoticon = parseEmoticonToken(message.message)
+          const messageTime = formatMessageTime(message.createdAt)
 
           return (
             <div
@@ -602,6 +612,14 @@ export function StudyGroupChatPanel({
                     </p>
                   </div>
                 )}
+                {messageTime ? (
+                  <time
+                    dateTime={message.createdAt}
+                    className="mt-1 block text-caption text-text-secondary"
+                  >
+                    {messageTime}
+                  </time>
+                ) : null}
                 {!isSelf ? (
                   <StudyChatMessageReactions
                     messageId={message.chatId}
