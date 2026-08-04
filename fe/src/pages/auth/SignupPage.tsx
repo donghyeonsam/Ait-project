@@ -139,7 +139,12 @@ export function SignupPage() {
         setValue('nicknameChecked', result.canUse, { shouldValidate: true })
         setNicknameDuplicateError(result.canUse ? null : '이미 사용 중인 닉네임이에요.')
       } catch {
-        // 중복확인 조회 실패는 조용히 넘어가고, 가입 시점의 서버 검증에 맡긴다.
+        // 중복확인 조회 실패는 조용히 넘어가고 가입 시점의 서버 검증에 맡긴다 — nicknameChecked를
+        // false로 남겨두면 가입 버튼이 영원히 막히므로, 여기서도 통과시켜야 그 의도대로 동작한다.
+        if (!cancelled) {
+          setValue('nicknameChecked', true, { shouldValidate: true })
+          setNicknameDuplicateError(null)
+        }
       } finally {
         if (!cancelled) setIsCheckingNickname(false)
       }
