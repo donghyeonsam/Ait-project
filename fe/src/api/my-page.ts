@@ -1,30 +1,17 @@
-import { getMyGithubRepositories } from '@/api/github'
-import { ApiError, backendRequest, toErrorMessage } from '@/api/http'
-import { getMyResume } from '@/api/resume'
+import { getMyGithubRepositories, type GithubRepository } from '@/api/github'
+import { backendRequest, toErrorMessage } from '@/api/http'
 
-// 마이페이지에 필요한 이력서와 저장소를 함께 조회한다.
-// 이력서 조회 실패는 전체 실패로 던지고, 저장소 조회 실패는 repositoryError로 넘겨 부분 렌더링을 허용한다.
-export async function getMyPageData() {
-  const [resumeResult, repositoriesResult] = await Promise.allSettled([
-    getMyResume(),
-    getMyGithubRepositories(),
-  ])
+export interface MyPageRepositoriesResult {
+  repositories: GithubRepository[]
+  repositoryError: string | null
+}
 
-  // 이력서를 아직 작성하지 않은 사용자는 정상 상태이므로(404), 마이페이지 자체를
-  // 막지 않고 resume을 null로 둔다. 그 외 오류(네트워크, 서버 오류 등)만 페이지 오류로 취급한다.
-  if (resumeResult.status === 'rejected') {
-    const isMissingResume = resumeResult.reason instanceof ApiError && resumeResult.reason.status === 404
-    if (!isMissingResume) throw resumeResult.reason
-  }
-
-  return {
-    resume: resumeResult.status === 'fulfilled' ? resumeResult.value : null,
-    repositories:
-      repositoriesResult.status === 'fulfilled' ? repositoriesResult.value : [],
-    repositoryError:
-      repositoriesResult.status === 'rejected'
-        ? toErrorMessage(repositoriesResult.reason)
-        : null,
+// 마이페이지의 깃허브 저장소 목록을 조회한다. 실패해도 페이지 전체를 막지 않고 repositoryError로 넘긴다.
+export async function getMyPageRepositories(): Promise<MyPageRepositoriesResult> {
+  try {
+    return { repositories: await getMyGithubRepositories(), repositoryError: null }
+  } catch (error) {
+    return { repositories: [], repositoryError: toErrorMessage(error) }
   }
 }
 
