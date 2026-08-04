@@ -224,7 +224,10 @@ export function SessionTheater({
         </div>
       </header>
 
-      <div className="session-theater-bottom">
+      <div
+        className="session-theater-bottom"
+        data-answer-state={answerStatus}
+      >
         {mediaPermission === 'pending' ? (
           <p className="session-theater-hint" role="status">
             카메라와 마이크 연결을 확인하고 있습니다.
@@ -248,95 +251,90 @@ export function SessionTheater({
         ) : null}
 
         <div className="session-theater-primary-row">
-          <div className="session-theater-glass-card">
-            <div className="session-theater-question-row">
-              <div className="session-theater-card-main">
-                <div className="session-theater-card-label">
-                  <span>현재 질문</span>
-                  {isAiSpeaking ? (
-                    <span className="flex items-center gap-2" role="status">
-                      AI 면접관이 질문을 읽고 있어요
-                      <LiveWaveform />
-                    </span>
+          <div className="session-theater-content-stack">
+            <div className="session-theater-glass-card">
+              <div className="session-theater-question-row">
+                <div className="session-theater-card-main">
+                  <div className="session-theater-card-label">
+                    <span>현재 질문</span>
+                    {isAiSpeaking ? (
+                      <span className="flex items-center gap-2" role="status">
+                        AI 면접관이 질문을 읽고 있어요
+                        <LiveWaveform />
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="session-theater-question" aria-live="polite">
+                    {questionVisible ? question : '질문 영상을 불러오고 있어요…'}
+                  </p>
+
+                  {voiceError || speechError ? (
+                    <div role="alert">
+                      {[voiceError, speechError].filter(Boolean).map((message, index) => (
+                        <p key={`${index}-${message}`} className="session-theater-error">
+                          <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                          {message}
+                        </p>
+                      ))}
+                    </div>
                   ) : null}
                 </div>
-                <p className="session-theater-question" aria-live="polite">
-                  {questionVisible ? question : '질문 영상을 불러오고 있어요…'}
-                </p>
 
-                {isRecording ? (
-                  <p className="session-theater-note">
-                    남은 시간이 끝나면 녹음이 자동으로 종료되고 답변이 변환됩니다.
-                  </p>
-                ) : null}
-
-                {voiceError || speechError ? (
-                  <div role="alert">
-                    {[voiceError, speechError].filter(Boolean).map((message, index) => (
-                      <p key={`${index}-${message}`} className="session-theater-error">
-                        <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                        {message}
-                      </p>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-
-              <button
-                type="button"
-                className="session-theater-replay-button"
-                onClick={onReplayQuestion}
-                disabled={replayDisabled}
-                aria-label="질문 다시 듣기"
-              >
-                <Play className="size-5" aria-hidden="true" />
-              </button>
-            </div>
-
-            <section
-              className="session-theater-transcript-panel"
-              aria-labelledby="session-live-answer-title"
-            >
-              <div className="session-theater-transcript-header">
-                <h2 id="session-live-answer-title">실시간 답변</h2>
-              </div>
-
-              {isReview ? (
-                <div className="session-theater-transcript-editor">
-                  <label htmlFor="voice-answer-transcript">답변 텍스트</label>
-                  <Textarea
-                    id="voice-answer-transcript"
-                    value={transcript}
-                    onChange={(event) => onChangeTranscript(event.target.value)}
-                    className="session-theater-textarea"
-                    placeholder="인식된 답변을 확인하고 필요한 부분을 수정해주세요."
-                  />
-                  <p>답변 내용을 수정한 뒤 답변 제출을 눌러주세요.</p>
-                </div>
-              ) : (
-                <div
-                  className="session-theater-live-transcript"
-                  role="log"
-                  aria-live="polite"
+                <button
+                  type="button"
+                  className="session-theater-replay-button"
+                  onClick={onReplayQuestion}
+                  disabled={replayDisabled}
+                  aria-label="질문 다시 듣기"
                 >
-                  {transcript ||
-                    (isRecording
-                      ? '답변을 시작하면 인식된 내용이 여기에 표시됩니다.'
-                      : '아직 기록된 답변이 없습니다.')}
-                </div>
-              )}
+                  <Play className="size-5" aria-hidden="true" />
+                </button>
+              </div>
 
-              <p className="session-theater-transcript-status">
-                {isReview
-                  ? '인식된 답변을 확인하고 필요한 부분을 수정해주세요.'
-                  : isProcessing
-                    ? '답변을 텍스트로 변환하고 있어요…'
-                    : isRecording
-                      ? 'STT 기능으로 실시간 답변을 기록 중입니다.'
-                      : '질문이 끝나면 실시간 답변 기록을 시작합니다.'}
-                {isRecording ? <LiveWaveform /> : null}
-              </p>
-            </section>
+              {isRecording || isProcessing || isReview ? (
+                <section
+                  className="session-theater-transcript-panel"
+                  aria-labelledby="session-live-answer-title"
+                >
+                  <div className="session-theater-transcript-header">
+                    <h2 id="session-live-answer-title">실시간 답변</h2>
+                  </div>
+
+                  {isReview ? (
+                    <div className="session-theater-transcript-editor">
+                      <label htmlFor="voice-answer-transcript">답변 텍스트</label>
+                      <Textarea
+                        id="voice-answer-transcript"
+                        value={transcript}
+                        onChange={(event) => onChangeTranscript(event.target.value)}
+                        className="session-theater-textarea"
+                        placeholder="인식된 답변을 확인하고 필요한 부분을 수정해주세요."
+                      />
+                    </div>
+                  ) : (
+                    <div
+                      className="session-theater-live-transcript"
+                      role="log"
+                      aria-live="polite"
+                    >
+                      {transcript ||
+                        (isRecording
+                          ? '답변을 시작하면 인식된 내용이 여기에 표시됩니다.'
+                          : '인식된 답변을 정리하고 있습니다.')}
+                    </div>
+                  )}
+
+                  <p className="session-theater-transcript-status">
+                    {isReview
+                      ? '답변 내용을 수정한 뒤 답변 제출을 눌러주세요.'
+                      : isProcessing
+                        ? '답변을 텍스트로 변환하고 있어요…'
+                        : '실시간 답변 기록 중 · 시간이 끝나면 자동 종료됩니다.'}
+                    {isRecording ? <LiveWaveform /> : null}
+                  </p>
+                </section>
+              ) : null}
+            </div>
 
             <div className="session-theater-controls-row">
               <div className="session-theater-controls-left">
@@ -354,29 +352,18 @@ export function SessionTheater({
                 />
                 <span
                   className="session-theater-privacy"
+                  aria-label="음성 텍스트 변환은 브라우저에서 처리됩니다"
                   title="음성 텍스트 변환은 브라우저에서 처리합니다. 제출한 녹음 파일은 기존 답변 음성 분석을 위해 서버로 전송됩니다."
                 >
                   <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />
-                  음성 텍스트 변환은 브라우저에서 처리됩니다
+                  <span className="session-theater-privacy-text">
+                    음성 텍스트 변환은 브라우저에서 처리됩니다
+                  </span>
                 </span>
               </div>
 
               <div className="session-theater-controls-right">
-                {isRecording ? (
-                  <span className="session-theater-badge">
-                    <span
-                      className="session-theater-badge-dot"
-                      aria-hidden="true"
-                    />
-                    STT 기록 중
-                  </span>
-                ) : null}
-
-                {isRecording ? (
-                  <span className="session-theater-hint">
-                    답변을 마치면 내용을 확인하고 수정할 수 있어요
-                  </span>
-                ) : isReview || isSubmittingAnswer ? (
+                {isReview || isSubmittingAnswer ? (
                   <span className="session-theater-hint">
                     Space 키로 답변을 제출할 수 있어요
                   </span>
