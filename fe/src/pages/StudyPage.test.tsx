@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -21,9 +21,22 @@ import {
   sendStudyGroupChatMessage,
 } from '@/api/study-group-chat'
 import { StudyChatProvider } from '@/app/StudyChatProvider'
+import type { NotificationItem } from '@/types/notification'
 
 vi.mock('@/api/auth', () => ({
   logout: vi.fn(),
+}))
+
+// 알림 SSE 대신 리스너를 직접 붙잡아, 승인·거절 알림 수신을 흉내 낼 때 쓴다.
+const { notificationListeners } = vi.hoisted(() => ({
+  notificationListeners: new Set<(item: NotificationItem) => void>(),
+}))
+
+vi.mock('@/lib/notification-stream', () => ({
+  addNotificationListener: (listener: (item: NotificationItem) => void) => {
+    notificationListeners.add(listener)
+    return () => notificationListeners.delete(listener)
+  },
 }))
 
 vi.mock('@/api/study-groups', () => ({
@@ -133,6 +146,7 @@ describe('StudyPage', () => {
   beforeEach(() => {
     // 첫 방문 기준점 기록이 테스트 간에 누적되지 않게 한다.
     localStorage.clear()
+    notificationListeners.clear()
     vi.mocked(getStudyGroups).mockResolvedValue(toPage(studyGroups))
     vi.mocked(getMyStudyGroups).mockResolvedValue(myStudyGroups)
     vi.mocked(applyToStudyGroup).mockResolvedValue(undefined)
@@ -336,6 +350,57 @@ describe('StudyPage', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(
       '스터디 신청을 보냈습니다.',
     )
+    // 새로고침 후 복원에 쓰이는 저장 값이 신청 즉시 남는다.
+    expect(
+      JSON.parse(localStorage.getItem('ait:applied-study-groups:1') ?? '[]'),
+    ).toContain(1)
+  })
+
+  it('저장된 신청 기록으로 새로고침 후에도 신청 완료 상태를 유지한다', async () => {
+    localStorage.setItem('ait:applied-study-groups:1', JSON.stringify([1]))
+    renderStudyPage()
+
+    const firstStudyCard = (
+      await screen.findAllByRole('article', { name: /상세 정보$/ })
+    )[0]
+
+    fireEvent.mouseEnter(firstStudyCard)
+    fireEvent.transitionEnd(firstStudyCard, { propertyName: 'height' })
+    expect(
+      await within(firstStudyCard).findByRole('button', { name: '신청 완료' }),
+    ).toBeDisabled()
+  })
+
+  it('거절 알림이 오면 신청 완료 표시를 되돌려 다시 신청할 수 있게 한다', async () => {
+    localStorage.setItem('ait:applied-study-groups:1', JSON.stringify([1]))
+    renderStudyPage()
+
+    const firstStudyCard = (
+      await screen.findAllByRole('article', { name: /상세 정보$/ })
+    )[0]
+
+    act(() => {
+      notificationListeners.forEach((listener) =>
+        listener({
+          id: '910',
+          type: 'GROUP_REJECT',
+          category: 'group',
+          targetId: 1,
+          title: '가입 신청이 거절되었습니다.',
+          createdAt: '2026-08-04T10:00:00',
+          read: false,
+        }),
+      )
+    })
+
+    fireEvent.mouseEnter(firstStudyCard)
+    fireEvent.transitionEnd(firstStudyCard, { propertyName: 'height' })
+    expect(
+      await within(firstStudyCard).findByRole('button', { name: '신청하기' }),
+    ).toBeEnabled()
+    expect(
+      JSON.parse(localStorage.getItem('ait:applied-study-groups:1') ?? 'null'),
+    ).toEqual([])
   })
 
   it('그룹톡 전환 팝오버와 메시지 전송을 처리한다', async () => {

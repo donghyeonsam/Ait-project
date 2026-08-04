@@ -27,6 +27,11 @@ import {
 } from '@/api/study-groups'
 import { toErrorMessage } from '@/api/http'
 import { getStudyGroupActiveSession } from '@/api/study-sessions'
+import {
+  loadAppliedStudyIds,
+  saveAppliedStudyIds,
+} from '@/lib/applied-study-storage'
+import { addNotificationListener } from '@/lib/notification-stream'
 import { useAuth } from '@/lib/useAuth'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
@@ -69,7 +74,8 @@ function matchesRecruitmentFilter(
 // 스터디 탐색부터 신청, 그룹 대화까지 라운지 UI 흐름을 조합한다.
 export function StudyPage() {
   const navigate = useNavigate()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
+  const currentUserId = user?.userId ?? null
   const [query, setQuery] = useState('')
   const [recruitment, setRecruitment] = useState<RecruitmentFilter>('all')
   const [sort, setSort] = useState<StudySort>('latest')
@@ -83,8 +89,9 @@ export function StudyPage() {
   const [activeSessionGroupIds, setActiveSessionGroupIds] = useState<
     Set<number>
   >(() => new Set())
-  const [appliedStudyIds, setAppliedStudyIds] = useState<Set<number>>(
-    () => new Set(),
+  // 신청 완료 표시는 새로고침 후에도 유지되도록 localStorage 값으로 시작한다.
+  const [appliedStudyIds, setAppliedStudyIds] = useState<Set<number>>(() =>
+    currentUserId === null ? new Set() : loadAppliedStudyIds(currentUserId),
   )
   const [toast, setToast] = useState<
     { message: string; variant: 'success' | 'error' } | null
@@ -121,13 +128,24 @@ export function StudyPage() {
         .then((studies) => {
           setMyStudies(studies)
           setMyStudiesError(null)
+          // 승인되어 내 스터디가 된 그룹은 저장된 신청 기록에서 걷어내 계속 쌓이지 않게 한다.
+          if (currentUserId !== null) {
+            const joinedIds = new Set(studies.map((study) => study.id))
+            const storedIds = loadAppliedStudyIds(currentUserId)
+            const remainingIds = new Set(
+              [...storedIds].filter((groupId) => !joinedIds.has(groupId)),
+            )
+            if (remainingIds.size !== storedIds.size) {
+              saveAppliedStudyIds(currentUserId, remainingIds)
+            }
+          }
         })
         .catch((error: unknown) => {
           setMyStudies([])
           setMyStudiesError(toErrorMessage(error))
         })
         .finally(() => setIsLoadingMyStudies(false)),
-    [],
+    [currentUserId],
   )
 
   useEffect(() => {
@@ -160,6 +178,22 @@ export function StudyPage() {
     () => new Set(myStudies.map((study) => study.id)),
     [myStudies],
   )
+
+  // 승인·거절 알림이 오면 신청 완료 표시를 걷어내고, 승인이면 내 스터디 목록도 갱신한다.
+  useEffect(() => {
+    if (currentUserId === null) return
+    return addNotificationListener((item) => {
+      if (item.type !== 'GROUP_APPROVE' && item.type !== 'GROUP_REJECT') return
+      setAppliedStudyIds((current) => {
+        if (!current.has(item.targetId)) return current
+        const next = new Set(current)
+        next.delete(item.targetId)
+        saveAppliedStudyIds(currentUserId, next)
+        return next
+      })
+      if (item.type === 'GROUP_APPROVE') void loadMyStudies()
+    })
+  }, [currentUserId, loadMyStudies])
 
   const filteredStudies = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('ko-KR')
@@ -213,7 +247,11 @@ export function StudyPage() {
 
     try {
       await applyToStudyGroup(target.id, message)
-      setAppliedStudyIds((currentIds) => new Set(currentIds).add(target.id))
+      setAppliedStudyIds((currentIds) => {
+        const next = new Set(currentIds).add(target.id)
+        if (currentUserId !== null) saveAppliedStudyIds(currentUserId, next)
+        return next
+      })
       setToast({ message: '스터디 신청을 보냈습니다.', variant: 'success' })
     } catch (error) {
       setToast({ message: toErrorMessage(error), variant: 'error' })
