@@ -234,6 +234,8 @@ interface PostDetailResponse {
   tags: string[] | null
   files: PostFileResponse[] | null
   createdAt: string
+  liked: boolean
+  scrapped: boolean
 }
 
 export async function fetchPost(postId: string): Promise<CommunityPost | null> {
@@ -256,10 +258,10 @@ export async function fetchPost(postId: string): Promise<CommunityPost | null> {
     tags: data.tags ?? [],
     viewCount: data.viewCount,
     likeCount: data.likeCount,
-    // 상세 응답에는 댓글 수와 좋아요·저장 여부가 없어 기본값을 쓴다. TODO: 백엔드 보완 후 연동 필요
+    // 상세 응답에는 댓글 수가 없어 기본값을 쓴다. TODO: 백엔드 보완 후 연동 필요
     commentCount: 0,
-    liked: false,
-    bookmarked: false,
+    liked: data.liked ?? false,
+    bookmarked: data.scrapped ?? false,
     files: (data.files ?? []).map(toPostFile),
     thumbnail: data.thumbnail ?? null,
     allowComments: data.allowComments ?? true,

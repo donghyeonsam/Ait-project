@@ -333,6 +333,8 @@ describe('fetchPost', () => {
             receiveNotifications: false,
             likeCount: 5,
             viewCount: 10,
+            liked: true,
+            scrapped: true,
             tags: ['면접팁'],
             files: [
               {
@@ -365,6 +367,8 @@ describe('fetchPost', () => {
       author: '김싸피',
       allowComments: true,
       notify: false,
+      liked: true,
+      bookmarked: true,
       files: [
         expect.objectContaining({
           id: 1,
