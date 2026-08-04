@@ -17,6 +17,7 @@ import { StudyChatContext } from '@/app/study-chat-context'
 import { StudyChatModal } from '@/components/study/StudyChatModal'
 import {
   markStudyChatRead,
+  markStudyChatReadBulk,
   pruneStudyChatReadState,
   readLastReadMap,
   subscribeStudyChatReadState,
@@ -183,6 +184,16 @@ export function StudyChatProvider({ children }: StudyChatProviderProps) {
   const openChat = useCallback(() => setIsChatOpen(true), [])
   const closeChat = useCallback(() => setIsChatOpen(false), [])
 
+  // 안읽음 집합의 가장 큰 chatId까지 읽음으로 기록한다. 기록 알림이 집합 정리와 배지 갱신으로 이어진다.
+  const markAllRead = useCallback(() => {
+    if (userId === null) return
+    const entries: Array<[number, number]> = []
+    unreadSetsRef.current.forEach((chatIds, groupId) => {
+      if (chatIds.size > 0) entries.push([groupId, Math.max(...chatIds)])
+    })
+    if (entries.length > 0) markStudyChatReadBulk(userId, entries)
+  }, [userId])
+
   // 모달이 닫히면 안에서 읽은 그룹들을 서버 이력 기준으로 다시 맞춘다.
   const handleModalOpenChange = useCallback(
     (open: boolean) => {
@@ -205,8 +216,17 @@ export function StudyChatProvider({ children }: StudyChatProviderProps) {
       openChat,
       closeChat,
       refresh,
+      markAllRead,
     }),
-    [totalUnread, unreadByGroup, isChatOpen, openChat, closeChat, refresh],
+    [
+      totalUnread,
+      unreadByGroup,
+      isChatOpen,
+      openChat,
+      closeChat,
+      refresh,
+      markAllRead,
+    ],
   )
 
   return (

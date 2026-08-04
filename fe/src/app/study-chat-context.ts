@@ -9,6 +9,7 @@ export interface StudyChatContextValue {
   openChat: () => void
   closeChat: () => void
   refresh: () => void
+  markAllRead: () => void
 }
 
 // Provider 없이 헤더만 렌더되는 화면(테스트 등)에서도 동작하도록 배지 없는 기본값을 둔다.
@@ -19,6 +20,7 @@ export const studyChatDefaultValue: StudyChatContextValue = {
   openChat: () => {},
   closeChat: () => {},
   refresh: () => {},
+  markAllRead: () => {},
 }
 
 export const StudyChatContext = createContext<StudyChatContextValue>(
