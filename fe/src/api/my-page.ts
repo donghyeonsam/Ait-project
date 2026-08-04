@@ -72,3 +72,23 @@ export function checkNicknameAvailability(nickname: string) {
     `/api/users/nickname/check?nickname=${encodeURIComponent(nickname)}`,
   )
 }
+
+export interface ChangePasswordPayload {
+  oldPassword: string
+  newPassword: string
+  confirmNewPassword: string
+}
+
+// 로그인 상태에서 비밀번호를 변경한다. 현재 비밀번호가 틀리면 400(USER_002)으로 실패한다.
+export function changeMyPagePassword(payload: ChangePasswordPayload) {
+  const formData = new FormData()
+  formData.append(
+    'changePasswordRequest',
+    new Blob([JSON.stringify(payload)], { type: 'application/json' }),
+  )
+
+  return backendRequest<void>('/api/users/change-password', {
+    method: 'PUT',
+    body: formData,
+  })
+}
