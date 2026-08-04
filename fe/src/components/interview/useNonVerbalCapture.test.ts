@@ -152,7 +152,7 @@ describe('useNonVerbalCapture', () => {
     expect(payload.screenHeight).toBe(VIDEO_HEIGHT)
     expect(payload.fps).toBe(5)
     expect(payload.frames.length).toBeGreaterThan(0)
-    // 코끝이 정규화 좌표 (0.5, 0.5)이므로 비디오 픽셀 기준으로는 정중앙 좌표가 된다.
+    // 양쪽 홍채 중심이 정규화 좌표 (0.5, 0.5)이므로 비디오 픽셀 기준으로는 정중앙 좌표가 된다.
     expect(payload.frames[0].gaze_x).toBeCloseTo(VIDEO_WIDTH * 0.5, 5)
     expect(payload.frames[0].gaze_y).toBeCloseTo(VIDEO_HEIGHT * 0.5, 5)
     expect(payload.frames[0].blendshapes).toHaveLength(52)

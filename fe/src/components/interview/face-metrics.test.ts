@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   frameMetrics,
-  noseTipPosition,
+  irisCenterPosition,
   type NormalizedPoint,
 } from '@/components/interview/face-metrics'
 
@@ -101,10 +101,15 @@ describe('frameMetrics', () => {
 
 })
 
-describe('noseTipPosition', () => {
-  it('코끝(인덱스 1) 정규화 좌표를 그대로 반환한다', () => {
-    const landmarks = buildLandmarks({ 1: { x: 0.62, y: 0.41 } })
+describe('irisCenterPosition', () => {
+  it('양쪽 홍채 중심(인덱스 468/473) 정규화 좌표의 평균을 반환한다', () => {
+    const landmarks = buildLandmarks({
+      468: { x: 0.6, y: 0.4 },
+      473: { x: 0.64, y: 0.42 },
+    })
 
-    expect(noseTipPosition(landmarks)).toEqual({ x: 0.62, y: 0.41 })
+    const result = irisCenterPosition(landmarks)
+    expect(result.x).toBeCloseTo(0.62, 10)
+    expect(result.y).toBeCloseTo(0.41, 10)
   })
 })

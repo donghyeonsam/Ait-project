@@ -3,7 +3,7 @@ import type { FaceLandmarker } from '@mediapipe/tasks-vision'
 import { sendNonVerbalData, type NonVerbalFrame } from '@/api/ai-interviews'
 import {
   frameMetrics,
-  noseTipPosition,
+  irisCenterPosition,
 } from '@/components/interview/face-metrics'
 
 // BE(AiInterviewAsyncServiceImpl.nonVerbalDataAnalysisAsync)가 프레임 벡터를 집계하는
@@ -126,13 +126,13 @@ export function useNonVerbalCapture(
           if (!landmarks || !blendshapeCategories) return
 
           const { ear, mar } = frameMetrics(landmarks)
-          const nose = noseTipPosition(landmarks)
+          const iris = irisCenterPosition(landmarks)
           // BE가 screen_width/height 기준의 유클리드 거리 비율로 시선 이탈을 계산하므로,
           // 어떤 픽셀 공간이든 gaze_x/y와 같은 기준이면 된다 — 비디오 프레임 자체를 기준으로 삼는다.
           framesRef.current.push({
             timestamp: (performance.now() - startedAtRef.current) / 1000,
-            gaze_x: nose.x * video.videoWidth,
-            gaze_y: nose.y * video.videoHeight,
+            gaze_x: iris.x * video.videoWidth,
+            gaze_y: iris.y * video.videoHeight,
             blendshapes: blendshapeCategories.map((category) => category.score),
             ear,
             mar,
