@@ -17,6 +17,7 @@ interface ProfileSectionProps {
 
 const nicknameMaxLength = 20
 const nicknameCheckDebounceMs = 400
+const rolesMaxCount = 2
 // ErrorCode.DUPLICATE_NICKNAME("AUTH_002")와 매칭. be/global/exception/ErrorCode.java 참고.
 const duplicateNicknameErrorCode = 'AUTH_002'
 
@@ -29,6 +30,21 @@ function parseCommaText(value: string) {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+// 관심 직무는 서버에 첫 번째·두 번째 두 슬롯으로만 저장된다.
+function toJobInterests(roles: string[]) {
+  return {
+    firstJobInterest: roles[0] ?? null,
+    secondJobInterest: roles[1] ?? null,
+  }
+}
+
+function validateRolesFormat(value: string) {
+  if (parseCommaText(value).length > rolesMaxCount) {
+    return `관심 직무는 최대 ${rolesMaxCount}개까지 입력할 수 있습니다.`
+  }
+  return null
 }
 
 function validateNicknameFormat(value: string) {
@@ -62,6 +78,7 @@ export function ProfileSection({
   const [draft, setDraft] = useState(profile)
   const [skillsText, setSkillsText] = useState(() => toCommaText(profile.skills))
   const [rolesText, setRolesText] = useState(() => toCommaText(profile.roles))
+  const [rolesError, setRolesError] = useState<string | null>(null)
 
   // 형식(빈 값·길이)과 "저장된 닉네임과 동일" 여부는 입력 즉시 updateField에서 걸러지고,
   // 형식이 유효하고 실제로 값이 바뀐 경우에만 여기서 서버에 중복 여부를 debounce로 물어본다.
@@ -118,8 +135,7 @@ export function ProfileSection({
         {
           nickname: savedProfile.nickname,
           name: savedProfile.name,
-          firstJobInterest: null,
-          secondJobInterest: null,
+          ...toJobInterests(savedProfile.roles),
           skills: savedProfile.skills,
           githubRepositories: savedProfile.repositories.map((repository) => ({
             githubRepoId: repository.id,
@@ -151,13 +167,20 @@ export function ProfileSection({
     setSkillsText(toCommaText(savedProfile.skills))
     setRolesText(toCommaText(savedProfile.roles))
     setNicknameError(null)
+    setRolesError(null)
     setIsEditing(true)
   }
 
   const cancelEditing = () => {
     setSaveError(null)
     setNicknameError(null)
+    setRolesError(null)
     setIsEditing(false)
+  }
+
+  const changeRolesText = (value: string) => {
+    setRolesText(value)
+    setRolesError(validateRolesFormat(value))
   }
 
   // 닉네임·이름·관심 기술·깃허브 레포지토리 별칭을 한 번에 저장한다.
@@ -168,16 +191,22 @@ export function ProfileSection({
       return
     }
 
+    const rolesFormatError = validateRolesFormat(rolesText)
+    if (rolesFormatError) {
+      setRolesError(rolesFormatError)
+      return
+    }
+
     setIsSaving(true)
     setSaveError(null)
     setNicknameError(null)
+    setRolesError(null)
 
     try {
       await updateMyPageProfile({
         nickname: draft.nickname.trim(),
         name: draft.name.trim(),
-        firstJobInterest: null,
-        secondJobInterest: null,
+        ...toJobInterests(parseCommaText(rolesText)),
         skills: parseCommaText(skillsText),
         githubRepositories: draft.repositories
           .filter((repository) => repository.name.trim())
@@ -246,7 +275,8 @@ export function ProfileSection({
           profile={displayed}
           isEditing={isEditing}
           rolesText={rolesText}
-          onChangeRolesText={setRolesText}
+          onChangeRolesText={changeRolesText}
+          rolesError={rolesError}
           onChangeName={(value) => updateField('name', value)}
           avatarSrc={displayed.avatarUrl ?? null}
           onSelectAvatarFile={(file) => void selectAvatarFile(file)}
@@ -268,6 +298,7 @@ export function ProfileSection({
         onChangeField={updateField}
         nicknameError={nicknameError}
         isCheckingNickname={isCheckingNickname}
+        hasRolesError={Boolean(rolesError)}
         onChangeRepositoryName={updateRepositoryName}
         isSaving={isSaving}
         saveError={saveError}

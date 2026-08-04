@@ -13,6 +13,7 @@ interface ProfileInfoProps {
   onChangeField: (key: 'nickname' | 'email' | 'github', value: string) => void
   nicknameError?: string | null
   isCheckingNickname?: boolean
+  hasRolesError?: boolean
   onChangeRepositoryName: (id: number, name: string) => void
   isSaving?: boolean
   saveError?: string | null
@@ -41,6 +42,7 @@ export function ProfileInfo({
   onChangeField,
   nicknameError,
   isCheckingNickname = false,
+  hasRolesError = false,
   onChangeRepositoryName,
   isSaving = false,
   saveError,
@@ -156,7 +158,7 @@ export function ProfileInfo({
             </Button>
             <Button
               type="button"
-              disabled={isSaving || isCheckingNickname || Boolean(nicknameError)}
+              disabled={isSaving || isCheckingNickname || Boolean(nicknameError) || hasRolesError}
               onClick={onSaveEditing}
             >
               {isSaving ? '저장 중...' : '저장'}
