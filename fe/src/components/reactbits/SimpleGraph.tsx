@@ -170,7 +170,9 @@ export function SimpleGraph({
     : ''
   const style: SimpleGraphStyle = {
     width: toCssSize(width),
-    maxHeight: `${height}px`,
+    // svg는 width:100%·height:auto로 viewBox 비율(720:260)에 맞춰 늘어나므로,
+    // 세로 길이를 높이가 아닌 그 비율의 최대 가로폭으로 제한해야 카드 밖으로 넘치지 않는다.
+    maxWidth: `${(height * viewBox.width) / viewBox.height}px`,
     '--simple-graph-line-color': lineColor,
     '--simple-graph-dot-color': dotColor,
     '--simple-graph-animation-duration': `${Math.max(animationDuration, 0.1)}s`,
