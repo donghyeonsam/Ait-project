@@ -41,8 +41,8 @@ public class MyPageController {
         MyPageResponse response =
                 myPageService.getMyPage(userId);
 
-        String profileImage = "https://i15d202.p.ssafy.io/uploads/" + response.getProfileImageUrl();
-        response.setProfileImageUrl(profileImage);
+//        String profileImage = "" + response.getProfileImageUrl();
+//        response.setProfileImageUrl(profileImage);
 
         return ResponseEntity
                 .status(HttpStatus.OK)
