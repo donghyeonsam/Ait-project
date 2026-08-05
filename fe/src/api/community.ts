@@ -2,7 +2,7 @@ import {
   ApiError,
   backendRequest,
   fetchBackendAssetBlob,
-  getBackendAssetUrl,
+  getUploadedFileUrl,
 } from '@/api/http'
 import { CATEGORY_META } from '@/lib/community-categories'
 import { COMMUNITY_SEARCH_SUGGESTIONS } from '@/lib/community-suggestions'
@@ -66,15 +66,7 @@ interface PostFileResponse {
   usageType: CommunityPostFileUsageType
 }
 
-// boards/ 같은 폴더 구분자는 유지하고 각 경로 조각만 인코딩해 서버 리소스 경로와 맞춘다.
-const toPostFileUrl = (storedFilename: string) => {
-  const encodedPath = storedFilename
-    .replace(/\\/g, '/')
-    .split('/')
-    .map((segment) => encodeURIComponent(segment))
-    .join('/')
-  return getBackendAssetUrl(`/images/${encodedPath}`)
-}
+const toPostFileUrl = (storedFilename: string) => getUploadedFileUrl(storedFilename)
 
 const toPostFile = ({
   id,
