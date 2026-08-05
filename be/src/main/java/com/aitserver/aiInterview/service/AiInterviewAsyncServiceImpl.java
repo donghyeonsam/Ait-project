@@ -59,8 +59,8 @@ public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
                     - 문장을 제대로 끝맺었는지, 상황에 맞는 경어(존댓말)를 썼는지, 비문이나 습관어("어...", "그...")의 남발이 없는지 평가합니다.
                     
                     {
-                      "ai_answer": "사용자의 답변을 더 전문적이고 완벽하게 수정한 시니어 수준의 모범/보완 답변",
-                      "feedback": "답변에서 부족한 점, 논리적 오류, 또는 추가로 언급했으면 좋았을 점 (피드백)",
+                      "ai_answer": "사용자의 답변을 더 전문적이고 완벽하게 수정한 시니어 수준의 모범/보완 답변 (최대 270글자 이하)",
+                      "feedback": "답변에서 부족한 점, 논리적 오류, 또는 추가로 언급했으면 좋았을 점 (피드백, 최대 270글자 이하)",
                       "qna_score": 질의응답 기준에 따른 평가 점수 (0~10 사이의 정수),
                       "sentence_score": 문장구성 기준에 따른 평가 점수 (0~10 사이의 정수)
                     }
@@ -142,6 +142,7 @@ public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
                 userId, aiInterviewId);
 
         try {
+            log.info("[===Async=== 사용자의 시선 정보] 해상도: {} * {}", request.getScreenHeight() ,request.getScreenWidth());
             // 1. 시선 이탈률 계산, AI 사용하지 않고, 수학 공식으로 판별
             double centerX = request.getScreenWidth() / 2.0;
             double centerY = request.getScreenHeight() / 2.0;
@@ -157,6 +158,7 @@ public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
             List<FastApiFaceAnalyzeRequest.FastApiFrameData> fastApiFrames = new ArrayList<>();
 
             for (NonVerbalDataRequest.FrameData frame : request.getFrames()) { // 반복문으로 계산하면서 FastAPI에 필요한 것만 담기
+                log.info("[===Async=== 사용자의 시선 정보] 시선 x좌표: {}, y좌표: {}", frame.getGazeX(), frame.getGazeY());
                 double currentDistance = Math.sqrt(Math.pow(frame.getGazeX() - centerX, 2) + Math.pow(frame.getGazeY() - centerY, 2));
                 double deviation = Math.min(currentDistance / maxDistance, 1.0);
 
