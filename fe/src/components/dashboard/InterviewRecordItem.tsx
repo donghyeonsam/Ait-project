@@ -11,6 +11,7 @@ interface InterviewRecordItemProps {
   record: InterviewRecord
   index: number
   onOpenReport: (record: InterviewRecord) => void
+  isReportOpen: boolean
 }
 
 // 대시보드의 면접 기록 한 건. 분석 중이면 로딩 카드를, 완료면 점수·증감과 리포트 버튼을 보여준다.
@@ -18,6 +19,7 @@ export function InterviewRecordItem({
   record,
   index,
   onOpenReport,
+  isReportOpen,
 }: InterviewRecordItemProps) {
   const isUp = record.delta >= 0
   const shouldReduceMotion = useReducedMotion()
@@ -50,8 +52,12 @@ export function InterviewRecordItem({
 
   return (
     <motion.div
+      // 모달이 이 기록을 열람 중일 때는 layoutId를 내려놓아, 카드와 모달이 동일 layoutId를
+      // 동시에 점유해 카드가 숨겨진 채 복구되지 않는 문제를 막는다.
       layoutId={
-        shouldReduceMotion ? undefined : `interview-report-${record.id}`
+        shouldReduceMotion || isReportOpen
+          ? undefined
+          : `interview-report-${record.id}`
       }
       transition={
         shouldReduceMotion
