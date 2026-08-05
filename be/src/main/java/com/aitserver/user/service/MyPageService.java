@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MyPageService {
 
-    private static final String IMAGE_URL_PREFIX = "/images/";
+    private static final String IMAGE_URL_PREFIX = "https://i15d202.p.ssafy.io/uploads/";
 
     private final UserRepository userRepository;
     private final UserSkillRepository userSkillRepository;
