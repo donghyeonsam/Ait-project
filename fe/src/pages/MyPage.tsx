@@ -162,6 +162,7 @@ export function MyPage() {
               repositoryError={repositoryError}
               repositoryLoading={isRepositoryLoading}
               onRetryRepositories={retryRepositories}
+              onRepositoryInstalled={retryRepositories}
               onOpenDocuments={() => setDocumentBoxOpen(true)}
             />
           </section>

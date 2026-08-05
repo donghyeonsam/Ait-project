@@ -71,4 +71,26 @@ describe('ReportModal', () => {
     expect(onClose).toHaveBeenCalledOnce()
     expect(getInterviewReportDetail).toHaveBeenCalledWith(record.id)
   })
+
+  it('역량 레이더에 항목별 점수를 함께 표시한다', async () => {
+    vi.mocked(getInterviewReportDetail).mockResolvedValue({
+      aiInterviewId: record.id,
+      interviewType: '기술',
+      difficulty: '보통',
+      createdAt: '2026-08-01T10:00:00',
+      content: { strengths: [], weaknesses: [] },
+      eyeContactScore: 7.2,
+      faceScore: 8,
+      voiceScore: 6.5,
+      qnaScore: 9.1,
+      sentenceScore: 5.4,
+      questions: [],
+    })
+    renderModal(true)
+
+    const radar = await screen.findByRole('img', { name: /역량 분석/ })
+    for (const score of ['7.2', '8.0', '6.5', '9.1', '5.4']) {
+      expect(radar).toHaveTextContent(score)
+    }
+  })
 })

@@ -128,44 +128,49 @@ export function DashboardStudyPage() {
   const [pendingSession, setPendingSession] = useState<
     { sessionId: number; groupId?: number } | null
   >(null)
+  // 방금 나온 세션이 실제로 종료됐는데도 목록에 안 나타나면(=아무 평가도 못 받음) 더 기다리지 않고 확정한다.
+  const [pendingHasNoFeedback, setPendingHasNoFeedback] = useState(false)
   const [groupFilter, setGroupFilter] = useState<number | 'all'>('all')
   const [sortOrder, setSortOrder] = useState<'latest' | 'oldest'>('latest')
   const [selectedRecord, setSelectedRecord] = useState<StudyRecord | null>(null)
   const [reportOpen, setReportOpen] = useState(false)
   const consumedNavState = useRef(false)
 
+  // 목록 조회 + "완전히 종료됐는지" 재확인을 한 번에 처리한다. 목록에는 팀원 한 명만 먼저
+  // 평가를 남겨도 세션이 잡히므로, 세션이 실제로 완전히 종료됐는지 다시 확인해 아직이면
+  // 점수·리포트를 감추고 "평가 수집중"으로 되돌린다. 초기 로드와 수집중 상태의 주기적
+  // 재확인이 이 로직을 그대로 공유한다.
+  const fetchRecords = useCallback(async () => {
+    const result = await getPeerFeedbackList()
+    const initialRecords = toStudyRecords(result)
+
+    const statuses = await Promise.all(
+      initialRecords.map((record) =>
+        getStudySessionStatus(record.sessionId).catch(() => null),
+      ),
+    )
+
+    const endedBySessionId = new Map(
+      initialRecords
+        .map((record, index) => [record.sessionId, statuses[index]?.ended] as const)
+        .filter(([, ended]) => ended !== undefined),
+    )
+
+    return initialRecords.map((record) =>
+      endedBySessionId.get(record.sessionId) === false
+        ? { ...record, status: 'collecting' as const, score: 0, delta: 0 }
+        : record,
+    )
+  }, [])
+
   useEffect(() => {
     let cancelled = false
 
-    getPeerFeedbackList()
-      .then(async (result) => {
+    fetchRecords()
+      .then((nextRecords) => {
         if (cancelled) return
-        const initialRecords = toStudyRecords(result)
-        setRecords(initialRecords)
+        setRecords(nextRecords)
         setLoadState('loaded')
-
-        // 목록에는 팀원 한 명만 먼저 평가를 남겨도 세션이 잡히므로, 세션이 실제로 완전히
-        // 종료됐는지 다시 확인해 아직이면 점수·리포트를 감추고 "평가 수집중"으로 되돌린다.
-        const statuses = await Promise.all(
-          initialRecords.map((record) =>
-            getStudySessionStatus(record.sessionId).catch(() => null),
-          ),
-        )
-        if (cancelled) return
-
-        const endedBySessionId = new Map(
-          initialRecords
-            .map((record, index) => [record.sessionId, statuses[index]?.ended] as const)
-            .filter(([, ended]) => ended !== undefined),
-        )
-
-        setRecords((current) =>
-          current.map((record) =>
-            endedBySessionId.get(record.sessionId) === false
-              ? { ...record, status: 'collecting', score: 0, delta: 0 }
-              : record,
-          ),
-        )
       })
       .catch((error: unknown) => {
         if (cancelled) return
@@ -176,7 +181,24 @@ export function DashboardStudyPage() {
     return () => {
       cancelled = true
     }
-  }, [requestKey])
+  }, [requestKey, fetchRecords])
+
+  const hasCollectingRecords = records.some((record) => record.status === 'collecting')
+
+  // "평가 수집중"으로 남아있는 세션이 있으면, 새로고침 없이도 종료 여부를 주기적으로 다시 확인한다.
+  useEffect(() => {
+    if (!hasCollectingRecords) return
+
+    const timer = window.setInterval(() => {
+      fetchRecords()
+        .then((nextRecords) => setRecords(nextRecords))
+        .catch(() => {
+          // 일시적인 조회 실패는 무시하고 다음 주기에 다시 확인한다.
+        })
+    }, PENDING_POLL_INTERVAL_MS)
+
+    return () => window.clearInterval(timer)
+  }, [hasCollectingRecords, fetchRecords])
 
   // 그룹 필터 드롭다운용 목록. 실패해도 목록 자체는 그대로 보여줘야 하니 조용히 빈 목록으로 둔다.
   useEffect(() => {
@@ -211,19 +233,33 @@ export function DashboardStudyPage() {
     records.some((record) => record.sessionId === pendingSession.sessionId)
 
   // 세션 종료 감지가 아직 웹훅 기반이 아니라, 방금 나온 세션이 목록에 나타날 때까지 주기적으로 다시 확인한다.
+  // 목록엔 안 나타났는데 세션 자체는 이미 완전히 종료된 상태라면, 더 받을 평가가 없다는 뜻이라
+  // 폴링을 멈추고 "평가 없음"으로 확정한다.
   useEffect(() => {
-    if (!pendingSession || isPendingResolved) return
+    if (!pendingSession || isPendingResolved || pendingHasNoFeedback) return
 
     const timer = window.setInterval(() => {
-      getPeerFeedbackList()
-        .then((result) => setRecords(toStudyRecords(result)))
+      fetchRecords()
+        .then((nextRecords) => {
+          setRecords(nextRecords)
+          if (nextRecords.some((record) => record.sessionId === pendingSession.sessionId)) {
+            return
+          }
+          return getStudySessionStatus(pendingSession.sessionId)
+            .then((status) => {
+              if (status.ended) setPendingHasNoFeedback(true)
+            })
+            .catch(() => {
+              // 상태 확인 실패는 무시하고 다음 주기에 다시 확인한다.
+            })
+        })
         .catch(() => {
           // 일시적인 조회 실패는 무시하고 다음 주기에 다시 확인한다.
         })
     }, PENDING_POLL_INTERVAL_MS)
 
     return () => window.clearInterval(timer)
-  }, [pendingSession, isPendingResolved])
+  }, [pendingSession, isPendingResolved, pendingHasNoFeedback, fetchRecords])
 
   const pendingGroupTitle = pendingSession
     ? (myGroups.find((group) => group.id === pendingSession.groupId)?.title ?? '스터디 세션')
@@ -403,7 +439,7 @@ export function DashboardStudyPage() {
                         round:
                           records.filter((record) => record.groupId === pendingSession.groupId)
                             .length + 1,
-                        status: 'collecting',
+                        status: pendingHasNoFeedback ? 'noFeedback' : 'collecting',
                       }}
                       index={0}
                       onOpenReport={() => {}}

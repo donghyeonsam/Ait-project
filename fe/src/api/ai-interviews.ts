@@ -231,7 +231,7 @@ export function completeInterview(aiInterviewId: number) {
 }
 
 // BE 리포트 목록 항목. 리포트가 생성된 면접만 내려오고 분석 중인 면접은 목록에 없다.
-interface ReportListItemResponse {
+export interface ReportListItemResponse {
   aiInterviewId: number
   interviewType: string
   difficulty: string
@@ -329,12 +329,11 @@ export async function getInterviewReportDetail(
   }
 }
 
-// 리포트 목록을 화면 기록 모델로 바꿔 최신순으로 돌려준다.
+// 리포트 목록 응답을 화면 기록 모델로 바꿔 최신순으로 돌려준다.
 // 점수 증감은 응답에 없어 직전 면접과의 점수 차이로 계산한다.
-export async function getInterviewReports(): Promise<InterviewRecord[]> {
-  const items = await backendRequest<ReportListItemResponse[]>(
-    '/api/ai-interviews/result',
-  )
+export function toInterviewRecords(
+  items: ReportListItemResponse[],
+): InterviewRecord[] {
   const ascending = [...items].sort((a, b) =>
     a.createdAt.localeCompare(b.createdAt),
   )
@@ -354,4 +353,11 @@ export async function getInterviewReports(): Promise<InterviewRecord[]> {
       }
     })
     .reverse()
+}
+
+export async function getInterviewReports(): Promise<InterviewRecord[]> {
+  const items = await backendRequest<ReportListItemResponse[]>(
+    '/api/ai-interviews/result',
+  )
+  return toInterviewRecords(items)
 }

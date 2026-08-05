@@ -37,9 +37,22 @@ import {
   type StudyGroupChatNotice,
 } from '@/api/study-group-chat'
 import type { Client } from '@stomp/stompjs'
+import type { NotificationItem } from '@/types/notification'
 
 vi.mock('@/api/auth', () => ({
   logout: vi.fn(),
+}))
+
+// 알림 SSE 대신 리스너를 직접 붙잡아, 가입 신청 알림 수신을 흉내 낼 때 쓴다.
+const { notificationListeners } = vi.hoisted(() => ({
+  notificationListeners: new Set<(item: NotificationItem) => void>(),
+}))
+
+vi.mock('@/lib/notification-stream', () => ({
+  addNotificationListener: (listener: (item: NotificationItem) => void) => {
+    notificationListeners.add(listener)
+    return () => notificationListeners.delete(listener)
+  },
 }))
 
 vi.mock('@/api/study-groups', () => ({
@@ -214,6 +227,66 @@ describe('StudyGroupPage', () => {
     vi.mocked(sendStudyGroupChatMessage).mockClear()
     vi.mocked(sendStudyGroupChatNotice).mockClear()
     vi.mocked(deleteStudyGroupChatNotice).mockClear()
+    notificationListeners.clear()
+  })
+
+  it('가입 신청 알림이 오면 신청자 수 배지를 실시간으로 갱신한다', async () => {
+    await renderStudyGroupPage()
+
+    const reviewButton = screen.getByRole('button', { name: /가입 신청 검토/ })
+    await waitFor(() => expect(reviewButton).toHaveTextContent('0'))
+
+    vi.mocked(getStudyGroupApplications).mockResolvedValue([
+      {
+        applicationId: 31,
+        userId: 9,
+        nickname: '박지원',
+        profileImageUrl: null,
+        message: '함께 준비하고 싶습니다.',
+        appliedAt: '2026-08-04T10:00:00',
+      },
+    ])
+
+    act(() => {
+      notificationListeners.forEach((listener) =>
+        listener({
+          id: '900',
+          type: 'GROUP_APPLY',
+          category: 'group',
+          targetId: 101,
+          title: '박지원님이 그룹 가입을 신청했습니다.',
+          createdAt: '2026-08-04T10:00:00',
+          read: false,
+        }),
+      )
+    })
+
+    await waitFor(() => expect(reviewButton).toHaveTextContent('1'))
+  })
+
+  it('다른 그룹의 가입 신청 알림은 무시한다', async () => {
+    await renderStudyGroupPage()
+
+    const applicationCallsBefore = vi.mocked(getStudyGroupApplications).mock
+      .calls.length
+
+    act(() => {
+      notificationListeners.forEach((listener) =>
+        listener({
+          id: '901',
+          type: 'GROUP_APPLY',
+          category: 'group',
+          targetId: 999,
+          title: '다른 그룹 가입 신청 알림',
+          createdAt: '2026-08-04T10:00:00',
+          read: false,
+        }),
+      )
+    })
+
+    expect(vi.mocked(getStudyGroupApplications).mock.calls).toHaveLength(
+      applicationCallsBefore,
+    )
   })
 
   it('그룹 운영 정보와 구성원 관리 흐름을 제공한다', async () => {

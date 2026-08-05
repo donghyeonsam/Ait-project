@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ChevronDown, Sparkles } from 'lucide-react'
 import {
-  generatePeerSummaries,
   getReceivedPeerFeedbacksInSession,
   type PeerFeedback,
   type PeerFeedbackReceiveResult,
@@ -84,8 +83,11 @@ type SummaryState =
   // 요약할 코멘트가 없는 등, 세션 종료 후에도 요약이 만들어지지 않은 경우.
   | { status: 'pending'; sessionId: number }
 
-// 세션 종료 여부를 다시 확인하는 주기. 너무 잦으면 트래픽이 늘고, 너무 뜸하면 종료 직후 반응이 느리다.
+// 세션 종료 여부·AI 요약 준비 여부를 다시 확인하는 주기. 너무 잦으면 트래픽이 늘고, 너무 뜸하면 종료 직후 반응이 느리다.
 const sessionStatusPollIntervalMs = 5000
+
+// 세션 종료 후 AI 요약 준비를 기다리는 최대 재시도 횟수(5초 간격, 최대 1분).
+const receivedFeedbackPollLimit = 12
 
 // 스터디 세션 리포트 모달. 종합 점수·역량 레이더·AI 총평·팀원별 평가를 보여준다.
 // 접근성을 위해 열려 있는 동안 포커스를 모달 안에 가두고 Esc로 닫는다(ReportModal과 동일한 패턴).
@@ -99,8 +101,8 @@ export function StudySessionReportModal({ open, record, onClose }: StudySessionR
   const [summaryState, setSummaryState] = useState<SummaryState>({ status: 'idle' })
 
   // 점수·코멘트와 AI 요약을 함께 내려주는 조회 API는 요약이 아직 없는 세션에서 실패할 수 있어,
-  // 우선 바로 조회를 시도하고 실패하면 세션 종료를 확인한 뒤 요약을 생성하고 나서 다시 조회한다.
-  // 세션이 아직 진행 중이면 종료될 때까지 상태를 주기적으로 다시 확인한다.
+  // 우선 바로 조회를 시도하고 실패하면 세션 종료를 확인한다. AI 요약 생성은 서버가 세션 종료 시점에
+  // 알아서 처리하므로(클라이언트가 직접 트리거하는 API는 없다), 종료 후에는 준비될 때까지 조회만 재시도한다.
   useEffect(() => {
     if (!open) return
     let cancelled = false
@@ -115,11 +117,37 @@ export function StudySessionReportModal({ open, record, onClose }: StudySessionR
       }
     }
 
-    const generateAndLoad = async () => {
-      setSummaryState({ status: 'loading', sessionId })
-      await generatePeerSummaries(sessionId)
+    const setUnavailable = () => {
       if (cancelled) return
-      applyReceived(await getReceivedPeerFeedbacksInSession(sessionId))
+      setSummaryState({ status: 'pending', sessionId })
+      setFeedbackState({
+        status: 'error',
+        sessionId,
+        message: '평가를 불러오지 못했습니다.',
+      })
+    }
+
+    // 세션 종료 후 서버가 AI 요약을 만드는 동안 조회가 실패할 수 있어, 준비될 때까지 재시도한다.
+    const pollUntilReady = async () => {
+      setFeedbackState({ status: 'waiting', sessionId })
+      setSummaryState({ status: 'waiting', sessionId })
+
+      for (let attempt = 0; !cancelled && attempt < receivedFeedbackPollLimit; attempt += 1) {
+        try {
+          applyReceived(await getReceivedPeerFeedbacksInSession(sessionId))
+          return
+        } catch {
+          // 아직 준비 안 됐을 수 있으니 잠시 후 다시 시도한다.
+        }
+
+        if (cancelled) return
+
+        await new Promise<void>((resolve) => {
+          pollTimeoutId = setTimeout(resolve, sessionStatusPollIntervalMs)
+        })
+      }
+
+      setUnavailable()
     }
 
     const waitUntilEnded = async () => {
@@ -131,7 +159,7 @@ export function StudySessionReportModal({ open, record, onClose }: StudySessionR
         if (cancelled) return
 
         if (status.ended) {
-          await generateAndLoad()
+          await pollUntilReady()
           return
         }
 
@@ -160,15 +188,9 @@ export function StudySessionReportModal({ open, record, onClose }: StudySessionR
           return
         }
 
-        await generateAndLoad()
-      } catch (error) {
-        if (cancelled) return
-        setSummaryState({ status: 'pending', sessionId })
-        setFeedbackState({
-          status: 'error',
-          sessionId,
-          message: error instanceof Error ? error.message : '평가를 불러오지 못했습니다.',
-        })
+        await pollUntilReady()
+      } catch {
+        setUnavailable()
       }
     }
 

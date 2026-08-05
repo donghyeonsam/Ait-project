@@ -32,6 +32,7 @@ import {
 } from '@/api/study-groups'
 import { toErrorMessage } from '@/api/http'
 import { getStudyGroupActiveSession } from '@/api/study-sessions'
+import { addNotificationListener } from '@/lib/notification-stream'
 import { useAuth } from '@/lib/useAuth'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
@@ -152,6 +153,15 @@ export function StudyGroupPage() {
   useEffect(() => {
     loadApplicantCount()
   }, [loadApplicantCount])
+
+  // 이 그룹에 새 가입 신청 알림이 오면 신청자 수를 다시 조회해 화면에 바로 반영한다.
+  useEffect(() => {
+    return addNotificationListener((item) => {
+      if (item.type === 'GROUP_APPLY' && item.targetId === groupId) {
+        loadApplicantCount()
+      }
+    })
+  }, [groupId, loadApplicantCount])
 
   if (!isValidGroupId) {
     return (

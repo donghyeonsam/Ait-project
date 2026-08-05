@@ -35,23 +35,6 @@ export function getReceivedPeerFeedbacksInSession(sessionId: number) {
   )
 }
 
-export interface PeerSummaryItem {
-  summaryId: number
-  sessionId: number
-  evaluateeId: number
-  content: string
-  createdAt: string
-}
-
-// 세션 참가자별 AI 상호평가 요약을 생성한다. 이미 생성돼 있으면 재생성 없이 기존 결과를 반환한다.
-// 세션이 완전히 종료(ENDED)되지 않았으면 실패하므로, 호출 전 세션 상태를 먼저 확인해야 한다.
-export function generatePeerSummaries(sessionId: number) {
-  return backendRequest<PeerSummaryItem[]>(
-    `/api/study-sessions/${sessionId}/peer-summaries`,
-    { method: 'POST' },
-  )
-}
-
 export interface PeerFeedbackCreateRequest {
   evaluateeId: number
   logicalScore: number
@@ -66,6 +49,23 @@ export interface PeerFeedbackCreateRequest {
 export function createPeerFeedback(sessionId: number, request: PeerFeedbackCreateRequest) {
   return backendRequest<PeerFeedback>(`/api/peer-feedback/${sessionId}/peer-feedbacks`, {
     method: 'POST',
+    body: JSON.stringify(request),
+  })
+}
+
+export interface PeerFeedbackUpdateRequest {
+  logicalScore: number
+  communicationScore: number
+  attitudeScore: number
+  jobCompetencyScore: number
+  confidenceScore: number
+  feedback: string
+}
+
+// 이미 제출한 평가 내용을 수정한다. 본인이 작성한 평가만 수정할 수 있다.
+export function updatePeerFeedback(peerFeedbackId: number, request: PeerFeedbackUpdateRequest) {
+  return backendRequest<PeerFeedback>(`/api/peer-feedback/${peerFeedbackId}/update`, {
+    method: 'PATCH',
     body: JSON.stringify(request),
   })
 }

@@ -152,7 +152,7 @@ public class PostDto {
             this.id = post.getId();
             this.category = post.getCategory();
             this.title = post.getTitle();
-            this.nickname = post.getUser().getName();
+            this.nickname = post.getUser().getNickname();
             this.thumbnailUrl = thumbnailUrl;
             // 본문 내용을 50자 이내의 한 줄로 요약
             this.contentSummary = post.getContent() != null && post.getContent().length() > 50

@@ -363,9 +363,11 @@ export function SessionTheater({
               </div>
 
               <div className="session-theater-controls-right">
-                {isReview || isSubmittingAnswer ? (
+                {isRecording || isReview || isSubmittingAnswer ? (
                   <span className="session-theater-hint">
-                    Space 키로 답변을 제출할 수 있어요
+                    {isRecording
+                      ? 'Space 키로 답변을 종료할 수 있어요'
+                      : 'Space 키로 답변을 제출할 수 있어요'}
                   </span>
                 ) : null}
 

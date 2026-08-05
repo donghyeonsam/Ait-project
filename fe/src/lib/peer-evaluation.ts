@@ -1,5 +1,9 @@
 // 서버 상호평가 점수 필드와 화면이 쓰는 한국어 평가 항목 사이를 옮기는 변환 모음.
-import type { PeerFeedback, PeerFeedbackCreateRequest } from '@/api/peer-feedback'
+import type {
+  PeerFeedback,
+  PeerFeedbackCreateRequest,
+  PeerFeedbackUpdateRequest,
+} from '@/api/peer-feedback'
 import type { StudyEvaluationScores } from '@/components/study/StudyEvaluationRadar'
 import {
   studyEvaluationCategories,
@@ -62,6 +66,20 @@ export function toPeerFeedbackCreateRequest(
 ): PeerFeedbackCreateRequest {
   return {
     evaluateeId,
+    logicalScore: scores.논리력,
+    communicationScore: scores.표현력,
+    attitudeScore: scores.태도,
+    jobCompetencyScore: scores['직무 전문성'],
+    confidenceScore: scores.자신감,
+    feedback,
+  }
+}
+
+export function toPeerFeedbackUpdateRequest(
+  scores: StudyEvaluationScores,
+  feedback: string,
+): PeerFeedbackUpdateRequest {
+  return {
     logicalScore: scores.논리력,
     communicationScore: scores.표현력,
     attitudeScore: scores.태도,

@@ -10,7 +10,8 @@ export interface NormalizedPoint {
 const LEFT_EYE = [33, 133, 159, 145, 158, 153]
 const RIGHT_EYE = [362, 263, 386, 374, 385, 380]
 const MOUTH = [61, 291, 13, 14]
-const NOSE_TIP = 1
+const LEFT_IRIS_CENTER = 468
+const RIGHT_IRIS_CENTER = 473
 
 function dist(a: NormalizedPoint, b: NormalizedPoint) {
   return Math.hypot(a.x - b.x, a.y - b.y)
@@ -39,7 +40,10 @@ export function frameMetrics(landmarks: NormalizedPoint[]): FrameMetrics {
   return { ear, mar }
 }
 
-// BE가 시선 이탈 점수를 계산할 gaze_x/gaze_y의 재료. 정규화 좌표(0~1)의 코끝 위치를 그대로 반환한다.
-export function noseTipPosition(landmarks: NormalizedPoint[]): NormalizedPoint {
-  return landmarks[NOSE_TIP]
+// BE가 시선 이탈 점수를 계산할 gaze_x/gaze_y의 재료. 코끝은 고개를 돌리거나 눈만 움직여도
+// 거의 이동하지 않아 시선 대리 지표로 부적합해서, 실제 눈동자가 향하는 홍채 중심 좌표를 쓴다.
+export function irisCenterPosition(landmarks: NormalizedPoint[]): NormalizedPoint {
+  const left = landmarks[LEFT_IRIS_CENTER]
+  const right = landmarks[RIGHT_IRIS_CENTER]
+  return { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 }
 }

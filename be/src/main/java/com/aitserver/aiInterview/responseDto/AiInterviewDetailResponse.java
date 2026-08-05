@@ -16,6 +16,7 @@ public class AiInterviewDetailResponse {
     private String interviewType;
     private String difficulty;
     private LocalDateTime createdAt;
+    private LocalDateTime endedAt;
 
     // 2. 종합 리포트 정보
     @JsonRawValue

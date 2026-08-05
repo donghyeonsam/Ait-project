@@ -305,7 +305,7 @@ export function StudySessionPrejoin({
         </div>
       </div>
 
-      <div className="col-span-full flex flex-col gap-3 border-t border-border-default pt-6 sm:flex-row sm:items-center">
+      <div className="col-span-full flex flex-col gap-3 border-t border-border-default pt-6 sm:flex-row sm:items-end">
         <Button type="button" variant="secondary" onClick={onBack}>
           뒤로
         </Button>

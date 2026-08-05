@@ -1,16 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  Briefcase,
   CheckCircle2,
   FilePenLine,
   FileText,
+  FolderKanban,
+  GraduationCap,
+  MessageCircleQuestion,
   Search,
   UserRound,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { CoverLetterDetail } from '@/api/cover-letters'
 import { toErrorMessage } from '@/api/http'
 import {
   createPeerFeedback,
   getMyPeerFeedbacksInSession,
+  updatePeerFeedback,
+  type PeerFeedback,
 } from '@/api/peer-feedback'
 import { getResume, type Resume } from '@/api/resume'
 import { getStudySessionCoverLetter } from '@/api/study-sessions'
@@ -32,7 +39,11 @@ import {
   type StudyEvaluationCategory,
   type StudyParticipant,
 } from '@/mocks/study'
-import { toPeerFeedbackCreateRequest } from '@/lib/peer-evaluation'
+import {
+  toEvaluationScores,
+  toPeerFeedbackCreateRequest,
+  toPeerFeedbackUpdateRequest,
+} from '@/lib/peer-evaluation'
 import { cn } from '@/lib/utils'
 
 type SidePanelTab = 'documents' | 'evaluation'
@@ -50,19 +61,54 @@ const tabs: Array<{ id: SidePanelTab; label: string }> = [
 
 const commentMaxLength = 100
 
+// 이력서·자소서 항목 하나를 감싸는 카드(경력·프로젝트·자소서 문항: 항목마다 개별 카드).
 const documentCardClass = 'rounded-ait-s border border-border-default p-3'
+// 같은 종류의 항목을 하나의 카드 안에 묶고 내부는 구분선으로만 나누는 스타일(학력/교육).
+const documentCardGroupClass = 'divide-y divide-border-default rounded-ait-s border border-border-default'
+const documentCardGroupItemClass = 'p-3'
+
+interface DocumentSectionHeadingProps {
+  icon: LucideIcon
+  title: string
+  /** 자소서 문항 제목처럼 제목 아래에 짧은 강조선을 덧붙일 때만 켠다. */
+  underline?: boolean
+}
+
+// 이력서 섹션(경력/프로젝트/학력)·자소서 문항 제목 앞에 붙는 아이콘 배지.
+function DocumentSectionHeading({ icon: Icon, title, underline = false }: DocumentSectionHeadingProps) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-ait-s bg-status-info-surface text-status-info">
+        <Icon className="size-4" aria-hidden="true" />
+      </span>
+      <div className="flex flex-col gap-1">
+        <h3 className="text-body-2 font-semibold text-text-primary">{title}</h3>
+        {underline ? <span className="h-0.5 w-8 rounded-full bg-status-info" aria-hidden="true" /> : null}
+      </div>
+    </div>
+  )
+}
+
+// 프로젝트에서 맡은 역할을 보여주는 작은 태그.
+function DocumentRoleTag({ role }: { role: string }) {
+  return (
+    <span className="shrink-0 rounded-ait-pill bg-status-info-surface px-2.5 py-0.5 text-caption font-medium text-status-info">
+      {role}
+    </span>
+  )
+}
 
 // 이력서 상세: 경력·프로젝트·학력을 최신 항목이 먼저 오도록 그대로(서버 정렬 순서) 나열한다.
 // AI 분석(analysisContent)은 소유자 본인을 위한 내용이라, 다른 참가자를 열람하는 이 화면에는 보여주지 않는다.
 function ResumeDocumentView({ resume }: { resume: Resume }) {
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       <section>
-        <h3 className="text-body-2 font-semibold text-text-primary">경력</h3>
+        <DocumentSectionHeading icon={Briefcase} title="경력" />
         {resume.careers.length === 0 ? (
           <p className="mt-2 text-body-2 text-text-secondary">등록된 경력이 없습니다.</p>
         ) : (
-          <ul className="mt-2 flex flex-col gap-3">
+          <ul className="mt-3 flex flex-col gap-3">
             {resume.careers.map((career) => (
               <li key={career.careerId} className={documentCardClass}>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -85,16 +131,16 @@ function ResumeDocumentView({ resume }: { resume: Resume }) {
       </section>
 
       <section>
-        <h3 className="text-body-2 font-semibold text-text-primary">프로젝트</h3>
+        <DocumentSectionHeading icon={FolderKanban} title="프로젝트" />
         {resume.projects.length === 0 ? (
           <p className="mt-2 text-body-2 text-text-secondary">등록된 프로젝트가 없습니다.</p>
         ) : (
-          <ul className="mt-2 flex flex-col gap-3">
+          <ul className="mt-3 flex flex-col gap-3">
             {resume.projects.map((project) => (
               <li key={project.projectId} className={documentCardClass}>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="text-body-1 font-medium text-text-primary">{project.projectName}</p>
-                  <p className="text-caption text-text-secondary">{project.role}</p>
+                  <DocumentRoleTag role={project.role} />
                 </div>
                 <p className="mt-1 text-caption text-text-secondary">{project.techStacks}</p>
                 {project.description ? (
@@ -109,13 +155,13 @@ function ResumeDocumentView({ resume }: { resume: Resume }) {
       </section>
 
       <section>
-        <h3 className="text-body-2 font-semibold text-text-primary">학력/교육</h3>
+        <DocumentSectionHeading icon={GraduationCap} title="학력/교육" />
         {resume.trainings.length === 0 ? (
           <p className="mt-2 text-body-2 text-text-secondary">등록된 학력/교육이 없습니다.</p>
         ) : (
-          <ul className="mt-2 flex flex-col gap-3">
+          <div className={cn('mt-3', documentCardGroupClass)}>
             {resume.trainings.map((training) => (
-              <li key={training.trainingId} className={documentCardClass}>
+              <div key={training.trainingId} className={documentCardGroupItemClass}>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="text-body-1 font-medium text-text-primary">
                     {training.organization} · {training.course}
@@ -129,9 +175,9 @@ function ResumeDocumentView({ resume }: { resume: Resume }) {
                     {training.description}
                   </p>
                 ) : null}
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </section>
     </div>
@@ -151,16 +197,16 @@ function CoverLetterDocumentView({ coverLetter }: { coverLetter: CoverLetterDeta
         {coverLetter.companyName} · {coverLetter.role}
       </p>
 
-      <section className="flex flex-col gap-4">
+      <ul className="flex flex-col gap-3">
         {sortedContents.map((content) => (
-          <div key={content.contentId}>
-            <h3 className="text-body-2 font-semibold text-text-primary">{content.question}</h3>
+          <li key={content.contentId} className={documentCardClass}>
+            <DocumentSectionHeading icon={MessageCircleQuestion} title={content.question} underline />
             <p className="mt-2 whitespace-pre-wrap text-body-1 leading-relaxed text-text-primary">
               {content.answer}
             </p>
-          </div>
+          </li>
         ))}
-      </section>
+      </ul>
     </div>
   )
 }
@@ -238,8 +284,10 @@ export function StudySessionSidePanel({ sessionId, participants }: StudySessionS
   const [coverLetterData, setCoverLetterData] = useState<CoverLetterDetail | null>(null)
   const [documentLoading, setDocumentLoading] = useState(false)
   const [documentError, setDocumentError] = useState<string | null>(null)
-  // 이 세션에서 이미 평가를 제출한 참가자의 userId. DB엔 중복 제출을 막는 제약이 없어 화면에서 막는다.
-  const [submittedUserIds, setSubmittedUserIds] = useState<Set<number>>(new Set())
+  // 이 세션에서 이미 제출한 평가. evaluateeId로 찾아 수정 시 기존 점수·코멘트를 채우는 데 쓴다.
+  const [submittedFeedbacks, setSubmittedFeedbacks] = useState<Map<number, PeerFeedback>>(
+    new Map(),
+  )
   const [selectedEvaluationTargetId, setSelectedEvaluationTargetId] = useState<number | null>(null)
   const [scores, setScores] = useState<StudyEvaluationScores>(
     createDefaultEvaluationScores,
@@ -248,15 +296,16 @@ export function StudySessionSidePanel({ sessionId, participants }: StudySessionS
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
-  // 이미 제출한 사람은 평가 대상에서 뺀다. userId가 아직 안 내려온 참가자는 판단할 수 없으니 그대로 둔다.
-  const evaluableParticipants = otherParticipants.filter(
-    (participant) => participant.userId == null || !submittedUserIds.has(participant.userId),
-  )
-  const evaluationTargetId = selectedEvaluationTargetId ?? evaluableParticipants[0]?.participantId ?? null
+  // 이미 제출한 사람도 수정할 수 있어야 하므로 평가 대상 목록에서 빼지 않는다.
+  const evaluationParticipants = otherParticipants
+  const evaluationTargetId = selectedEvaluationTargetId ?? evaluationParticipants[0]?.participantId ?? null
 
   const documentTarget = participants.find((participant) => participant.participantId === documentTargetId) ?? null
   const evaluationTarget =
     participants.find((participant) => participant.participantId === evaluationTargetId) ?? null
+  const existingFeedback =
+    evaluationTarget?.userId != null ? (submittedFeedbacks.get(evaluationTarget.userId) ?? null) : null
+  const isEditingEvaluation = existingFeedback !== null
 
   const isEvaluationComplete = evaluationTarget !== null
   const averageScore =
@@ -265,20 +314,40 @@ export function StudySessionSidePanel({ sessionId, participants }: StudySessionS
       0,
     ) / studyEvaluationCategories.length
 
+  // 선택된 평가 대상에게 이미 제출한 평가가 있으면 그 값을, 없으면 기본값을 폼에 채운다.
+  const applyEvaluationTarget = (targetId: number | null, feedbackMap: Map<number, PeerFeedback>) => {
+    const target = participants.find((participant) => participant.participantId === targetId)
+    const existing = target?.userId != null ? feedbackMap.get(target.userId) : undefined
+    if (existing) {
+      setScores(toEvaluationScores(existing))
+      setComment(existing.feedback ?? '')
+    } else {
+      setScores(createDefaultEvaluationScores())
+      setComment('')
+    }
+  }
+
   useEffect(() => {
     let isActive = true
 
     getMyPeerFeedbacksInSession(sessionId)
       .then((feedbacks) => {
         if (!isActive) return
-        setSubmittedUserIds(new Set(feedbacks.map((feedback) => feedback.evaluateeId)))
+        const feedbackMap = new Map(feedbacks.map((feedback) => [feedback.evaluateeId, feedback]))
+        setSubmittedFeedbacks(feedbackMap)
+        // 아직 대상을 직접 고르지 않았다면, 기본으로 선택된 대상이 이미 제출한 사람인지 확인해 값을 채운다.
+        if (selectedEvaluationTargetId == null) {
+          applyEvaluationTarget(otherParticipants[0]?.participantId ?? null, feedbackMap)
+        }
       })
-      // 이미 제출한 사람 표시는 보조 정보라, 실패해도 평가 자체는 계속 진행할 수 있게 둔다.
+      // 이미 제출한 평가 표시는 보조 정보라, 실패해도 평가 자체는 계속 진행할 수 있게 둔다.
       .catch(() => {})
 
     return () => {
       isActive = false
     }
+    // 최초 마운트·세션 변경 시 한 번만 조회한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId])
 
   const handleScoreChange = useCallback(
@@ -297,12 +366,28 @@ export function StudySessionSidePanel({ sessionId, participants }: StudySessionS
     setSubmitting(true)
     setSubmitError(null)
     try {
-      await createPeerFeedback(sessionId, toPeerFeedbackCreateRequest(evaluateeId, scores, comment))
-      setSubmittedUserIds((prev) => new Set(prev).add(evaluateeId))
-      // 방금 제출한 사람은 evaluableParticipants에서 빠지니, 선택을 비워 다음 사람으로 자연스럽게 넘어가게 한다.
-      setSelectedEvaluationTargetId(null)
-      setScores(createDefaultEvaluationScores())
-      setComment('')
+      if (existingFeedback) {
+        const updated = await updatePeerFeedback(
+          existingFeedback.id,
+          toPeerFeedbackUpdateRequest(scores, comment),
+        )
+        setSubmittedFeedbacks((prev) => new Map(prev).set(evaluateeId, updated))
+      } else {
+        const created = await createPeerFeedback(
+          sessionId,
+          toPeerFeedbackCreateRequest(evaluateeId, scores, comment),
+        )
+        const nextSubmitted = new Map(submittedFeedbacks).set(evaluateeId, created)
+        setSubmittedFeedbacks(nextSubmitted)
+        // 새로 제출했을 때만 아직 평가하지 않은 다음 사람으로 자연스럽게 넘어간다.
+        const nextTarget = evaluationParticipants.find(
+          (participant) => participant.userId != null && !nextSubmitted.has(participant.userId),
+        )
+        if (nextTarget) {
+          setSelectedEvaluationTargetId(nextTarget.participantId)
+          applyEvaluationTarget(nextTarget.participantId, nextSubmitted)
+        }
+      }
     } catch (error) {
       setSubmitError(toErrorMessage(error))
     } finally {
@@ -460,18 +545,21 @@ export function StudySessionSidePanel({ sessionId, participants }: StudySessionS
                 className="mt-2 w-full rounded-ait-s border border-border-default bg-surface-default px-3 py-2 text-body-2 text-text-primary focus:border-action-primary focus:outline-none focus:ring-3 focus:ring-action-primary/25"
                 value={evaluationTargetId ?? ''}
                 onChange={(event) => {
-                  setSelectedEvaluationTargetId(Number(event.target.value))
-                  setScores(createDefaultEvaluationScores())
-                  setComment('')
+                  const targetId = Number(event.target.value)
+                  setSelectedEvaluationTargetId(targetId)
+                  applyEvaluationTarget(targetId, submittedFeedbacks)
                 }}
-                disabled={evaluableParticipants.length === 0}
+                disabled={evaluationParticipants.length === 0}
               >
-                {evaluableParticipants.length === 0 ? (
+                {evaluationParticipants.length === 0 ? (
                   <option value="">평가할 참가자가 없습니다</option>
                 ) : null}
-                {evaluableParticipants.map((participant) => (
+                {evaluationParticipants.map((participant) => (
                   <option key={participant.participantId} value={participant.participantId}>
                     {participant.name}
+                    {participant.userId != null && submittedFeedbacks.has(participant.userId)
+                      ? ' (제출완료)'
+                      : ''}
                   </option>
                 ))}
               </select>
@@ -555,9 +643,13 @@ export function StudySessionSidePanel({ sessionId, participants }: StudySessionS
                 <CheckCircle2 className="size-5" aria-hidden="true" />
               ) : null}
               {submitting
-                ? '제출 중…'
+                ? isEditingEvaluation
+                  ? '수정 중…'
+                  : '제출 중…'
                 : isEvaluationComplete
-                  ? '평가 제출'
+                  ? isEditingEvaluation
+                    ? '평가 수정'
+                    : '평가 제출'
                   : '평가할 참가자가 없습니다'}
             </Button>
           </div>
