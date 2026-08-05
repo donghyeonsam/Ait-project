@@ -14,7 +14,7 @@ public interface AiInterviewsRepository extends JpaRepository<AiInterview, Long>
 
     @Modifying(clearAutomatically = true)
     @Query("UPDATE AiInterview " +
-            "SET status = :status " +
+            "SET status = :status, endedAt = :endedAt " +
             "WHERE id = :aiInterviewId AND userId = :userId")
     void updateStatus(@Param("userId") Long userId,
                       @Param("aiInterviewId") Long aiInterviewId,
