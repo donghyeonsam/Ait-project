@@ -36,7 +36,7 @@ public class GithubDataService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
-    private final View error;
+//    private final View error;
 
     /**
      * 깃허브 레포지토리 동기화 (토큰 발급 -> API 조회 -> DB 저장 한방에 처리)

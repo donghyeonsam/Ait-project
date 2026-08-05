@@ -102,14 +102,55 @@ describe('frameMetrics', () => {
 })
 
 describe('irisCenterPosition', () => {
-  it('양쪽 홍채 중심(인덱스 468/473) 정규화 좌표의 평균을 반환한다', () => {
+  it('양쪽 눈 소켓 안에서 홍채가 치우친 비율(0~1)의 평균을 반환한다', () => {
     const landmarks = buildLandmarks({
-      468: { x: 0.6, y: 0.4 },
-      473: { x: 0.64, y: 0.42 },
+      // 왼쪽 눈: 가로 [0.30, 0.40], 세로 [0.10, 0.20] 소켓 안에 홍채가 정중앙(0.5, 0.5)
+      33: { x: 0.3, y: 0 },
+      133: { x: 0.4, y: 0 },
+      159: { x: 0.35, y: 0.1 },
+      145: { x: 0.35, y: 0.2 },
+      158: { x: 0.36, y: 0.1 },
+      153: { x: 0.36, y: 0.2 },
+      468: { x: 0.35, y: 0.15 },
+      // 오른쪽 눈: 가로 [0.60, 0.70], 세로 [0.10, 0.20] 소켓 안에 홍채가 (0.8, 0.2) 위치
+      362: { x: 0.6, y: 0 },
+      263: { x: 0.7, y: 0 },
+      386: { x: 0.65, y: 0.1 },
+      374: { x: 0.65, y: 0.2 },
+      385: { x: 0.66, y: 0.1 },
+      380: { x: 0.66, y: 0.2 },
+      473: { x: 0.68, y: 0.12 },
     })
 
     const result = irisCenterPosition(landmarks)
-    expect(result.x).toBeCloseTo(0.62, 10)
-    expect(result.y).toBeCloseTo(0.41, 10)
+    // 왼쪽(0.5, 0.5)과 오른쪽(0.8, 0.2)의 평균
+    expect(result.x).toBeCloseTo(0.65, 10)
+    expect(result.y).toBeCloseTo(0.35, 10)
+  })
+
+  it('고개 위치와 무관하게 눈 소켓 안 상대 위치만 본다 — 얼굴이 프레임 반대편으로 이동해도 결과가 같다', () => {
+    const makeLandmarks = (offsetX: number, offsetY: number) =>
+      buildLandmarks({
+        33: { x: 0.3 + offsetX, y: 0 + offsetY },
+        133: { x: 0.4 + offsetX, y: 0 + offsetY },
+        159: { x: 0.35 + offsetX, y: 0.1 + offsetY },
+        145: { x: 0.35 + offsetX, y: 0.2 + offsetY },
+        158: { x: 0.36 + offsetX, y: 0.1 + offsetY },
+        153: { x: 0.36 + offsetX, y: 0.2 + offsetY },
+        468: { x: 0.38 + offsetX, y: 0.18 + offsetY },
+        362: { x: 0.6 + offsetX, y: 0 + offsetY },
+        263: { x: 0.7 + offsetX, y: 0 + offsetY },
+        386: { x: 0.65 + offsetX, y: 0.1 + offsetY },
+        374: { x: 0.65 + offsetX, y: 0.2 + offsetY },
+        385: { x: 0.66 + offsetX, y: 0.1 + offsetY },
+        380: { x: 0.66 + offsetX, y: 0.2 + offsetY },
+        473: { x: 0.68 + offsetX, y: 0.14 + offsetY },
+      })
+
+    const centered = irisCenterPosition(makeLandmarks(0, 0))
+    const headMovedRight = irisCenterPosition(makeLandmarks(0.2, 0.1))
+
+    expect(headMovedRight.x).toBeCloseTo(centered.x, 10)
+    expect(headMovedRight.y).toBeCloseTo(centered.y, 10)
   })
 })

@@ -40,10 +40,37 @@ export function frameMetrics(landmarks: NormalizedPoint[]): FrameMetrics {
   return { ear, mar }
 }
 
-// BE가 시선 이탈 점수를 계산할 gaze_x/gaze_y의 재료. 코끝은 고개를 돌리거나 눈만 움직여도
-// 거의 이동하지 않아 시선 대리 지표로 부적합해서, 실제 눈동자가 향하는 홍채 중심 좌표를 쓴다.
+// 눈 소켓(눈꼬리~눈꺼풀) 테두리 안에서 홍채가 얼마나 치우쳤는지를 0~1 비율로 구한다.
+// 홍채의 프레임 절대 좌표를 쓰면 고개 위치에 압도돼 눈알만 굴리는 움직임이 거의 안 잡히므로,
+// 같은 눈의 코너·눈꺼풀 랜드마크 대비 상대 위치로 정규화해 고개 위치와 무관하게 만든다.
+function relativeIrisPosition(
+  points: NormalizedPoint[],
+  eyeIndexes: number[],
+  irisIndex: number,
+): NormalizedPoint {
+  const [outer, inner, topA, bottomA, topB, bottomB] = eyeIndexes.map(
+    (index) => points[index],
+  )
+  const iris = points[irisIndex]
+
+  const minX = Math.min(outer.x, inner.x)
+  const maxX = Math.max(outer.x, inner.x)
+  const width = maxX - minX
+
+  const ys = [topA.y, bottomA.y, topB.y, bottomB.y]
+  const minY = Math.min(...ys)
+  const maxY = Math.max(...ys)
+  const height = maxY - minY
+
+  return {
+    x: width < 1e-6 ? 0.5 : (iris.x - minX) / width,
+    y: height < 1e-6 ? 0.5 : (iris.y - minY) / height,
+  }
+}
+
+// BE가 시선 이탈 점수를 계산할 gaze_x/gaze_y의 재료. 좌우 눈의 상대 홍채 위치 비율을 평균낸다.
 export function irisCenterPosition(landmarks: NormalizedPoint[]): NormalizedPoint {
-  const left = landmarks[LEFT_IRIS_CENTER]
-  const right = landmarks[RIGHT_IRIS_CENTER]
+  const left = relativeIrisPosition(landmarks, LEFT_EYE, LEFT_IRIS_CENTER)
+  const right = relativeIrisPosition(landmarks, RIGHT_EYE, RIGHT_IRIS_CENTER)
   return { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 }
 }

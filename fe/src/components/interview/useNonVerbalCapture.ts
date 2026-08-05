@@ -9,12 +9,23 @@ import {
 // BE(AiInterviewAsyncServiceImpl.nonVerbalDataAnalysisAsync)가 프레임 벡터를 집계하는
 // 주기와 맞춘다.
 const SAMPLE_FPS = 5
+// 캘리브레이션 없이 눈알만 굴렸을 때 실측 편차가 BE 임계값(0.4)에 못 미쳐서(최대 0.3대),
+// 화면 중심(0.5) 기준 편차를 증폭해 화면 좌표로 환산한다. 값을 올릴수록 완전히 옆을 보지
+// 않아도 이탈로 잡히지만, 정중앙 응시 시의 노이즈(약 0.10~0.14)도 같이 커져서 오탐 위험이
+// 늘어난다 — 실측값(정중앙 0.10, 대각선 0.32) 기준으로 잡은 값.
+const GAZE_SENSITIVITY_GAIN = 3
 const WASM_PATH = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm'
 // 학습 때 쓴 모델과 반드시 같은 파일이어야 한다(ai-evaluate/README.md 4-1 참고).
 const DEFAULT_MODEL_ASSET_PATH =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
 const MODEL_ASSET_PATH =
   import.meta.env.VITE_FACE_LANDMARKER_MODEL_URL || DEFAULT_MODEL_ASSET_PATH
+
+// 0.5(화면 중앙)를 기준으로 편차를 GAZE_SENSITIVITY_GAIN배 증폭한다. 0~1을 벗어나면
+// 화면 밖 좌표가 되어버리니 가장자리에서 saturate 시킨다.
+function amplifyAroundCenter(ratio: number, gain: number) {
+  return Math.min(Math.max(0.5 + (ratio - 0.5) * gain, 0), 1)
+}
 
 export type NonVerbalCaptureStatus =
   | 'idle'
@@ -129,10 +140,14 @@ export function useNonVerbalCapture(
           const iris = irisCenterPosition(landmarks)
           // BE가 screen_width/height 기준의 유클리드 거리 비율로 시선 이탈을 계산하므로,
           // gaze_x/y도 같은 모니터 해상도 기준이어야 한다 — 웹캠 프레임 좌표를 쓰면 화면 중심 이탈을 잘못 판정한다.
+          const amplifiedX = amplifyAroundCenter(iris.x, GAZE_SENSITIVITY_GAIN)
+          const amplifiedY = amplifyAroundCenter(iris.y, GAZE_SENSITIVITY_GAIN)
+          const gazeX = amplifiedX * window.screen.width
+          const gazeY = amplifiedY * window.screen.height
           framesRef.current.push({
             timestamp: (performance.now() - startedAtRef.current) / 1000,
-            gaze_x: iris.x * window.screen.width,
-            gaze_y: iris.y * window.screen.height,
+            gaze_x: gazeX,
+            gaze_y: gazeY,
             blendshapes: blendshapeCategories.map((category) => category.score),
             ear,
             mar,
