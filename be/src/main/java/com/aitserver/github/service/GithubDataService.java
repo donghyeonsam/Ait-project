@@ -88,6 +88,8 @@ public class GithubDataService {
                     if (!latestApiRepoIds.contains(dbRepo.getRepoId())) {
                         githubRepoRepository.delete(dbRepo);
                         log.info("레포지토리 연동 해제 감지 (DB 삭제 완료): {}", dbRepo.getRepoName());
+
+                        githubAnalysisService.deleteGithubRepoEmbedding(userId, dbRepo.getId());
                     }
                 }
 
@@ -160,10 +162,12 @@ public class GithubDataService {
     /**
      * 레포지토리 삭제
      */
+    @Transactional
     public void deleteRepo(Long userId, Long repoId) {
         GithubRepo repo = githubRepoRepository.findByIdAndGithubAppUserId(repoId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.GITHUB_REPO_NOT_FOUND));
 
         githubRepoRepository.delete(repo);
+        githubAnalysisService.deleteGithubRepoEmbedding(userId, repoId);
     }
 }

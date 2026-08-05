@@ -33,6 +33,8 @@ class MockMediaStream {
 const SAMPLE_INTERVAL_MS = 200 // SAMPLE_FPS(5)와 동일
 const VIDEO_WIDTH = 640
 const VIDEO_HEIGHT = 480
+const SCREEN_WIDTH = 1920
+const SCREEN_HEIGHT = 1080
 
 function detectionResult() {
   return {
@@ -51,6 +53,15 @@ describe('useNonVerbalCapture', () => {
     forVisionTasks.mockClear().mockResolvedValue({})
     createFromOptions.mockClear().mockResolvedValue({ detectForVideo, close })
     sendNonVerbalData.mockReset()
+
+    Object.defineProperty(window.screen, 'width', {
+      value: SCREEN_WIDTH,
+      configurable: true,
+    })
+    Object.defineProperty(window.screen, 'height', {
+      value: SCREEN_HEIGHT,
+      configurable: true,
+    })
 
     vi.spyOn(document, 'createElement').mockImplementation(
       ((tag: string) => {
@@ -148,13 +159,13 @@ describe('useNonVerbalCapture', () => {
       },
     ]
     expect(payload.aiInterviewId).toBe(42)
-    expect(payload.screenWidth).toBe(VIDEO_WIDTH)
-    expect(payload.screenHeight).toBe(VIDEO_HEIGHT)
+    expect(payload.screenWidth).toBe(SCREEN_WIDTH)
+    expect(payload.screenHeight).toBe(SCREEN_HEIGHT)
     expect(payload.fps).toBe(5)
     expect(payload.frames.length).toBeGreaterThan(0)
-    // 양쪽 홍채 중심이 정규화 좌표 (0.5, 0.5)이므로 비디오 픽셀 기준으로는 정중앙 좌표가 된다.
-    expect(payload.frames[0].gaze_x).toBeCloseTo(VIDEO_WIDTH * 0.5, 5)
-    expect(payload.frames[0].gaze_y).toBeCloseTo(VIDEO_HEIGHT * 0.5, 5)
+    // 양쪽 홍채 중심이 정규화 좌표 (0.5, 0.5)이므로 모니터 해상도 기준으로는 정중앙 좌표가 된다.
+    expect(payload.frames[0].gaze_x).toBeCloseTo(SCREEN_WIDTH * 0.5, 5)
+    expect(payload.frames[0].gaze_y).toBeCloseTo(SCREEN_HEIGHT * 0.5, 5)
     expect(payload.frames[0].blendshapes).toHaveLength(52)
     expect(result.current.status).toBe('done')
   })
