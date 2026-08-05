@@ -285,6 +285,7 @@ function ActiveInterviewSession({
   const [questionIndex, setQuestionIndex] = useState(0)
   const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false)
   const [endDialogOpen, setEndDialogOpen] = useState(false)
+  const [hasProgress, setHasProgress] = useState(false)
   const [micMuted, setMicMuted] = useState(false)
   const [micGain, setMicGain] = useState(devices.micGain)
   const [speakerMuted, setSpeakerMuted] = useState(false)
@@ -422,6 +423,7 @@ function ActiveInterviewSession({
       transcript,
       audioBlob,
     })
+    setHasProgress(true)
 
     // aiInterviewId가 없거나 녹음 없이 답변만 있으면 저장을 건너뛴다. 일반 면접은 저장 실패 시
     // 다음 질문으로 넘어가고, 시연 계정의 고정 꼬리질문은 서버 응답과 관계없이 이어간다.
@@ -599,6 +601,29 @@ function ActiveInterviewSession({
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [endDialogOpen, handleFinishAnswer, handlePrimaryAction, voiceAnswer.status])
+
+  // 답변을 하나라도 제출한 뒤 새로고침·탭 닫기를 시도하면 결과가 저장되지 않는다고 경고한다.
+  useEffect(() => {
+    if (!hasProgress) return
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasProgress])
+
+  // 답변을 하나라도 제출한 뒤 브라우저 뒤로가기를 누르면 곧바로 이탈시키지 않고
+  // 기존 "면접 종료" 확인 절차를 거치게 해 진행 상황이 말없이 사라지지 않게 한다.
+  useEffect(() => {
+    if (!hasProgress) return
+    window.history.pushState(null, '', window.location.href)
+    const handlePopState = () => {
+      window.history.pushState(null, '', window.location.href)
+      setEndDialogOpen(true)
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [hasProgress])
 
   // 답변을 하나라도 제출했으면 분석 대기 기록으로 이동하고, 아니면 면접 설정으로 돌아간다.
   const handleConfirmEnd = () => {
