@@ -190,6 +190,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                 .interviewType(interview.getInterviewType())
                 .difficulty(interview.getDifficulty())
                 .createdAt(interview.getCreatedAt()) // ai_interviews의 created_at 사용
+                .endedAt(interview.getEndedAt())
                 .content(report.getContent())
                 .eyeContactScore(report.getEyeContactScore())
                 .faceScore(report.getFaceScore())
