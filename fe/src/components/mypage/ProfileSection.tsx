@@ -13,6 +13,7 @@ interface ProfileSectionProps {
   repositoryError?: string | null
   repositoryLoading?: boolean
   onRetryRepositories?: () => void
+  onRepositoryInstalled?: () => void
   onOpenDocuments: () => void
 }
 
@@ -66,6 +67,7 @@ export function ProfileSection({
   repositoryError,
   repositoryLoading,
   onRetryRepositories,
+  onRepositoryInstalled,
   onOpenDocuments,
 }: ProfileSectionProps) {
   const [savedProfile, setSavedProfile] = useState(profile)
@@ -310,6 +312,7 @@ export function ProfileSection({
         repositoryError={repositoryError}
         repositoryLoading={repositoryLoading}
         onRetryRepositories={onRetryRepositories}
+        onRepositoryInstalled={onRepositoryInstalled}
         onDeleteRepository={deleteRepository}
         onOpenDocuments={onOpenDocuments}
         onStartEditing={startEditing}

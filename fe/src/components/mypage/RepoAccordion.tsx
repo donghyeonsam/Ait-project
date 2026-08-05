@@ -1,12 +1,14 @@
 import { ChevronDown, ExternalLink, GitFork, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { confirmGithubInstallation } from '@/api/github'
 import { toErrorMessage } from '@/api/http'
 import { GitHubIcon } from '@/components/icons/GitHubIcon'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { isGithubInstallMessage, openGithubInstallPopup } from '@/lib/githubInstall'
 import type { ProfileRepository } from '@/types/profile'
 
-const GITHUB_APP_INSTALL_URL = 'https://github.com/apps/Ait-ai-interview/installations/new'
+const GITHUB_APP_INSTALL_URL = 'https://github.com/apps/Ait-deploy/installations/new'
 
 interface RepoAccordionProps {
   repositories: ProfileRepository[]
@@ -14,6 +16,7 @@ interface RepoAccordionProps {
   loading?: boolean
   onRetry?: () => void
   onDelete?: (id: number) => Promise<void>
+  onInstalled?: () => void
 }
 
 // 등록한 GitHub 저장소를 펼쳐 보는 아코디언. 저장소 조회는 다른 프로필과 분리돼 실패해도 재시도할 수 있다.
@@ -23,11 +26,46 @@ export function RepoAccordion({
   loading = false,
   onRetry,
   onDelete,
+  onInstalled,
 }: RepoAccordionProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<ProfileRepository | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [isInstalling, setIsInstalling] = useState(false)
+  const [installError, setInstallError] = useState<string | null>(null)
+
+  // 설치 팝업(GithubCallbackPage)이 installation_id만 postMessage로 넘기면, 로그인된 이 창이
+  // 직접 연동 확정 API를 호출하고 목록을 새로고침한다.
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return
+      if (!isGithubInstallMessage(event.data)) return
+
+      if ('error' in event.data) {
+        setInstallError(event.data.error)
+        return
+      }
+
+      setIsInstalling(true)
+      setInstallError(null)
+      confirmGithubInstallation(event.data.installationId)
+        .then(() => onInstalled?.())
+        .catch((requestError: unknown) => setInstallError(toErrorMessage(requestError)))
+        .finally(() => setIsInstalling(false))
+    }
+
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [onInstalled])
+
+  const startInstall = () => {
+    setInstallError(null)
+    const popup = openGithubInstallPopup(GITHUB_APP_INSTALL_URL)
+    if (!popup) {
+      setInstallError('팝업이 차단되어 있습니다. 브라우저의 팝업 차단을 해제한 뒤 다시 시도해주세요.')
+    }
+  }
 
   const confirmDelete = async () => {
     if (!pendingDelete || !onDelete) return
@@ -125,11 +163,21 @@ export function RepoAccordion({
             </p>
           ) : null}
 
-          <Button asChild variant="secondary" className="mt-3 w-full">
-            <a href={GITHUB_APP_INSTALL_URL}>
-              <GitHubIcon className="size-5" aria-hidden="true" />
-              레포지토리 연동하기
-            </a>
+          {installError ? (
+            <p className="pt-3 text-caption text-status-error" role="alert">
+              {installError}
+            </p>
+          ) : null}
+
+          <Button
+            type="button"
+            variant="secondary"
+            className="mt-3 w-full"
+            disabled={isInstalling}
+            onClick={startInstall}
+          >
+            <GitHubIcon className="size-5" aria-hidden="true" />
+            {isInstalling ? '연동 확인 중...' : '레포지토리 연동하기'}
           </Button>
         </div>
       </div>
