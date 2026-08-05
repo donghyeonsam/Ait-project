@@ -9,6 +9,10 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -24,6 +28,25 @@ public class NotificationSseService {
         // Emitter를 구별하기 위해 유저ID_현재시간 조합으로 ID 생성
         String emitterId = userId + "_" + System.currentTimeMillis();
         SseEmitter emitter = emitterRepository.save(emitterId, new SseEmitter(DEFAULT_TIMEOUT));
+
+        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+        ScheduledFuture<?> scheduledFuture = executor.scheduleAtFixedRate(() -> {
+            try {
+                // SseEmitter comment는 프론트엔드 EventSource 이벤트 수신 로직을 타지 않는 더미 데이터입니다.
+                emitter.send(SseEmitter.event().comment("ping"));
+            } catch (Exception e) {
+                // 전송 실패 시 스케줄러 종료 및 정리
+                executor.shutdown();
+                emitterRepository.deleteById(emitterId);
+            }
+        }, 0, 8, TimeUnit.SECONDS);
+
+        // 연결 종료 / 타임아웃 / 에러 시 스케줄러 및 레포지토리 정리
+        Runnable cleanup = () -> {
+            scheduledFuture.cancel(true);
+            executor.shutdown();
+            emitterRepository.deleteById(emitterId);
+        };
 
         // 연결 종료 혹은 타임아웃 시 레포지토리에서 안전하게 제거
         emitter.onCompletion(() -> emitterRepository.deleteById(emitterId));
