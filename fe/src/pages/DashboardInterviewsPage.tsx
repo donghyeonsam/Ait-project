@@ -1,6 +1,6 @@
-import { AlertCircle, ChevronDown, FileSearch, Flame, UsersRound } from 'lucide-react'
+import { AlertCircle, ArrowLeft, ChevronDown, FileSearch, Flame, UsersRound } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getInterviewReports } from '@/api/ai-interviews'
 import { toErrorMessage } from '@/api/http'
 import { InterviewRecordItem } from '@/components/dashboard/InterviewRecordItem'
@@ -222,7 +222,14 @@ export function DashboardInterviewsPage() {
   return (
     <PageLayout contentClassName="max-w-interviews">
       <section className="pb-8 pt-12" aria-labelledby="page-title">
-        <h1 id="page-title" className="text-h1">AI 모의면접</h1>
+        <Link
+          to="/dashboard"
+          className="inline-flex items-center gap-1 rounded-ait-s py-2 text-caption text-text-secondary transition-colors hover:text-action-primary"
+        >
+          <ArrowLeft className="size-3" aria-hidden="true" />
+          대시보드로 돌아가기
+        </Link>
+        <h1 id="page-title" className="mt-2 text-h1">AI 모의면접</h1>
         <p className="mt-2 text-body-2 text-text-secondary">
           실전처럼 연습하고, 면접 역량의 변화를 확인해보세요.
         </p>
