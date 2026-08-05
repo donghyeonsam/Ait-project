@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { AlertCircle, ChevronDown, Play, ThumbsUp, TrendingUp } from 'lucide-react'
+import { AlertCircle, ChevronDown, ThumbsUp, TrendingUp } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
   getInterviewReportDetail,
@@ -491,11 +491,7 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
           )}
             </div>
 
-            <footer className="report-dialog__footer flex items-center justify-between border-t border-chart-axis bg-surface-default px-10 py-3">
-              <Button type="button" variant="secondary" className="min-w-44 font-medium">
-                <Play className="size-5" aria-hidden="true" />
-                영상 다시보기
-              </Button>
+            <footer className="report-dialog__footer flex items-center justify-end border-t border-chart-axis bg-surface-default px-10 py-3">
               <div className="report-dialog__actions flex items-center gap-4">
                 <Button
                   ref={closeButtonRef}
