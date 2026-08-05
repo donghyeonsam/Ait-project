@@ -10,9 +10,28 @@ const backendBaseUrl = (import.meta.env.VITE_BE_API_URL ?? '/backend').replace(
   '',
 )
 
+// 업로드된 파일은 API 서버가 아니라 EC2에 정적으로 저장되어 별도 도메인에서 바로 서빙된다.
+const uploadsBaseUrl = (
+  import.meta.env.VITE_UPLOADS_URL ?? 'https://i15d202.p.ssafy.io/uploads'
+).replace(/\/$/, '')
+
 export function getBackendAssetUrl(path: string) {
   if (/^https?:\/\//i.test(path) || path.startsWith('data:')) return path
   return `${backendBaseUrl}/${path.replace(/^\/+/, '')}`
+}
+
+// storedFilename(예: boards/uuid.png)을 실제 업로드 파일 정적 URL로 변환한다.
+// 폴더 구분자는 유지하고 각 경로 조각만 인코딩해 서버 리소스 경로와 맞춘다.
+export function getUploadedFileUrl(storedFilename: string) {
+  if (/^https?:\/\//i.test(storedFilename) || storedFilename.startsWith('data:')) {
+    return storedFilename
+  }
+  const encodedPath = storedFilename
+    .replace(/\\/g, '/')
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/')
+  return `${uploadsBaseUrl}/${encodedPath.replace(/^\/+/, '')}`
 }
 
 const resolveBackendUrl = (pathOrUrl: string) => {
@@ -179,21 +198,27 @@ async function requestBackendAsset(
   source: string,
   hasRetried = false,
 ): Promise<Blob> {
+  // 인증이 필요한 BE 보호 리소스만 Bearer 토큰을 붙인다. 업로드 정적 파일은 별도 공개 도메인이라
+  // 인증 헤더를 붙이면 CORS 사전 요청이 막힐 수 있다.
+  const requiresAuth = isBackendAssetUrl(source)
   const headers = new Headers()
-  const accessToken = getStoredAccessToken()
-  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
+  if (requiresAuth) {
+    const accessToken = getStoredAccessToken()
+    if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
+  }
 
   // 기존 게시글에는 폴더 구분자까지 인코딩된 이미지 경로가 남아 있어 실제 리소스 경로로 복원한다.
-  const normalizedSource = isBackendAssetUrl(source)
+  const normalizedSource = requiresAuth
     ? source.replace(/%2F/gi, '/')
     : source
   const response = await fetch(resolveBackendUrl(normalizedSource), {
     headers,
-    credentials: 'include',
+    credentials: requiresAuth ? 'include' : 'same-origin',
   })
 
   if (
     response.status === 401 &&
+    requiresAuth &&
     !hasRetried &&
     (await reissueAccessToken())
   ) {
@@ -202,7 +227,7 @@ async function requestBackendAsset(
 
   if (!response.ok) {
     const payload = await parseBody(response)
-    if (response.status === 401) {
+    if (response.status === 401 && requiresAuth) {
       window.dispatchEvent(new Event(unauthorizedEvent))
     }
     throw new ApiError(
