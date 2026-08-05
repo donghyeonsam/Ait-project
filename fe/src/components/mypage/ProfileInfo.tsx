@@ -21,6 +21,7 @@ interface ProfileInfoProps {
   repositoryLoading?: boolean
   onRetryRepositories?: () => void
   onDeleteRepository?: (id: number) => Promise<void>
+  onRepositoryInstalled?: () => void
   onOpenDocuments: () => void
   onStartEditing: () => void
   onCancelEditing: () => void
@@ -50,6 +51,7 @@ export function ProfileInfo({
   repositoryLoading,
   onRetryRepositories,
   onDeleteRepository,
+  onRepositoryInstalled,
   onOpenDocuments,
   onStartEditing,
   onCancelEditing,
@@ -115,6 +117,7 @@ export function ProfileInfo({
             loading={repositoryLoading}
             onRetry={onRetryRepositories}
             onDelete={onDeleteRepository}
+            onInstalled={onRepositoryInstalled}
           />
         )}
 
