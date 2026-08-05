@@ -12,7 +12,7 @@ const backendBaseUrl = (import.meta.env.VITE_BE_API_URL ?? '/backend').replace(
 
 // 업로드된 파일은 API 서버가 아니라 EC2에 정적으로 저장되어 별도 도메인에서 바로 서빙된다.
 const uploadsBaseUrl = (
-  import.meta.env.VITE_UPLOADS_URL ?? 'https://i15d202.p.ssafy.io/uploads'
+  import.meta.env.VITE_UPLOADS_URL ?? 'https://i15d202.p.ssafy.io/download'
 ).replace(/\/$/, '')
 
 export function getBackendAssetUrl(path: string) {

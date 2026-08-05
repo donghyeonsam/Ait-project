@@ -110,7 +110,7 @@ describe('fetchPosts', () => {
     })
 
     expect(result.items[0]?.thumbnail).toBe(
-      'https://i15d202.p.ssafy.io/uploads/stored-thumb%201.png',
+      'https://i15d202.p.ssafy.io/download/stored-thumb%201.png',
     )
   })
 
@@ -379,7 +379,7 @@ describe('fetchPost', () => {
           storedFilename: 'boards/stored-guide.pdf',
           fileType: 'PDF',
           usageType: 'ATTACHMENT',
-          url: 'https://i15d202.p.ssafy.io/uploads/boards/stored-guide.pdf',
+          url: 'https://i15d202.p.ssafy.io/download/boards/stored-guide.pdf',
         }),
       ],
     })
@@ -557,7 +557,7 @@ describe('post file upload', () => {
       storedFilename: 'boards/stored-image.png',
       fileType: 'IMAGE',
       usageType: 'INLINE',
-      url: 'https://i15d202.p.ssafy.io/uploads/boards/stored-image.png',
+      url: 'https://i15d202.p.ssafy.io/download/boards/stored-image.png',
     })
   })
 
@@ -589,8 +589,8 @@ describe('post file upload', () => {
       { fileType: 'OTHER', usageType: 'ATTACHMENT' },
     ])
     expect(result.map((file) => file.url)).toEqual([
-      'https://i15d202.p.ssafy.io/uploads/boards/stored-guide.pdf',
-      'https://i15d202.p.ssafy.io/uploads/boards/stored-note.txt',
+      'https://i15d202.p.ssafy.io/download/boards/stored-guide.pdf',
+      'https://i15d202.p.ssafy.io/download/boards/stored-note.txt',
     ])
   })
 
