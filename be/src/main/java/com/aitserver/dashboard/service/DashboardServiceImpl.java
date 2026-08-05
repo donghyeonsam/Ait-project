@@ -59,7 +59,7 @@ public class DashboardServiceImpl implements DashboardService {
         );
 
         // 2. 최근 모의 면접 종합점수
-        double score = reportList.getFirst().getScore();
+        Double score = reportList.isEmpty() ? null : reportList.getFirst().getScore();
 
         // 3. 누적 스터디 참여 횟수
         int studyCount = peerFeedbackList.size();
