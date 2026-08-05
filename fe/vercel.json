@@ -1,13 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [
+  "routes": [
     {
-      "source": "/backend/:path*",
-      "destination": "https://i15d202.p.ssafy.io/:path*"
+      "src": "/backend/(.*)",
+      "dest": "https://i15d202.p.ssafy.io/$1"
     },
+    { "handle": "filesystem" },
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
