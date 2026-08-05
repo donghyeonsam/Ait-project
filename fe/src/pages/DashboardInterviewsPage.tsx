@@ -371,6 +371,7 @@ export function DashboardInterviewsPage() {
                     record={record}
                     index={index % RECORD_PAGE_SIZE}
                     onOpenReport={openReport}
+                    isReportOpen={reportOpen && selectedRecord?.id === record.id}
                   />
                 ))
               ) : (
