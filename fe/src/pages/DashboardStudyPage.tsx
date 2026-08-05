@@ -1,6 +1,6 @@
-import { AlertCircle, Users, UsersRound } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Users, UsersRound } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   getPeerFeedbackList,
   type PeerFeedbackSessionSummary,
@@ -304,7 +304,14 @@ export function DashboardStudyPage() {
   return (
     <PageLayout contentClassName="max-w-interviews">
       <section className="pb-8 pt-12" aria-labelledby="page-title">
-        <h1 id="page-title" className="text-h1">스터디 한눈에 보기</h1>
+        <Link
+          to="/dashboard"
+          className="inline-flex items-center gap-1 rounded-ait-s py-2 text-caption text-text-secondary transition-colors hover:text-action-primary"
+        >
+          <ArrowLeft className="size-3" aria-hidden="true" />
+          대시보드로 돌아가기
+        </Link>
+        <h1 id="page-title" className="mt-2 text-h1">스터디 한눈에 보기</h1>
         <p className="mt-2 text-body-2 text-text-secondary">
           스터디 세션에서 받은 상호평가를 모아 역량 변화를 확인해보세요.
         </p>
