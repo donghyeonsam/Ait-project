@@ -128,11 +128,11 @@ export function useNonVerbalCapture(
           const { ear, mar } = frameMetrics(landmarks)
           const iris = irisCenterPosition(landmarks)
           // BE가 screen_width/height 기준의 유클리드 거리 비율로 시선 이탈을 계산하므로,
-          // 어떤 픽셀 공간이든 gaze_x/y와 같은 기준이면 된다 — 비디오 프레임 자체를 기준으로 삼는다.
+          // gaze_x/y도 같은 모니터 해상도 기준이어야 한다 — 웹캠 프레임 좌표를 쓰면 화면 중심 이탈을 잘못 판정한다.
           framesRef.current.push({
             timestamp: (performance.now() - startedAtRef.current) / 1000,
-            gaze_x: iris.x * video.videoWidth,
-            gaze_y: iris.y * video.videoHeight,
+            gaze_x: iris.x * window.screen.width,
+            gaze_y: iris.y * window.screen.height,
             blendshapes: blendshapeCategories.map((category) => category.score),
             ear,
             mar,
@@ -169,8 +169,8 @@ export function useNonVerbalCapture(
     setStatus('sending')
     sendNonVerbalData({
       aiInterviewId,
-      screenWidth: videoWidth,
-      screenHeight: videoHeight,
+      screenWidth: window.screen.width,
+      screenHeight: window.screen.height,
       fps: SAMPLE_FPS,
       durationSec,
       frames,
