@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { getDashboardSummary, type DashboardSummary } from '@/api/dashboard'
 import { toErrorMessage } from '@/api/http'
+import { DashboardStudyCalendar } from '@/components/dashboard/DashboardStudyCalendar'
 import { ScoreTrendChart } from '@/components/dashboard/ScoreTrendChart'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Button } from '@/components/ui/button'
@@ -71,6 +72,64 @@ function PanelEmpty({ description }: { description: string }) {
   return (
     <div className="mt-4 flex min-h-48 items-center justify-center rounded-ait-m border border-dashed border-border-default bg-surface-default px-8 text-center">
       <p className="text-body-2 text-text-secondary">{description}</p>
+    </div>
+  )
+}
+
+interface RecentRecord {
+  key: string | number
+  title: string
+  date: string
+  score: number
+}
+
+// 항목이 0~3건 중 몇 건이든 카드 높이가 항상 3건 꽉 찬 상태와 같도록, 남는 자리를 보이지 않는
+// 자리표시 행으로 채운다. 0건이면 그 위에 안내 문구를 겹쳐 보여준다.
+function RecentRecordList({
+  items,
+  emptyDescription,
+}: {
+  items: RecentRecord[]
+  emptyDescription: string
+}) {
+  const placeholderCount = Math.max(0, RECENT_RECORD_COUNT - items.length)
+
+  return (
+    <div className="relative mt-2">
+      <ul className="divide-y divide-border-default">
+        {items.map((item) => (
+          <li key={item.key} className="flex items-center justify-between gap-4 py-3">
+            <div className="min-w-0">
+              <p className="truncate text-body-2 font-medium">{item.title}</p>
+              <p className="mt-1 tabular-nums text-caption text-text-secondary">{item.date}</p>
+            </div>
+            <p className="shrink-0">
+              <strong className="tabular-nums text-h3">{item.score.toFixed(1)}</strong>
+              <span className="ml-1 text-caption text-text-secondary">점</span>
+            </p>
+          </li>
+        ))}
+        {Array.from({ length: placeholderCount }, (_, index) => (
+          <li
+            key={`placeholder-${index}`}
+            aria-hidden="true"
+            className="invisible flex items-center justify-between gap-4 py-3"
+          >
+            <div className="min-w-0">
+              <p className="text-body-2 font-medium">placeholder</p>
+              <p className="mt-1 text-caption">placeholder</p>
+            </div>
+            <p className="shrink-0">
+              <strong className="text-h3">0.0</strong>
+            </p>
+          </li>
+        ))}
+      </ul>
+      {items.length === 0 ? (
+        <div className="absolute inset-0 flex items-center justify-center rounded-ait-m border border-dashed border-border-default bg-surface-default px-8 text-center">
+          <p className="text-body-2 text-text-secondary">{emptyDescription}</p>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -279,23 +338,18 @@ export function DashboardPage() {
               <DashboardPanel title="최근 AI면접 기록" to="/dashboard/interviews">
                 {loadState === 'loading' ? (
                   <PanelSkeleton />
-                ) : completedRecords.length ? (
-                  <ul className="mt-2 divide-y divide-border-default">
-                    {completedRecords.slice(0, RECENT_RECORD_COUNT).map((record) => (
-                      <li key={record.id} className="flex items-center justify-between gap-4 py-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-body-2 font-medium">{record.title}</p>
-                          <p className="mt-1 tabular-nums text-caption text-text-secondary">{record.date}</p>
-                        </div>
-                        <p className="shrink-0">
-                          <strong className="tabular-nums text-h3">{record.score.toFixed(1)}</strong>
-                          <span className="ml-1 text-caption text-text-secondary">점</span>
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
                 ) : (
-                  <PanelEmpty description="저장된 면접 기록이 없습니다." />
+                  <RecentRecordList
+                    items={completedRecords
+                      .slice(0, RECENT_RECORD_COUNT)
+                      .map((record) => ({
+                        key: record.id,
+                        title: record.title,
+                        date: record.date,
+                        score: record.score,
+                      }))}
+                    emptyDescription="저장된 면접 기록이 없습니다."
+                  />
                 )}
               </DashboardPanel>
 
@@ -313,55 +367,32 @@ export function DashboardPage() {
             <div className="my-10 border-t border-border-default" />
 
             <div
-              className="study-reveal is-visible dashboard-main-grid grid gap-10 pb-20"
+              className="study-reveal is-visible dashboard-main-grid grid items-start gap-10 pb-20"
               style={{ '--reveal-order': 2 } as React.CSSProperties}
             >
               <DashboardPanel title="최근 스터디 기록" to="/dashboard/study">
                 {loadState === 'loading' ? (
                   <PanelSkeleton />
-                ) : summary?.studyFeedbacks.length ? (
-                  <ul className="mt-2 divide-y divide-border-default">
-                    {summary.studyFeedbacks.slice(0, RECENT_RECORD_COUNT).map((feedback) => (
-                      <li key={feedback.sessionId} className="flex items-center justify-between gap-4 py-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-body-2 font-medium">{feedback.sessionTitle}</p>
-                          <p className="mt-1 tabular-nums text-caption text-text-secondary">{formatDate(feedback.createdAt)}</p>
-                        </div>
-                        <p className="shrink-0">
-                          <strong className="tabular-nums text-h3">{feedback.scoreAvg.toFixed(1)}</strong>
-                          <span className="ml-1 text-caption text-text-secondary">점</span>
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
                 ) : (
-                  <PanelEmpty description="저장된 스터디 기록이 없습니다." />
+                  <RecentRecordList
+                    items={(summary?.studyFeedbacks ?? [])
+                      .slice(0, RECENT_RECORD_COUNT)
+                      .map((feedback) => ({
+                        key: feedback.sessionId,
+                        title: feedback.sessionTitle,
+                        date: formatDate(feedback.createdAt),
+                        score: feedback.scoreAvg,
+                      }))}
+                    emptyDescription="저장된 스터디 기록이 없습니다."
+                  />
                 )}
               </DashboardPanel>
 
               <DashboardPanel title="나의 스터디 일정">
                 {loadState === 'loading' ? (
                   <PanelSkeleton />
-                ) : upcomingCalendars.length ? (
-                  <ul className="mt-4 space-y-3">
-                    {upcomingCalendars.map((item) => (
-                      <li
-                        key={item.calendarId}
-                        className="flex items-center gap-4 rounded-ait-m border border-border-default bg-surface-default px-4 py-3"
-                      >
-                        <span className="flex size-10 shrink-0 items-center justify-center rounded-ait-pill bg-status-neutral-surface text-action-primary" aria-hidden="true">
-                          <CalendarDays className="size-5" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-body-2 font-medium">{item.content}</p>
-                          <p className="mt-1 truncate text-caption text-text-secondary">{item.groupTitle}</p>
-                        </div>
-                        <time className="shrink-0 tabular-nums text-caption text-text-secondary" dateTime={item.startTime}>
-                          {formatCalendarTime(item.startTime)}
-                        </time>
-                      </li>
-                    ))}
-                  </ul>
+                ) : summary?.studyCalendars.length ? (
+                  <DashboardStudyCalendar items={summary.studyCalendars} />
                 ) : (
                   <PanelEmpty description="등록된 스터디 일정이 없습니다." />
                 )}
