@@ -1,5 +1,6 @@
 // 서버 채팅 스키마 변경 없이 답글을 표현하기 위해 메시지 문자열 맨 앞에 답글 토큰을 넣고 화면에서 되돌린다.
 import { parseEmoticonToken } from '@/lib/emoticons'
+import { parseFileToken } from '@/lib/study-chat-file'
 
 export interface StudyChatReplyTarget {
   chatId: number
@@ -57,7 +58,9 @@ export function toStudyChatPreviewText(raw: string) {
   const emoticon = parseEmoticonToken(body)
   if (emoticon) return `${emoticon.label} 이모티콘`
 
-  const singleLine = body.replaceAll('\n', ' ').trim()
+  const file = parseFileToken(body)
+  const previewSource = file ? `파일: ${file.originalFilename}` : body
+  const singleLine = previewSource.replaceAll('\n', ' ').trim()
   return singleLine.length > replyPreviewMaxLength
     ? `${singleLine.slice(0, replyPreviewMaxLength)}…`
     : singleLine
