@@ -73,7 +73,6 @@ export interface CommunityPostDraft {
   contentHtml: string
   tags: string[]
   files: CommunityPostFile[]
-  thumbnail: string | null
   allowComments: boolean
   notify: boolean
 }

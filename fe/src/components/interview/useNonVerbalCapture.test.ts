@@ -36,9 +36,9 @@ const VIDEO_HEIGHT = 480
 const SCREEN_WIDTH = 1920
 const SCREEN_HEIGHT = 1080
 
-function detectionResult() {
+function detectionResult(faceCenter: { x: number; y: number } = { x: 0.5, y: 0.5 }) {
   return {
-    faceLandmarks: [Array.from({ length: 478 }, () => ({ x: 0.5, y: 0.5 }))],
+    faceLandmarks: [Array.from({ length: 478 }, () => faceCenter)],
     faceBlendshapes: [
       { categories: Array.from({ length: 52 }, (_, i) => ({ score: i / 52 })) },
     ],
@@ -221,6 +221,28 @@ describe('useNonVerbalCapture', () => {
     })
 
     expect(result.current.status).toBe('error')
+  })
+
+  it('얼굴이 중앙에서 많이 벗어나면 isFaceOffCenter가 켜지고, 녹화가 끝나면 꺼진다', async () => {
+    // 바운딩 박스가 (0.9, 0.5) 한 점이므로 중앙(0.5, 0.5)과의 거리는 0.4로 진입 임계값(0.22)을 넘는다.
+    detectForVideo.mockReturnValue(detectionResult({ x: 0.9, y: 0.5 }))
+    sendNonVerbalData.mockResolvedValue(undefined)
+    const { result } = renderHook(() => useNonVerbalCapture(trackStream(), 42))
+
+    act(() => {
+      result.current.startCapture()
+    })
+    expect(result.current.isFaceOffCenter).toBe(false)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SAMPLE_INTERVAL_MS)
+    })
+    expect(result.current.isFaceOffCenter).toBe(true)
+
+    act(() => {
+      result.current.stopCapture()
+    })
+    expect(result.current.isFaceOffCenter).toBe(false)
   })
 
   it('reset을 호출하면 idle 상태로 돌아간다', async () => {

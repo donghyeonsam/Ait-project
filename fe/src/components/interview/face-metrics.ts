@@ -74,3 +74,21 @@ export function irisCenterPosition(landmarks: NormalizedPoint[]): NormalizedPoin
   const right = relativeIrisPosition(landmarks, RIGHT_EYE, RIGHT_IRIS_CENTER)
   return { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 }
 }
+
+// 홍채 상대 위치(irisCenterPosition)는 고개 위치와 무관하도록 설계돼 있어서, 얼굴 자체가
+// 화면 옆으로 치우쳐도 잡히지 않는다. 이 함수는 반대로 "얼굴이 프레임 중앙에서 벗어났는지"를
+// 보기 위한 것으로, 랜드마크 전체의 바운딩 박스 중심을 얼굴 위치로 근사한다.
+// BE로 전송하지 않는 FE 전용 UI 판단용이라 ai-evaluate와 수식을 맞출 필요는 없다.
+export function faceCenterPosition(landmarks: NormalizedPoint[]): NormalizedPoint {
+  let minX = Infinity
+  let maxX = -Infinity
+  let minY = Infinity
+  let maxY = -Infinity
+  for (const point of landmarks) {
+    if (point.x < minX) minX = point.x
+    if (point.x > maxX) maxX = point.x
+    if (point.y < minY) minY = point.y
+    if (point.y > maxY) maxY = point.y
+  }
+  return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 }
+}

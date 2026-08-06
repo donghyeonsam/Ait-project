@@ -21,6 +21,8 @@ const WAVE_BAR_COUNT = 12
 
 interface SessionTheaterProps {
   stream: MediaStream | null
+  /** 답변 녹음 중 얼굴이 프레임 중앙에서 많이 벗어났을 때 셀프뷰에 중앙 유도 가이드를 띄운다. */
+  showFaceCenterGuide?: boolean
   questionIndex: number
   totalQuestions: number
   question: string
@@ -85,6 +87,7 @@ function LiveWaveform() {
 // 면접 세션 몰입형 시어터 화면: 풀블리드 면접관 영상 위에 헤더 진행도와 하단 통합 카드(질문·실시간 답변·컨트롤)를 오버레이로 얹는다.
 export function SessionTheater({
   stream,
+  showFaceCenterGuide = false,
   questionIndex,
   totalQuestions,
   question,
@@ -399,7 +402,12 @@ export function SessionTheater({
           </div>
 
           <div className="session-theater-selfview-slot">
-            <FloatingSelfView stream={stream} boundsRef={stageRef} docked />
+            <FloatingSelfView
+              stream={stream}
+              boundsRef={stageRef}
+              docked
+              showCenterGuide={showFaceCenterGuide}
+            />
           </div>
         </div>
       </div>

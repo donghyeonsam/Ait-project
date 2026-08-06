@@ -10,7 +10,6 @@ import {
   uploadPostFiles,
 } from '@/api/community'
 import { toErrorMessage } from '@/api/http'
-import { AuthenticatedImage } from '@/components/common/AuthenticatedImage'
 import { PageTransition } from '@/components/common/PageTransition'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
 import { FileDropzone } from '@/components/form/FileDropzone'
@@ -71,7 +70,6 @@ interface DraftPayload {
   contentHtml: string
   tags: string[]
   files: CommunityPostFile[]
-  thumbnail: string | null
   allowComments: boolean
   notify: boolean
   savedAt: string
@@ -84,7 +82,7 @@ type EditLoadState = 'loading' | 'ready' | 'not-found' | 'forbidden'
 const htmlToPlainText = (html: string) =>
   new DOMParser().parseFromString(html, 'text/html').body.textContent ?? ''
 
-// 본문 HTML에서 대표 사진 후보가 되는 이미지 src 목록을 중복 없이 뽑는다.
+// 본문 HTML에 남아있는 이미지 src 목록을 중복 없이 뽑는다.
 const extractImageSrcs = (html: string) => {
   const doc = new DOMParser().parseFromString(html, 'text/html')
   const srcs = Array.from(doc.querySelectorAll('img'))
@@ -92,10 +90,6 @@ const extractImageSrcs = (html: string) => {
     .filter(Boolean)
   return [...new Set(srcs)]
 }
-
-// 선택한 대표 사진이 본문에서 지워졌으면 첫 이미지로 대체한다.
-const resolveThumbnail = (candidate: string | null, images: string[]) =>
-  candidate && images.includes(candidate) ? candidate : (images[0] ?? null)
 
 // 게시글 작성·수정 화면. 같은 폼에서 새 글과 기존 글의 입력·검증·저장을 처리한다.
 export function CommunityWritePage() {
@@ -117,7 +111,6 @@ export function CommunityWritePage() {
   const [files, setFiles] = useState<File[]>([])
   const [postFiles, setPostFiles] = useState<CommunityPostFile[]>([])
   const [tags, setTags] = useState<string[]>([])
-  const [thumbnail, setThumbnail] = useState<string | null>(null)
   const [allowComments, setAllowComments] = useState(true)
   const [notify, setNotify] = useState(true)
 
@@ -141,10 +134,8 @@ export function CommunityWritePage() {
   const titleFieldRef = useRef<HTMLDivElement>(null)
   const contentFieldRef = useRef<HTMLDivElement>(null)
 
-  // 본문에 삽입된 이미지 목록. 대표 사진 선택지로 쓴다.
+  // 본문에 삽입된 이미지 목록. 삭제된 INLINE 이미지를 걸러낼 때 쓴다.
   const contentImages = useMemo(() => extractImageSrcs(contentHtml), [contentHtml])
-  // 선택한 이미지가 본문에서 지워진 경우까지 반영한 실제 대표 사진. 선택이 없으면 첫 이미지가 기본값이다.
-  const effectiveThumbnail = resolveThumbnail(thumbnail, contentImages)
 
   const formSnapshot = JSON.stringify({
     category,
@@ -155,7 +146,6 @@ export function CommunityWritePage() {
       storedFilename,
       usageType,
     })),
-    thumbnail: effectiveThumbnail,
     allowComments,
     notify,
   })
@@ -192,11 +182,6 @@ export function CommunityWritePage() {
           contentHtml: post.contentHtml,
           tags: post.tags,
           files: post.files ?? [],
-          // 자동 보정과 같은 값으로 기준선을 잡아 진입 직후 dirty로 판정되지 않게 한다.
-          thumbnail: resolveThumbnail(
-            post.thumbnail ?? null,
-            extractImageSrcs(post.contentHtml),
-          ),
           allowComments: post.allowComments ?? true,
           notify: post.notify ?? true,
         }
@@ -206,7 +191,6 @@ export function CommunityWritePage() {
         setContentText(htmlToPlainText(nextForm.contentHtml))
         setTags(nextForm.tags)
         setPostFiles(nextForm.files)
-        setThumbnail(nextForm.thumbnail)
         setAllowComments(nextForm.allowComments)
         setNotify(nextForm.notify)
         setEditBaseline(
@@ -237,21 +221,11 @@ export function CommunityWritePage() {
       contentHtml,
       tags,
       files: postFiles,
-      thumbnail: effectiveThumbnail,
       allowComments,
       notify,
       savedAt: new Date().toISOString(),
     }),
-    [
-      category,
-      title,
-      contentHtml,
-      tags,
-      effectiveThumbnail,
-      postFiles,
-      allowComments,
-      notify,
-    ],
+    [category, title, contentHtml, tags, postFiles, allowComments, notify],
   )
 
   // 자동 저장 타이머가 항상 최신 상태를 읽도록 렌더 후에 ref를 갱신한다.
@@ -289,7 +263,6 @@ export function CommunityWritePage() {
     setTitle(pendingDraft.title)
     setTags(pendingDraft.tags)
     setPostFiles(pendingDraft.files ?? [])
-    setThumbnail(pendingDraft.thumbnail ?? null)
     setAllowComments(pendingDraft.allowComments)
     setNotify(pendingDraft.notify)
     setContentHtml(pendingDraft.contentHtml)
@@ -374,7 +347,6 @@ export function CommunityWritePage() {
         contentHtml,
         tags,
         files: requestFiles,
-        thumbnail: effectiveThumbnail,
         allowComments,
         notify,
       }
@@ -575,51 +547,6 @@ export function CommunityWritePage() {
                   onImageUploaded={handleImageUploaded}
                 />
               </FormSection>
-
-              {/* 대표 사진 — 본문에 이미지가 있을 때만 노출 */}
-              {contentImages.length > 0 ? (
-                <FormSection label="대표 사진" labelId="write-thumbnail">
-                  <p className="-mt-1 mb-3 text-caption text-ink-500">
-                    게시글 카드에 썸네일로 표시할 사진을 선택해주세요.
-                  </p>
-                  <div
-                    role="radiogroup"
-                    aria-labelledby="write-thumbnail"
-                    className="flex flex-wrap gap-3"
-                  >
-                    {contentImages.map((src, index) => {
-                      const isSelected = effectiveThumbnail === src
-                      return (
-                        <button
-                          key={src}
-                          type="button"
-                          role="radio"
-                          aria-checked={isSelected}
-                          aria-label={`본문 사진 ${index + 1}${isSelected ? ' (대표 사진)' : ''}`}
-                          onClick={() => setThumbnail(src)}
-                          className={cn(
-                            'relative overflow-hidden rounded-ait-s border transition-[border-color,box-shadow] duration-[180ms]',
-                            isSelected
-                              ? 'border-brand-blue ring-2 ring-brand-blue/25'
-                              : 'border-line hover:border-ink-400',
-                          )}
-                        >
-                          <AuthenticatedImage
-                            src={src}
-                            alt=""
-                            className="block size-24 object-cover"
-                          />
-                          {isSelected ? (
-                            <span className="absolute left-1.5 top-1.5 rounded-ait-pill bg-navy-900 px-2 py-0.5 text-[11px] font-semibold text-surface-default">
-                              대표
-                            </span>
-                          ) : null}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </FormSection>
-              ) : null}
 
               {/* 파일 첨부 */}
               <FormSection label="파일 첨부" labelId="write-files">

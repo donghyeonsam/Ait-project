@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FaceLandmarker } from '@mediapipe/tasks-vision'
 import { sendNonVerbalData, type NonVerbalFrame } from '@/api/ai-interviews'
 import {
+  faceCenterPosition,
   frameMetrics,
   irisCenterPosition,
 } from '@/components/interview/face-metrics'
@@ -14,6 +15,11 @@ const SAMPLE_FPS = 5
 // 않아도 이탈로 잡히지만, 정중앙 응시 시의 노이즈(약 0.10~0.14)도 같이 커져서 오탐 위험이
 // 늘어난다 — 실측값(정중앙 0.10, 대각선 0.32) 기준으로 잡은 값.
 const GAZE_SENSITIVITY_GAIN = 3
+// 얼굴이 프레임 중앙(0.5, 0.5)에서 벗어난 정도(유클리드 거리)에 대한 중앙 이탈 가이드 on/off 임계값.
+// on/off 임계값을 다르게 둬(히스테리시스) 경계값 근처에서 가이드가 깜빡이는 걸 막는다.
+// 최초값(0.22/0.15)이 실사용 기준 너무 관대해 절반가량 낮춤 — 여전히 실측 기반 조정 필요.
+const FACE_CENTER_ENTER_THRESHOLD = 0.13
+const FACE_CENTER_EXIT_THRESHOLD = 0.09
 const WASM_PATH = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm'
 // 학습 때 쓴 모델과 반드시 같은 파일이어야 한다(ai-evaluate/README.md 4-1 참고).
 const DEFAULT_MODEL_ASSET_PATH =
@@ -68,6 +74,7 @@ export function useNonVerbalCapture(
 ) {
   const [status, setStatus] = useState<NonVerbalCaptureStatus>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [isFaceOffCenter, setIsFaceOffCenter] = useState(false)
 
   const landmarkerPromiseRef = useRef<Promise<FaceLandmarker> | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -83,6 +90,7 @@ export function useNonVerbalCapture(
     }
     videoRef.current?.pause()
     videoRef.current = null
+    setIsFaceOffCenter(false)
   }, [])
 
   useEffect(() => {
@@ -138,6 +146,13 @@ export function useNonVerbalCapture(
 
           const { ear, mar } = frameMetrics(landmarks)
           const iris = irisCenterPosition(landmarks)
+          const faceCenter = faceCenterPosition(landmarks)
+          const centerDeviation = Math.hypot(faceCenter.x - 0.5, faceCenter.y - 0.5)
+          setIsFaceOffCenter((prev) =>
+            prev
+              ? centerDeviation > FACE_CENTER_EXIT_THRESHOLD
+              : centerDeviation > FACE_CENTER_ENTER_THRESHOLD,
+          )
           // BE가 screen_width/height 기준의 유클리드 거리 비율로 시선 이탈을 계산하므로,
           // gaze_x/y도 같은 모니터 해상도 기준이어야 한다 — 웹캠 프레임 좌표를 쓰면 화면 중심 이탈을 잘못 판정한다.
           const amplifiedX = amplifyAroundCenter(iris.x, GAZE_SENSITIVITY_GAIN)
@@ -209,5 +224,5 @@ export function useNonVerbalCapture(
     setError(null)
   }, [stopSampling])
 
-  return { status, error, startCapture, stopCapture, reset }
+  return { status, error, isFaceOffCenter, startCapture, stopCapture, reset }
 }
