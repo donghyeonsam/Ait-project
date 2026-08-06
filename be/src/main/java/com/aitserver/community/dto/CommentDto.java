@@ -39,6 +39,7 @@ public class CommentDto {
         private Long userId;
         private String nickname;
         private String content;
+        private String profileImageUrl;
         private Integer likeCount;
         private boolean isLiked;
         private LocalDateTime createdAt;
@@ -56,6 +57,7 @@ public class CommentDto {
                     .userId(isDeleted ? null : comment.getUser().getId())
                     .nickname(comment.getUser().getNickname())
                     .content(isDeleted ? "삭제된 댓글입니다." : comment.getContent())
+                    .profileImageUrl((comment.getUser().getProfileImage()))
                     .likeCount(isDeleted ? 0 : comment.getLikeCount())
                     .isLiked(isDeleted ? false : isLiked)
                     .createdAt(comment.getCreatedAt())

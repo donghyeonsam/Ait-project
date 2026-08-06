@@ -22,7 +22,9 @@ public interface StudyGroupMemberRepository
 
     // 내가 가입(ACTIVE)된 '모든' 스터디 그룹 조회 (최신 가입순)
     @Query("SELECT m FROM StudyGroupMember m " +
-            "JOIN FETCH m.studyGroup " +
+            "JOIN FETCH m.studyGroup g " +
+            "JOIN FETCH g.members gm " +
+            "JOIN FETCH gm.user " +
             "WHERE m.user.id = :userId AND m.status = :memberStatus " +
             "ORDER BY m.updatedAt DESC")
     List<StudyGroupMember> findAllMyStudyGroups(

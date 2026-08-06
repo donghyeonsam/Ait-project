@@ -81,6 +81,7 @@ public class PostDto {
         private final Boolean receiveNotifications;
         private final Integer likeCount;
         private final Integer viewCount;
+        private final String profileImageUrl;
         private final boolean isScrapped;
         private final boolean isLiked;
 
@@ -101,6 +102,7 @@ public class PostDto {
             this.commentCount = post.getCommentCount();
             this.isLiked = isLiked;
             this.isScrapped = isScrapped;
+            this.profileImageUrl = post.getUser().getProfileImage();
 
             this.allowComments = post.getAllowComments();
             this.receiveNotifications = post.getReceiveNotifications();
