@@ -1,11 +1,14 @@
-import { Send, SmilePlus, Sticker, X } from 'lucide-react'
+import { Loader2, Paperclip, Send, SmilePlus, Sticker, X } from 'lucide-react'
 import {
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
+  type ChangeEvent,
   type KeyboardEvent,
 } from 'react'
+import { toErrorMessage } from '@/api/http'
+import { uploadStudyGroupChatFile } from '@/api/study-group-chat'
 import { studyChatEmojis } from '@/components/study/studyChatEmojis'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -13,6 +16,7 @@ import {
   toEmoticonToken,
   type AitEmoticon,
 } from '@/lib/emoticons'
+import { toFileToken } from '@/lib/study-chat-file'
 import {
   toReplyToken,
   type StudyChatReplyTarget,
@@ -36,10 +40,13 @@ export function StudyChatComposer({
 }: StudyChatComposerProps) {
   const [draft, setDraft] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [isUploadingFile, setIsUploadingFile] = useState(false)
+  const [fileError, setFileError] = useState<string | null>(null)
   const [composerPicker, setComposerPicker] = useState<
     'emoji' | 'emoticon' | null
   >(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const pickerAreaRef = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
@@ -124,6 +131,33 @@ export function StudyChatComposer({
     })
   }
 
+  // 파일은 업로드가 끝난 뒤 저장 파일명을 담은 토큰 메시지로 바로 전송한다.
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    // 같은 파일을 다시 골라도 change 이벤트가 발생하도록 입력 값을 비운다.
+    event.target.value = ''
+    if (!file || !isConnected || isSending || isUploadingFile) return
+
+    setIsUploadingFile(true)
+    setFileError(null)
+    try {
+      const storedFilename = await uploadStudyGroupChatFile(file)
+      const content = toFileToken(storedFilename, file.name)
+      const outgoing = replyTarget
+        ? `${toReplyToken(replyTarget)}\n${content}`
+        : content
+      const didSend = onSend(outgoing)
+      if (didSend) {
+        setComposerPicker(null)
+        onCancelReply?.()
+      }
+    } catch (error) {
+      setFileError(toErrorMessage(error))
+    } finally {
+      setIsUploadingFile(false)
+    }
+  }
+
   const sendEmoticon = (emoticon: AitEmoticon) => {
     if (!isConnected || isSending) return
 
@@ -184,6 +218,28 @@ export function StudyChatComposer({
               className="study-chat-composer-input min-h-11 max-h-28 resize-none overflow-y-hidden border-border-default py-2.5 shadow-none"
             />
           </label>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            tabIndex={-1}
+            aria-hidden="true"
+            onChange={handleFileChange}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!isConnected || isUploadingFile}
+            aria-label="파일 첨부"
+            className="flex size-9 shrink-0 items-center justify-center rounded-ait-s text-text-secondary transition-colors hover:bg-status-neutral-surface hover:text-action-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25 disabled:opacity-50"
+          >
+            {isUploadingFile ? (
+              <Loader2 className="size-5 animate-spin" aria-hidden="true" />
+            ) : (
+              <Paperclip className="size-5" aria-hidden="true" />
+            )}
+          </button>
 
           <div className="relative shrink-0">
             <button
@@ -278,6 +334,14 @@ export function StudyChatComposer({
             className="mt-2 text-center text-caption text-status-error"
           >
             {connectError}
+          </p>
+        ) : null}
+        {fileError ? (
+          <p
+            role="alert"
+            className="mt-2 text-center text-caption text-status-error"
+          >
+            {fileError}
           </p>
         ) : null}
       </div>

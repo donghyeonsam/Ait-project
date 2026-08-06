@@ -2,7 +2,9 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Loader2,
   MessageCircleMore,
+  Paperclip,
   Pencil,
   Pin,
   Send,
@@ -16,6 +18,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type ChangeEvent,
   type KeyboardEvent,
 } from 'react'
 import { Input } from '@/components/ui/input'
@@ -26,6 +29,7 @@ import {
   toEmoticonToken,
   type AitEmoticon,
 } from '@/lib/emoticons'
+import { toFileToken } from '@/lib/study-chat-file'
 import {
   toReplyToken,
   type StudyChatReplyTarget,
@@ -42,6 +46,7 @@ import {
   sendStudyGroupChatNotice,
   setStudyGroupChatReactionForUser,
   toggleStudyGroupChatReaction,
+  uploadStudyGroupChatFile,
   type StudyGroupChatMessage,
 } from '@/api/study-group-chat'
 import type { Client } from '@stomp/stompjs'
@@ -107,6 +112,8 @@ export function StudyGroupChatPanel({
   const [composerPicker, setComposerPicker] = useState<
     'emoji' | 'emoticon' | null
   >(null)
+  const [isUploadingFile, setIsUploadingFile] = useState(false)
+  const [fileError, setFileError] = useState<string | null>(null)
   const [recentEmojis, setRecentEmojis] = useState<string[]>(() => {
     const stored = readRecentEmojis()
     return stored.length > 0 ? stored : defaultRecentEmojis
@@ -116,6 +123,7 @@ export function StudyGroupChatPanel({
   const messageListRef = useRef<HTMLDivElement>(null)
   const noticeTextRef = useRef<HTMLParagraphElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const knownChatIdsRef = useRef<Set<number>>(new Set())
   const { highlightedChatId, scrollToMessage } =
     useStudyChatQuoteScroll(messageListRef)
@@ -287,6 +295,32 @@ export function StudyGroupChatPanel({
     )
     setReplyTarget(null)
     setComposerPicker(null)
+  }
+
+  // 파일은 업로드가 끝난 뒤 저장 파일명을 담은 토큰 메시지로 바로 전송한다.
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    // 같은 파일을 다시 골라도 change 이벤트가 발생하도록 입력 값을 비운다.
+    event.target.value = ''
+    if (!file || !clientRef.current?.connected || isUploadingFile) return
+
+    setIsUploadingFile(true)
+    setFileError(null)
+    try {
+      const storedFilename = await uploadStudyGroupChatFile(file)
+      if (!clientRef.current?.connected) return
+      sendStudyGroupChatMessage(
+        clientRef.current,
+        groupId,
+        withReplyToken(toFileToken(storedFilename, file.name)),
+      )
+      setReplyTarget(null)
+      setComposerPicker(null)
+    } catch (error) {
+      setFileError(toErrorMessage(error))
+    } finally {
+      setIsUploadingFile(false)
+    }
   }
 
   // 답장 대상을 고르면 바로 입력을 이어갈 수 있게 입력란에 포커스를 준다.
@@ -626,6 +660,28 @@ export function StudyGroupChatPanel({
         </div>
 
         <div className="mt-2 flex items-center justify-end gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            tabIndex={-1}
+            aria-hidden="true"
+            onChange={handleFileChange}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!isConnected || isUploadingFile}
+            aria-label="파일 첨부"
+            className="flex size-10 shrink-0 items-center justify-center rounded-ait-s border border-border-default bg-surface-default text-text-secondary transition-colors hover:bg-status-neutral-surface hover:text-action-primary disabled:opacity-50"
+          >
+            {isUploadingFile ? (
+              <Loader2 className="size-5 animate-spin" aria-hidden="true" />
+            ) : (
+              <Paperclip className="size-5" aria-hidden="true" />
+            )}
+          </button>
+
           <div className="relative shrink-0">
             <button
               type="button"
@@ -756,6 +812,14 @@ export function StudyGroupChatPanel({
             <Send className="size-5" aria-hidden="true" />
           </button>
         </div>
+        {fileError ? (
+          <p
+            role="alert"
+            className="mt-1 text-right text-caption text-status-error"
+          >
+            {fileError}
+          </p>
+        ) : null}
       </div>
     </section>
   )

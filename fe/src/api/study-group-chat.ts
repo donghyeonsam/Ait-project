@@ -122,6 +122,16 @@ export interface StudyGroupChatNotice {
   updatedAt: string
 }
 
+// 첨부 파일을 공용 업로드 API에 올리고 저장 파일명을 돌려받는다. 메시지 자체는 파일 토큰 문자열로 전송한다.
+export async function uploadStudyGroupChatFile(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return backendRequest<string>('/api/files/upload', {
+    method: 'POST',
+    body: formData,
+  })
+}
+
 export function getStudyGroupChats(groupId: number, lastChatId?: number) {
   const query = lastChatId ? `?lastChatId=${lastChatId}` : ''
   return backendRequest<StudyGroupChatCursorResult>(

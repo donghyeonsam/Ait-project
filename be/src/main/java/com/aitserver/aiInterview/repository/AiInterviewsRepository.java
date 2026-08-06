@@ -52,7 +52,7 @@ public interface AiInterviewsRepository extends JpaRepository<AiInterview, Long>
             from AiInterview i
             join AiComprehensiveReport r on r.aiInterviewId = i.id
             where i.userId = :userId
-            order by i.createdAt desc
+            order by i.id desc
             limit 4
             """)
     List<ReportListResponse> findReportListByUserIdLimit(@Param("userId") Long userId);
