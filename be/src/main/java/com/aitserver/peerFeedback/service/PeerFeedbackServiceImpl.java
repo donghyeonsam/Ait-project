@@ -268,7 +268,7 @@ public class PeerFeedbackServiceImpl implements PeerFeedbackService{
             Long userId
     ) {
         // 1. 내가 받은 모든 상호평가 조회
-        List<PeerFeedback> feedbackList = peerFeedbackRepository.findTop4ByEvaluateeIdOrderByCreatedAtDesc(userId);
+        List<PeerFeedback> feedbackList = peerFeedbackRepository.findTop4ByEvaluateeIdOrderByCreatedAtDescIdDesc(userId);
 
         if (feedbackList.isEmpty()) {
             return List.of();
