@@ -11,7 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
@@ -96,10 +98,16 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "모든 알림이 삭제되었습니다.",request));
     }
 
-    @GetMapping(value = "/stream", produces = "text/event-stream")
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public ResponseEntity<SseEmitter> subscribe(@AuthenticationPrincipal Long userId) {
-        // ApiResponse 같은 커스텀 래퍼를 쓰지 않고 순수 SseEmitter를 반환해야 합니다!
-        return ResponseEntity.ok(sseService.subscribe(userId));
+        SseEmitter emitter = sseService.subscribe(userId);
+        // Vercel / Nginx 프록시 버퍼링 차단 및 타임아웃 방지 필수 헤더
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Cache-Control", "no-cache, no-transform");
+        headers.set("X-Accel-Buffering", "no");
+        headers.set("Connection", "keep-alive");
+
+        return new ResponseEntity<>(emitter, headers, HttpStatus.OK);
     }
 
     @GetMapping("/unread-count")
