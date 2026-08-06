@@ -19,6 +19,7 @@ import { Breadcrumb } from '@/components/common/Breadcrumb'
 import { SegmentedControl } from '@/components/form/SegmentedControl'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { StudyMaterialFileList } from '@/components/study/materials/StudyMaterialFileList'
+import { StudyMaterialFilters } from '@/components/study/materials/StudyMaterialFilters'
 import { StudyMaterialImageGrid } from '@/components/study/materials/StudyMaterialImageGrid'
 import { StudyMaterialImageViewerDialog } from '@/components/study/materials/StudyMaterialImageViewerDialog'
 import { Button } from '@/components/ui/button'
@@ -58,6 +59,9 @@ export function StudyMaterialsPage() {
   const cursorRef = useRef<number | undefined>(undefined)
 
   const [tab, setTab] = useState<StudyMaterialTab>('image')
+  const [query, setQuery] = useState('')
+  // 올린 사람 필터. 빈 문자열이면 전체를 뜻한다.
+  const [uploader, setUploader] = useState('')
   // 실시간 수신으로 배열 인덱스가 밀려도 보던 이미지가 유지되도록 뷰어는 id로 추적한다.
   const [viewerImageId, setViewerImageId] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -176,13 +180,31 @@ export function StudyMaterialsPage() {
       .finally(() => setIsLoadingMore(false))
   }, [groupId, hasMore, isLoadingMore, showToast])
 
-  const images = useMemo(
-    () => materials.filter((item) => item.isImage),
+  const uploaderOptions = useMemo(
+    () => [...new Set(materials.map((item) => item.uploaderNickname))],
     [materials],
   )
+
+  const normalizedQuery = query.trim().toLowerCase()
+  const isFiltering = normalizedQuery !== '' || uploader !== ''
+  const filteredMaterials = useMemo(
+    () =>
+      materials.filter(
+        (item) =>
+          (normalizedQuery === '' ||
+            item.originalFilename.toLowerCase().includes(normalizedQuery)) &&
+          (uploader === '' || item.uploaderNickname === uploader),
+      ),
+    [materials, normalizedQuery, uploader],
+  )
+
+  const images = useMemo(
+    () => filteredMaterials.filter((item) => item.isImage),
+    [filteredMaterials],
+  )
   const files = useMemo(
-    () => materials.filter((item) => !item.isImage),
-    [materials],
+    () => filteredMaterials.filter((item) => !item.isImage),
+    [filteredMaterials],
   )
 
   const viewerIndex = useMemo(() => {
@@ -338,6 +360,16 @@ export function StudyMaterialsPage() {
           />
         </div>
 
+        <div className="mt-4">
+          <StudyMaterialFilters
+            query={query}
+            uploader={uploader}
+            uploaderOptions={uploaderOptions}
+            onQueryChange={setQuery}
+            onUploaderChange={setUploader}
+          />
+        </div>
+
         <div className="mt-6">
           {isLoadingMaterials ? (
             <div
@@ -364,7 +396,19 @@ export function StudyMaterialsPage() {
             </div>
           ) : (
             <>
-              {tab === 'image' ? (
+              {/* 필터 결과 없음은 자료 자체가 없는 빈 상태와 구분해 조건 변경을 안내한다. */}
+              {isFiltering && (tab === 'image' ? images : files).length === 0 ? (
+                <div className="rounded-ait-m border border-border-default bg-surface-default py-16 text-center">
+                  <p className="text-body-1 text-text-primary">
+                    조건에 맞는 자료가 없어요
+                  </p>
+                  <p className="mt-2 text-body-2 text-text-secondary">
+                    {hasMore
+                      ? '검색은 지금까지 불러온 자료에만 적용돼요. 조건을 바꾸거나 이전 자료를 더 불러온 뒤 다시 찾아보세요.'
+                      : '검색어나 올린 사람 조건을 바꿔보세요.'}
+                  </p>
+                </div>
+              ) : tab === 'image' ? (
                 <StudyMaterialImageGrid
                   images={images}
                   onSelect={(image) => setViewerImageId(image.id)}
