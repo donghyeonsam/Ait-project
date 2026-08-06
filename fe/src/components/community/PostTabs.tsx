@@ -4,9 +4,8 @@ import { cn } from '@/lib/utils'
 import type { CommunityTab } from '@/types/community'
 
 const TABS: { value: CommunityTab; label: string }[] = [
-  { value: 'recommend', label: '추천' },
-  { value: 'popular', label: '인기' },
   { value: 'latest', label: '최신' },
+  { value: 'popular', label: '인기' },
 ]
 
 interface PostTabsProps {
@@ -14,7 +13,7 @@ interface PostTabsProps {
   onChange: (tab: CommunityTab) => void
 }
 
-// 추천/인기/최신 탭. 활성 인디케이터가 layoutId로 좌우 슬라이드한다.
+// 인기/최신 탭. 활성 인디케이터가 layoutId로 좌우 슬라이드한다.
 export function PostTabs({ value, onChange }: PostTabsProps) {
   return (
     <div
