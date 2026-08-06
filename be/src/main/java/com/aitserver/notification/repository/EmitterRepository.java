@@ -27,4 +27,8 @@ public class EmitterRepository {
                 .filter(entry -> entry.getKey().startsWith(userId))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
+
+    public Map<String, SseEmitter> findAllEmitters() {
+        return new ConcurrentHashMap<>(emitters);
+    }
 }
