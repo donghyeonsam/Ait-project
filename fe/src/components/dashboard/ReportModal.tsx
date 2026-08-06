@@ -348,6 +348,12 @@ export function ReportModal({
                   <time>{record.date}</time>
                   <span aria-hidden="true">·</span>
                   <span>{record.type} 면접</span>
+                  {record.duration && record.duration !== '-' ? (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span>{record.duration}</span>
+                    </>
+                  ) : null}
                 </p>
               </header>
 
