@@ -132,6 +132,8 @@ public class GithubAnalysisService {
                     "temperature", 0.1
             );
 
+            long gmsStartTime = System.currentTimeMillis();
+
             // 3. GMS API 호출하여 요약(구조화된 JSON) 받아오기
             log.info("[GMS 요약 요청 시작] 모델: {}", gmsModel);
             String gmsResponse = restClient.post()
@@ -142,9 +144,11 @@ public class GithubAnalysisService {
                     .retrieve()
                     .body(String.class);
 
+            long gmsEndTime = System.currentTimeMillis();
+
             // GMS 응답에서 실제 JSON 결과물(content)만 파싱
             String structuredJsonData = extractContentFromGmsResponse(gmsResponse);
-            log.info("[GMS 요약 완료] 정제된 JSON 데이터 생성 성공");
+            log.info("[GMS 요약 완료] 정제된 JSON 데이터 생성 성공 (소요 시간: {}ms)", (gmsEndTime - gmsStartTime));
 
             // 4. FastAPI로 전송
             String fastApiUrl = fastAPI_URL+"/api/v1/embeddings";
@@ -163,12 +167,16 @@ public class GithubAnalysisService {
             );
 
             log.info("[FastAPI 임베딩 요청 시작]");
+            long fastApiStartTime = System.currentTimeMillis();
             String analysisResult = restClient.post()
                     .uri(fastApiUrl)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
                     .retrieve()
                     .body(String.class);
+
+            long fastApiEndTime = System.currentTimeMillis();
+            log.info("[FastAPI 임베딩 완료] (소요 시간: {}ms)", (fastApiEndTime - fastApiStartTime));
 
             // 5. DB 업데이트
             GithubRepo githubRepo = githubRepoRepository.findById(repoId)
