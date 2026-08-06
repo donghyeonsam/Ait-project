@@ -24,17 +24,24 @@ import { StudyMaterialImageViewerDialog } from '@/components/study/materials/Stu
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToastStack } from '@/components/ui/toast'
-import { toFileToken } from '@/lib/study-chat-file'
+import { parseFileToken, toFileToken } from '@/lib/study-chat-file'
+import { useAuth } from '@/lib/useAuth'
 import { useToasts } from '@/lib/useToasts'
 import type {
   StudyMaterialItem,
   StudyMaterialTab,
 } from '@/types/study-materials'
 
+// 서버 에코 도착 전에 목록에 먼저 넣는 임시 자료의 id. 저장 파일명이 서버 생성 유일값이라 매칭 키로 쓴다.
+function toPendingId(storedFilename: string) {
+  return `pending-${storedFilename}`
+}
+
 // 스터디 그룹 자료실. 그룹톡에 공유된 이미지는 모아보기 그리드로, 파일은 드라이브형 목록으로 보여준다.
 export function StudyMaterialsPage() {
   const { studyId } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const groupId = Number(studyId)
   const isValidGroupId = Number.isInteger(groupId) && groupId > 0
 
@@ -126,11 +133,21 @@ export function StudyMaterialsPage() {
       onMessage: (incoming) => {
         const item = toStudyMaterialItem(incoming)
         if (!item) return
-        setMaterials((current) =>
-          current.some((material) => material.id === item.id)
-            ? current
-            : [item, ...current],
+        const pendingId = toPendingId(item.storedFilename)
+        // 뷰어가 임시 항목을 보고 있으면 교체될 실제 id로 옮겨 뷰어가 닫히지 않게 한다.
+        setViewerImageId((activeId) =>
+          activeId === pendingId ? item.id : activeId,
         )
+        setMaterials((current) => {
+          if (current.some((material) => material.id === item.id)) return current
+          // 내가 올린 자료의 서버 에코면 새로 추가하지 않고 임시 항목을 실제 항목으로 교체한다.
+          if (current.some((material) => material.id === pendingId)) {
+            return current.map((material) =>
+              material.id === pendingId ? item : material,
+            )
+          }
+          return [item, ...current]
+        })
       },
       onNotice: () => {},
       onReaction: () => {},
@@ -195,22 +212,39 @@ export function StudyMaterialsPage() {
     }
 
     setIsUploading(true)
+    let uploadedCount = 0
     let failedCount = 0
     for (const file of selected) {
       try {
         const storedFilename = await uploadStudyGroupChatFile(file)
         const client = chatClientRef.current
         if (!client?.connected) throw new Error('연결이 끊겼습니다.')
-        sendStudyGroupChatMessage(
-          client,
-          groupId,
-          toFileToken(storedFilename, file.name),
-        )
+        const token = toFileToken(storedFilename, file.name)
+        sendStudyGroupChatMessage(client, groupId, token)
+        uploadedCount += 1
+        // 서버 에코를 기다리지 않고 임시 항목을 먼저 넣어 방금 올린 자료가 바로 보이게 한다.
+        // 표시 규칙(파일명 자르기·URL·이미지 판별)이 에코와 어긋나지 않도록 같은 토큰을 되파싱한다.
+        const attachment = parseFileToken(token)
+        if (attachment) {
+          const pendingItem: StudyMaterialItem = {
+            id: toPendingId(attachment.storedFilename),
+            storedFilename: attachment.storedFilename,
+            originalFilename: attachment.originalFilename,
+            url: attachment.url,
+            isImage: attachment.isImage,
+            uploaderNickname: user?.nickname ?? '',
+            createdAt: new Date().toISOString(),
+          }
+          setMaterials((current) => [pendingItem, ...current])
+        }
       } catch {
         failedCount += 1
       }
     }
     setIsUploading(false)
+    if (uploadedCount > 0) {
+      showToast(`파일 ${uploadedCount}개를 올렸어요.`)
+    }
     if (failedCount > 0) {
       showToast(
         `파일 ${failedCount}개를 올리지 못했어요. 잠시 후 다시 시도해주세요.`,
