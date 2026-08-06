@@ -121,7 +121,7 @@ export function Header() {
                 <ProfileAvatar
                   src={user?.profileImageUrl}
                   fallbackLabel={user?.nickname.slice(0, 1) ?? '홍'}
-                  className="size-10"
+                  className="size-10 border border-border-default"
                 />
               </Link>
               <Button

@@ -6,6 +6,7 @@ import {
   type AuthUser,
 } from '@/api/auth-storage'
 import { unauthorizedEvent } from '@/api/http'
+import { getMyPageProfile } from '@/api/my-page'
 import { AuthContext } from '@/app/auth-context'
 
 interface AuthProviderProps {
@@ -44,6 +45,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
     window.addEventListener(unauthorizedEvent, signOut)
     return () => window.removeEventListener(unauthorizedEvent, signOut)
   }, [signOut])
+
+  // 로그인 응답에는 아직 프로필 사진이 안 내려와 로그인 직후에는 항상 비어 있다.
+  // 마이페이지 조회로 한 번 채워두면, 다음부터는 값이 있으니(null 포함) 다시 요청하지 않는다.
+  useEffect(() => {
+    if (!user || user.profileImageUrl !== undefined) return
+
+    let cancelled = false
+    getMyPageProfile()
+      .then((profile) => {
+        if (!cancelled) updateUser({ profileImageUrl: profile.profileImageUrl })
+      })
+      .catch(() => {
+        // 동기화 실패는 조용히 넘어가고 다음 로그인 때 다시 시도한다.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [user, updateUser])
 
   const value = useMemo(
     () => ({ isAuthenticated: user !== null, user, signIn, signOut, updateUser }),
