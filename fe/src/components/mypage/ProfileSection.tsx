@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { deleteGithubRepo } from '@/api/github'
-import { ApiError, getBackendAssetUrl, toErrorMessage } from '@/api/http'
+import { ApiError, getProfileImageUrl, toErrorMessage } from '@/api/http'
 import { checkNicknameAvailability, updateMyPageProfile } from '@/api/my-page'
 import { AccountDeletionSection } from '@/components/mypage/AccountDeletionSection'
 import { PasswordChangeSection } from '@/components/mypage/PasswordChangeSection'
@@ -150,7 +150,7 @@ export function ProfileSection({
         file,
       )
       updateAvatarUrl(
-        response.profileImageUrl ? getBackendAssetUrl(response.profileImageUrl) : null,
+        response.profileImageUrl ? getProfileImageUrl(response.profileImageUrl) : null,
       )
       // 네비게이션바 아바타도 같은 세션 안에서 바로 바뀐 사진을 보여주도록 동기화한다.
       updateUser({ profileImageUrl: response.profileImageUrl })
