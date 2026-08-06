@@ -193,7 +193,6 @@ export async function fetchPosts({
   if (category !== 'all') {
     searchParams.set('category', CATEGORY_META[category].label)
   }
-  // 추천 탭은 백엔드 정렬 기준이 없어 최신순으로 대체한다. TODO: 추천 정렬 연동 필요
   searchParams.set('sortType', tab === 'popular' ? 'POPULAR' : 'LATEST')
   // 더보기는 항상 페이지 크기 배수만큼 쌓이므로 offset을 페이지 번호로 환산한다.
   searchParams.set('page', String(Math.floor(offset / limit)))

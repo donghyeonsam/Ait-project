@@ -2,7 +2,7 @@
 
 export type CommunityCategory = 'review' | 'qna' | 'tip' | 'study'
 
-export type CommunityTab = 'recommend' | 'popular' | 'latest'
+export type CommunityTab = 'popular' | 'latest'
 
 export interface CommunitySearchTargets {
   titleContent: boolean

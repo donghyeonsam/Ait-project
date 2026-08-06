@@ -39,7 +39,7 @@ export function CommunityPage() {
     titleContent: true,
     tags: true,
   })
-  const [tab, setTab] = useState<CommunityTab>('recommend')
+  const [tab, setTab] = useState<CommunityTab>('latest')
   const [category, setCategory] = useState<CommunityCategory | 'all'>('all')
 
   const [posts, setPosts] = useState<CommunityPost[]>([])
