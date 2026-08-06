@@ -1,20 +1,14 @@
-// 스터디 자료실 도메인 타입. 목업 단계이지만 실제 API 교체를 대비해 화면과 분리해 둔다.
+// 스터디 자료실 도메인 타입. 자료는 그룹톡 파일 토큰 메시지에서 파생한다.
 
 export type StudyMaterialTab = 'image' | 'file'
 
-interface StudyMaterialBase {
+// 그룹톡 첨부에서 파생한 자료 항목. 채팅 스키마에 없는 파일 크기는 담지 않는다.
+export interface StudyMaterialItem {
   id: string
+  storedFilename: string
   originalFilename: string
+  url: string
+  isImage: boolean
   uploaderNickname: string
   createdAt: string
-}
-
-// 이미지 탭에서 모아보기·미리보기로 보여주는 항목.
-export interface StudyMaterialImage extends StudyMaterialBase {
-  url: string
-}
-
-// 파일 탭에서 목록으로 보여주는 항목. 확장자는 파일명에서 파생한다.
-export interface StudyMaterialFile extends StudyMaterialBase {
-  sizeBytes: number
 }

@@ -1,12 +1,13 @@
-import type { StudyMaterialImage } from '@/types/study-materials'
+import { AuthenticatedImage } from '@/components/common/AuthenticatedImage'
+import type { StudyMaterialItem } from '@/types/study-materials'
 
 interface MonthGroup {
   label: string
-  items: { image: StudyMaterialImage; index: number }[]
+  items: { image: StudyMaterialItem; index: number }[]
 }
 
 // 최신순 정렬을 전제로 월 헤더를 붙이기 위해 원본 배열 인덱스를 유지한 채 월별로 묶는다.
-function groupByMonth(images: StudyMaterialImage[]): MonthGroup[] {
+function groupByMonth(images: StudyMaterialItem[]): MonthGroup[] {
   const groups: MonthGroup[] = []
   images.forEach((image, index) => {
     const date = new Date(image.createdAt)
@@ -22,7 +23,7 @@ function groupByMonth(images: StudyMaterialImage[]): MonthGroup[] {
 }
 
 interface StudyMaterialImageGridProps {
-  images: StudyMaterialImage[]
+  images: StudyMaterialItem[]
   onSelect: (index: number) => void
 }
 
@@ -58,7 +59,7 @@ export function StudyMaterialImageGrid({
                   className="group block aspect-square w-full overflow-hidden rounded-ait-s bg-status-neutral-surface focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-action-primary/25"
                   aria-label={`${image.originalFilename} 크게 보기`}
                 >
-                  <img
+                  <AuthenticatedImage
                     src={image.url}
                     alt={image.originalFilename}
                     loading="lazy"

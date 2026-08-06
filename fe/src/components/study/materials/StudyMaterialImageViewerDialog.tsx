@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
+import { AuthenticatedImage } from '@/components/common/AuthenticatedImage'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -6,15 +7,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { formatPostDate } from '@/lib/format'
-import type { StudyMaterialImage } from '@/types/study-materials'
+import type { StudyMaterialItem } from '@/types/study-materials'
 
 interface StudyMaterialImageViewerDialogProps {
-  images: StudyMaterialImage[]
+  images: StudyMaterialItem[]
   // 열려 있는 이미지의 배열 인덱스. null이면 닫힌 상태다.
   activeIndex: number | null
   onActiveIndexChange: (index: number) => void
   onClose: () => void
-  onDownload: (image: StudyMaterialImage) => void
+  onDownload: (image: StudyMaterialItem) => void
 }
 
 // 자료실 이미지를 원본 비율로 크게 보여주고 이전·다음 탐색과 다운로드를 제공하는 뷰어.
@@ -48,8 +49,9 @@ export function StudyMaterialImageViewerDialog({
           이미지 미리보기: {image.originalFilename}
         </DialogTitle>
 
-        <div className="relative bg-status-neutral-surface">
-          <img
+        {/* 인증 이미지를 불러오는 동안에도 뷰어 높이가 유지되도록 최소 높이를 준다. */}
+        <div className="relative flex min-h-64 items-center justify-center bg-status-neutral-surface">
+          <AuthenticatedImage
             src={image.url}
             alt={image.originalFilename}
             className="mx-auto max-h-[65vh] w-auto max-w-full object-contain"

@@ -7,8 +7,8 @@ import {
   Presentation,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { formatFileSize, formatPostDate } from '@/lib/format'
-import type { StudyMaterialFile } from '@/types/study-materials'
+import { formatPostDate } from '@/lib/format'
+import type { StudyMaterialItem } from '@/types/study-materials'
 
 // 확장자별 아이콘과 색상. 상태 색이 아니라 파일 종류 식별용이므로 텍스트 토큰 계열만 함께 쓴다.
 const FILE_ICON_MAP: Record<string, { icon: LucideIcon; className: string }> = {
@@ -30,8 +30,8 @@ function toExtension(filename: string): string {
 }
 
 interface StudyMaterialFileListProps {
-  files: StudyMaterialFile[]
-  onDownload: (file: StudyMaterialFile) => void
+  files: StudyMaterialItem[]
+  onDownload: (file: StudyMaterialItem) => void
 }
 
 // 공유된 파일을 드라이브형 목록으로 보여주는 자료실 파일 탭. 좁은 화면에서는 보조 열을 숨긴다.
@@ -64,9 +64,6 @@ export function StudyMaterialFileList({
             <th scope="col" className="hidden w-32 px-4 py-3 text-caption font-semibold text-text-secondary sm:table-cell">
               올린 날짜
             </th>
-            <th scope="col" className="hidden w-24 px-4 py-3 text-caption font-semibold text-text-secondary sm:table-cell">
-              크기
-            </th>
             <th scope="col" className="w-16 px-4 py-3">
               <span className="sr-only">다운로드</span>
             </th>
@@ -96,8 +93,7 @@ export function StudyMaterialFileList({
                   </div>
                   {/* 좁은 화면에서 숨긴 열의 정보를 이름 아래 한 줄로 요약한다. */}
                   <p className="mt-1 pl-7 text-caption text-text-secondary sm:hidden">
-                    {file.uploaderNickname} · {formatPostDate(file.createdAt)} ·{' '}
-                    {formatFileSize(file.sizeBytes)}
+                    {file.uploaderNickname} · {formatPostDate(file.createdAt)}
                   </p>
                 </td>
                 <td className="hidden truncate px-4 py-3 text-body-2 text-text-secondary md:table-cell">
@@ -105,9 +101,6 @@ export function StudyMaterialFileList({
                 </td>
                 <td className="hidden px-4 py-3 text-body-2 text-text-secondary sm:table-cell">
                   {formatPostDate(file.createdAt)}
-                </td>
-                <td className="hidden px-4 py-3 text-body-2 text-text-secondary sm:table-cell">
-                  {formatFileSize(file.sizeBytes)}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <button
