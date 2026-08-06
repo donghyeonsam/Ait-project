@@ -467,13 +467,17 @@ describe('StudyPage', () => {
     const emoticonButton = within(chatDialog).getByRole('button', {
       name: '이모티콘 추가',
     })
+    const fileButton = within(chatDialog).getByRole('button', {
+      name: '파일 첨부',
+    })
 
-    expect(
-      within(chatDialog).queryByRole('button', { name: '파일 첨부' }),
-    ).not.toBeInTheDocument()
     expect(
       within(chatDialog).queryByText('Enter 전송 · Shift+Enter 줄바꿈'),
     ).not.toBeInTheDocument()
+    expect(
+      messageInput.compareDocumentPosition(fileButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
     expect(
       messageInput.compareDocumentPosition(emojiButton) &
         Node.DOCUMENT_POSITION_FOLLOWING,
