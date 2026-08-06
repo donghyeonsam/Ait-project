@@ -433,8 +433,8 @@ button:not(:disabled) {
 }
 
 .simple-graph__line {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
 }
 
 .simple-graph.is-active .simple-graph__line {
