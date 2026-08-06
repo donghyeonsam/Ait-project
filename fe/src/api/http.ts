@@ -15,23 +15,39 @@ const uploadsBaseUrl = (
   import.meta.env.VITE_UPLOADS_URL ?? 'https://i15d202.p.ssafy.io/download'
 ).replace(/\/$/, '')
 
+// 프로필 사진은 게시글 첨부와 다른 정적 경로(uploads/profiles)에서 서빙된다.
+const profileUploadsBaseUrl = (
+  import.meta.env.VITE_PROFILE_UPLOADS_URL ?? 'https://i15d202.p.ssafy.io/uploads'
+).replace(/\/$/, '')
+
 export function getBackendAssetUrl(path: string) {
   if (/^https?:\/\//i.test(path) || path.startsWith('data:')) return path
   return `${backendBaseUrl}/${path.replace(/^\/+/, '')}`
 }
 
-// storedFilename(예: boards/uuid.png)을 실제 업로드 파일 정적 URL로 변환한다.
 // 폴더 구분자는 유지하고 각 경로 조각만 인코딩해 서버 리소스 경로와 맞춘다.
-export function getUploadedFileUrl(storedFilename: string) {
-  if (/^https?:\/\//i.test(storedFilename) || storedFilename.startsWith('data:')) {
-    return storedFilename
-  }
-  const encodedPath = storedFilename
+const encodeStoredPath = (storedPath: string) =>
+  storedPath
     .replace(/\\/g, '/')
     .split('/')
     .map((segment) => encodeURIComponent(segment))
     .join('/')
-  return `${uploadsBaseUrl}/${encodedPath.replace(/^\/+/, '')}`
+    .replace(/^\/+/, '')
+
+// storedFilename(예: boards/uuid.png)을 실제 업로드 파일 정적 URL로 변환한다.
+export function getUploadedFileUrl(storedFilename: string) {
+  if (/^https?:\/\//i.test(storedFilename) || storedFilename.startsWith('data:')) {
+    return storedFilename
+  }
+  return `${uploadsBaseUrl}/${encodeStoredPath(storedFilename)}`
+}
+
+// profileImageUrl(예: profiles/uuid.png)을 실제 프로필 사진 정적 URL로 변환한다.
+export function getProfileImageUrl(profileImagePath: string) {
+  if (/^https?:\/\//i.test(profileImagePath) || profileImagePath.startsWith('data:')) {
+    return profileImagePath
+  }
+  return `${profileUploadsBaseUrl}/${encodeStoredPath(profileImagePath)}`
 }
 
 const resolveBackendUrl = (pathOrUrl: string) => {

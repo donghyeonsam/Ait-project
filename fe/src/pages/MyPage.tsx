@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getMyGithubRepositories, type GithubRepository } from '@/api/github'
-import { getBackendAssetUrl, toErrorMessage } from '@/api/http'
+import { getProfileImageUrl, toErrorMessage } from '@/api/http'
 import { getMyPageProfile, getMyPageRepositories, type MyPageProfile } from '@/api/my-page'
 import { DocumentBoxDialog } from '@/components/documents/DocumentBoxDialog'
 import { PageLayout } from '@/components/layout/PageLayout'
@@ -48,7 +48,7 @@ function createProfile(
     })),
     skills: profileInfo.skills,
     avatarUrl: profileInfo.profileImageUrl
-      ? getBackendAssetUrl(profileInfo.profileImageUrl)
+      ? getProfileImageUrl(profileInfo.profileImageUrl)
       : null,
   }
 }
