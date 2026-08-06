@@ -11,6 +11,7 @@ import { Link } from 'react-router-dom'
 import { getDashboardSummary, type DashboardSummary } from '@/api/dashboard'
 import { toErrorMessage } from '@/api/http'
 import { DashboardStudyCalendar } from '@/components/dashboard/DashboardStudyCalendar'
+import { RecentReportCarousel } from '@/components/dashboard/RecentReportCarousel'
 import { ScoreTrendChart } from '@/components/dashboard/ScoreTrendChart'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Button } from '@/components/ui/button'
@@ -18,6 +19,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/lib/useAuth'
 import { cn } from '@/lib/utils'
 import type { ScoreTrendPoint } from '@/types/dashboard'
+
+const RECENT_REPORT_CAROUSEL_COUNT = 3
 
 const TREND_POINT_COUNT = 7
 const RECENT_RECORD_COUNT = 3
@@ -182,6 +185,11 @@ export function DashboardPage() {
     [summary],
   )
 
+  const recentReports = useMemo(
+    () => completedRecords.slice(0, RECENT_REPORT_CAROUSEL_COUNT),
+    [completedRecords],
+  )
+
   const trendData = useMemo<ScoreTrendPoint[]>(
     () =>
       completedRecords
@@ -302,8 +310,33 @@ export function DashboardPage() {
         ) : (
           <>
             <section
-              className="study-reveal is-visible dashboard-stats grid grid-cols-4 gap-4"
+              className="study-reveal is-visible mx-auto mb-8 w-3/4"
               style={{ '--reveal-order': 1 } as React.CSSProperties}
+              aria-label="최근 AI 면접 리포트"
+            >
+              {loadState === 'loading' ? (
+                <>
+                  <Skeleton className="h-7 w-48" />
+                  <div className="recent-report-grid mt-6 grid gap-6">
+                    <Skeleton className="h-96 rounded-ait-l" />
+                    <Skeleton className="h-96 rounded-ait-l" />
+                  </div>
+                </>
+              ) : recentReports.length ? (
+                <RecentReportCarousel records={recentReports} />
+              ) : (
+                <div className="rounded-ait-l border border-dashed border-border-default bg-surface-default p-8 text-center">
+                  <h2 className="text-h2 font-semibold">최근 AI 면접 리포트</h2>
+                  <p className="mt-2 text-body-2 text-text-secondary">
+                    AI 모의면접을 완료하면 이곳에서 리포트를 바로 확인할 수 있어요.
+                  </p>
+                </div>
+              )}
+            </section>
+
+            <section
+              className="study-reveal is-visible dashboard-stats grid grid-cols-4 gap-4"
+              style={{ '--reveal-order': 2 } as React.CSSProperties}
               aria-label="활동 요약"
             >
               {metrics.map(({ label, unit, icon: Icon, value, caption }) => (
