@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   getInterviewPreparation,
@@ -15,12 +15,38 @@ import { Step3Style } from '@/components/interview/Step3Style'
 import { Step4Summary } from '@/components/interview/Step4Summary'
 import { Step5DeviceSetup } from '@/components/interview/Step5DeviceSetup'
 import { SurveyFooter } from '@/components/interview/SurveyFooter'
-import { SurveyStepper } from '@/components/interview/SurveyStepper'
-import { SURVEY_STEP_COUNT, useInterviewSurvey } from '@/components/interview/useInterviewSurvey'
+import { SurveyStepper, type SurveyStepperItem } from '@/components/interview/SurveyStepper'
+import { SURVEY_STEP_LABELS, useInterviewSurvey, type SurveyState } from '@/components/interview/useInterviewSurvey'
 import { createInterviewInputContract, createInterviewSessionNavigationState } from '@/lib/interview-session'
 import { prefetchInterviewQuestions } from '@/lib/interview-question-cache'
 
-// 면접 설정 마법사 화면. 5단계 설문을 진행하고 완료 시 면접 세션으로 이동한다.
+// 각 섹션 상단에 스텝 바와 같은 번호·라벨을 달아 sticky 진행 표시줄과 시각적으로 연결한다.
+function StepSectionHeading({ step }: { step: number }) {
+  return (
+    <p className="border-b border-border-default pb-4 text-caption font-semibold tracking-wider text-action-primary">
+      STEP {String(step).padStart(2, '0')} · {SURVEY_STEP_LABELS[step - 1]}
+    </p>
+  )
+}
+
+// 스텝 섹션 공통 카드. 테두리로 단계 사이 경계를 분명히 한다.
+const stepSectionClass = 'rounded-ait-m border border-border-default bg-surface-default p-8'
+
+// 면접 시작 버튼이 비활성일 때 가장 먼저 채워야 할 항목을 안내한다.
+function getDisabledHint(state: SurveyState, stepValidity: boolean[], showApplyInfo: boolean) {
+  if (!stepValidity[0]) return '면접 유형을 선택해 주세요.'
+  if (!stepValidity[1]) {
+    if (showApplyInfo && (!state.position.trim() || !state.careerLevel.trim() || state.coverLetterId === null)) {
+      return '지원 정보(직무·경력·자소서)를 입력해 주세요.'
+    }
+    return 'CS 주제를 1개 이상 선택해 주세요.'
+  }
+  if (!stepValidity[2]) return '난이도와 면접 스타일을 선택해 주세요.'
+  if (!stepValidity[4]) return '카메라·마이크 접근을 허용해야 면접을 시작할 수 있어요.'
+  return undefined
+}
+
+// 면접 설정 화면. 5단계 설문을 한 페이지에서 스크롤로 진행하고 완료 시 면접 세션으로 이동한다.
 export function InterviewsPage() {
   const navigate = useNavigate()
   const survey = useInterviewSurvey()
@@ -29,9 +55,9 @@ export function InterviewsPage() {
   const [preparationError, setPreparationError] = useState<string | null>(null)
   const [isPreparationLoading, setIsPreparationLoading] = useState(true)
   const [isLeavingToSession, setIsLeavingToSession] = useState(false)
-  const { currentStep, state, showApplyInfo, showCsTopics } = survey
-  const isLastStep = currentStep === SURVEY_STEP_COUNT
-  const showStepIntro = currentStep < 4
+  const sectionRefs = useRef<(HTMLElement | null)[]>([])
+  const stickyBarRef = useRef<HTMLDivElement | null>(null)
+  const { state, stepValidity, showApplyInfo, showCsTopics } = survey
 
   useEffect(() => {
     // 언마운트 후 응답이 도착해 setState가 호출되는 것을 막는 플래그.
@@ -59,45 +85,91 @@ export function InterviewsPage() {
     }
   }, [])
 
-  // 장치 점검(5단계)에 도달하면 세션 진입 전에 미리 질문을 받아 대기 시간을 줄인다.
+  // 질문 구성에 필요한 1~3단계가 모두 채워지면 세션 진입 전에 미리 질문을 받아 대기 시간을 줄인다.
+  const setupComplete = stepValidity[0] && stepValidity[1] && stepValidity[2]
   useEffect(() => {
-    if (currentStep !== 5 || !state.interviewType || !state.difficulty || !state.style) return
+    if (!setupComplete || !state.interviewType || !state.difficulty || !state.style) return
     void prefetchInterviewQuestions(createInterviewInputContract(state, resumeId))
-  }, [currentStep, state, resumeId])
+  }, [setupComplete, state, resumeId])
 
-  // 마지막 단계에서는 화면이 검게 덮인 뒤에 세션으로 이동해 블랙 페이드 전환을 만든다.
-  const handleNext = () => {
-    if (isLastStep) {
-      setIsLeavingToSession(true)
-      return
-    }
-    survey.goNext()
+  // sticky 스텝 바 아래에 섹션 상단이 오도록 헤더·바 높이를 실측해 스크롤한다(zoom 0.9 보정 포함).
+  const scrollToStep = (step: number) => {
+    const section = sectionRefs.current[step - 1]
+    if (!section) return
+    const headerHeight = document.querySelector('header')?.getBoundingClientRect().height ?? 0
+    const barHeight = stickyBarRef.current?.getBoundingClientRect().height ?? 0
+    const top = section.getBoundingClientRect().top + window.scrollY - headerHeight - barHeight - 32
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
   }
 
+  const coverLetterTitle = preparation?.coverLetters
+    .find((coverLetter) => String(coverLetter.id) === state.coverLetterId)?.title ?? null
+
+  // 스텝 바 각 항목 아래에 보여줄 선택 요약. 아직 고르지 않은 항목은 비워 둔다.
+  const stepSummaries: (string | null)[] = [
+    state.interviewType,
+    [
+      showApplyInfo ? state.position.trim() || null : null,
+      showApplyInfo ? state.careerLevel.trim() || null : null,
+      showApplyInfo ? coverLetterTitle : null,
+      showCsTopics && state.csTopics.length > 0 ? state.csTopics.join(' · ') : null,
+    ].filter(Boolean).join(' · ') || null,
+    [state.difficulty, state.style].filter(Boolean).join(' · ') || null,
+    null,
+    state.deviceReady ? '장치 준비 완료' : null,
+  ]
+
+  const stepperItems: SurveyStepperItem[] = SURVEY_STEP_LABELS.map((label, index) => ({
+    label,
+    isComplete: stepValidity[index],
+    summary: stepSummaries[index] ?? undefined,
+  }))
+
   return (
-    <PageLayout contentClassName="max-w-content">
-      <div className="survey-zoom-90 pt-12">
-        <div className={`survey-intro-collapse ${showStepIntro ? 'is-open' : ''}`}>
-          <div className="overflow-hidden">
-            <section className="pb-12 text-center" aria-labelledby="survey-title">
-              <h1 id="survey-title" className="text-h1">나에게 맞는 면접을 준비해 보세요</h1>
-              <p className="mt-2 text-body-1 text-text-secondary">
-                단계별 설정을 완료하면 AI가 맞춤 질문을 구성해 드려요.
-              </p>
-            </section>
+    // 진행 표시줄을 헤더처럼 화면 전체 폭으로 고정하기 위해 기본 폭 제한을 풀고 내부에서 직접 관리한다.
+    <PageLayout contentClassName="max-w-none px-0">
+      <div className="mx-auto max-w-content px-8">
+        <div className="survey-zoom-90 pt-12">
+          <section className="pb-10 text-center" aria-labelledby="survey-title">
+            <h1 id="survey-title" className="text-h1">나에게 맞는 면접을 준비해 보세요</h1>
+            <p className="mt-2 text-body-1 text-text-secondary">
+              스크롤하며 각 항목을 선택하면 AI가 맞춤 질문을 구성해 드려요.
+            </p>
+          </section>
+        </div>
+      </div>
+
+      {/* 전체 폭 배경·경계선이 있어야 아래로 지나가는 콘텐츠가 바에 가려지는 것이 자연스럽게 보인다.
+          zoom 0.9 래퍼 안에서는 sticky top이 0.9배로 렌더링돼 헤더와 틈이 생기므로 바는 래퍼 밖에 둔다. */}
+      <div
+        ref={stickyBarRef}
+        className="survey-sticky-stepper w-full border-b border-border-default bg-surface-default py-4"
+      >
+        <div className="mx-auto max-w-content px-8">
+          <div className="survey-zoom-90">
+            <SurveyStepper
+              items={stepperItems}
+              currentStep={survey.firstIncompleteStep}
+              onStepClick={scrollToStep}
+            />
           </div>
         </div>
+      </div>
 
-        <div className="mb-16">
-          <SurveyStepper currentStep={currentStep} />
+      <div className="mx-auto max-w-content px-8">
+        <div className="survey-zoom-90">
+        <div className="survey-step mt-8 space-y-10">
+          <section ref={(element) => { sectionRefs.current[0] = element }} className={stepSectionClass}>
+            <StepSectionHeading step={1} />
+            <div className="mt-6">
+              <Step1InterviewType value={state.interviewType} onSelect={survey.selectInterviewType} />
+            </div>
+          </section>
 
-          <div className="mt-10">
-            <div key={currentStep} className="survey-step min-h-72">
-              {currentStep === 1 ? (
-                <Step1InterviewType value={state.interviewType} onSelect={survey.selectInterviewType} />
-              ) : null}
-
-              {currentStep === 2 ? (
+          <section ref={(element) => { sectionRefs.current[1] = element }} className={stepSectionClass}>
+            <StepSectionHeading step={2} />
+            <div className="mt-6">
+              {showApplyInfo || showCsTopics ? (
                 <div className="space-y-10">
                   {showApplyInfo ? (
                     <Step2ApplyInfo
@@ -118,44 +190,59 @@ export function InterviewsPage() {
                     <Step2CsTopics value={state.csTopics} onToggle={survey.toggleCsTopic} />
                   ) : null}
                 </div>
-              ) : null}
-
-              {currentStep === 3 ? (
-                <Step3Style
-                  difficulty={state.difficulty}
-                  style={state.style}
-                  onSelectDifficulty={(value) => survey.update('difficulty', value)}
-                  onSelectStyle={(value) => survey.update('style', value)}
-                />
-              ) : null}
-
-              {currentStep === 4 ? (
-                <Step4Summary state={state} preparation={preparation} />
-              ) : null}
-
-              {currentStep === 5 ? (
-                <Step5DeviceSetup
-                  cameraDeviceId={state.cameraDeviceId}
-                  speakerDeviceId={state.speakerDeviceId}
-                  micDeviceId={state.micDeviceId}
-                  speakerVolume={state.speakerVolume}
-                  micGain={state.micGain}
-                  onChangeCamera={(id) => survey.update('cameraDeviceId', id)}
-                  onChangeSpeaker={(id) => survey.update('speakerDeviceId', id)}
-                  onChangeMic={(id) => survey.update('micDeviceId', id)}
-                  onChangeSpeakerVolume={(value) => survey.update('speakerVolume', value)}
-                  onChangeMicGain={(value) => survey.update('micGain', value)}
-                  onReadyChange={(ready) => survey.update('deviceReady', ready)}
-                />
-              ) : null}
+              ) : (
+                <div className="rounded-ait-m border border-dashed border-status-neutral-border bg-status-neutral-surface p-8 text-center text-body-2 text-text-secondary">
+                  면접 유형을 먼저 선택하면 필요한 입력 항목이 여기에 표시돼요.
+                </div>
+              )}
             </div>
+          </section>
 
+          <section ref={(element) => { sectionRefs.current[2] = element }} className={stepSectionClass}>
+            <StepSectionHeading step={3} />
+            <div className="mt-6">
+              <Step3Style
+                difficulty={state.difficulty}
+                style={state.style}
+                onSelectDifficulty={(value) => survey.update('difficulty', value)}
+                onSelectStyle={(value) => survey.update('style', value)}
+              />
+            </div>
+          </section>
+
+          <section ref={(element) => { sectionRefs.current[3] = element }} className={stepSectionClass}>
+            <StepSectionHeading step={4} />
+            <div className="mt-6">
+              <Step4Summary state={state} preparation={preparation} />
+            </div>
+          </section>
+
+          <section ref={(element) => { sectionRefs.current[4] = element }} className={stepSectionClass}>
+            <StepSectionHeading step={5} />
+            <div className="mt-6">
+              <Step5DeviceSetup
+                cameraDeviceId={state.cameraDeviceId}
+                speakerDeviceId={state.speakerDeviceId}
+                micDeviceId={state.micDeviceId}
+                speakerVolume={state.speakerVolume}
+                micGain={state.micGain}
+                onChangeCamera={(id) => survey.update('cameraDeviceId', id)}
+                onChangeSpeaker={(id) => survey.update('speakerDeviceId', id)}
+                onChangeMic={(id) => survey.update('micDeviceId', id)}
+                onChangeSpeakerVolume={(value) => survey.update('speakerVolume', value)}
+                onChangeMicGain={(value) => survey.update('micGain', value)}
+                onReadyChange={(ready) => survey.update('deviceReady', ready)}
+              />
+            </div>
+          </section>
+        </div>
+
+          <div className="pb-16">
             <SurveyFooter
-              currentStep={currentStep}
-              canGoNext={survey.currentStepValid}
-              onPrevious={survey.goPrevious}
-              onNext={handleNext}
-              disabledHint={isLastStep ? '카메라·마이크 접근을 허용해야 면접을 시작할 수 있어요.' : undefined}
+              completedCount={stepValidity.filter(Boolean).length}
+              canStart={survey.allStepsValid}
+              onStart={() => setIsLeavingToSession(true)}
+              disabledHint={getDisabledHint(state, stepValidity, showApplyInfo)}
             />
           </div>
         </div>

@@ -589,20 +589,18 @@ button:not(:disabled) {
   margin-inline: auto;
 }
 
-/* 설문 3→4단계 전환 시 상단 안내 문구가 사라지며 아래 콘텐츠 전체가 위로
-   천천히 밀려 올라가도록 높이를 애니메이션한다(요청에 따라 의도적으로 느리게). */
-.survey-intro-collapse {
-  display: grid;
-  grid-template-rows: 0fr;
-  opacity: 0;
-  transition:
-    grid-template-rows 650ms var(--easing-standard),
-    opacity 650ms var(--easing-standard);
+/* 설문 진행 표시줄을 헤더 바로 아래에 틈 없이 고정한다. zoom 래퍼 밖에 두는 전제라
+   헤더 높이를 그대로 쓰고, 헤더(--z-index-sticky) 아래로 지나가도록 z-index를 한 단계 낮춘다. */
+.survey-sticky-stepper {
+  position: sticky;
+  top: var(--header-height-compact);
+  z-index: calc(var(--z-index-sticky) - 1);
 }
 
-.survey-intro-collapse.is-open {
-  grid-template-rows: 1fr;
-  opacity: 1;
+@media (min-width: 64rem) {
+  .survey-sticky-stepper {
+    top: var(--header-height-wide);
+  }
 }
 
 .waveform-bar {
