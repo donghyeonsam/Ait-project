@@ -36,11 +36,11 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     public DashboardResponse getDashboardResponse(Long userId) {
-        // 모의 면접 결과 리스트, 정렬까지 되어있는듯?
-        List<ReportListResponse> reportList = aiInterviewsRepository.findReportListByUserId(userId);
+        // 모의 면접 결과 리스트, 정렬까지 되어있는듯? -> 전체 조회에서 4개만 조회로 변경
+        List<ReportListResponse> reportList = aiInterviewsRepository.findReportListByUserIdLimit(userId);
 
-        // 상호 평가 결과 리스트
-        List<PeerFeedbackListResponse> peerFeedbackList = peerFeedbackService.getPeerFeedbackList(userId);
+        // 상호 평가 결과 리스트 -> 전체 조회에서 4개만 조회로 변경
+        List<PeerFeedbackListResponse> peerFeedbackList = peerFeedbackService.getPeerFeedbackListLimit(userId);
 
         // 1. 이번주 모의 면접 횟수
 

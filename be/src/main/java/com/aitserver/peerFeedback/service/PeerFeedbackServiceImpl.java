@@ -260,4 +260,96 @@ public class PeerFeedbackServiceImpl implements PeerFeedbackService{
 
         return roundedAverage;
     }
+
+    // 내가 참여했던 세션별 리스트
+    @Override
+    @Transactional
+    public List<PeerFeedbackListResponse> getPeerFeedbackListLimit(
+            Long userId
+    ) {
+        // 1. 내가 받은 모든 상호평가 조회
+        List<PeerFeedback> feedbackList = peerFeedbackRepository.findTop4ByEvaluateeIdOrderByCreatedAtDesc(userId);
+
+        if (feedbackList.isEmpty()) {
+            return List.of();
+        }
+
+        // 2. sessionId별로 상호평가 그룹화
+        Map<Long, List<PeerFeedback>> feedbacksBySession = new HashMap<>();
+
+        for (PeerFeedback feedback : feedbackList) {
+            Long sessionId = feedback.getStudySession().getId();
+
+            List<PeerFeedback> sessionFeedbackList =
+                    feedbacksBySession.get(sessionId);
+
+            if (sessionFeedbackList == null) {
+                sessionFeedbackList = new ArrayList<>();
+                feedbacksBySession.put(
+                        sessionId,
+                        sessionFeedbackList
+                );
+            }
+
+            sessionFeedbackList.add(feedback);
+        }
+
+        // 3. 조회할 sessionId 목록 만들기
+        List<Long> sessionIds = new ArrayList<>();
+
+        for (Long sessionId : feedbacksBySession.keySet()) {
+            sessionIds.add(sessionId);
+        }
+
+        // 4. 필요한 세션들을 한 번에 조회
+        List<StudySession> studySessions =
+                studySessionRepository.findAllById(sessionIds);
+
+        // 5. sessionId를 Key로 갖는 Map으로 변환
+        Map<Long, StudySession> sessionMap = new HashMap<>();
+
+        for (StudySession studySession : studySessions) {
+            sessionMap.put(
+                    studySession.getId(),
+                    studySession
+            );
+        }
+
+        // 6. 응답 객체 생성
+        List<PeerFeedbackListResponse> responseList = new ArrayList<>();
+
+        for (Map.Entry<Long, List<PeerFeedback>> entry : feedbacksBySession.entrySet()) {
+            Long sessionId = entry.getKey();
+
+            List<PeerFeedback> sessionFeedbacks = entry.getValue();
+
+            StudySession studySession = sessionMap.get(sessionId);
+
+            if (studySession == null) {
+                throw new BusinessException(ErrorCode.STUDY_SESSION_NOT_FOUND);
+            }
+
+            double scoreAvg = calculateScoreAverage(sessionFeedbacks);
+
+            String sessionTitle = studySession.getStudyGroup().getTitle();
+
+            PeerFeedbackListResponse response =
+                    PeerFeedbackListResponse.builder()
+                            .sessionId(sessionId)
+                            .createdAt(
+                                    studySession.getCreatedAt()
+                            )
+                            .sessionTitle(sessionTitle)
+                            .scoreAvg(scoreAvg)
+                            .build();
+
+            responseList.add(response);
+        }
+
+        // 7. 최신 세션 순서로 정렬
+        responseList.sort(Comparator.comparing(PeerFeedbackListResponse::getCreatedAt).reversed()
+        );
+
+        return responseList;
+    }
 }

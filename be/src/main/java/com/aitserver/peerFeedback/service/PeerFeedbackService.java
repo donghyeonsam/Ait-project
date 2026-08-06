@@ -23,4 +23,7 @@ public interface PeerFeedbackService {
 
     // 내가 참여했던 세션 별 리스트
     List<PeerFeedbackListResponse> getPeerFeedbackList(Long userId);
+
+    List<PeerFeedbackListResponse> getPeerFeedbackListLimit(Long userId);
+
 }
