@@ -1,9 +1,9 @@
 // 전용 자료실 API가 없어 그룹톡 히스토리에서 파일 토큰 메시지를 걸러 자료 목록을 만든다.
-import { fetchBackendAssetBlob } from '@/api/http'
 import {
   getStudyGroupChats,
   type StudyGroupChatMessage,
 } from '@/api/study-group-chat'
+import { downloadAttachment } from '@/lib/attachment-actions'
 import { parseFileToken } from '@/lib/study-chat-file'
 import { parseReplyMessage } from '@/lib/study-chat-reply'
 import type { StudyMaterialItem } from '@/types/study-materials'
@@ -74,20 +74,6 @@ export async function fetchStudyGroupMaterials(
 }
 
 // 보호된 첨부파일을 인증 요청으로 받은 뒤 원본 파일명으로 내려받는다.
-export async function downloadStudyMaterial(
-  item: StudyMaterialItem,
-): Promise<void> {
-  const blob = await fetchBackendAssetBlob(item.url)
-  const objectUrl = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = objectUrl
-  link.download = item.originalFilename
-  link.hidden = true
-  document.body.append(link)
-  try {
-    link.click()
-  } finally {
-    link.remove()
-    URL.revokeObjectURL(objectUrl)
-  }
+export function downloadStudyMaterial(item: StudyMaterialItem): Promise<void> {
+  return downloadAttachment(item.url, item.originalFilename)
 }

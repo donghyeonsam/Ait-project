@@ -1,10 +1,13 @@
-import { Paperclip } from 'lucide-react'
 import type { StudyGroupChatMessage } from '@/api/study-group-chat'
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
 } from '@/components/ui/avatar'
+import {
+  StudyChatFileMessage,
+  StudyChatImageMessage,
+} from '@/components/study/StudyChatAttachmentMessage'
 import { StudyChatMessageReactions } from '@/components/study/StudyChatMessageReactions'
 import { parseEmoticonToken } from '@/lib/emoticons'
 import { parseFileToken } from '@/lib/study-chat-file'
@@ -131,33 +134,13 @@ export function StudyChatMessageItem({
                   className="block size-24 object-contain"
                 />
               ) : file?.isImage ? (
-                <a
-                  href={file.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={`${file.originalFilename} 원본 이미지 열기`}
-                  className="block focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25"
-                >
-                  <img
-                    src={file.url}
-                    alt={file.originalFilename}
-                    loading="lazy"
-                    className="block max-h-48 max-w-full rounded-ait-s object-contain"
-                  />
-                </a>
+                <StudyChatImageMessage
+                  file={file}
+                  senderNickname={message.senderNickname}
+                  createdAt={message.createdAt}
+                />
               ) : file ? (
-                <a
-                  href={file.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  download={file.originalFilename}
-                  className="flex items-center gap-1.5 py-0.5 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25"
-                >
-                  <Paperclip className="size-3.5 shrink-0" aria-hidden="true" />
-                  <span className="truncate underline underline-offset-2">
-                    {file.originalFilename}
-                  </span>
-                </a>
+                <StudyChatFileMessage file={file} />
               ) : (
                 <p className="whitespace-pre-wrap wrap-break-word">{body}</p>
               )}
