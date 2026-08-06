@@ -1,6 +1,7 @@
-import { ArrowLeft, LogOut } from 'lucide-react'
+import { FolderOpen, LogOut } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Breadcrumb } from '@/components/common/Breadcrumb'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { StudyApplicationModal } from '@/components/study/StudyApplicationModal'
 import { StudyCalendar } from '@/components/study/StudyCalendar'
@@ -325,13 +326,12 @@ export function StudyGroupPage() {
     // zoom 0.9로 페이지 전체를 90% 크기로 보여 한 화면에 더 많은 내용이 들어오게 한다.
     <PageLayout contentClassName="relative isolate max-w-dashboard px-4 sm:px-8 [zoom:0.9]">
       <section className="py-8" aria-labelledby="study-group-title">
-        <Link
-          to="/study"
-          className="inline-flex items-center gap-1 rounded-ait-s py-2 text-caption text-text-secondary transition-colors hover:text-action-primary"
-        >
-          <ArrowLeft className="size-3" aria-hidden="true" />
-          스터디 라운지
-        </Link>
+        <Breadcrumb
+          items={[
+            { label: '스터디 그룹', to: '/study' },
+            { label: '내 스터디' },
+          ]}
+        />
 
         <div
           ref={headerRef}
@@ -387,6 +387,26 @@ export function StudyGroupPage() {
                   {hasActiveSession ? '세션 참여하기' : '세션 시작하기'}
                 </Button>
               ) : null}
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-ait-m border border-border-default bg-background-default p-4">
+              <div>
+                <p className="flex items-center gap-3 text-body-1 font-semibold text-text-primary">
+                  <FolderOpen
+                    className="size-5 text-action-primary"
+                    aria-hidden="true"
+                  />
+                  자료실
+                </p>
+                <p className="mt-1 pl-8 text-caption text-text-secondary">
+                  스터디에서 공유한 이미지와 파일을 한곳에서 모아봐요.
+                </p>
+              </div>
+              <Button asChild variant="secondary">
+                <Link to={`/study/groups/${groupId}/materials`}>
+                  자료실 열기
+                </Link>
+              </Button>
             </div>
 
             {/* 그룹장은 혼자 남았을 때만 나갈 수 있고 그룹까지 삭제되므로, 나가기는 그룹원에게만 노출하고 그룹장은 관리 패널의 그룹 삭제를 쓴다. */}

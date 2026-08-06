@@ -22,6 +22,7 @@ import { PrivacyPage } from '@/pages/PrivacyPage'
 import { RecordingNoticePage } from '@/pages/RecordingNoticePage'
 import { ResumePage } from '@/pages/ResumePage'
 import { StudyGroupPage } from '@/pages/StudyGroupPage'
+import { StudyMaterialsPage } from '@/pages/StudyMaterialsPage'
 import { StudyPage } from '@/pages/StudyPage'
 import { StudySessionPrejoinPage } from '@/pages/StudySessionPrejoinPage'
 import { StudySessionRoomPage } from '@/pages/StudySessionRoomPage'
@@ -42,6 +43,7 @@ export function AppRouter() {
       <Route path="/interviews/session" element={<ProtectedRoute><InterviewSessionPage /></ProtectedRoute>} />
       <Route path="/study" element={<ProtectedRoute><StudyPage /></ProtectedRoute>} />
       <Route path="/study/groups/:studyId" element={<ProtectedRoute><StudyGroupPage /></ProtectedRoute>} />
+      <Route path="/study/groups/:studyId/materials" element={<ProtectedRoute><StudyMaterialsPage /></ProtectedRoute>} />
       <Route path="/study/groups/:groupId/session/prejoin" element={<ProtectedRoute><StudySessionPrejoinPage /></ProtectedRoute>} />
       <Route path="/study/session/:sessionId/room" element={<ProtectedRoute><StudySessionRoomPage /></ProtectedRoute>} />
       <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
