@@ -23,6 +23,7 @@ import {
 } from '@/api/community'
 import { AuthenticatedHtml } from '@/components/common/AuthenticatedHtml'
 import { PageTransition } from '@/components/common/PageTransition'
+import { ProfileAvatar } from '@/components/common/ProfileAvatar'
 import { CommentSection } from '@/components/community/CommentSection'
 import { RollingCounter } from '@/components/community/RollingCounter'
 import { CategoryBadge, TagChip } from '@/components/community/badges'
@@ -197,7 +198,11 @@ export function CommunityPostPage() {
               </h1>
 
               <div className="mt-4 flex items-center gap-3 text-body-2 text-ink-500">
-                <span aria-hidden="true" className="size-9 rounded-ait-pill bg-profile-avatar" />
+                <ProfileAvatar
+                  src={post.authorProfileImageUrl}
+                  fallbackLabel={post.author.slice(0, 1)}
+                  className="size-9"
+                />
                 <span className="font-medium text-ink-700">{post.author}</span>
                 <time dateTime={post.createdAt}>{formatDateTime(post.createdAt)}</time>
                 <span aria-hidden="true">·</span>

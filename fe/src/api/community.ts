@@ -55,6 +55,8 @@ interface PostListItemResponse {
   liked: boolean
   // 이름과 달리 완성된 URL이 아니라 본문 첫 이미지의 storedFilename이 내려온다.
   thumbnailUrl: string | null
+  // 작성자 프로필 사진. 마이페이지 profileImageUrl과 같은 형식의 원본 경로다.
+  profileImageUrl: string | null
   createdAt: string
 }
 
@@ -101,6 +103,7 @@ const toPostSummary = (item: PostListItemResponse): CommunityPost => ({
   excerpt: htmlToExcerpt(item.contentSummary ?? ''),
   contentHtml: '',
   author: item.nickname,
+  authorProfileImageUrl: item.profileImageUrl,
   createdAt: item.createdAt,
   tags: item.tags ?? [],
   viewCount: item.viewCount,
@@ -225,6 +228,8 @@ export async function fetchMyActivityPosts(
 interface PostDetailResponse {
   id: number
   nickname: string
+  // 작성자 프로필 사진. 마이페이지 profileImageUrl과 같은 형식의 원본 경로다.
+  profileImageUrl: string | null
   category: string
   title: string
   content: string
@@ -256,6 +261,7 @@ export async function fetchPost(postId: string): Promise<CommunityPost | null> {
     excerpt: htmlToExcerpt(data.content),
     contentHtml: data.content,
     author: data.nickname,
+    authorProfileImageUrl: data.profileImageUrl,
     createdAt: data.createdAt,
     tags: data.tags ?? [],
     viewCount: data.viewCount,
@@ -278,6 +284,8 @@ interface CommentResponse {
   parentId: number | null
   userId: number | null
   nickname: string
+  // 작성자 프로필 사진. 마이페이지 profileImageUrl과 같은 형식의 원본 경로다.
+  profileImageUrl: string | null
   content: string
   likeCount: number
   liked: boolean
@@ -295,6 +303,7 @@ const toReply = (item: CommentResponse): CommunityReply => ({
   id: String(item.id),
   authorId: item.userId,
   author: item.nickname,
+  authorProfileImageUrl: item.profileImageUrl,
   createdAt: item.createdAt,
   content: item.content,
   likeCount: item.likeCount,

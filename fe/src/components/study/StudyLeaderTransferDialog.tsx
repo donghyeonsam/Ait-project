@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { ProfileAvatar } from '@/components/common/ProfileAvatar'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -98,11 +98,11 @@ export function StudyLeaderTransferDialog({
                       onChange={() => setSelectedMemberId(member.id)}
                       className="size-4 shrink-0 accent-action-primary"
                     />
-                    <Avatar className="size-10">
-                      <AvatarFallback className="border-0 bg-profile-avatar text-body-2 font-semibold text-action-primary">
-                        {member.nickname.slice(0, 1)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <ProfileAvatar
+                      src={member.profileImageUrl}
+                      fallbackLabel={member.nickname.slice(0, 1)}
+                      className="size-10"
+                    />
                     <span className="min-w-0">
                       <span className="block truncate text-body-2 font-semibold text-text-primary">
                         {member.nickname}

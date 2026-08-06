@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronDown, ThumbsUp } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { ProfileAvatar } from '@/components/common/ProfileAvatar'
 import { CommentComposer } from '@/components/community/CommentComposer'
 import { splitEmoticonSegments } from '@/lib/emoticons'
 import { formatDateTime } from '@/lib/format'
@@ -83,6 +84,7 @@ export function CommentItem({
         ) : (
           <CommentBody
             author={comment.author}
+            authorProfileImageUrl={comment.authorProfileImageUrl}
             createdAt={comment.createdAt}
             content={comment.content}
             muted={comment.deleted}
@@ -258,6 +260,7 @@ function ReplyItem({
       ) : (
         <CommentBody
           author={reply.author}
+          authorProfileImageUrl={reply.authorProfileImageUrl}
           createdAt={reply.createdAt}
           content={reply.content}
           compact
@@ -341,12 +344,14 @@ function LikeButton({
 // 아바타·닉네임·시각·본문. 본문이 3줄을 넘으면 축약하고 더 보기로 펼친다.
 function CommentBody({
   author,
+  authorProfileImageUrl,
   createdAt,
   content,
   compact = false,
   muted = false,
 }: {
   author: string
+  authorProfileImageUrl?: string | null
   createdAt: string
   content: string
   compact?: boolean
@@ -364,12 +369,10 @@ function CommentBody({
 
   return (
     <div className="flex items-start gap-3">
-      <span
-        aria-hidden="true"
-        className={cn(
-          'mt-0.5 shrink-0 rounded-ait-pill bg-profile-avatar',
-          compact ? 'size-8' : 'size-10',
-        )}
+      <ProfileAvatar
+        src={authorProfileImageUrl}
+        fallbackLabel={author.slice(0, 1)}
+        className={cn('mt-0.5 shrink-0', compact ? 'size-8' : 'size-10')}
       />
       <div className="min-w-0 flex-1">
         <p className="flex items-baseline gap-2">

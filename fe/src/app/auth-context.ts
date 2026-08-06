@@ -7,6 +7,8 @@ export interface AuthContextValue {
   user: AuthUser | null
   signIn: (accessToken: string, user: AuthUser, persist: boolean) => void
   signOut: () => void
+  // 마이페이지에서 프로필 사진처럼 로그인 시점 이후 바뀌는 값을 반영할 때 쓴다.
+  updateUser: (patch: Partial<AuthUser>) => void
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
