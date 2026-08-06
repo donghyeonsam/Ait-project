@@ -51,7 +51,8 @@ export function StudyMaterialsPage() {
   const cursorRef = useRef<number | undefined>(undefined)
 
   const [tab, setTab] = useState<StudyMaterialTab>('image')
-  const [viewerIndex, setViewerIndex] = useState<number | null>(null)
+  // 실시간 수신으로 배열 인덱스가 밀려도 보던 이미지가 유지되도록 뷰어는 id로 추적한다.
+  const [viewerImageId, setViewerImageId] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   // 업로드한 자료를 그룹톡 파일 토큰 메시지로 보내기 위한 STOMP 클라이언트.
   const chatClientRef = useRef<Client | null>(null)
@@ -166,6 +167,12 @@ export function StudyMaterialsPage() {
     () => materials.filter((item) => !item.isImage),
     [materials],
   )
+
+  const viewerIndex = useMemo(() => {
+    if (viewerImageId === null) return null
+    const index = images.findIndex((image) => image.id === viewerImageId)
+    return index >= 0 ? index : null
+  }, [images, viewerImageId])
 
   const handleDownload = async (item: StudyMaterialItem) => {
     try {
@@ -326,7 +333,7 @@ export function StudyMaterialsPage() {
               {tab === 'image' ? (
                 <StudyMaterialImageGrid
                   images={images}
-                  onSelect={setViewerIndex}
+                  onSelect={(image) => setViewerImageId(image.id)}
                 />
               ) : (
                 <StudyMaterialFileList
@@ -365,8 +372,10 @@ export function StudyMaterialsPage() {
       <StudyMaterialImageViewerDialog
         images={images}
         activeIndex={viewerIndex}
-        onActiveIndexChange={setViewerIndex}
-        onClose={() => setViewerIndex(null)}
+        onActiveIndexChange={(index) =>
+          setViewerImageId(images[index]?.id ?? null)
+        }
+        onClose={() => setViewerImageId(null)}
         onDownload={(image) => void handleDownload(image)}
       />
 

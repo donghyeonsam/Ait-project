@@ -3,28 +3,28 @@ import type { StudyMaterialItem } from '@/types/study-materials'
 
 interface MonthGroup {
   label: string
-  items: { image: StudyMaterialItem; index: number }[]
+  items: StudyMaterialItem[]
 }
 
-// 최신순 정렬을 전제로 월 헤더를 붙이기 위해 원본 배열 인덱스를 유지한 채 월별로 묶는다.
+// 최신순 정렬을 전제로 월 헤더를 붙여 월별로 묶는다.
 function groupByMonth(images: StudyMaterialItem[]): MonthGroup[] {
   const groups: MonthGroup[] = []
-  images.forEach((image, index) => {
+  for (const image of images) {
     const date = new Date(image.createdAt)
     const label = `${date.getFullYear()}년 ${date.getMonth() + 1}월`
     const lastGroup = groups[groups.length - 1]
     if (lastGroup?.label === label) {
-      lastGroup.items.push({ image, index })
+      lastGroup.items.push(image)
     } else {
-      groups.push({ label, items: [{ image, index }] })
+      groups.push({ label, items: [image] })
     }
-  })
+  }
   return groups
 }
 
 interface StudyMaterialImageGridProps {
   images: StudyMaterialItem[]
-  onSelect: (index: number) => void
+  onSelect: (image: StudyMaterialItem) => void
 }
 
 // 공유된 이미지를 월별 섹션의 정사각 썸네일 그리드로 모아 보여주는 자료실 이미지 탭.
@@ -51,11 +51,11 @@ export function StudyMaterialImageGrid({
             {group.label}
           </h3>
           <ul className="mt-3 grid grid-cols-3 gap-1 sm:grid-cols-4 lg:grid-cols-5">
-            {group.items.map(({ image, index }) => (
+            {group.items.map((image) => (
               <li key={image.id}>
                 <button
                   type="button"
-                  onClick={() => onSelect(index)}
+                  onClick={() => onSelect(image)}
                   className="group block aspect-square w-full overflow-hidden rounded-ait-s bg-status-neutral-surface focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-action-primary/25"
                   aria-label={`${image.originalFilename} 크게 보기`}
                 >
