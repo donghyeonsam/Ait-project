@@ -36,7 +36,8 @@ export function Step4Summary({ state, preparation }: Step4SummaryProps) {
   ]
 
   return (
-    <section aria-labelledby="step4-title" className="rounded-ait-m border border-border-default p-8">
+    // 카드 테두리는 페이지의 스텝 섹션 래퍼가 제공하므로 여기서는 내용만 배치한다.
+    <section aria-labelledby="step4-title">
       <h2 id="step4-title" className="text-h3 text-center">최종확인</h2>
       <p className="mt-1 text-center text-body-2 text-text-secondary">선택한 항목들을 확인하세요</p>
 

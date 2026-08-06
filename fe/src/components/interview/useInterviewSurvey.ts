@@ -60,11 +60,13 @@ function isCsTopicsValid(state: SurveyState) {
   return state.csTopics.length >= 1
 }
 
-function isStepValid(step: number, state: SurveyState) {
+function isStepValid(step: number, state: SurveyState): boolean {
   switch (step) {
     case 1:
       return state.interviewType !== null
     case 2: {
+      // 면접 유형을 고르기 전에는 요구 입력이 없어 공허하게 참이 되므로 미완료로 처리한다.
+      if (state.interviewType === null) return false
       const applyOk = !needsApplyInfo(state.interviewType) || isApplyInfoValid(state)
       const csOk = !needsCsTopics(state.interviewType) || isCsTopicsValid(state)
       return applyOk && csOk
@@ -72,7 +74,8 @@ function isStepValid(step: number, state: SurveyState) {
     case 3:
       return state.difficulty !== null && state.style !== null
     case 4:
-      return true
+      // 최종 확인 단계는 입력이 없으므로 요약 대상인 1~3단계가 모두 채워지면 완료로 본다.
+      return isStepValid(1, state) && isStepValid(2, state) && isStepValid(3, state)
     case 5:
       return state.deviceReady
     default:
@@ -80,9 +83,8 @@ function isStepValid(step: number, state: SurveyState) {
   }
 }
 
-// 면접 설문의 단계 이동·입력 상태·단계별 유효성 검사를 한데 모은 훅.
+// 면접 설문의 입력 상태와 단계별 유효성 검사를 한데 모은 훅. 모든 단계는 한 화면에서 스크롤로 진행한다.
 export function useInterviewSurvey() {
-  const [currentStep, setCurrentStep] = useState(1)
   const [state, setState] = useState<SurveyState>(initialState)
 
   const update = useCallback(<K extends keyof SurveyState>(key: K, value: SurveyState[K]) => {
@@ -124,26 +126,25 @@ export function useInterviewSurvey() {
     }))
   }, [])
 
-  const currentStepValid = useMemo(() => isStepValid(currentStep, state), [currentStep, state])
+  const stepValidity = useMemo(
+    () => Array.from({ length: SURVEY_STEP_COUNT }, (_, index) => isStepValid(index + 1, state)),
+    [state],
+  )
 
-  const goNext = useCallback(() => {
-    setCurrentStep((step) => (isStepValid(step, state) && step < SURVEY_STEP_COUNT ? step + 1 : step))
-  }, [state])
-
-  const goPrevious = useCallback(() => {
-    setCurrentStep((step) => Math.max(1, step - 1))
-  }, [])
+  const firstIncompleteStep = useMemo(() => {
+    const index = stepValidity.findIndex((valid) => !valid)
+    return index === -1 ? null : index + 1
+  }, [stepValidity])
 
   return {
-    currentStep,
     state,
     update,
     selectRepository,
     toggleCsTopic,
     selectInterviewType,
-    currentStepValid,
-    goNext,
-    goPrevious,
+    stepValidity,
+    firstIncompleteStep,
+    allStepsValid: firstIncompleteStep === null,
     showApplyInfo: needsApplyInfo(state.interviewType),
     showCsTopics: needsCsTopics(state.interviewType),
   }
