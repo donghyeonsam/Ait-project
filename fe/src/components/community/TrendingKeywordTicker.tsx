@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useId, useState } from 'react'
-import { dropdownPanel, tickerItem } from '@/lib/motion'
+import { EASE_OUT, tickerItem } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 import type { TrendingKeyword } from '@/types/community'
 
@@ -32,7 +32,10 @@ export function TrendingKeywordTicker({
 
   // 데이터가 늦게 도착해도 Hero 왼쪽 열의 높이가 바뀌지 않도록 태그 행 공간을 유지한다.
   if (keywords.length === 0) return <div className="h-9" aria-hidden="true" />
-  const current = keywords[index]
+  // 펼친 상태에서는 롤링을 멈추고 항상 1위부터 보여준다. pill이 1위 행을 맡고
+  // 목록은 2위부터 이어 붙어 같은 태그가 두 번 나오지 않게 한다.
+  const displayed = isExpanded ? keywords[0] : keywords[index]
+  const rest = keywords.slice(1)
 
   const select = (keyword: string) => {
     setExpanded(false)
@@ -60,16 +63,19 @@ export function TrendingKeywordTicker({
       >
         <button
           type="button"
-          onClick={() => select(current.keyword)}
-          aria-label={`인기 태그 ${current.rank}위 ${current.keyword}로 검색`}
+          onClick={() => select(displayed.keyword)}
+          aria-label={`인기 태그 ${displayed.rank}위 ${displayed.keyword}로 검색`}
           aria-haspopup="listbox"
           aria-expanded={isExpanded}
           aria-controls={listboxId}
-          className="relative h-9 w-full min-w-0 overflow-hidden rounded-ait-pill border border-line bg-surface-default text-left transition-colors hover:border-ink-400"
+          className={cn(
+            'relative z-[var(--z-index-dropdown)] h-9 w-full min-w-0 overflow-hidden border border-line bg-surface-default text-left transition-[border-radius,box-shadow] duration-150 [transition-timing-function:var(--easing-standard)] hover:border-ink-400',
+            isExpanded ? 'rounded-t-ait-m shadow-elevation-2' : 'rounded-ait-pill',
+          )}
         >
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.span
-              key={`${current.rank}-${current.keyword}`}
+              key={`${displayed.rank}-${displayed.keyword}`}
               variants={tickerItem}
               initial="initial"
               animate="animate"
@@ -77,39 +83,43 @@ export function TrendingKeywordTicker({
               className="absolute inset-0 flex items-center gap-3 px-4"
             >
               <span className="w-4 shrink-0 text-center text-body-2 font-semibold text-ink-900 tabular-nums">
-                {current.rank}
+                {displayed.rank}
               </span>
               <span className="flex-1 truncate text-body-2 text-ink-700">
-                {current.keyword}
+                {displayed.keyword}
               </span>
-              <KeywordChange change={current.change} />
+              <KeywordChange change={displayed.change} />
             </motion.span>
           </AnimatePresence>
         </button>
 
-        <AnimatePresence>
-          {isExpanded ? (
+        {/* 2위 이하 목록. pill(1위) 바로 아래에 테두리를 겹쳐 붙여 하나의 카드처럼 이어지게 한다. */}
+        <AnimatePresence initial={false}>
+          {isExpanded && rest.length > 0 ? (
             <motion.ul
               id={listboxId}
               role="listbox"
               aria-label="전체 인기 태그"
-              variants={dropdownPanel}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-[var(--z-index-dropdown)] max-h-80 origin-top overflow-y-auto rounded-ait-s border border-line bg-surface-default py-1 shadow-elevation-2"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{
+                height: 'auto',
+                opacity: 1,
+                transition: { duration: 0.18, ease: EASE_OUT },
+              }}
+              exit={{
+                height: 0,
+                opacity: 0,
+                transition: { duration: 0.14, ease: EASE_OUT },
+              }}
+              className="absolute inset-x-0 top-full z-[var(--z-index-dropdown)] -mt-px overflow-hidden rounded-b-ait-m border border-t-0 border-line bg-surface-default py-1 shadow-elevation-2"
             >
-              {keywords.map((item) => (
+              {rest.map((item) => (
                 <li key={item.rank} role="presentation">
                   <button
                     type="button"
                     role="option"
-                    aria-selected={item.rank === current.rank}
                     onClick={() => select(item.keyword)}
-                    className={cn(
-                      'flex w-full items-center gap-3 px-4 py-2 text-left text-body-2 text-ink-700 transition-colors hover:bg-surface-muted',
-                      item.rank === current.rank && 'bg-surface-muted',
-                    )}
+                    className="flex w-full items-center gap-3 px-4 py-2 text-left text-body-2 text-ink-700 transition-colors hover:bg-surface-muted"
                   >
                     <span className="w-4 shrink-0 text-center font-semibold text-ink-900 tabular-nums">
                       {item.rank}
