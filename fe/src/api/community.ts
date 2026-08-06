@@ -443,13 +443,10 @@ export async function downloadPostFile(file: CommunityPostFile): Promise<void> {
   }
 }
 
-// 대표 사진(thumbnail)은 아직 대응하는 백엔드 필드가 없어 서버에 저장되지 않는다.
-// TODO: 백엔드 thumbnail 필드 추가 후 연동 필요
 const toPostRequestBody = (draft: CommunityPostDraft) => ({
   category: draft.category ? CATEGORY_META[draft.category].label : '',
   title: draft.title,
   content: draft.contentHtml,
-  thumbnail: draft.thumbnail,
   allowComments: draft.allowComments,
   receiveNotifications: draft.notify,
   tags: draft.tags,
