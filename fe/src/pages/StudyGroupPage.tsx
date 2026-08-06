@@ -102,6 +102,7 @@ export function StudyGroupPage() {
             nickname: member.nickname,
             role: member.owner ? '그룹장' : '그룹원',
             isSelf: member.userId === currentUserId,
+            profileImageUrl: member.profileImageUrl,
           })),
         )
         setIsRecruiting(

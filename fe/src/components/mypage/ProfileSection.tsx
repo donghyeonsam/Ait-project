@@ -6,6 +6,7 @@ import { AccountDeletionSection } from '@/components/mypage/AccountDeletionSecti
 import { PasswordChangeSection } from '@/components/mypage/PasswordChangeSection'
 import { ProfileCard } from '@/components/mypage/ProfileCard'
 import { ProfileInfo } from '@/components/mypage/ProfileInfo'
+import { useAuth } from '@/lib/useAuth'
 import type { ProfileData } from '@/types/profile'
 
 interface ProfileSectionProps {
@@ -70,6 +71,7 @@ export function ProfileSection({
   onRepositoryInstalled,
   onOpenDocuments,
 }: ProfileSectionProps) {
+  const { updateUser } = useAuth()
   const [savedProfile, setSavedProfile] = useState(profile)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -150,6 +152,8 @@ export function ProfileSection({
       updateAvatarUrl(
         response.profileImageUrl ? getBackendAssetUrl(response.profileImageUrl) : null,
       )
+      // 네비게이션바 아바타도 같은 세션 안에서 바로 바뀐 사진을 보여주도록 동기화한다.
+      updateUser({ profileImageUrl: response.profileImageUrl })
     } catch (error) {
       updateAvatarUrl(previousAvatarUrl)
       setAvatarError(toErrorMessage(error))
@@ -163,6 +167,7 @@ export function ProfileSection({
   // 다음 저장이나 새로고침 시 서버에 남아있는 기존 사진으로 되돌아올 수 있다.
   const removeAvatar = () => {
     updateAvatarUrl(null)
+    updateUser({ profileImageUrl: null })
   }
 
   const startEditing = () => {

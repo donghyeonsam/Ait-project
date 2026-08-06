@@ -1,9 +1,15 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ProfileAvatar } from '@/components/common/ProfileAvatar'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
-import type { MyStudyGroup } from '@/api/study-groups'
+import {
+  getStudyGroupDetail,
+  type MyStudyGroup,
+  type StudyGroupMemberInfo,
+} from '@/api/study-groups'
 
 interface MyStudySectionProps {
   studies: MyStudyGroup[]
@@ -24,6 +30,30 @@ export function MyStudySection({
   onEnterSession,
 }: MyStudySectionProps) {
   const { ref, isInView } = useInView<HTMLElement>({ threshold: 0.1 })
+  const [membersByGroup, setMembersByGroup] = useState<
+    Record<number, StudyGroupMemberInfo[]>
+  >({})
+
+  // 카드 목록 자체에는 인원수만 내려와서, 아바타에 쓸 멤버 사진은 그룹 상세를 따로 불러온다.
+  useEffect(() => {
+    let active = true
+    studies.forEach((study) => {
+      getStudyGroupDetail(study.id)
+        .then((detail) => {
+          if (!active) return
+          setMembersByGroup((current) => ({
+            ...current,
+            [study.id]: detail.members ?? [],
+          }))
+        })
+        .catch(() => {
+          // 멤버 사진을 못 받아오면 카드는 기본 아바타로 그대로 둔다.
+        })
+    })
+    return () => {
+      active = false
+    }
+  }, [studies])
 
   return (
     <section
@@ -59,6 +89,7 @@ export function MyStudySection({
               study.currentMemberCount - MAX_VISIBLE_AVATARS,
               0,
             )
+            const members = membersByGroup[study.id]
 
             return (
               <article
@@ -122,16 +153,26 @@ export function MyStudySection({
                       className="flex -space-x-2"
                       aria-label={`${study.currentMemberCount}명 참여 중`}
                     >
-                      {Array.from({ length: visibleAvatars }, (_, index) => (
-                        <Avatar
-                          key={`${study.id}-avatar-${index + 1}`}
-                          className="size-9 border-2 border-surface-default"
-                        >
-                          <AvatarFallback className="border-0 bg-profile-avatar text-transparent">
-                            참여자
-                          </AvatarFallback>
-                        </Avatar>
-                      ))}
+                      {Array.from({ length: visibleAvatars }, (_, index) => {
+                        const member = members?.[index]
+                        return member ? (
+                          <ProfileAvatar
+                            key={member.userId}
+                            src={member.profileImageUrl}
+                            fallbackLabel={member.nickname.slice(0, 1)}
+                            className="size-9 border-2 border-surface-default"
+                          />
+                        ) : (
+                          <Avatar
+                            key={`${study.id}-avatar-${index + 1}`}
+                            className="size-9 border-2 border-surface-default"
+                          >
+                            <AvatarFallback className="border-0 bg-profile-avatar text-transparent">
+                              참여자
+                            </AvatarFallback>
+                          </Avatar>
+                        )
+                      })}
                     </div>
                     {hiddenMembers ? (
                       <span className="text-caption text-text-secondary">

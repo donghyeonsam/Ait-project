@@ -1,6 +1,6 @@
 import { Crown } from 'lucide-react'
 import type { CSSProperties } from 'react'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { ProfileAvatar } from '@/components/common/ProfileAvatar'
 import { cn } from '@/lib/utils'
 
 /** 구성원 패널이 그리는 최소 정보. 그룹 상세 응답의 members를 이 형태로 변환해 넘긴다. */
@@ -9,6 +9,7 @@ export interface StudyGroupMember {
   nickname: string
   role: string
   isSelf: boolean
+  profileImageUrl: string | null
 }
 
 interface StudyGroupMemberPanelProps {
@@ -41,11 +42,11 @@ export function StudyGroupMemberPanel({
               'hover:bg-status-neutral-surface hover:shadow-elevation-1',
             )}
           >
-            <Avatar className="size-10">
-              <AvatarFallback className="border-0 bg-profile-avatar text-transparent">
-                그룹원
-              </AvatarFallback>
-            </Avatar>
+            <ProfileAvatar
+              src={member.profileImageUrl}
+              fallbackLabel={member.nickname.slice(0, 1)}
+              className="size-10"
+            />
             <p className="flex min-w-0 flex-1 items-center gap-1.5 text-body-2 text-text-primary">
               <span className="truncate font-medium">{member.nickname}</span>
               {member.role === '그룹장' ? (

@@ -2,8 +2,8 @@ import { LogOut, Menu, MessageCircleMore } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { logout } from '@/api/auth'
+import { ProfileAvatar } from '@/components/common/ProfileAvatar'
 import { NotificationBell } from '@/components/layout/NotificationBell'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/useAuth'
@@ -118,11 +118,11 @@ export function Header() {
                 ) : null}
               </Button>
               <Link to="/mypage" className="rounded-ait-pill" aria-label="마이페이지로 이동">
-                <Avatar className="size-10">
-                  <AvatarFallback className="border-0 bg-profile-avatar">
-                    {user?.nickname.slice(0, 1) ?? '홍'}
-                  </AvatarFallback>
-                </Avatar>
+                <ProfileAvatar
+                  src={user?.profileImageUrl}
+                  fallbackLabel={user?.nickname.slice(0, 1) ?? '홍'}
+                  className="size-10"
+                />
               </Link>
               <Button
                 type="button"

@@ -29,6 +29,8 @@ export interface CommunityPost {
   excerpt: string
   contentHtml: string
   author: string
+  // 백엔드가 아직 내려주지 않는 필드라 대부분 null이다.
+  authorProfileImageUrl?: string | null
   createdAt: string
   tags: string[]
   viewCount: number
@@ -48,6 +50,8 @@ export interface CommunityReply {
   // 삭제된 댓글은 작성자 식별 정보 없이 내려온다.
   authorId: number | null
   author: string
+  // 백엔드가 아직 내려주지 않는 필드라 대부분 null이다.
+  authorProfileImageUrl?: string | null
   createdAt: string
   content: string
   likeCount: number

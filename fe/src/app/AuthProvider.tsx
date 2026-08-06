@@ -28,6 +28,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null)
   }, [])
 
+  // 로그인 이후 바뀐 값(예: 프로필 사진)을 저장소와 컨텍스트 상태 양쪽에 반영한다.
+  const updateUser = useCallback((patch: Partial<AuthUser>) => {
+    setUser((current) => {
+      if (!current) return current
+      const next = { ...current, ...patch }
+      const stored = readStoredAuth()
+      if (stored) writeStoredAuth(stored.accessToken, next, stored.persist)
+      return next
+    })
+  }, [])
+
   // HTTP 계층이 401(토큰 재발급 실패)을 알리면 자동으로 로그아웃 처리한다.
   useEffect(() => {
     window.addEventListener(unauthorizedEvent, signOut)
@@ -35,8 +46,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [signOut])
 
   const value = useMemo(
-    () => ({ isAuthenticated: user !== null, user, signIn, signOut }),
-    [signIn, signOut, user],
+    () => ({ isAuthenticated: user !== null, user, signIn, signOut, updateUser }),
+    [signIn, signOut, updateUser, user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
