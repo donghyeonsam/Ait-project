@@ -1,3 +1,4 @@
+import { readStoredAuth } from '@/api/auth-storage'
 import { backendRequest } from '@/api/http'
 import type { InterviewInputContract } from '@/lib/interview-session'
 import type {
@@ -329,12 +330,42 @@ export async function getInterviewReportDetail(
   }
 }
 
+const hiddenReportsStorageKey = () => {
+  const userId = readStoredAuth()?.user.userId
+  return `ait:hidden-interview-reports:${userId ?? 'anonymous'}`
+}
+
+function readHiddenInterviewReportIds(): Set<number> {
+  try {
+    const raw = window.localStorage.getItem(hiddenReportsStorageKey())
+    const parsed = raw ? (JSON.parse(raw) as number[]) : []
+    return new Set(parsed)
+  } catch {
+    return new Set()
+  }
+}
+
+// 리포트를 불러오지 못하는 등, 목록에서만 감추고 싶은 면접 기록을 저장한다.
+// 삭제 API가 없어 브라우저(이 계정) 안에서만 화면 표시를 걸러낸다.
+export function hideInterviewReport(aiInterviewId: number) {
+  const hidden = readHiddenInterviewReportIds()
+  hidden.add(aiInterviewId)
+  window.localStorage.setItem(
+    hiddenReportsStorageKey(),
+    JSON.stringify([...hidden]),
+  )
+}
+
 // 리포트 목록 응답을 화면 기록 모델로 바꿔 최신순으로 돌려준다.
 // 점수 증감은 응답에 없어 직전 면접과의 점수 차이로 계산한다.
 export function toInterviewRecords(
   items: ReportListItemResponse[],
 ): InterviewRecord[] {
-  const ascending = [...items].sort((a, b) =>
+  const hiddenIds = readHiddenInterviewReportIds()
+  const visibleItems = items.filter(
+    (item) => !hiddenIds.has(item.aiInterviewId),
+  )
+  const ascending = [...visibleItems].sort((a, b) =>
     a.createdAt.localeCompare(b.createdAt),
   )
   return ascending

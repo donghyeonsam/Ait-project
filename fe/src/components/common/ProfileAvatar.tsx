@@ -1,4 +1,4 @@
-import { getBackendAssetUrl } from '@/api/http'
+import { getProfileImageUrl } from '@/api/http'
 import { AuthenticatedImage } from '@/components/common/AuthenticatedImage'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 
@@ -14,7 +14,7 @@ export function ProfileAvatar({ src, fallbackLabel, className }: ProfileAvatarPr
     <Avatar className={className}>
       {src ? (
         <AuthenticatedImage
-          src={getBackendAssetUrl(src)}
+          src={getProfileImageUrl(src)}
           alt=""
           className="size-full object-cover"
         />

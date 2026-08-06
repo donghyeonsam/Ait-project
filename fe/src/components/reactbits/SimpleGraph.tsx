@@ -274,7 +274,10 @@ export function SimpleGraph({
             strokeWidth={graphLineThickness}
             strokeLinecap="round"
             strokeLinejoin="round"
-            pathLength="1"
+            // 점이 2~3개뿐이라 곡선을 이루는 세그먼트 수가 적으면, pathLength를 1로 두었을 때
+            // 브라우저의 길이 근사 오차가 커져 선이 마지막 점 앞에서 살짝 끊겨 보일 수 있다.
+            // 훨씬 큰 정수로 정규화해 근사 오차의 상대적 비중을 줄인다.
+            pathLength="1000"
             vectorEffect="non-scaling-stroke"
             className="simple-graph__line"
           />
