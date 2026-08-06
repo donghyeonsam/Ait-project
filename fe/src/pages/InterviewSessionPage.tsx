@@ -639,6 +639,7 @@ function ActiveInterviewSession({
     <>
       <SessionTheater
         stream={stream}
+        showFaceCenterGuide={nonVerbalCapture.isFaceOffCenter}
         questionIndex={questionIndex}
         totalQuestions={sessionQuestions.length}
         question={question.question}

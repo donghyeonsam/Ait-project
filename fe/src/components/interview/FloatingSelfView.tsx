@@ -14,6 +14,8 @@ interface FloatingSelfViewProps {
   /** 초기 위치를 하단에서 추가로 띄우는 값(px). 하단 오버레이 패널에 가리지 않게 할 때 쓴다. */
   initialBottomOffset?: number
   docked?: boolean
+  /** 얼굴이 프레임 중앙에서 많이 벗어났을 때 다시 중앙으로 유도하는 가이드 표시 여부. */
+  showCenterGuide?: boolean
 }
 
 const SELF_VIEW_WIDTH = 176
@@ -30,6 +32,7 @@ export function FloatingSelfView({
   boundsRef,
   initialBottomOffset = 0,
   docked = false,
+  showCenterGuide = false,
 }: FloatingSelfViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const boxRef = useRef<HTMLDivElement>(null)
@@ -137,12 +140,22 @@ export function FloatingSelfView({
       onPointerCancel={docked ? undefined : handlePointerUp}
     >
       {stream ? (
-        <video ref={videoRef} autoPlay playsInline muted className="size-full -scale-x-100 object-cover" />
+        <>
+          <video ref={videoRef} autoPlay playsInline muted className="size-full -scale-x-100 object-cover" />
+          {showCenterGuide ? (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/20">
+              <div className="aspect-3/4 h-[75%] rounded-[50%] border-2 border-dashed border-status-warning" />
+            </div>
+          ) : null}
+        </>
       ) : (
         <div className="flex size-full items-center justify-center">
           <User className="size-8" aria-hidden="true" />
         </div>
       )}
+      <p className="sr-only" role="status">
+        {showCenterGuide ? '얼굴이 화면 중앙에서 많이 벗어났어요. 위치를 조정해 주세요.' : ''}
+      </p>
     </div>
   )
 }
