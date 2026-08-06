@@ -91,4 +91,19 @@ describe('StudySessionSidePanel evaluation', () => {
     fireEvent.change(logicScore, { target: { value: '8.7' } })
     expect(logicScore).toHaveValue(9)
   })
+
+  it('평가 대상 수와 제출 완료 수를 onEvaluationProgressChange로 알린다', async () => {
+    const onEvaluationProgressChange = vi.fn()
+    render(
+      <StudySessionSidePanel
+        sessionId={1}
+        participants={participants}
+        onEvaluationProgressChange={onEvaluationProgressChange}
+      />,
+    )
+
+    await screen.findByRole('tab', { name: '평가' })
+
+    expect(onEvaluationProgressChange).toHaveBeenCalledWith({ completed: 0, total: 1 })
+  })
 })

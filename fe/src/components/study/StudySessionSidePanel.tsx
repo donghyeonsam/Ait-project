@@ -49,9 +49,18 @@ import { cn } from '@/lib/utils'
 type SidePanelTab = 'documents' | 'evaluation'
 type DocumentType = 'resume' | 'coverLetter'
 
+export interface StudySessionEvaluationProgress {
+  /** 내가 제출을 마친 평가 대상 수. */
+  completed: number
+  /** 이 세션에서 내가 평가해야 할 전체 대상 수. */
+  total: number
+}
+
 interface StudySessionSidePanelProps {
   sessionId: number
   participants: StudyParticipant[]
+  /** 내 평가 진행 상황이 바뀔 때마다 알려준다. 세션 종료·나가기 확인에 쓰인다. */
+  onEvaluationProgressChange?: (progress: StudySessionEvaluationProgress) => void
 }
 
 const tabs: Array<{ id: SidePanelTab; label: string }> = [
@@ -271,7 +280,11 @@ function createDefaultEvaluationScores(): StudyEvaluationScores {
 }
 
 // 세션 우측 패널: 참가자 이력서·자소서 열람과 참가자 평가 입력을 탭으로 전환한다.
-export function StudySessionSidePanel({ sessionId, participants }: StudySessionSidePanelProps) {
+export function StudySessionSidePanel({
+  sessionId,
+  participants,
+  onEvaluationProgressChange,
+}: StudySessionSidePanelProps) {
   const otherParticipants = participants.filter((participant) => !participant.isSelf)
   const [activeTab, setActiveTab] = useState<SidePanelTab>('documents')
   // 사이드 패널은 상대방이 아직 입장하기 전(나만 접속한 시점)에 먼저 마운트되는 경우가 대부분이라,
@@ -349,6 +362,22 @@ export function StudySessionSidePanel({ sessionId, participants }: StudySessionS
     // 최초 마운트·세션 변경 시 한 번만 조회한다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId])
+
+  // otherParticipants는 매 렌더 새 배열이라 값이 그대로면 알리지 않고 건너뛴다 —
+  // 그대로 매번 호출하면 부모의 상태 갱신이 다시 이 컴포넌트를 리렌더시켜 무한 루프가 된다.
+  const reportedProgressRef = useRef<StudySessionEvaluationProgress | null>(null)
+  useEffect(() => {
+    if (!onEvaluationProgressChange) return
+    const evaluable = evaluationParticipants.filter((participant) => participant.userId != null)
+    const progress: StudySessionEvaluationProgress = {
+      completed: evaluable.filter((participant) => submittedFeedbacks.has(participant.userId as number)).length,
+      total: evaluable.length,
+    }
+    const prev = reportedProgressRef.current
+    if (prev && prev.completed === progress.completed && prev.total === progress.total) return
+    reportedProgressRef.current = progress
+    onEvaluationProgressChange(progress)
+  }, [evaluationParticipants, submittedFeedbacks, onEvaluationProgressChange])
 
   const handleScoreChange = useCallback(
     (category: StudyEvaluationCategory, value: number) => {
