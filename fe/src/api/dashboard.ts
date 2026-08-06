@@ -5,6 +5,7 @@ import {
 } from '@/api/ai-interviews'
 import { backendRequest } from '@/api/http'
 import type { PeerFeedbackSessionSummary } from '@/api/peer-feedback'
+import { computeInterviewActivityStats } from '@/lib/interview-stats'
 import type { InterviewRecord } from '@/types/dashboard'
 
 export interface DashboardStudyCalendarItem {
@@ -45,9 +46,12 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   // BE 컨트롤러 매핑이 트레일링 슬래시까지 포함하므로 경로를 정확히 맞춘다.
   const raw = await backendRequest<DashboardRawResponse>('/api/dashboard/')
   const interviewRecords = toInterviewRecords(raw.reportList ?? [])
+  // BE가 내려주는 interviewCount는 숨긴 기록이나 AI 면접기록 화면과 집계 기준(주 시작 요일)이
+  // 달라 서로 다른 값을 보여줄 수 있어, 같은 기록 목록으로 화면에서 직접 계산한다.
+  const interviewCount = computeInterviewActivityStats(interviewRecords).thisWeek
 
   return {
-    interviewCount: raw.interviewCount ?? 0,
+    interviewCount,
     interviewScore: interviewRecords.length ? raw.interviewScore : null,
     studyCount: raw.studyCount ?? 0,
     interviewRecords,

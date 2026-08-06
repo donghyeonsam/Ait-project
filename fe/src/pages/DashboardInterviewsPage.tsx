@@ -1,7 +1,7 @@
 import { AlertCircle, ArrowLeft, ChevronDown, FileSearch, Flame, UsersRound } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { getInterviewReports } from '@/api/ai-interviews'
+import { getInterviewReports, hideInterviewReport } from '@/api/ai-interviews'
 import { toErrorMessage } from '@/api/http'
 import { InterviewRecordItem } from '@/components/dashboard/InterviewRecordItem'
 import { ReportModal } from '@/components/dashboard/ReportModal'
@@ -10,6 +10,7 @@ import { StatCard } from '@/components/dashboard/StatCard'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { computeInterviewActivityStats } from '@/lib/interview-stats'
 import { cn } from '@/lib/utils'
 import type {
   InterviewRecord,
@@ -32,7 +33,6 @@ const interviewTypes: Array<'전체' | InterviewType> = [
 
 const RECORD_PAGE_SIZE = 4
 const TREND_POINT_COUNT = 7
-const DAY_MS = 24 * 60 * 60 * 1000
 const REPORT_POLL_INTERVAL_MS = 3_000
 
 // 아직 목록에 없는 분석 중 기록은 유지하고, 리포트가 생성된 기록은 서버 응답으로 교체한다.
@@ -45,17 +45,6 @@ const mergeInterviewReports = (
     (record) => record.status === 'analyzing' && !reportIds.has(record.id),
   )
   return [...pending, ...reports]
-}
-
-// 'YYYY. MM. DD' 형식의 기록 날짜를 Date로 되돌린다.
-const parseRecordDate = (date: string) => new Date(date.replace(/\. /g, '-'))
-
-// 해당 날짜가 속한 주의 월요일 00시를 구한다.
-const startOfWeek = (date: Date) => {
-  const result = new Date(date)
-  result.setHours(0, 0, 0, 0)
-  result.setDate(result.getDate() - ((result.getDay() + 6) % 7))
-  return result
 }
 
 // 대시보드의 AI 모의면접 기록 화면. 리포트 목록을 불러와 요약 지표·점수 추이·기록 리스트를 보여준다.
@@ -76,6 +65,10 @@ export function DashboardInterviewsPage() {
   const [reportOpen, setReportOpen] = useState(false)
   const [requestKey, setRequestKey] = useState(0)
   const consumedNavState = useRef(false)
+  const reportOpenRef = useRef(reportOpen)
+  useEffect(() => {
+    reportOpenRef.current = reportOpen
+  }, [reportOpen])
 
   useEffect(() => {
     let cancelled = false
@@ -148,44 +141,8 @@ export function DashboardInterviewsPage() {
     }
   }, [hasAnalyzingRecords, loadState])
 
-  // 요약 지표. 이번 주(월요일 시작) 횟수와 하루 단위 연속 연습 일수를 기록 날짜로 계산한다.
-  const stats = useMemo(() => {
-    const dayTimes = [
-      ...new Set(
-        records.map((record) => {
-          const day = parseRecordDate(record.date)
-          day.setHours(0, 0, 0, 0)
-          return day.getTime()
-        }),
-      ),
-    ].sort((a, b) => a - b)
-
-    const weekStart = startOfWeek(new Date()).getTime()
-    const previousWeekStart = weekStart - 7 * DAY_MS
-    const dates = records.map((record) => parseRecordDate(record.date).getTime())
-    const thisWeek = dates.filter((time) => time >= weekStart).length
-    const lastWeek = dates.filter(
-      (time) => time >= previousWeekStart && time < weekStart,
-    ).length
-
-    let bestStreak = 0
-    let run = 0
-    let previousDay: number | null = null
-    for (const day of dayTimes) {
-      run = previousDay !== null && day - previousDay === DAY_MS ? run + 1 : 1
-      bestStreak = Math.max(bestStreak, run)
-      previousDay = day
-    }
-
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const lastDay = dayTimes.at(-1)
-    // 마지막 연습이 오늘이나 어제면 연속이 이어지는 중으로 본다.
-    const currentStreak =
-      lastDay !== undefined && today.getTime() - lastDay <= DAY_MS ? run : 0
-
-    return { thisWeek, weekDiff: thisWeek - lastWeek, currentStreak, bestStreak }
-  }, [records])
+  // 요약 지표. 대시보드 메인 화면과 같은 계산식(최근 7일 롤링)을 써서 두 화면의 수치가 어긋나지 않게 한다.
+  const stats = useMemo(() => computeInterviewActivityStats(records), [records])
 
   const trendData = useMemo<ScoreTrendPoint[]>(() => {
     return records
@@ -216,6 +173,19 @@ export function DashboardInterviewsPage() {
   }, [])
 
   const closeReport = useCallback(() => setReportOpen(false), [])
+
+  // 모달의 닫힘 애니메이션이 끝난 뒤에만 선택된 기록을 비운다. 애니메이션 도중 다시 열리면
+  // (reportOpen이 다시 true면) 방금 연 기록이 지워지지 않도록 건너뛴다.
+  const handleReportExited = useCallback(() => {
+    if (!reportOpenRef.current) setSelectedRecord(null)
+  }, [])
+
+  // 리포트를 불러오지 못하는 등 목록에서 감추고 싶은 기록을 저장하고 화면에서 바로 제거한다.
+  const hideRecord = useCallback((id: number) => {
+    hideInterviewReport(id)
+    setRecords((previous) => previous.filter((record) => record.id !== id))
+    setReportOpen(false)
+  }, [])
 
   const isEmpty = loadState === 'loaded' && records.length === 0
 
@@ -371,7 +341,7 @@ export function DashboardInterviewsPage() {
                     record={record}
                     index={index % RECORD_PAGE_SIZE}
                     onOpenReport={openReport}
-                    isReportOpen={reportOpen && selectedRecord?.id === record.id}
+                    isReportOpen={selectedRecord?.id === record.id}
                   />
                 ))
               ) : (
@@ -408,6 +378,8 @@ export function DashboardInterviewsPage() {
           open={reportOpen}
           record={selectedRecord}
           onClose={closeReport}
+          onExited={handleReportExited}
+          onHide={() => hideRecord(selectedRecord.id)}
         />
       ) : null}
     </PageLayout>

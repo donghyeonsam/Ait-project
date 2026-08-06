@@ -147,8 +147,8 @@ describe('SessionTheater recording controls', () => {
     expect(screen.queryByRole('button', { name: '답변 종료' })).toBeNull()
   })
 
-  it('시연 질문 영상에서 답변 청취 영상으로 겹쳐 전환한다', async () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0)
+  it('질문 중에는 사진을 유지하고 답변 경청 영상으로 전환한다', async () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
     const onQuestionPlaying = vi.fn()
     const onQuestionEnded = vi.fn()
     const { container, rerender } = render(
@@ -178,7 +178,8 @@ describe('SessionTheater recording controls', () => {
     expect(questionVideo.muted).toBe(false)
     expect(questionVideo.volume).toBe(0.7)
     fireEvent.playing(questionVideo)
-    expect(questionVideo).toHaveClass('is-active')
+    expect(questionVideo).not.toHaveClass('is-active')
+    expect(screen.getByAltText('AI 면접관')).toBeVisible()
     expect(onQuestionPlaying).toHaveBeenCalledWith('0:1:demo')
 
     rerender(
@@ -200,6 +201,7 @@ describe('SessionTheater recording controls', () => {
     rerender(
       <SessionTheater
         {...defaultProps}
+        answerStatus="recording"
         demoVideoQuestionKey="0:1:demo"
         demoQuestionVideoSrc="/demo-interview-video/question_1.mp4"
         demoVideoQuestionActive={false}
@@ -210,15 +212,28 @@ describe('SessionTheater recording controls', () => {
 
     const listeningVideo = await waitFor(() => {
       const video = container.querySelector<HTMLVideoElement>(
-        'video[src="/interviewer_video/평시_숨쉬기.mp4"]',
+        'video[src="/interviewer_video/평시_깜빡임3회.mp4"]',
       )
       expect(video).not.toBeNull()
       return video!
     })
-    expect(questionVideo).toBeInTheDocument()
+    expect(questionVideo).not.toBeInTheDocument()
     fireEvent.playing(listeningVideo)
 
     expect(questionVideo).not.toHaveClass('is-active')
     expect(listeningVideo).toHaveClass('is-active')
+
+    random.mockReturnValue(0.5)
+    fireEvent.ended(listeningVideo)
+
+    const nextListeningVideo = await waitFor(() => {
+      const video = container.querySelector<HTMLVideoElement>(
+        'video[src="/interviewer_video/평시_눈 2번 깜빡임.mp4"]',
+      )
+      expect(video).not.toBeNull()
+      return video!
+    })
+    fireEvent.playing(nextListeningVideo)
+    expect(nextListeningVideo).toHaveClass('is-active')
   })
 })

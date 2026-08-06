@@ -152,29 +152,22 @@ export function SessionTheater({
     <div ref={stageRef} className="session-theater screen-fade-in">
       <h1 className="sr-only">AI 모의면접 진행</h1>
 
-      {demoVideoQuestionKey ? (
-        <DemoInterviewerVideo
-          posterSrc={INTERVIEWER_IMAGE_SRC}
-          questionKey={demoVideoQuestionKey}
-          questionVideoSrc={demoQuestionVideoSrc}
-          isQuestionPlaybackActive={
-            demoVideoQuestionActive ?? isAiSpeaking
-          }
-          speakerMuted={speakerMuted}
-          speakerVolume={speakerVolume}
-          onQuestionPlaying={onDemoQuestionVideoPlaying}
-          onQuestionEnded={onDemoQuestionVideoEnded}
-          onQuestionPlaybackError={onDemoQuestionVideoPlaybackError}
-        />
-      ) : (
-        <div className="interviewer-media">
-          <img
-            src={INTERVIEWER_IMAGE_SRC}
-            alt="AI 면접관"
-            className="interviewer-media-poster"
-          />
-        </div>
-      )}
+      <DemoInterviewerVideo
+        posterSrc={INTERVIEWER_IMAGE_SRC}
+        questionKey={
+          demoVideoQuestionKey ?? `${questionIndex}:${question}`
+        }
+        questionVideoSrc={demoQuestionVideoSrc}
+        isQuestionPlaybackActive={
+          demoVideoQuestionActive ?? isAiSpeaking
+        }
+        isListeningPlaybackActive={isRecording}
+        speakerMuted={speakerMuted}
+        speakerVolume={speakerVolume}
+        onQuestionPlaying={onDemoQuestionVideoPlaying}
+        onQuestionEnded={onDemoQuestionVideoEnded}
+        onQuestionPlaybackError={onDemoQuestionVideoPlaybackError}
+      />
       <div className="session-theater-scrim" aria-hidden="true" />
 
       <header className="session-theater-header">
