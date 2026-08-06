@@ -34,7 +34,7 @@ public class StudyGroupChatController {
         Long currentUserId = Long.valueOf(authentication.getPrincipal().toString());
 
         // 1. 서비스 로직 호출: 채팅을 DB에 저장하고, 유저 닉네임/프사가 포함된 Response DTO로 반환받습니다.
-        ChatDto.Response response = chatService.saveChat(groupId, currentUserId, request.getMessage());
+        ChatDto.Response response = chatService.saveChat(groupId, currentUserId, request);
 
         // 2. 우체국을 통해 구독자들에게 배달
         // "/topic/study-groups/1" 을 구독하고 있는 모든 클라이언트에게 방금 저장된 채팅 내역을 쏴줍니다.
