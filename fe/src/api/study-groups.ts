@@ -74,6 +74,13 @@ export interface StudyGroupQuery {
   size?: number
 }
 
+export interface StudyGroupKickedMember {
+  userId: number
+  nickname: string
+  profileImageUrl: string | null
+  kickedAt: string | null
+}
+
 export interface StudyGroupApplication {
   applicationId: number
   userId: number
@@ -156,6 +163,23 @@ export function updateStudyGroupStatus(
     method: 'PATCH',
     body: JSON.stringify({ status }),
   })
+}
+
+// TODO: 실제 API 연동 필요 — BE 엔드포인트 준비 중이며 아래 계약을 제안한 상태다.
+// 방장만 호출할 수 있고, 이 그룹에서 KICKED 상태인 멤버 목록을 돌려준다.
+export function getStudyGroupKickedMembers(groupId: number) {
+  return backendRequest<StudyGroupKickedMember[]>(
+    `/api/study-groups/${groupId}/members/kicked`,
+  )
+}
+
+// TODO: 실제 API 연동 필요 — BE 엔드포인트 준비 중이며 아래 계약을 제안한 상태다.
+// 추방 기록을 해제해 대상이 일반 가입 신청 플로우를 다시 탈 수 있게 한다.
+export function allowStudyGroupRejoin(groupId: number, targetUserId: number) {
+  return backendRequest<void>(
+    `/api/study-groups/${groupId}/members/kicked/${targetUserId}`,
+    { method: 'DELETE' },
+  )
 }
 
 export function applyToStudyGroup(groupId: number, message: string) {

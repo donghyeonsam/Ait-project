@@ -1,4 +1,4 @@
-import { LockKeyhole, UserRoundCog } from 'lucide-react'
+import { LockKeyhole, UserRoundCog, UserRoundX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface StudyGroupManagerPanelProps {
@@ -6,16 +6,18 @@ interface StudyGroupManagerPanelProps {
   isRecruiting: boolean
   onRecruitingChange: (isRecruiting: boolean) => void
   onReviewApplications: () => void
+  onManageKickedMembers: () => void
   onTransferLeadership: () => void
   onDeleteGroup: () => void
 }
 
-// 그룹장이 모집 상태와 가입 신청, 권한 위임, 그룹 삭제 행동을 관리한다.
+// 그룹장이 모집 상태와 가입 신청, 추방 멤버, 권한 위임, 그룹 삭제 행동을 관리한다.
 export function StudyGroupManagerPanel({
   applicantCount,
   isRecruiting,
   onRecruitingChange,
   onReviewApplications,
+  onManageKickedMembers,
   onTransferLeadership,
   onDeleteGroup,
 }: StudyGroupManagerPanelProps) {
@@ -74,16 +76,26 @@ export function StudyGroupManagerPanel({
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={onReviewApplications}
-        className="mt-3 inline-flex items-center gap-3 rounded-ait-s text-body-2 text-text-primary hover:text-action-primary"
-      >
-        가입 신청 검토
-        <span className="inline-flex size-5 items-center justify-center rounded-ait-pill bg-status-error text-caption font-semibold text-surface-default">
-          {applicantCount}
-        </span>
-      </button>
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+        <button
+          type="button"
+          onClick={onReviewApplications}
+          className="inline-flex items-center gap-3 rounded-ait-s text-body-2 text-text-primary hover:text-action-primary"
+        >
+          가입 신청 검토
+          <span className="inline-flex size-5 items-center justify-center rounded-ait-pill bg-status-error text-caption font-semibold text-surface-default">
+            {applicantCount}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={onManageKickedMembers}
+          className="inline-flex items-center gap-1.5 rounded-ait-s text-body-2 text-text-primary hover:text-action-primary"
+        >
+          <UserRoundX className="size-4" aria-hidden="true" />
+          추방 멤버 관리
+        </button>
+      </div>
 
       <div className="mt-3 flex flex-wrap justify-end gap-2">
         <button
