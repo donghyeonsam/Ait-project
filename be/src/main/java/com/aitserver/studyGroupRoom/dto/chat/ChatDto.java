@@ -2,27 +2,54 @@ package com.aitserver.studyGroupRoom.dto.chat;
 
 import com.aitserver.studyGroupRoom.entity.StudyGroupChat;
 import com.aitserver.studyGroupRoom.entity.StudyGroupChatReaction;
+import com.aitserver.studyGroupRoom.entity.StudyGroupFile;
+import com.aitserver.studyGroupRoom.enums.ChatType;
+import com.aitserver.studyGroupRoom.enums.FileType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ChatDto {
 
-    // 1. 프론트엔드 -> 백엔드
+    // 💡 프론트엔드 -> 백엔드 (메시지와 파일 목록을 한 번에 받음)
     @Getter
     @NoArgsConstructor
     @AllArgsConstructor
     public static class Request {
-        private String message;
+        private ChatType chatType;       // TEXT, FILE, SYSTEM
+        private String message;          // 파일 전송 시 null일 수 있음
+        private List<FileDto> files = new ArrayList<>(); // 다중 파일 지원
     }
 
-    // 2. 백엔드 -> 프론트엔드 (채팅 뿌려줄 때)
+    // 💡 파일 정보를 담는 내부 DTO
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class FileDto {
+        private String originalFilename;
+        private String storedFilename;
+        private FileType fileType;
+        private Long fileSize;
+
+        public static FileDto from(StudyGroupFile file) {
+            return FileDto.builder()
+                    .originalFilename(file.getOriginalFilename())
+                    .storedFilename(file.getStoredFilename())
+                    .fileType(file.getFileType())
+                    .fileSize(file.getFileSize())
+                    .build();
+        }
+    }
+
+    // 백엔드 -> 프론트엔드
     @Getter
     @Builder
     @NoArgsConstructor
@@ -33,7 +60,11 @@ public class ChatDto {
         private Long senderId;
         private String senderNickname;
         private String profileImageUrl;
+
+        private ChatType chatType;
         private String message;
+        private List<FileDto> files;
+
         private LocalDateTime createdAt;
         private List<ReactionSummary> reactions;
 
@@ -44,6 +75,12 @@ public class ChatDto {
                     .senderId(chat.getUser().getId())
                     .senderNickname(senderNickname)
                     .profileImageUrl(profileImageUrl)
+                    .chatType(chat.getChatType())
+
+                    .files(chat.getFiles().stream()
+                            .map(FileDto::from)
+                            .toList())
+
                     .message(chat.getMessage())
                     .createdAt(chat.getCreatedAt())
                     .reactions(ReactionSummary.from(chat.getReactions()))
@@ -81,7 +118,7 @@ public class ChatDto {
     @Getter
     @AllArgsConstructor
     public static class CursorResponse {
-        private List<Response> chats; // 채팅 목록
-        private boolean hasNext;      // 다음 데이터 존재 여부
+        private List<Response> chats;
+        private boolean hasNext;
     }
 }

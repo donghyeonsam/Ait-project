@@ -870,7 +870,7 @@ CREATE TABLE `study_group_files` (
                                      `chat_id` BIGINT NOT NULL,           -- 어떤 채팅에서 올라온 파일인지 연결
                                      `user_id` BIGINT NOT NULL,           -- 누가 올렸는지 식별
                                      `original_filename` VARCHAR(255) NOT NULL,
-                                     `stored_url` VARCHAR(500) NOT NULL,  -- 실제 저장된 경로 (S3 URL 등)
+                                     `stored_filename` VARCHAR(500) NOT NULL,  -- 실제 저장된 경로 (S3 URL 등)
                                      `file_type` ENUM('IMAGE', 'PDF', 'DOCUMENT', 'ZIP', 'OTHER') NOT NULL DEFAULT 'OTHER',
                                      `file_size` BIGINT DEFAULT 0,        -- 파일 크기 (선택사항, 바이트 단위)
                                      `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
