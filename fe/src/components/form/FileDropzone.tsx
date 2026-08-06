@@ -5,7 +5,8 @@ import { formatFileSize } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { CommunityPostFile } from '@/types/community'
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024
+const MAX_FILE_SIZE = 50 * 1024 * 1024
+const MAX_TOTAL_SIZE = 200 * 1024 * 1024
 const MAX_FILES = 5
 const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'pdf']
 
@@ -41,7 +42,7 @@ export function FileDropzone({
         continue
       }
       if (file.size > MAX_FILE_SIZE) {
-        nextError = '파일 하나당 10MB까지 첨부할 수 있어요.'
+        nextError = '파일 하나당 50MB까지 첨부할 수 있어요.'
         continue
       }
       if (next.some((item) => item.name === file.name && item.size === file.size)) {
@@ -50,6 +51,11 @@ export function FileDropzone({
       if (uploadedFiles.length + next.length >= MAX_FILES) {
         nextError = '파일은 최대 5개까지 첨부할 수 있어요.'
         break
+      }
+      const totalSize = next.reduce((sum, item) => sum + item.size, 0) + file.size
+      if (totalSize > MAX_TOTAL_SIZE) {
+        nextError = '첨부파일은 총 200MB까지 첨부할 수 있어요.'
+        continue
       }
       next.push(file)
     }
@@ -99,7 +105,7 @@ export function FileDropzone({
           여기에 파일을 끌어다 놓거나 클릭해서 선택하세요.
         </span>
         <span className="text-caption text-ink-400">
-          png · jpg · jpeg · pdf, 개당 10MB, 최대 5개
+          png · jpg · jpeg · pdf, 개당 50MB, 총 200MB
         </span>
       </button>
       <input

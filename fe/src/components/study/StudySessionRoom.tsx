@@ -11,6 +11,7 @@ import {
   RoomContext,
   VideoTrack,
   isTrackReference,
+  useDataChannel,
   useLocalParticipant,
   useRemoteParticipants,
   useRoomContext,
@@ -46,8 +47,12 @@ import { FloatingChatButton } from '@/components/study/FloatingChatButton'
 import { HoverVolumeButton } from '@/components/study/HoverVolumeButton'
 import { ParticipantTile } from '@/components/study/ParticipantTile'
 import { ScreenShareTile } from '@/components/study/ScreenShareTile'
-import { StudySessionSidePanel } from '@/components/study/StudySessionSidePanel'
+import {
+  StudySessionSidePanel,
+  type StudySessionEvaluationProgress,
+} from '@/components/study/StudySessionSidePanel'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   Dialog,
   DialogContent,
@@ -109,6 +114,9 @@ const MAX_STAGE_PARTICIPANTS = 4
 const PANEL_WIDTH = 320
 // 패널 폭 전환(--duration-base)과 같은 값. 전환이 끝날 때까지 실측 리사이즈 대신 예측값을 쓴다.
 const PANEL_TRANSITION_MS = 250
+// 참가자별 상호평가 진행 여부를 서로 알리는 데이터 채널 토픽. 채팅과 같은 Room 데이터 채널을 공유하되
+// 이 토픽으로만 필터링해 받는다.
+const EVALUATION_PROGRESS_TOPIC = 'peer-eval-progress'
 
 // 네이티브 select는 옵션 목록이 브라우저가 그리는 팝업이라 다크 패널과 무관하게 흰 배경으로 렌더링된다.
 // 공용 Dropdown(커스텀 listbox)을 쓰면 목록도 우리 스타일로 그려지므로, 장치설정바(bg-theater-backdrop)에
@@ -613,11 +621,54 @@ function StudySessionRoomStage({
   const selfId = participants.find((participant) => participant.isSelf)?.participantId ?? null
   const isHost = connection.role === 'HOST'
 
+  // 상호평가 진행률을 알려주는 서버 API가 없어, 각자 자신의 완료 여부를 데이터 채널로 서로
+  // 알리고 취합한다. 세션 종료·나가기 확인에서 "아직 평가가 안 끝난 사람이 있는지" 판단하는 용도다.
+  const [myEvaluationProgress, setMyEvaluationProgress] = useState<StudySessionEvaluationProgress>({
+    completed: 0,
+    total: 0,
+  })
+  const myEvaluationDone = myEvaluationProgress.completed >= myEvaluationProgress.total
+  const myIncompleteEvaluationCount = Math.max(
+    myEvaluationProgress.total - myEvaluationProgress.completed,
+    0,
+  )
+
+  const [remoteEvaluationDoneByUserId, setRemoteEvaluationDoneByUserId] = useState<Map<number, boolean>>(
+    new Map(),
+  )
+
+  const { send: sendEvaluationProgress } = useDataChannel(EVALUATION_PROGRESS_TOPIC, (message) => {
+    const senderUserId = message.from ? parseUserIdFromIdentity(message.from.identity) : null
+    if (senderUserId === null) return
+    try {
+      const payload = JSON.parse(new TextDecoder().decode(message.payload)) as { done?: boolean }
+      setRemoteEvaluationDoneByUserId((prev) => new Map(prev).set(senderUserId, payload.done === true))
+    } catch {
+      // 알 수 없는 형식의 메시지는 무시한다.
+    }
+  })
+
+  // 내 진행 상황이 바뀔 때, 그리고 누군가 새로 들어와 아직 내 상태를 모를 수 있을 때 다시 알린다.
+  useEffect(() => {
+    const payload = new TextEncoder().encode(JSON.stringify({ done: myEvaluationDone }))
+    void sendEvaluationProgress(payload, { reliable: true })
+  }, [myEvaluationDone, sendEvaluationProgress, remoteParticipants.length])
+
+  // 이미 나간 사람의 완료 여부는 더 이상 의미가 없으므로, 지금 남아 있는 참가자만 센다.
+  const remoteIncompleteEvaluatorCount = remoteParticipants.filter((participant) => {
+    const userId = parseUserIdFromIdentity(participant.identity)
+    return userId !== null && remoteEvaluationDoneByUserId.get(userId) !== true
+  }).length
+  const hasIncompleteEvaluations = !myEvaluationDone || remoteIncompleteEvaluatorCount > 0
+
   const [panelOpen, setPanelOpen] = useState(false)
   const [micGain, setMicGain] = useState(initialDevices.micGain)
   const [speakerMuted, setSpeakerMuted] = useState(false)
   const [speakerVolume, setSpeakerVolume] = useState(initialDevices.speakerVolume)
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
+  // 평가 미완료 상태로 종료·나가기를 시도할 때 거치는 방어 단계.
+  // host1 → host2는 방장 종료 전용 2단계 경고, member는 참가자 나가기 경고다.
+  const [evalWarningStep, setEvalWarningStep] = useState<'host1' | 'host2' | 'member' | null>(null)
   const [leaving, setLeaving] = useState(false)
   const [leaveError, setLeaveError] = useState<string | null>(null)
   const [kickTarget, setKickTarget] = useState<{ participantId: number; name: string } | null>(null)
@@ -892,11 +943,24 @@ function StudySessionRoomStage({
     })
   }
 
+  // 나가기·종료 버튼을 누르면, 평가가 덜 끝난 상태인지에 따라 다른 확인 절차로 보낸다.
+  // 다 끝났다면 평소처럼 단순 확인 다이얼로그로, 아니라면 경고 단계부터 거치게 한다.
+  const handleLeaveButtonClick = () => {
+    if (isHost) {
+      setEvalWarningStep(hasIncompleteEvaluations ? 'host1' : null)
+      setLeaveDialogOpen(!hasIncompleteEvaluations)
+      return
+    }
+    setEvalWarningStep(myIncompleteEvaluationCount > 0 ? 'member' : null)
+    setLeaveDialogOpen(myIncompleteEvaluationCount === 0)
+  }
+
   // 방장이 나가면 세션 자체를 종료한다 — 참가자만 따로 나가는 API는 없고, 방장이 없는 세션을 계속
   // 유지할 방법도 없기 때문이다. 종료 요청이 실패하면 나가기를 진행하지 않고 재시도할 수 있게 한다.
   const handleConfirmLeave = async () => {
     if (!isHost) {
       setLeaveDialogOpen(false)
+      setEvalWarningStep(null)
       onLeave()
       return
     }
@@ -906,6 +970,7 @@ function StudySessionRoomStage({
     try {
       await endStudySession(connection.sessionId)
       setLeaveDialogOpen(false)
+      setEvalWarningStep(null)
       onLeave()
     } catch (error) {
       setLeaveError(toErrorMessage(error))
@@ -1354,7 +1419,7 @@ function StudySessionRoomStage({
             <button
               type="button"
               aria-label="세션 나가기"
-              onClick={() => setLeaveDialogOpen(true)}
+              onClick={handleLeaveButtonClick}
               className="flex size-12 items-center justify-center rounded-ait-l bg-status-error text-white shadow-elevation-2 transition-colors hover:opacity-90"
             >
               <Phone className="size-5" aria-hidden="true" />
@@ -1376,7 +1441,11 @@ function StudySessionRoomStage({
           style={{ width: panelOpen ? PANEL_WIDTH : 0 }}
         >
           <div className="h-full" style={{ width: PANEL_WIDTH }}>
-            <StudySessionSidePanel sessionId={connection.sessionId} participants={seenParticipants} />
+            <StudySessionSidePanel
+              sessionId={connection.sessionId}
+              participants={seenParticipants}
+              onEvaluationProgressChange={setMyEvaluationProgress}
+            />
           </div>
         </div>
       </div>
@@ -1409,6 +1478,54 @@ function StudySessionRoomStage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 방장 종료 1단계: 아직 평가 중인 스터디원이 있다는 사실만 먼저 알린다. */}
+      <ConfirmDialog
+        open={evalWarningStep === 'host1'}
+        onOpenChange={(open) => {
+          if (!open) setEvalWarningStep(null)
+        }}
+        title="아직 평가중인 스터디원이 있어요"
+        description="그래도 세션을 종료하실 건가요?"
+        cancelLabel="계속 참여"
+        confirmLabel="그래도 종료"
+        confirmVariant="destructive"
+        onConfirm={() => setEvalWarningStep('host2')}
+      />
+
+      {/* 방장 종료 2단계: 실제로 놓치게 되는 결과를 한 번 더 못박는 마지막 확인. */}
+      <ConfirmDialog
+        open={evalWarningStep === 'host2'}
+        onOpenChange={(open) => {
+          if (leaving) return
+          if (!open) {
+            setEvalWarningStep(null)
+            setLeaveError(null)
+          }
+        }}
+        title="이대로 세션을 종료하면 평가를 받지 못하는 스터디원이 생깁니다"
+        cancelLabel="취소"
+        confirmLabel={leaving ? '종료 중…' : '그래도 종료'}
+        confirmVariant="destructive"
+        isConfirming={leaving}
+        onConfirm={() => void handleConfirmLeave()}
+      >
+        {leaveError ? <p className="text-body-2 text-status-error">{leaveError}</p> : null}
+      </ConfirmDialog>
+
+      {/* 참가자 나가기: 본인이 아직 평가하지 않은 인원이 남아 있을 때만 건너뛰어도 괜찮은지 확인한다. */}
+      <ConfirmDialog
+        open={evalWarningStep === 'member'}
+        onOpenChange={(open) => {
+          if (!open) setEvalWarningStep(null)
+        }}
+        title={`아직 ${myIncompleteEvaluationCount}명의 평가를 완료하지 않았습니다`}
+        description="평가를 건너뛸까요?"
+        cancelLabel="취소"
+        confirmLabel="나가기"
+        confirmVariant="destructive"
+        onConfirm={() => void handleConfirmLeave()}
+      />
 
       <Dialog
         open={kickTarget !== null}

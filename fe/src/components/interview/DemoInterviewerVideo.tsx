@@ -18,6 +18,7 @@ interface DemoInterviewerVideoProps {
   questionKey: string
   questionVideoSrc: string | null
   isQuestionPlaybackActive: boolean
+  isListeningPlaybackActive: boolean
   speakerMuted: boolean
   speakerVolume: number
   onQuestionPlaying: (playbackKey: string) => void
@@ -28,12 +29,13 @@ interface DemoInterviewerVideoProps {
   ) => void
 }
 
-// 시연 계정에서 질문 영상과 답변 청취 영상을 짧게 겹쳐 전환한다.
+// 질문 중에는 포스터를 유지하고, 답변 경청 중에는 동작 영상을 순환한다.
 export function DemoInterviewerVideo({
   posterSrc,
   questionKey,
   questionVideoSrc,
   isQuestionPlaybackActive,
+  isListeningPlaybackActive,
   speakerMuted,
   speakerVolume,
   onQuestionPlaying,
@@ -46,7 +48,6 @@ export function DemoInterviewerVideo({
   const desiredLayerIdRef = useRef<number | null>(null)
   const layerIdRef = useRef(0)
   const phaseRef = useRef('')
-  const reactionPlayedRef = useRef(false)
   const cleanupTimerRef = useRef<number | null>(null)
   const videoElementsRef = useRef<Map<number, HTMLVideoElement>>(new Map())
   const blockedLayerIdRef = useRef<number | null>(null)
@@ -93,30 +94,27 @@ export function DemoInterviewerVideo({
   }, [clearCleanupTimer])
 
   const playNextListeningVideo = useCallback(() => {
-    const selection = selectListeningVideo(
-      Math.random,
-      !reactionPlayedRef.current,
-    )
-    if (selection.category === 'reaction') {
-      reactionPlayedRef.current = true
-    }
+    const selection = selectListeningVideo(Math.random)
     transitionToVideo(selection.src, 'listening')
   }, [transitionToVideo])
 
   useEffect(() => {
-    reactionPlayedRef.current = false
-  }, [questionKey])
-
-  useEffect(() => {
     const phase = isQuestionPlaybackActive
       ? `question:${questionKey}:${questionVideoSrc ?? 'poster'}`
-      : `listening:${questionKey}`
+      : isListeningPlaybackActive
+        ? `listening:${questionKey}`
+        : `idle:${questionKey}`
     if (phaseRef.current === phase) return
     const transitionTimer = window.setTimeout(() => {
       phaseRef.current = phase
 
-      if (!isQuestionPlaybackActive) {
+      if (isListeningPlaybackActive && !isQuestionPlaybackActive) {
         playNextListeningVideo()
+        return
+      }
+
+      if (!isQuestionPlaybackActive) {
+        transitionToPoster()
         return
       }
 
@@ -130,6 +128,7 @@ export function DemoInterviewerVideo({
 
     return () => window.clearTimeout(transitionTimer)
   }, [
+    isListeningPlaybackActive,
     isQuestionPlaybackActive,
     playNextListeningVideo,
     questionKey,
@@ -159,8 +158,9 @@ export function DemoInterviewerVideo({
 
     clearCleanupTimer()
     blockedLayerIdRef.current = null
-    activeLayerIdRef.current = layer.id
-    setActiveLayerId(layer.id)
+    const nextActiveLayerId = layer.kind === 'listening' ? layer.id : null
+    activeLayerIdRef.current = nextActiveLayerId
+    setActiveLayerId(nextActiveLayerId)
     if (layer.kind === 'question' && layer.playbackKey) {
       onQuestionPlaying(layer.playbackKey)
     }
@@ -209,12 +209,7 @@ export function DemoInterviewerVideo({
   }
 
   const handleEnded = (layer: VideoLayer) => {
-    if (
-      layer.id !== activeLayerIdRef.current ||
-      layer.id !== desiredLayerIdRef.current
-    ) {
-      return
-    }
+    if (layer.id !== desiredLayerIdRef.current) return
 
     if (layer.kind === 'question' && layer.playbackKey) {
       onQuestionEnded(layer.playbackKey)

@@ -6,6 +6,7 @@ import {
   toggleCommentLike,
   updateComment,
 } from '@/api/community'
+import { ProfileAvatar } from '@/components/common/ProfileAvatar'
 import { CommentComposer } from '@/components/community/CommentComposer'
 import { CommentItem } from '@/components/community/CommentItem'
 import { SegmentedControl } from '@/components/form/SegmentedControl'
@@ -168,7 +169,11 @@ export function CommentSection({
       {allowComments ? (
         <div className="mt-5 border-b border-line pb-6">
           <div className="flex items-start gap-3">
-            <span aria-hidden="true" className="mt-0.5 size-10 shrink-0 rounded-ait-pill bg-profile-avatar" />
+            <ProfileAvatar
+              src={user?.profileImageUrl}
+              fallbackLabel={user?.nickname.slice(0, 1) ?? ''}
+              className="mt-0.5 size-10 shrink-0"
+            />
             <div className="flex-1">
               <CommentComposer onSubmit={submitComment} />
             </div>

@@ -30,5 +30,5 @@ public interface PeerFeedbackRepository extends JpaRepository<PeerFeedback, Long
             Long sessionId
     );
 
-
+    List<PeerFeedback> findTop4ByEvaluateeIdOrderByCreatedAtDesc(Long evaluateeId);
 }

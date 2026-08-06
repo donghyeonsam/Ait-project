@@ -38,5 +38,24 @@ public interface AiInterviewsRepository extends JpaRepository<AiInterview, Long>
             """)
     List<ReportListResponse> findReportListByUserId(@Param("userId") Long userId);
 
+    @Query("""
+            select new com.aitserver.aiInterview.responseDto.ReportListResponse(
+                i.id,
+                i.interviewType,
+                i.difficulty,
+                i.aiAttitudeStyle,
+                i.status,
+                (r.eyeContactScore + r.faceScore + r.voiceScore + r.qnaScore + r.sentenceScore) / 5.0,
+                i.createdAt,
+                i.endedAt
+            )
+            from AiInterview i
+            join AiComprehensiveReport r on r.aiInterviewId = i.id
+            where i.userId = :userId
+            order by i.createdAt desc
+            limit 4
+            """)
+    List<ReportListResponse> findReportListByUserIdLimit(@Param("userId") Long userId);
+
     Optional<AiInterview> findByIdAndUserId(Long id, Long userId);
 }
