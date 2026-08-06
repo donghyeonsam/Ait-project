@@ -344,9 +344,23 @@ export function StudyGroupPage() {
           )}
         >
           <div>
-            <h1 id="study-group-title" className="text-h1 text-text-primary">
-              {detail.title}
-            </h1>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <h1 id="study-group-title" className="text-h1 text-text-primary">
+                {detail.title}
+              </h1>
+              {/* 그룹장은 혼자 남았을 때만 나갈 수 있고 그룹까지 삭제되므로, 나가기는 그룹원에게만 노출하고 그룹장은 관리 패널의 그룹 삭제를 쓴다. */}
+              {isLeader ? null : (
+                <Button
+                  type="button"
+                  variant="text"
+                  className="text-status-error"
+                  onClick={() => setIsLeaveDialogOpen(true)}
+                >
+                  <LogOut aria-hidden="true" />
+                  그룹 나가기
+                </Button>
+              )}
+            </div>
             <p className="mt-3 text-body-2 text-text-secondary">
               {detail.description}
             </p>
@@ -414,20 +428,6 @@ export function StudyGroupPage() {
               </div>
             </div>
 
-            {/* 그룹장은 혼자 남았을 때만 나갈 수 있고 그룹까지 삭제되므로, 나가기는 그룹원에게만 노출하고 그룹장은 관리 패널의 그룹 삭제를 쓴다. */}
-            {isLeader ? null : (
-              <div className="mt-4 flex justify-end">
-                <Button
-                  type="button"
-                  variant="text"
-                  className="text-status-error"
-                  onClick={() => setIsLeaveDialogOpen(true)}
-                >
-                  <LogOut aria-hidden="true" />
-                  그룹 나가기
-                </Button>
-              </div>
-            )}
           </div>
 
           {isLeader ? (
