@@ -84,9 +84,18 @@ export function Step5DeviceSetup({
       <h2 id="step5-title" className="sr-only">환경 설정</h2>
 
       <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
-        <div className="flex aspect-video w-full shrink-0 flex-col items-center justify-center gap-3 overflow-hidden rounded-ait-m border border-border-default bg-status-neutral-surface text-text-secondary lg:w-3/5">
+        <div className="relative flex aspect-video w-full shrink-0 flex-col items-center justify-center gap-3 overflow-hidden rounded-ait-m border border-border-default bg-status-neutral-surface text-text-secondary lg:w-3/5">
           {permission === 'granted' ? (
-            <video ref={videoRef} autoPlay playsInline muted className="size-full -scale-x-100 object-cover" />
+            <>
+              <video ref={videoRef} autoPlay playsInline muted className="size-full -scale-x-100 object-cover" />
+              {/* 사용자가 캠 중앙에 위치하도록 유도하는 정적 실루엣 가이드. 얼굴 인식 없이 시각적 정렬용으로만 쓴다. */}
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3" aria-hidden="true">
+                <div className="aspect-3/4 h-[70%] rounded-[50%] border-2 border-dashed border-white/70 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
+              </div>
+              <p className="absolute inset-x-0 bottom-3 text-center text-body-2 font-medium text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                가이드 안에 얼굴이 오도록 위치를 맞추고 정면을 응시해 주세요
+              </p>
+            </>
           ) : permission === 'pending' ? (
             <p className="text-body-2">카메라 권한을 요청하고 있어요…</p>
           ) : permission === 'denied' ? (
