@@ -21,10 +21,21 @@ const record: InterviewRecord = {
   status: 'completed',
 }
 
-function renderModal(open: boolean, onClose = vi.fn()) {
+function renderModal(
+  open: boolean,
+  onClose = vi.fn(),
+  onExited = vi.fn(),
+  onHide = vi.fn(),
+) {
   return render(
     <MemoryRouter>
-      <ReportModal open={open} record={record} onClose={onClose} />
+      <ReportModal
+        open={open}
+        record={record}
+        onClose={onClose}
+        onExited={onExited}
+        onHide={onHide}
+      />
     </MemoryRouter>,
   )
 }
@@ -70,6 +81,29 @@ describe('ReportModal', () => {
 
     expect(onClose).toHaveBeenCalledOnce()
     expect(getInterviewReportDetail).toHaveBeenCalledWith(record.id)
+  })
+
+  it('리포트 조회에 실패하면 확인을 거쳐 숨기기를 요청한다', async () => {
+    vi.mocked(getInterviewReportDetail).mockRejectedValue(new Error('network'))
+    const onHide = vi.fn()
+    renderModal(true, vi.fn(), vi.fn(), onHide)
+
+    await screen.findByText('리포트를 불러오지 못했습니다')
+    fireEvent.click(screen.getByRole('button', { name: '이 기록 숨기기' }))
+
+    expect(
+      screen.getByText('숨기면 면접기록 목록에서 더 이상 보이지 않아요.'),
+    ).toBeInTheDocument()
+    expect(onHide).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: '취소' }))
+    expect(
+      screen.getByRole('button', { name: '이 기록 숨기기' }),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '이 기록 숨기기' }))
+    fireEvent.click(screen.getByRole('button', { name: '숨기기' }))
+    expect(onHide).toHaveBeenCalledOnce()
   })
 
   it('역량 레이더에 항목별 점수를 함께 표시한다', async () => {

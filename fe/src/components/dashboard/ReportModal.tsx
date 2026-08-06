@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { AlertCircle, ChevronDown, ThumbsUp, TrendingUp } from 'lucide-react'
@@ -18,6 +18,11 @@ interface ReportModalProps {
   open: boolean
   record: InterviewRecord
   onClose: () => void
+  // 닫힘 애니메이션까지 완전히 끝난 뒤 호출된다. 카드가 layoutId를 너무 일찍 되찾아
+  // 모달과 동시에 점유하는 충돌을 막기 위해, 부모는 이 시점에야 선택된 기록을 비운다.
+  onExited: () => void
+  // 리포트를 불러오지 못했을 때, 이 기록을 목록에서 숨기기로 확정하면 호출된다.
+  onHide: () => void
 }
 
 const focusableSelector =
@@ -166,7 +171,13 @@ type ReportDetailState =
 
 // 면접 결과 리포트 모달. 종합 점수·역량 레이더·질문별 피드백을 보여준다.
 // 접근성을 위해 열려 있는 동안 포커스를 모달 안에 가두고 Esc로 닫는다.
-export function ReportModal({ open, record, onClose }: ReportModalProps) {
+export function ReportModal({
+  open,
+  record,
+  onClose,
+  onExited,
+  onHide,
+}: ReportModalProps) {
   const navigate = useNavigate()
   const shouldReduceMotion = useReducedMotion()
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -177,6 +188,13 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
     status: 'idle',
   })
   const [requestKey, setRequestKey] = useState(0)
+  const [isHideConfirming, setHideConfirming] = useState(false)
+
+  // 닫히는 모든 경로(Esc·배경 클릭·닫기 버튼)에서 숨기기 확인 상태도 함께 초기화한다.
+  const handleClose = useCallback(() => {
+    setHideConfirming(false)
+    onClose()
+  }, [onClose])
 
   useEffect(() => {
     if (!open) {
@@ -238,7 +256,7 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onClose()
+        handleClose()
         return
       }
 
@@ -281,10 +299,10 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
       }
       previousFocusRef.current?.focus()
     }
-  }, [onClose, open])
+  }, [handleClose, open])
 
   return createPortal(
-    <AnimatePresence>
+    <AnimatePresence onExitComplete={onExited}>
       {open ? (
         <motion.div
           className="report-overlay"
@@ -294,7 +312,7 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
           transition={{ duration: shouldReduceMotion ? 0 : 0.22 }}
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
-              onClose()
+              handleClose()
             }
           }}
         >
@@ -330,8 +348,6 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
                   <time>{record.date}</time>
                   <span aria-hidden="true">·</span>
                   <span>{record.type} 면접</span>
-                  <span aria-hidden="true">·</span>
-                  <span>{record.duration}</span>
                 </p>
               </header>
 
@@ -340,17 +356,53 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
               <AlertCircle className="size-8 text-status-error" aria-hidden="true" />
               <h3 className="mt-4 text-h3">리포트를 불러오지 못했습니다</h3>
               <p className="mt-2 text-body-2 text-text-secondary">{detailError}</p>
-              <Button
-                type="button"
-                variant="secondary"
-                className="mt-6 min-w-32"
-                onClick={() => {
-                  setDetailState({ status: 'idle' })
-                  setRequestKey((key) => key + 1)
-                }}
-              >
-                다시 시도
-              </Button>
+              {isHideConfirming ? (
+                <div className="mt-6 flex flex-col items-center gap-3">
+                  <p className="text-body-2 text-text-secondary">
+                    숨기면 면접기록 목록에서 더 이상 보이지 않아요.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="min-w-24"
+                      onClick={() => setHideConfirming(false)}
+                    >
+                      취소
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      className="min-w-24"
+                      onClick={onHide}
+                    >
+                      숨기기
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-6 flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="min-w-32"
+                    onClick={() => {
+                      setDetailState({ status: 'idle' })
+                      setRequestKey((key) => key + 1)
+                    }}
+                  >
+                    다시 시도
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="min-w-32"
+                    onClick={() => setHideConfirming(true)}
+                  >
+                    이 기록 숨기기
+                  </Button>
+                </div>
+              )}
             </section>
           ) : (
             <>
@@ -498,7 +550,7 @@ export function ReportModal({ open, record, onClose }: ReportModalProps) {
                   type="button"
                   variant="secondary"
                   className="min-w-32 font-medium"
-                  onClick={onClose}
+                  onClick={handleClose}
                 >
                   닫기
                 </Button>
