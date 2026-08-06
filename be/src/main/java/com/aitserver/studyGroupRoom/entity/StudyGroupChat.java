@@ -1,5 +1,6 @@
 package com.aitserver.studyGroupRoom.entity;
 
+import com.aitserver.studyGroupRoom.enums.ChatType;
 import com.aitserver.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -30,7 +31,11 @@ public class StudyGroupChat {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false, length = 255)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "chat_type", nullable = false)
+    private ChatType chatType;
+
+    @Column(length = 255)
     private String message;
 
     @CreationTimestamp
@@ -41,10 +46,19 @@ public class StudyGroupChat {
     @OrderBy("id ASC")
     private List<StudyGroupChatReaction> reactions = new ArrayList<>();
 
+    @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<StudyGroupFile> files = new ArrayList<>();
+
     @Builder
-    public StudyGroupChat(StudyGroup studyGroup, User user, String message) {
+    public StudyGroupChat(StudyGroup studyGroup, User user, ChatType chatType, String message) {
         this.studyGroup = studyGroup;
         this.user = user;
+        this.chatType = chatType != null ? chatType : ChatType.TEXT;
         this.message = message;
+    }
+
+    public void addFile(StudyGroupFile file) {
+        this.files.add(file);
+        file.assignChat(this);
     }
 }
