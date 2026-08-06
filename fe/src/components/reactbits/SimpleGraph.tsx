@@ -1,4 +1,4 @@
-import { type CSSProperties, useId } from 'react'
+import { type CSSProperties, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
 
@@ -138,6 +138,8 @@ export function SimpleGraph({
   valueFormatter = (value) => String(value),
 }: SimpleGraphProps) {
   const { ref, isInView } = useInView<HTMLDivElement>({ threshold: 0.35 })
+  const linePathRef = useRef<SVGPathElement>(null)
+  const [lineLength, setLineLength] = useState(0)
   const id = useId().replace(/:/g, '')
   const values = data.map((point) => point.value)
   const resolvedMin = minValue ?? Math.min(0, ...values)
@@ -168,6 +170,24 @@ export function SimpleGraph({
   const areaPath = points.length
     ? `${linePath} L ${points[points.length - 1].x} ${viewBox.bottom} L ${points[0].x} ${viewBox.bottom} Z`
     : ''
+
+  // 브라우저의 pathLength 정규화는 점이 적어 세그먼트 길이 편차가 클 때 근사 오차가 생겨,
+  // 선이 마지막 점 앞에서 끊겨 보일 수 있다. 실제 렌더된 경로 길이를 직접 재서 정확한
+  // stroke-dasharray/dashoffset 기준으로 쓴다.
+  useLayoutEffect(() => {
+    const path = linePathRef.current
+    if (!path) {
+      setLineLength(0)
+      return
+    }
+    try {
+      setLineLength(path.getTotalLength())
+    } catch {
+      // jsdom 등 getTotalLength 미구현 환경에서는 이전 pathLength 방식과 동일한 값으로 대체한다.
+      setLineLength(1000)
+    }
+  }, [linePath])
+
   const style: SimpleGraphStyle = {
     width: toCssSize(width),
     // svg는 width:100%·height:auto로 viewBox 비율(720:260)에 맞춰 늘어나므로,
@@ -268,18 +288,20 @@ export function SimpleGraph({
 
         {points.length > 1 ? (
           <path
+            ref={linePathRef}
             d={linePath}
             fill="none"
             stroke={lineColor}
             strokeWidth={graphLineThickness}
             strokeLinecap="round"
             strokeLinejoin="round"
-            // 점이 2~3개뿐이라 곡선을 이루는 세그먼트 수가 적으면, pathLength를 1로 두었을 때
-            // 브라우저의 길이 근사 오차가 커져 선이 마지막 점 앞에서 살짝 끊겨 보일 수 있다.
-            // 훨씬 큰 정수로 정규화해 근사 오차의 상대적 비중을 줄인다.
-            pathLength="1000"
             vectorEffect="non-scaling-stroke"
             className="simple-graph__line"
+            style={
+              {
+                '--simple-graph-line-length': lineLength || 1000,
+              } as CSSProperties
+            }
           />
         ) : null}
 
