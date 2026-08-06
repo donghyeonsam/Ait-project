@@ -8,9 +8,29 @@ export interface StudyChatFileAttachment {
   isImage: boolean
 }
 
+// 채팅 메시지 DB 컬럼이 255자라 인코딩된 파일명이 길면 확장자를 남기고 앞부분만 유지한다.
+const maxEncodedNameLength = 120
+
+function clipOriginalFilename(name: string) {
+  if (encodeURIComponent(name).length <= maxEncodedNameLength) return name
+
+  const dotIndex = name.lastIndexOf('.')
+  const extension = dotIndex > 0 ? name.slice(dotIndex) : ''
+  // 이모지 같은 서로게이트 쌍이 중간에서 잘리지 않도록 코드 포인트 단위로 줄인다.
+  const baseChars = Array.from(dotIndex > 0 ? name.slice(0, dotIndex) : name)
+  while (
+    baseChars.length > 1 &&
+    encodeURIComponent(`${baseChars.join('')}…${extension}`).length >
+      maxEncodedNameLength
+  ) {
+    baseChars.pop()
+  }
+  return `${baseChars.join('')}…${extension}`
+}
+
 // encodeURIComponent 결과에는 ':'와 ']'가 없어 토큰 구분자와 충돌하지 않는다.
 export function toFileToken(storedFilename: string, originalFilename: string) {
-  return `[file:${encodeURIComponent(storedFilename)}:${encodeURIComponent(originalFilename)}]`
+  return `[file:${encodeURIComponent(storedFilename)}:${encodeURIComponent(clipOriginalFilename(originalFilename))}]`
 }
 
 const fileTokenPattern = /^\[file:([^:\]]+):([^:\]]*)\]$/
