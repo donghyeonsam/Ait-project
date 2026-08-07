@@ -365,6 +365,13 @@ export function StudySessionRoom({
     }
   }
 
+  // 채팅 전송이 "PC manager is closed" 같은 연결 끊김 신호로 실패했는데, LiveKit이 Disconnected
+  // 이벤트로는 이 상태를 알려주지 않을 때가 있다. 화상도 이미 끊겼을 가능성이 높으니 재시도
+  // 다이얼로그로 안내한다.
+  const handleConnectionBroken = () => {
+    setConnectionIssue(CONNECTION_TROUBLE_MESSAGE)
+  }
+
   return (
     <RoomContext.Provider value={room}>
       <RoomAudioRenderer />
@@ -376,6 +383,7 @@ export function StudySessionRoom({
         connectionIssue={connectionIssue}
         retrying={retrying}
         onManualRetry={handleManualRetry}
+        onConnectionBroken={handleConnectionBroken}
         onLeave={leaveOnce}
       />
     </RoomContext.Provider>
@@ -390,6 +398,7 @@ interface StudySessionRoomStageProps {
   connectionIssue: string | null
   retrying: boolean
   onManualRetry: () => void
+  onConnectionBroken: () => void
   onLeave: () => void
 }
 
@@ -401,6 +410,7 @@ function StudySessionRoomStage({
   connectionIssue,
   retrying,
   onManualRetry,
+  onConnectionBroken,
   onLeave,
 }: StudySessionRoomStageProps) {
   const room = useRoomContext()
@@ -1244,7 +1254,7 @@ function StudySessionRoomStage({
               </div>
             )}
 
-            <FloatingChatButton boundsRef={videoAreaRef} />
+            <FloatingChatButton boundsRef={videoAreaRef} onConnectionBroken={onConnectionBroken} />
 
             {contextMenu ? (
               <div
