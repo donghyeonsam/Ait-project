@@ -5,6 +5,7 @@ import {
   getInterviewReportDetail,
   getInterviewReports,
 } from '@/api/ai-interviews'
+import { getPeerFeedbackList } from '@/api/peer-feedback'
 import { Skeleton } from '@/components/ui/skeleton'
 import { aitEmoticons } from '@/lib/emoticons'
 
@@ -70,9 +71,9 @@ function RotatingComment({
   )
 }
 
-// 대시보드 왼쪽 상단. 지금까지 받은 모든 AI 면접 점수를 EXP로 누적해 100마다 레벨업하는
-// 도넛형 게이지로 보여주고, 옆에는 가장 최근 리포트의 잘한 점·개선점을 한 줄씩 보여준다.
-// 마스코트 표정은 순서대로 자동 전환된다(모션 최소화 선호 시 정지).
+// 대시보드 왼쪽 상단. 지금까지 받은 모든 AI 면접 점수와 스터디 상호평가 점수를 EXP로 함께
+// 누적해 100마다 레벨업하는 도넛형 게이지로 보여주고, 옆에는 가장 최근 리포트의 잘한 점·개선점을
+// 한 줄씩 보여준다. 마스코트 표정은 순서대로 자동 전환된다(모션 최소화 선호 시 정지).
 export function InterviewPowerPanel() {
   const shouldReduceMotion = useReducedMotion()
   const [mascotIndex, setMascotIndex] = useState(0)
@@ -93,25 +94,30 @@ export function InterviewPowerPanel() {
   }, [])
 
   useEffect(() => {
-    getInterviewReports()
-      .then((records) => {
+    // 스터디 상호평가 조회가 실패해도 AI 면접 EXP만으로는 패널을 계속 보여줄 수 있어 별도로 감싸 무시한다.
+    Promise.all([getInterviewReports(), getPeerFeedbackList().catch(() => [])])
+      .then(([records, peerFeedbacks]) => {
         if (!mountedRef.current) return
         const completed = records.filter((record) => record.status !== 'analyzing')
 
-        const sum = completed.reduce((total, record) => total + record.score, 0)
-        setTotalExp(sum)
+        const interviewSum = completed.reduce((total, record) => total + record.score, 0)
+        const studySum = peerFeedbacks.reduce((total, item) => total + item.scoreAvg, 0)
+        setTotalExp(interviewSum + studySum)
 
         // "이번 주 모의면접" 지표와 같은 기준(최근 7일, 오늘 포함)으로 이번 주에 얻은 EXP만 따로 더한다.
         const sevenDaysAgo = new Date()
         sevenDaysAgo.setHours(0, 0, 0, 0)
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
-        const gain = completed
+        const interviewGain = completed
           .filter((record) => {
             const date = parseRecordDate(record.date)
             return date !== null && date.getTime() >= sevenDaysAgo.getTime()
           })
           .reduce((total, record) => total + record.score, 0)
-        setWeeklyGain(gain)
+        const studyGain = peerFeedbacks
+          .filter((item) => new Date(item.createdAt).getTime() >= sevenDaysAgo.getTime())
+          .reduce((total, item) => total + item.scoreAvg, 0)
+        setWeeklyGain(interviewGain + studyGain)
 
         setLoadState('loaded')
 
@@ -229,7 +235,7 @@ export function InterviewPowerPanel() {
                   stroke="var(--color-border-default)"
                   strokeWidth={RING_STROKE_WIDTH}
                 />
-                <circle
+                <motion.circle
                   cx="50"
                   cy="50"
                   r={RING_RADIUS}
@@ -238,7 +244,9 @@ export function InterviewPowerPanel() {
                   strokeWidth={RING_STROKE_WIDTH}
                   strokeLinecap="round"
                   strokeDasharray={RING_CIRCUMFERENCE}
-                  strokeDashoffset={ringOffset}
+                  initial={shouldReduceMotion ? false : { strokeDashoffset: RING_CIRCUMFERENCE }}
+                  animate={{ strokeDashoffset: ringOffset }}
+                  transition={{ duration: shouldReduceMotion ? 0 : 1, ease: 'easeOut' }}
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
