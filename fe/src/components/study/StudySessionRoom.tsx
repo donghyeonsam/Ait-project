@@ -18,6 +18,7 @@ import {
   useSpeakingParticipants,
   useTracks,
 } from '@livekit/components-react'
+import type { ReceivedDataMessage } from '@livekit/components-core'
 import {
   ConnectionError,
   ConnectionErrorReason,
@@ -230,6 +231,17 @@ export function StudySessionRoom({
   const [connectionIssue, setConnectionIssue] = useState<string | null>(null)
   const [retrying, setRetrying] = useState(false)
 
+  // onLeave는 방장의 종료 확인(handleConfirmLeave)과 LiveKit 강제 disconnect(ROOM_DELETED 등,
+  // 방장 스스로 세션을 끝냈을 때도 서버가 방을 지우면서 곧바로 발생한다) 두 경로에서 거의 동시에
+  // 불릴 수 있다. navigate()가 두 번 겹치면 라우팅 전환이 꼬여 세션 화면에 멈추는 문제가 있어,
+  // 한 세션에서 실제로는 한 번만 나가도록 막는다.
+  const hasLeftRef = useRef(false)
+  const leaveOnce = useCallback(() => {
+    if (hasLeftRef.current) return
+    hasLeftRef.current = true
+    onLeave()
+  }, [onLeave])
+
   useEffect(() => {
     // 매 이펙트 실행마다 새 Room을 만든다. React StrictMode의 개발 모드 이중 실행(mount→cleanup→mount)에서
     // 첫 시도가 connect 도중 취소되면 그 Room의 내부 엔진(RTCEngine)이 손상된 상태로 남는데,
@@ -281,7 +293,7 @@ export function StudySessionRoom({
       clearGiveUpTimer()
       setReconnecting(false)
       if (reason === DisconnectReason.PARTICIPANT_REMOVED || reason === DisconnectReason.ROOM_DELETED) {
-        onLeave()
+        leaveOnce()
         return
       }
       if (reason === DisconnectReason.DUPLICATE_IDENTITY) return
@@ -353,6 +365,13 @@ export function StudySessionRoom({
     }
   }
 
+  // 채팅 전송이 "PC manager is closed" 같은 연결 끊김 신호로 실패했는데, LiveKit이 Disconnected
+  // 이벤트로는 이 상태를 알려주지 않을 때가 있다. 화상도 이미 끊겼을 가능성이 높으니 재시도
+  // 다이얼로그로 안내한다.
+  const handleConnectionBroken = () => {
+    setConnectionIssue(CONNECTION_TROUBLE_MESSAGE)
+  }
+
   return (
     <RoomContext.Provider value={room}>
       <RoomAudioRenderer />
@@ -364,7 +383,8 @@ export function StudySessionRoom({
         connectionIssue={connectionIssue}
         retrying={retrying}
         onManualRetry={handleManualRetry}
-        onLeave={onLeave}
+        onConnectionBroken={handleConnectionBroken}
+        onLeave={leaveOnce}
       />
     </RoomContext.Provider>
   )
@@ -378,6 +398,7 @@ interface StudySessionRoomStageProps {
   connectionIssue: string | null
   retrying: boolean
   onManualRetry: () => void
+  onConnectionBroken: () => void
   onLeave: () => void
 }
 
@@ -389,6 +410,7 @@ function StudySessionRoomStage({
   connectionIssue,
   retrying,
   onManualRetry,
+  onConnectionBroken,
   onLeave,
 }: StudySessionRoomStageProps) {
   const room = useRoomContext()
@@ -637,21 +659,33 @@ function StudySessionRoomStage({
     new Map(),
   )
 
-  const { send: sendEvaluationProgress } = useDataChannel(EVALUATION_PROGRESS_TOPIC, (message) => {
-    const senderUserId = message.from ? parseUserIdFromIdentity(message.from.identity) : null
-    if (senderUserId === null) return
-    try {
-      const payload = JSON.parse(new TextDecoder().decode(message.payload)) as { done?: boolean }
-      setRemoteEvaluationDoneByUserId((prev) => new Map(prev).set(senderUserId, payload.done === true))
-    } catch {
-      // 알 수 없는 형식의 메시지는 무시한다.
-    }
-  })
+  // useDataChannel에 매 렌더 새 함수를 넘기면 반환되는 send도 매 렌더 새 참조가 되어, 아래
+  // useEffect가 렌더마다(발화 강조 등 잦은 리렌더 포함) 다시 전송을 시도하게 된다. 평소엔 낭비지만
+  // 세션 종료로 연결이 끊기는 순간부터는 그 반복 전송이 전부 실패해 콘솔에 에러가 폭주한다.
+  const handleEvaluationProgressMessage = useCallback(
+    (message: ReceivedDataMessage<typeof EVALUATION_PROGRESS_TOPIC>) => {
+      const senderUserId = message.from ? parseUserIdFromIdentity(message.from.identity) : null
+      if (senderUserId === null) return
+      try {
+        const payload = JSON.parse(new TextDecoder().decode(message.payload)) as { done?: boolean }
+        setRemoteEvaluationDoneByUserId((prev) => new Map(prev).set(senderUserId, payload.done === true))
+      } catch {
+        // 알 수 없는 형식의 메시지는 무시한다.
+      }
+    },
+    [],
+  )
+
+  const { send: sendEvaluationProgress } = useDataChannel(
+    EVALUATION_PROGRESS_TOPIC,
+    handleEvaluationProgressMessage,
+  )
 
   // 내 진행 상황이 바뀔 때, 그리고 누군가 새로 들어와 아직 내 상태를 모를 수 있을 때 다시 알린다.
   useEffect(() => {
     const payload = new TextEncoder().encode(JSON.stringify({ done: myEvaluationDone }))
-    void sendEvaluationProgress(payload, { reliable: true })
+    // 연결이 끊기는 도중에는 전송이 실패할 수 있는데, 화면을 떠나는 참가자에게는 의미 없는 정보라 무시한다.
+    sendEvaluationProgress(payload, { reliable: true }).catch(() => {})
   }, [myEvaluationDone, sendEvaluationProgress, remoteParticipants.length])
 
   // 이미 나간 사람의 완료 여부는 더 이상 의미가 없으므로, 지금 남아 있는 참가자만 센다.
@@ -969,9 +1003,11 @@ function StudySessionRoomStage({
     setLeaveError(null)
     try {
       await endStudySession(connection.sessionId)
+      // onLeave()가 라우팅 이동에 실패해도(예외 발생) 다이얼로그를 먼저 닫아버리면 에러 문구를
+      // 보여줄 곳이 없어 화면만 멈춘 것처럼 보인다. 화면 전환이 확실히 시작된 뒤에 다이얼로그 상태를 정리한다.
+      onLeave()
       setLeaveDialogOpen(false)
       setEvalWarningStep(null)
-      onLeave()
     } catch (error) {
       setLeaveError(toErrorMessage(error))
     } finally {
@@ -1218,7 +1254,7 @@ function StudySessionRoomStage({
               </div>
             )}
 
-            <FloatingChatButton boundsRef={videoAreaRef} />
+            <FloatingChatButton boundsRef={videoAreaRef} onConnectionBroken={onConnectionBroken} />
 
             {contextMenu ? (
               <div

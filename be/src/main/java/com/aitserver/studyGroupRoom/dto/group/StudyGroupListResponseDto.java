@@ -13,6 +13,7 @@ public class StudyGroupListResponseDto {
     private Long id;
     private String title;
     private String description;
+    private String ownerProfileImage;
     private int capacity;
     private StudyGroupStatus groupStatus;
     private LocalDateTime createdAt;
@@ -28,6 +29,7 @@ public class StudyGroupListResponseDto {
                 .currentMemberCount(studyGroup.getCurrentMemberCount())
                 .groupStatus(studyGroup.getStatus())
                 .createdAt(studyGroup.getCreatedAt())
+                .ownerProfileImage(studyGroup.getOwner().getProfileImage())
                 .isPending(isPending)
                 .build();
     }

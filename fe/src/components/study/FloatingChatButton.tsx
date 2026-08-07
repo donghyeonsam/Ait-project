@@ -7,12 +7,16 @@ import {
   type RefObject,
 } from 'react'
 import { useChat } from '@livekit/components-react'
+import { UnexpectedConnectionState } from 'livekit-client'
 import { MessageSquare, Send, SmilePlus, X } from 'lucide-react'
 import { studyChatEmojis } from '@/components/study/studyChatEmojis'
 import { cn } from '@/lib/utils'
 
 interface FloatingChatButtonProps {
   boundsRef: RefObject<HTMLDivElement | null>
+  /** 데이터 채널 전송이 "연결 끊김" 신호(PC manager is closed 등)로 실패하면 알린다. LiveKit이 늘
+   * Disconnected 이벤트로 이 상태를 알려주지는 않아, 이걸로 화상도 이미 끊겼을 가능성을 잡아낸다. */
+  onConnectionBroken?: () => void
 }
 
 const BUTTON_SIZE = 48
@@ -61,7 +65,7 @@ const clampValue = (value: number, min: number, max: number) => Math.min(Math.ma
 // 자유롭게 드래그해서 위치를 옮길 수 있는 채팅 버튼. 누른 자리에서 채팅창이 열린다.
 // 실시간 송수신은 LiveKit Room의 데이터 채널을 쓰는 useChat()으로 처리한다 —
 // 별도 백엔드 없이 세션에 연결된 참가자끼리만 실시간으로 메시지를 주고받는다(이력은 저장되지 않음).
-export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
+export function FloatingChatButton({ boundsRef, onConnectionBroken }: FloatingChatButtonProps) {
   const buttonRef = useRef<HTMLButtonElement>(null)
   const resizeHandleRef = useRef<HTMLDivElement>(null)
   const dragState = useRef<DragState | null>(null)
@@ -77,6 +81,8 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
   const [draft, setDraft] = useState('')
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  // 전송 실패 시 초안을 비운 채 그대로 두면 메시지가 조용히 사라진 것처럼 보인다.
+  const [sendError, setSendError] = useState<string | null>(null)
   const messageListRef = useRef<HTMLDivElement>(null)
   const messageInputRef = useRef<HTMLInputElement>(null)
 
@@ -132,7 +138,18 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
     if (!trimmed || isSending) return
     setDraft('')
     setEmojiPickerOpen(false)
-    void send(trimmed)
+    setSendError(null)
+    // send()가 실패해도 이미 비운 초안은 되돌리지 않으면 메시지가 조용히 사라진 것처럼 보인다.
+    send(trimmed).catch((error: unknown) => {
+      console.error('스터디 세션 채팅 전송 실패', error)
+      setDraft(trimmed)
+      setSendError('메시지를 보내지 못했습니다. 다시 시도해 주세요.')
+      // LiveKit 엔진이 이미 닫힌 상태(PC manager is closed)인데도 Room이 Disconnected 이벤트를
+      // 안 보내주는 경우가 있어, 이 에러를 연결 끊김의 신호로 삼아 상위(재연결 다이얼로그)에 알린다.
+      if (error instanceof UnexpectedConnectionState) {
+        onConnectionBroken?.()
+      }
+    })
   }
 
   useEffect(() => {
@@ -371,6 +388,10 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
               })}
             </div>
           )}
+
+          {sendError ? (
+            <p className="shrink-0 px-3 pt-2 text-caption text-status-error">{sendError}</p>
+          ) : null}
 
           <form
             onSubmit={handleSubmit}
