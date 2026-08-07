@@ -55,6 +55,8 @@ export function StudyMaterialsPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [materialsError, setMaterialsError] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)
+  // 조회 실패 시 페이지 전체를 새로고침하지 않고 자료 조회 이펙트만 다시 돌리는 키.
+  const [materialsReloadKey, setMaterialsReloadKey] = useState(0)
   // 다음 조회에 넘길 그룹톡 커서. 이 chatId보다 오래된 메시지를 이어서 훑는다.
   const cursorRef = useRef<number | undefined>(undefined)
 
@@ -131,7 +133,7 @@ export function StudyMaterialsPage() {
     return () => {
       isActive = false
     }
-  }, [groupId, isValidGroupId])
+  }, [groupId, isValidGroupId, materialsReloadKey])
 
   // 업로드 전송과 다른 구성원의 새 첨부 실시간 반영을 위해 그룹톡 STOMP 연결을 연다.
   useEffect(() => {
@@ -414,7 +416,7 @@ export function StudyMaterialsPage() {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => navigate(0)}
+                onClick={() => setMaterialsReloadKey((key) => key + 1)}
               >
                 다시 불러오기
               </Button>
