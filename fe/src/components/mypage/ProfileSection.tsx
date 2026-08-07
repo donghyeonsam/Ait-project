@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { deleteGithubRepo } from '@/api/github'
 import { ApiError, getProfileImageUrl, toErrorMessage } from '@/api/http'
 import { checkNicknameAvailability, updateMyPageProfile } from '@/api/my-page'
 import { AccountDeletionSection } from '@/components/mypage/AccountDeletionSection'
@@ -11,9 +10,7 @@ import type { ProfileData } from '@/types/profile'
 
 interface ProfileSectionProps {
   profile: ProfileData
-  repositoryError?: string | null
   repositoryLoading?: boolean
-  onRetryRepositories?: () => void
   onRepositoryInstalled?: () => void
   onOpenDocuments: () => void
 }
@@ -65,9 +62,7 @@ function isDuplicateNicknameError(error: unknown) {
 
 export function ProfileSection({
   profile,
-  repositoryError,
   repositoryLoading,
-  onRetryRepositories,
   onRepositoryInstalled,
   onOpenDocuments,
 }: ProfileSectionProps) {
@@ -266,17 +261,6 @@ export function ProfileSection({
     }))
   }
 
-  // 서버에서 연동을 삭제한 뒤 저장본과 편집본 양쪽에서 해당 레포지토리를 제거한다.
-  const deleteRepository = async (id: number) => {
-    await deleteGithubRepo(id)
-    const removeRepository = (current: ProfileData): ProfileData => ({
-      ...current,
-      repositories: current.repositories.filter((repository) => repository.id !== id),
-    })
-    setSavedProfile(removeRepository)
-    setDraft(removeRepository)
-  }
-
   const displayed = isEditing ? draft : savedProfile
 
   return (
@@ -314,11 +298,8 @@ export function ProfileSection({
         onChangeRepositoryName={updateRepositoryName}
         isSaving={isSaving}
         saveError={saveError}
-        repositoryError={repositoryError}
         repositoryLoading={repositoryLoading}
-        onRetryRepositories={onRetryRepositories}
         onRepositoryInstalled={onRepositoryInstalled}
-        onDeleteRepository={deleteRepository}
         onOpenDocuments={onOpenDocuments}
         onStartEditing={startEditing}
         onCancelEditing={cancelEditing}

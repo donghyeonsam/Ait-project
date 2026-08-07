@@ -2,7 +2,7 @@ import { Check, Plus, UsersRound } from 'lucide-react'
 import { useEffect, useRef, type KeyboardEvent } from 'react'
 import type { StudyGroupChatMessage } from '@/api/study-group-chat'
 import type { MyStudyGroup } from '@/api/study-groups'
-import { toStudyChatPreviewText } from '@/lib/study-chat-reply'
+import { toStudyChatMessagePreview } from '@/lib/study-chat-reply'
 import { cn } from '@/lib/utils'
 
 export type StudyChatPreviewMap = Record<
@@ -170,7 +170,7 @@ export function StudyChatGroupSwitcher({
                   {preview === undefined
                     ? '최근 메시지를 불러오는 중...'
                     : preview
-                      ? toStudyChatPreviewText(preview.message)
+                      ? toStudyChatMessagePreview(preview)
                       : '아직 메시지가 없습니다.'}
                 </span>
               </span>

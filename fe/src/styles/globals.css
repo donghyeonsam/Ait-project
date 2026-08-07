@@ -442,6 +442,13 @@ button:not(:disabled) {
     var(--easing-emphasized) forwards;
 }
 
+/* 그리기 완료 뒤 대시를 제거해 경로 길이의 브라우저별 반올림과 무관하게 마지막 점까지 잇는다. */
+.simple-graph.is-active .simple-graph__line.is-drawn {
+  animation: none;
+  stroke-dasharray: none;
+  stroke-dashoffset: 0;
+}
+
 .simple-graph__area {
   opacity: 0;
   transform: scaleY(0.88);
@@ -620,52 +627,10 @@ button:not(:disabled) {
   background: var(--color-theater-backdrop);
 }
 
-/* React Bits의 경계광 패턴을 발화 상태에 맞게 단순화했다.
-   두꺼운 외곽 그림자 대신 얇은 기본 링 위로 작은 하이라이트가 천천히 이동한다. */
+/* 발화 중인 타일에 굵은 초록 테두리를 표시한다. 얇은 링 + 회전 하이라이트 방식은
+   가시성이 떨어진다는 피드백에 따라 단순하고 눈에 띄는 형태로 바꿨다. */
 .study-participant-speaking {
-  position: relative;
-  box-shadow:
-    inset 0 0 0 2px
-      color-mix(in srgb, var(--color-status-success) 82%, white),
-    inset 0 0 18px -12px
-      color-mix(in srgb, var(--color-status-success) 45%, transparent),
-    0 6px 18px -12px
-      color-mix(in srgb, var(--color-status-success) 42%, transparent);
-}
-
-@property --study-speaking-glow-angle {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-
-.study-participant-speaking::after {
-  position: absolute;
-  z-index: 5;
-  inset: 0;
-  padding: 2px;
-  border-radius: inherit;
-  background: conic-gradient(
-    from var(--study-speaking-glow-angle),
-    transparent 0 72%,
-    color-mix(in srgb, var(--color-status-success) 75%, transparent) 81%,
-    color-mix(in srgb, white 82%, var(--color-status-success)) 86%,
-    color-mix(in srgb, var(--color-status-success) 75%, transparent) 91%,
-    transparent 100%
-  );
-  content: '';
-  pointer-events: none;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  animation: study-speaking-edge-sweep 3.2s linear infinite;
-}
-
-@keyframes study-speaking-edge-sweep {
-  to {
-    --study-speaking-glow-angle: 360deg;
-  }
+  box-shadow: inset 0 0 0 4px var(--color-status-success);
 }
 
 .question-generation-message {
@@ -3022,6 +2987,7 @@ button:not(:disabled) {
   }
 
   .simple-graph__line {
+    stroke-dasharray: none !important;
     stroke-dashoffset: 0 !important;
   }
 

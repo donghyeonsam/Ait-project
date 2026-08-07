@@ -29,7 +29,7 @@ import {
   toEmoticonToken,
   type AitEmoticon,
 } from '@/lib/emoticons'
-import { toFileToken } from '@/lib/study-chat-file'
+import { toStudyGroupChatFile } from '@/lib/study-chat-file'
 import {
   toReplyToken,
   type StudyChatReplyTarget,
@@ -42,11 +42,12 @@ import {
   connectStudyGroupChat,
   deleteStudyGroupChatNotice,
   getStudyGroupChats,
+  sendStudyGroupChatFileMessage,
   sendStudyGroupChatMessage,
   sendStudyGroupChatNotice,
   setStudyGroupChatReactionForUser,
   toggleStudyGroupChatReaction,
-  uploadStudyGroupChatFile,
+  uploadStudyGroupChatFiles,
   type StudyGroupChatMessage,
 } from '@/api/study-group-chat'
 import type { Client } from '@stomp/stompjs'
@@ -297,22 +298,31 @@ export function StudyGroupChatPanel({
     setComposerPicker(null)
   }
 
-  // 파일은 업로드가 끝난 뒤 저장 파일명을 담은 토큰 메시지로 바로 전송한다.
+  // 파일은 업로드가 끝난 뒤 저장 파일명·종류·크기를 담은 FILE 메시지로 바로 전송한다.
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+    const selected = Array.from(event.target.files ?? [])
     // 같은 파일을 다시 골라도 change 이벤트가 발생하도록 입력 값을 비운다.
     event.target.value = ''
-    if (!file || !clientRef.current?.connected || isUploadingFile) return
+    if (
+      selected.length === 0 ||
+      !clientRef.current?.connected ||
+      isUploadingFile
+    )
+      return
 
     setIsUploadingFile(true)
     setFileError(null)
     try {
-      const storedFilename = await uploadStudyGroupChatFile(file)
+      const storedFilenames = await uploadStudyGroupChatFiles(selected)
       if (!clientRef.current?.connected) return
-      sendStudyGroupChatMessage(
+      sendStudyGroupChatFileMessage(
         clientRef.current,
         groupId,
-        withReplyToken(toFileToken(storedFilename, file.name)),
+        storedFilenames.map((storedFilename, index) =>
+          toStudyGroupChatFile(storedFilename, selected[index]),
+        ),
+        // 답장 중이면 답글 토큰만 message에 실어 어떤 메시지에 대한 답인지 남긴다.
+        replyTarget ? toReplyToken(replyTarget) : null,
       )
       setReplyTarget(null)
       setComposerPicker(null)
@@ -663,6 +673,7 @@ export function StudyGroupChatPanel({
           <input
             ref={fileInputRef}
             type="file"
+            multiple
             className="hidden"
             tabIndex={-1}
             aria-hidden="true"

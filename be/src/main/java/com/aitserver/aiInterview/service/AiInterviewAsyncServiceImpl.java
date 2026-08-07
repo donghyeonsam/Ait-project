@@ -16,6 +16,7 @@ import com.aitserver.global.gms.client.GmsClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -215,6 +216,7 @@ public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
     @Override
     @Transactional
     @Async
+    @CacheEvict(value = "dashboard", key = "#userId")
     public void interviewComplete(Long userId, Long aiInterviewId) {
         log.info("[===Async=== AiInterviewAsyncServiceImpl] AI 모의 면접 완료!!!");
 

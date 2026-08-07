@@ -36,6 +36,7 @@ DROP TABLE IF EXISTS `post_files`;
 DROP TABLE IF EXISTS `post_tags`;
 DROP TABLE IF EXISTS `tags`;
 DROP TABLE IF EXISTS `posts`;
+DROP TABLE IF EXISTS `study_group_files`;
 
 SET FOREIGN_KEY_CHECKS = 1;
 

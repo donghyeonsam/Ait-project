@@ -1,33 +1,33 @@
 import {
   AlertCircle,
   CalendarDays,
-  ChartNoAxesCombined,
   ChevronRight,
   ClipboardList,
   UsersRound,
 } from 'lucide-react'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { hideInterviewReport } from '@/api/ai-interviews'
 import { getDashboardSummary, type DashboardSummary } from '@/api/dashboard'
 import { toErrorMessage } from '@/api/http'
+import { toStudyRecords } from '@/api/peer-feedback'
 import { DashboardStudyCalendar } from '@/components/dashboard/DashboardStudyCalendar'
+import { InterviewPowerPanel } from '@/components/dashboard/InterviewPowerPanel'
+import { RecentReportRadar } from '@/components/dashboard/RecentReportRadar'
+import { RecentStudyRadar } from '@/components/dashboard/RecentStudyRadar'
+import { ReportModal } from '@/components/dashboard/ReportModal'
 import { ScoreTrendChart } from '@/components/dashboard/ScoreTrendChart'
+import { StudySessionReportModal } from '@/components/dashboard/StudySessionReportModal'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/lib/useAuth'
 import { cn } from '@/lib/utils'
-import type { ScoreTrendPoint } from '@/types/dashboard'
+import type { InterviewRecord, ScoreTrendPoint, StudyRecord } from '@/types/dashboard'
 
 const TREND_POINT_COUNT = 7
 const RECENT_RECORD_COUNT = 3
 const UPCOMING_CALENDAR_COUNT = 4
-
-// 서버 생성 시각을 'YYYY. MM. DD' 형식으로 표시한다.
-function formatDate(iso: string) {
-  const date = new Date(iso)
-  return `${date.getFullYear()}. ${String(date.getMonth() + 1).padStart(2, '0')}. ${String(date.getDate()).padStart(2, '0')}`
-}
 
 // 일정 시작 시각을 'MM. DD (요일) HH:mm' 형식으로 표시한다.
 function formatCalendarTime(iso: string) {
@@ -76,64 +76,6 @@ function PanelEmpty({ description }: { description: string }) {
   )
 }
 
-interface RecentRecord {
-  key: string | number
-  title: string
-  date: string
-  score: number
-}
-
-// 항목이 0~3건 중 몇 건이든 카드 높이가 항상 3건 꽉 찬 상태와 같도록, 남는 자리를 보이지 않는
-// 자리표시 행으로 채운다. 0건이면 그 위에 안내 문구를 겹쳐 보여준다.
-function RecentRecordList({
-  items,
-  emptyDescription,
-}: {
-  items: RecentRecord[]
-  emptyDescription: string
-}) {
-  const placeholderCount = Math.max(0, RECENT_RECORD_COUNT - items.length)
-
-  return (
-    <div className="relative mt-2">
-      <ul className="divide-y divide-border-default">
-        {items.map((item) => (
-          <li key={item.key} className="flex items-center justify-between gap-4 py-3">
-            <div className="min-w-0">
-              <p className="truncate text-body-2 font-medium">{item.title}</p>
-              <p className="mt-1 tabular-nums text-caption text-text-secondary">{item.date}</p>
-            </div>
-            <p className="shrink-0">
-              <strong className="tabular-nums text-h3">{item.score.toFixed(1)}</strong>
-              <span className="ml-1 text-caption text-text-secondary">점</span>
-            </p>
-          </li>
-        ))}
-        {Array.from({ length: placeholderCount }, (_, index) => (
-          <li
-            key={`placeholder-${index}`}
-            aria-hidden="true"
-            className="invisible flex items-center justify-between gap-4 py-3"
-          >
-            <div className="min-w-0">
-              <p className="text-body-2 font-medium">placeholder</p>
-              <p className="mt-1 text-caption">placeholder</p>
-            </div>
-            <p className="shrink-0">
-              <strong className="text-h3">0.0</strong>
-            </p>
-          </li>
-        ))}
-      </ul>
-      {items.length === 0 ? (
-        <div className="absolute inset-0 flex items-center justify-center rounded-ait-m border border-dashed border-border-default bg-surface-default px-8 text-center">
-          <p className="text-body-2 text-text-secondary">{emptyDescription}</p>
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
 function PanelSkeleton() {
   return (
     <div className="mt-4 space-y-3">
@@ -153,6 +95,18 @@ export function DashboardPage() {
   )
   const [errorMessage, setErrorMessage] = useState('')
   const [requestKey, setRequestKey] = useState(0)
+  const [selectedRecord, setSelectedRecord] = useState<InterviewRecord | null>(
+    null,
+  )
+  const [reportOpen, setReportOpen] = useState(false)
+  const reportOpenRef = useRef(reportOpen)
+  useEffect(() => {
+    reportOpenRef.current = reportOpen
+  }, [reportOpen])
+  const [selectedStudyRecord, setSelectedStudyRecord] = useState<StudyRecord | null>(
+    null,
+  )
+  const [studyReportOpen, setStudyReportOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -181,6 +135,52 @@ export function DashboardPage() {
       ),
     [summary],
   )
+
+  const recentInterviewRecords = useMemo(
+    () => completedRecords.slice(0, RECENT_RECORD_COUNT),
+    [completedRecords],
+  )
+
+  const recentStudyRecords = useMemo(
+    () => toStudyRecords(summary?.studyFeedbacks ?? []).slice(0, RECENT_RECORD_COUNT),
+    [summary],
+  )
+
+  const openStudyReport = useCallback((record: StudyRecord) => {
+    setSelectedStudyRecord(record)
+    setStudyReportOpen(true)
+  }, [])
+
+  const closeStudyReport = useCallback(() => setStudyReportOpen(false), [])
+
+  const openReport = useCallback((record: InterviewRecord) => {
+    setSelectedRecord(record)
+    setReportOpen(true)
+  }, [])
+
+  const closeReport = useCallback(() => setReportOpen(false), [])
+
+  // 모달의 닫힘 애니메이션이 끝난 뒤에만 선택된 기록을 비운다. 애니메이션 도중 다시 열리면
+  // (reportOpen이 다시 true면) 방금 연 기록이 지워지지 않도록 건너뛴다.
+  const handleReportExited = useCallback(() => {
+    if (!reportOpenRef.current) setSelectedRecord(null)
+  }, [])
+
+  // 리포트를 불러오지 못하는 등 목록에서 감추고 싶은 기록을 저장하고 화면에서 바로 제거한다.
+  const hideRecord = useCallback((id: number) => {
+    hideInterviewReport(id)
+    setSummary((previous) =>
+      previous
+        ? {
+            ...previous,
+            interviewRecords: previous.interviewRecords.filter(
+              (record) => record.id !== id,
+            ),
+          }
+        : previous,
+    )
+    setReportOpen(false)
+  }, [])
 
   const trendData = useMemo<ScoreTrendPoint[]>(
     () =>
@@ -221,21 +221,6 @@ export function DashboardPage() {
       caption: '최근 7일 동안 완료한 면접',
     },
     {
-      label: '최근 모의면접 종합점수',
-      unit: '점',
-      icon: ChartNoAxesCombined,
-      value:
-        summary === null
-          ? null
-          : summary.interviewScore === null
-            ? '—'
-            : summary.interviewScore.toFixed(1),
-      caption:
-        summary && summary.interviewScore === null
-          ? '완료된 면접이 없습니다.'
-          : '가장 최근 면접 기준',
-    },
-    {
       label: '누적 스터디 횟수',
       unit: '회',
       icon: ClipboardList,
@@ -262,8 +247,7 @@ export function DashboardPage() {
 
   return (
     <PageLayout contentClassName="max-w-dashboard">
-      {/* 헤더·푸터를 제외한 대시보드 본문 전체를 90% 크기로 축소해 표시한다. */}
-      <div className="zoom-[0.9]">
+      <div className="page-content-zoom-90">
         <section
           className="study-reveal is-visible pb-10 pt-10"
           style={{ '--reveal-order': 0 } as React.CSSProperties}
@@ -302,31 +286,36 @@ export function DashboardPage() {
         ) : (
           <>
             <section
-              className="study-reveal is-visible dashboard-stats grid grid-cols-4 gap-4"
+              className="study-reveal is-visible dashboard-stats flex gap-4"
               style={{ '--reveal-order': 1 } as React.CSSProperties}
               aria-label="활동 요약"
             >
-              {metrics.map(({ label, unit, icon: Icon, value, caption }) => (
-                <article key={label} className="rounded-ait-m border border-border-default bg-background-default p-6 shadow-elevation-1">
-                  <div className="flex items-center gap-4">
-                    <span className="flex size-14 items-center justify-center rounded-ait-pill bg-status-neutral-surface text-action-primary" aria-hidden="true">
-                      <Icon className="size-8" />
-                    </span>
-                    <div>
-                      <p className="text-body-2 text-text-secondary">{label}</p>
-                      {value === null ? (
-                        <Skeleton className="mt-2 h-8 w-16" />
-                      ) : (
-                        <p className="mt-1 flex items-baseline gap-1">
-                          <strong className="tabular-nums text-h2">{value}</strong>
-                          {unit ? <span className="text-caption">{unit}</span> : null}
-                        </p>
-                      )}
+              <div className="min-w-0 flex-1">
+                <InterviewPowerPanel />
+              </div>
+              <div className="flex w-72 shrink-0 flex-col gap-4">
+                {metrics.map(({ label, unit, icon: Icon, value, caption }) => (
+                  <article key={label} className="rounded-ait-m border border-border-default bg-background-default p-4 shadow-elevation-1">
+                    <div className="flex items-center gap-3">
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-ait-pill bg-status-neutral-surface text-action-primary" aria-hidden="true">
+                        <Icon className="size-5" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-caption text-text-secondary">{label}</p>
+                        {value === null ? (
+                          <Skeleton className="mt-1 h-6 w-14" />
+                        ) : (
+                          <p className="flex items-baseline gap-1">
+                            <strong className="tabular-nums text-body-1 font-semibold">{value}</strong>
+                            {unit ? <span className="text-caption">{unit}</span> : null}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <p className="mt-4 truncate text-caption text-text-secondary">{caption}</p>
-                </article>
-              ))}
+                    <p className="mt-2 truncate text-caption text-text-secondary">{caption}</p>
+                  </article>
+                ))}
+              </div>
             </section>
 
             <div className="my-8 border-t border-border-default" />
@@ -338,18 +327,13 @@ export function DashboardPage() {
               <DashboardPanel title="최근 AI면접 기록" to="/dashboard/interviews">
                 {loadState === 'loading' ? (
                   <PanelSkeleton />
-                ) : (
-                  <RecentRecordList
-                    items={completedRecords
-                      .slice(0, RECENT_RECORD_COUNT)
-                      .map((record) => ({
-                        key: record.id,
-                        title: record.title,
-                        date: record.date,
-                        score: record.score,
-                      }))}
-                    emptyDescription="저장된 면접 기록이 없습니다."
+                ) : recentInterviewRecords.length ? (
+                  <RecentReportRadar
+                    records={recentInterviewRecords}
+                    onOpenReport={openReport}
                   />
+                ) : (
+                  <PanelEmpty description="저장된 면접 기록이 없습니다." />
                 )}
               </DashboardPanel>
 
@@ -373,18 +357,13 @@ export function DashboardPage() {
               <DashboardPanel title="최근 스터디 기록" to="/dashboard/study">
                 {loadState === 'loading' ? (
                   <PanelSkeleton />
-                ) : (
-                  <RecentRecordList
-                    items={(summary?.studyFeedbacks ?? [])
-                      .slice(0, RECENT_RECORD_COUNT)
-                      .map((feedback) => ({
-                        key: feedback.sessionId,
-                        title: feedback.sessionTitle,
-                        date: formatDate(feedback.createdAt),
-                        score: feedback.scoreAvg,
-                      }))}
-                    emptyDescription="저장된 스터디 기록이 없습니다."
+                ) : recentStudyRecords.length ? (
+                  <RecentStudyRadar
+                    records={recentStudyRecords}
+                    onOpenReport={openStudyReport}
                   />
+                ) : (
+                  <PanelEmpty description="저장된 스터디 기록이 없습니다." />
                 )}
               </DashboardPanel>
 
@@ -401,6 +380,24 @@ export function DashboardPage() {
           </>
         )}
       </div>
+
+      {selectedRecord ? (
+        <ReportModal
+          open={reportOpen}
+          record={selectedRecord}
+          onClose={closeReport}
+          onExited={handleReportExited}
+          onHide={() => hideRecord(selectedRecord.id)}
+        />
+      ) : null}
+
+      {selectedStudyRecord ? (
+        <StudySessionReportModal
+          open={studyReportOpen}
+          record={selectedStudyRecord}
+          onClose={closeStudyReport}
+        />
+      ) : null}
     </PageLayout>
   )
 }

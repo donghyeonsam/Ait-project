@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { SimpleGraph } from '@/components/reactbits/SimpleGraph'
@@ -41,5 +41,37 @@ describe('SimpleGraph', () => {
         name: '점수 추이. 표시할 데이터가 없습니다.',
       }),
     ).toBeInTheDocument()
+  })
+
+  it('선 그리기 애니메이션이 끝나면 전체 실선으로 고정한다', () => {
+    const originalGetTotalLength = Object.getOwnPropertyDescriptor(
+      SVGElement.prototype,
+      'getTotalLength',
+    )
+    Object.defineProperty(SVGElement.prototype, 'getTotalLength', {
+      configurable: true,
+      value: () => 642,
+    })
+
+    try {
+      const { container } = render(<SimpleGraph data={data} />)
+      const line = container.querySelector('.simple-graph__line')
+
+      expect(line).toHaveStyle({ '--simple-graph-line-length': '642' })
+      // jsdom에서 React가 감지하는 WebKit 접두사 이벤트로 종료 상태를 재현한다.
+      fireEvent(line!, new Event('webkitAnimationEnd', { bubbles: true }))
+      expect(line).toHaveClass('is-drawn')
+    } finally {
+      if (originalGetTotalLength) {
+        Object.defineProperty(
+          SVGElement.prototype,
+          'getTotalLength',
+          originalGetTotalLength,
+        )
+      } else {
+        delete (SVGElement.prototype as { getTotalLength?: () => number })
+          .getTotalLength
+      }
+    }
   })
 })

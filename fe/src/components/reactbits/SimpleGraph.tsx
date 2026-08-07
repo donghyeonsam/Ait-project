@@ -140,6 +140,7 @@ export function SimpleGraph({
   const { ref, isInView } = useInView<HTMLDivElement>({ threshold: 0.35 })
   const linePathRef = useRef<SVGPathElement>(null)
   const [lineLength, setLineLength] = useState(0)
+  const [isLineDrawn, setIsLineDrawn] = useState(false)
   const id = useId().replace(/:/g, '')
   const values = data.map((point) => point.value)
   const resolvedMin = minValue ?? Math.min(0, ...values)
@@ -216,6 +217,11 @@ export function SimpleGraph({
       ref={ref}
       className={cn('simple-graph', isActive && 'is-active', className)}
       style={style}
+      onAnimationEnd={(event) => {
+        if ((event.target as Element).classList.contains('simple-graph__line')) {
+          setIsLineDrawn(true)
+        }
+      }}
     >
       <svg
         className="simple-graph__svg"
@@ -296,7 +302,10 @@ export function SimpleGraph({
             strokeLinecap="round"
             strokeLinejoin="round"
             vectorEffect="non-scaling-stroke"
-            className="simple-graph__line"
+            className={cn(
+              'simple-graph__line',
+              isLineDrawn && 'is-drawn',
+            )}
             style={
               {
                 '--simple-graph-line-length': lineLength || 1000,

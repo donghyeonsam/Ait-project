@@ -8,7 +8,10 @@ import {
   type KeyboardEvent,
 } from 'react'
 import { toErrorMessage } from '@/api/http'
-import { uploadStudyGroupChatFile } from '@/api/study-group-chat'
+import {
+  uploadStudyGroupChatFiles,
+  type StudyGroupChatFile,
+} from '@/api/study-group-chat'
 import { studyChatEmojis } from '@/components/study/studyChatEmojis'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -16,7 +19,7 @@ import {
   toEmoticonToken,
   type AitEmoticon,
 } from '@/lib/emoticons'
-import { toFileToken } from '@/lib/study-chat-file'
+import { toStudyGroupChatFile } from '@/lib/study-chat-file'
 import {
   toReplyToken,
   type StudyChatReplyTarget,
@@ -26,6 +29,8 @@ interface StudyChatComposerProps {
   isConnected: boolean
   connectError: string | null
   onSend: (message: string) => boolean
+  // 첨부는 텍스트와 별도로 서버 files 스키마에 실어 보낸다.
+  onSendFiles: (files: StudyGroupChatFile[], message: string | null) => boolean
   replyTarget?: StudyChatReplyTarget | null
   onCancelReply?: () => void
 }
@@ -35,6 +40,7 @@ export function StudyChatComposer({
   isConnected,
   connectError,
   onSend,
+  onSendFiles,
   replyTarget,
   onCancelReply,
 }: StudyChatComposerProps) {
@@ -131,22 +137,26 @@ export function StudyChatComposer({
     })
   }
 
-  // 파일은 업로드가 끝난 뒤 저장 파일명을 담은 토큰 메시지로 바로 전송한다.
+  // 파일은 업로드가 끝난 뒤 저장 파일명·종류·크기를 담은 FILE 메시지로 바로 전송한다.
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+    const selected = Array.from(event.target.files ?? [])
     // 같은 파일을 다시 골라도 change 이벤트가 발생하도록 입력 값을 비운다.
     event.target.value = ''
-    if (!file || !isConnected || isSending || isUploadingFile) return
+    if (selected.length === 0 || !isConnected || isSending || isUploadingFile)
+      return
 
     setIsUploadingFile(true)
     setFileError(null)
     try {
-      const storedFilename = await uploadStudyGroupChatFile(file)
-      const content = toFileToken(storedFilename, file.name)
-      const outgoing = replyTarget
-        ? `${toReplyToken(replyTarget)}\n${content}`
-        : content
-      const didSend = onSend(outgoing)
+      const storedFilenames = await uploadStudyGroupChatFiles(selected)
+      const files = storedFilenames.map((storedFilename, index) =>
+        toStudyGroupChatFile(storedFilename, selected[index]),
+      )
+      const didSend = onSendFiles(
+        files,
+        // 답장 중이면 답글 토큰만 message에 실어 어떤 메시지에 대한 답인지 남긴다.
+        replyTarget ? toReplyToken(replyTarget) : null,
+      )
       if (didSend) {
         setComposerPicker(null)
         onCancelReply?.()
@@ -222,6 +232,7 @@ export function StudyChatComposer({
           <input
             ref={fileInputRef}
             type="file"
+            multiple
             className="hidden"
             tabIndex={-1}
             aria-hidden="true"

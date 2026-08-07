@@ -3,14 +3,15 @@ package com.aitserver.dashboard.dto;
 
 import com.aitserver.aiInterview.responseDto.ReportListResponse;
 import com.aitserver.peerFeedback.dto.PeerFeedbackListResponse;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.List;
 
 @Getter
+@Setter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class DashboardResponse {
 
 

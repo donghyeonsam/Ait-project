@@ -15,15 +15,41 @@ const websocketBaseUrl = (
     : 'https://i15d202.p.ssafy.io')
 ).replace(/\/$/, '')
 
+export type StudyGroupChatType = 'TEXT' | 'FILE' | 'SYSTEM'
+
+export type StudyGroupChatFileType =
+  | 'IMAGE'
+  | 'PDF'
+  | 'DOCUMENT'
+  | 'ZIP'
+  | 'OTHER'
+
+// 서버 study_group_files 스키마와 같은 첨부 파일 정보. 전송·수신 양쪽에서 같은 형태를 쓴다.
+export interface StudyGroupChatFile {
+  originalFilename: string
+  storedFilename: string
+  fileType: StudyGroupChatFileType
+  fileSize: number | null
+}
+
 export interface StudyGroupChatMessage {
   chatId: number
   groupId: number
   senderId: number
   senderNickname: string
   profileImageUrl: string | null
+  chatType?: StudyGroupChatType
   message: string
+  files?: StudyGroupChatFile[]
   createdAt: string
   reactions?: StudyGroupChatReactionSummary[]
+}
+
+// 파일 메시지는 서버가 message를 null로 줄 수 있어, 문자열을 전제한 기존 파싱이 깨지지 않게 빈 문자열로 보정한다.
+function normalizeStudyGroupChatMessage(
+  raw: StudyGroupChatMessage,
+): StudyGroupChatMessage {
+  return { ...raw, message: raw.message ?? '' }
 }
 
 export interface StudyGroupChatReactionSummary {
@@ -122,21 +148,38 @@ export interface StudyGroupChatNotice {
   updatedAt: string
 }
 
-// 첨부 파일을 공용 업로드 API에 올리고 저장 파일명을 돌려받는다. 메시지 자체는 파일 토큰 문자열로 전송한다.
+// 첨부 파일을 채팅 전용 업로드 API에 올리고 저장 파일명을 돌려받는다.
+// 이 경로로 올려야 서버가 CHAT 카테고리로 저장해 자료실 모아보기에 잡힌다.
 export async function uploadStudyGroupChatFile(file: File) {
   const formData = new FormData()
   formData.append('file', file)
-  return backendRequest<string>('/api/files/upload', {
+  return backendRequest<string>('/api/study-groups/files/upload', {
     method: 'POST',
     body: formData,
   })
 }
 
-export function getStudyGroupChats(groupId: number, lastChatId?: number) {
+// 여러 파일을 한 번에 올리고 저장 파일명 목록을 순서대로 돌려받는다.
+export async function uploadStudyGroupChatFiles(files: File[]) {
+  const formData = new FormData()
+  for (const file of files) {
+    formData.append('files', file)
+  }
+  return backendRequest<string[]>('/api/study-groups/files/uploads', {
+    method: 'POST',
+    body: formData,
+  })
+}
+
+export async function getStudyGroupChats(groupId: number, lastChatId?: number) {
   const query = lastChatId ? `?lastChatId=${lastChatId}` : ''
-  return backendRequest<StudyGroupChatCursorResult>(
+  const result = await backendRequest<StudyGroupChatCursorResult>(
     `/api/study-groups/${groupId}/chats${query}`,
   )
+  return {
+    ...result,
+    chats: result.chats.map(normalizeStudyGroupChatMessage),
+  }
 }
 
 interface StudyGroupChatSocketHandlers {
@@ -203,7 +246,11 @@ export function connectStudyGroupChat(
     client.subscribe(
       `/topic/study-groups/${groupId}`,
       (frame: IMessage) => {
-        handlers.onMessage(JSON.parse(frame.body) as StudyGroupChatMessage)
+        handlers.onMessage(
+          normalizeStudyGroupChatMessage(
+            JSON.parse(frame.body) as StudyGroupChatMessage,
+          ),
+        )
       },
     )
     client.subscribe(
@@ -237,7 +284,11 @@ export function connectStudyGroupChatMulti(
       client.subscribe(
         `/topic/study-groups/${groupId}`,
         (frame: IMessage) => {
-          handlers.onMessage(JSON.parse(frame.body) as StudyGroupChatMessage)
+          handlers.onMessage(
+            normalizeStudyGroupChatMessage(
+              JSON.parse(frame.body) as StudyGroupChatMessage,
+            ),
+          )
         },
       )
     })
@@ -251,7 +302,20 @@ export function sendStudyGroupChatMessage(
 ) {
   client.publish({
     destination: `/app/study-groups/${groupId}/messages`,
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ chatType: 'TEXT', message }),
+  })
+}
+
+// 첨부 파일 메시지를 보낸다. message에는 답글 토큰 같은 부가 텍스트만 담고 파일 정보는 files로 보낸다.
+export function sendStudyGroupChatFileMessage(
+  client: Client,
+  groupId: number,
+  files: StudyGroupChatFile[],
+  message: string | null = null,
+) {
+  client.publish({
+    destination: `/app/study-groups/${groupId}/messages`,
+    body: JSON.stringify({ chatType: 'FILE', message, files }),
   })
 }
 

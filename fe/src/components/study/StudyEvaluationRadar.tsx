@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { CountUp } from '@/components/reactbits/CountUp'
 import {
@@ -49,6 +50,9 @@ export function StudyEvaluationRadar({
   bare = false,
 }: StudyEvaluationRadarProps) {
   const reduceMotion = useReducedMotion()
+  // 같은 화면에 이 레이더가 여러 개 떠 있어도(팀원별 아코디언 등) id가 겹치지 않도록 인스턴스별로 생성한다.
+  const titleId = useId()
+  const descriptionId = useId()
   const scorePoints = studyEvaluationCategories.map((category, index) =>
     polarPoint(index, (scores[category] / 10) * chartRadius),
   )
@@ -88,10 +92,10 @@ export function StudyEvaluationRadar({
         viewBox="0 0 260 230"
         className="mx-auto mt-2 block h-auto w-full max-w-72 overflow-visible"
         role="img"
-        aria-labelledby="study-evaluation-radar-title study-evaluation-radar-description"
+        aria-labelledby={`${titleId} ${descriptionId}`}
       >
-        <title id="study-evaluation-radar-title">팀원 평가 방사형 그래프</title>
-        <desc id="study-evaluation-radar-description">
+        <title id={titleId}>팀원 평가 방사형 그래프</title>
+        <desc id={descriptionId}>
           {studyEvaluationCategories
             .map((category) => `${category} ${scores[category]}점`)
             .join(', ')}

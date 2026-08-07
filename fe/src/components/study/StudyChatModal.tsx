@@ -11,9 +11,11 @@ import {
   applyStudyGroupChatReactionUpdate,
   connectStudyGroupChat,
   getStudyGroupChats,
+  sendStudyGroupChatFileMessage,
   sendStudyGroupChatMessage,
   setStudyGroupChatReactionForUser,
   toggleStudyGroupChatReaction,
+  type StudyGroupChatFile,
   type StudyGroupChatMessage,
 } from '@/api/study-group-chat'
 import {
@@ -84,7 +86,6 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
   const [replyTarget, setReplyTarget] = useState<StudyChatReplyTarget | null>(
     null,
   )
-  const [opacityPercent, setOpacityPercent] = useState(100)
   const [chatPosition, setChatPosition] = useState<ChatPosition>({ x: 0, y: 0 })
 
   const clientRef = useRef<Client | null>(null)
@@ -278,6 +279,20 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
     return true
   }
 
+  const sendFileMessage = (
+    files: StudyGroupChatFile[],
+    message: string | null,
+  ) => {
+    if (selectedGroupId === null || !clientRef.current?.connected) return false
+    sendStudyGroupChatFileMessage(
+      clientRef.current,
+      selectedGroupId,
+      files,
+      message,
+    )
+    return true
+  }
+
   const toggleReaction = (chatId: number, emoji: string) => {
     if (selectedGroupId === null || !clientRef.current?.connected) return
 
@@ -401,9 +416,8 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
         centered={false}
         showCloseButton={false}
         overlayClassName="study-chat-overlay"
-        className="study-chat-dialog flex min-h-0 flex-col overflow-hidden border border-border-default bg-surface-default p-0 transition-opacity"
+        className="study-chat-dialog flex min-h-0 flex-col overflow-hidden border border-border-default bg-surface-default p-0"
         style={{
-          opacity: opacityPercent / 100,
           transform: `translate3d(${chatPosition.x}px, ${chatPosition.y}px, 0)`,
         }}
         onOpenAutoFocus={(event) => {
@@ -442,11 +456,9 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
             isGroupSwitcherOpen={isGroupSwitcherOpen}
             groupSwitcherId="study-chat-group-switcher"
             groupTriggerRef={groupTriggerRef}
-            opacityPercent={opacityPercent}
             onToggleGroupSwitcher={() =>
               setIsGroupSwitcherOpen((current) => !current)
             }
-            onOpacityChange={setOpacityPercent}
           />
 
           {isGroupSwitcherOpen ? (
@@ -526,6 +538,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
           isConnected={isConnected}
           connectError={connectError}
           onSend={sendMessage}
+          onSendFiles={sendFileMessage}
           replyTarget={replyTarget}
           onCancelReply={() => setReplyTarget(null)}
         />

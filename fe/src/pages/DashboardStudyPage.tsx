@@ -2,8 +2,9 @@ import { AlertCircle, ArrowLeft, Users, UsersRound } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
+  formatRecordDate,
   getPeerFeedbackList,
-  type PeerFeedbackSessionSummary,
+  toStudyRecords,
 } from '@/api/peer-feedback'
 import { getMyStudyGroups, type MyStudyGroup } from '@/api/study-groups'
 import { getStudySessionStatus } from '@/api/study-sessions'
@@ -26,58 +27,6 @@ interface StudyDashboardNavState {
 const TREND_POINT_COUNT = 7
 // 세션 종료 웹훅 처리 전까지는 폴링으로 "평가 수집중" 상태가 풀렸는지 확인한다.
 const PENDING_POLL_INTERVAL_MS = 10_000
-
-// 서버 생성 시각을 'YYYY. MM. DD.' 형식으로 표시한다.
-function formatRecordDate(value: string) {
-  const date = new Date(value)
-  const yyyy = date.getFullYear()
-  const mm = String(date.getMonth() + 1).padStart(2, '0')
-  const dd = String(date.getDate()).padStart(2, '0')
-  return `${yyyy}. ${mm}. ${dd}.`
-}
-
-// 그룹별 직전 세션과의 점수 차를 계산해 화면 기록으로 바꾼다.
-// TODO: 실제 API 연동 필요 — 응답에 groupId가 없어 sessionTitle(그룹명)을 그룹 구분 키로 대신 쓴다.
-function toStudyRecords(items: PeerFeedbackSessionSummary[]): StudyRecord[] {
-  const groupKeyOf = (item: PeerFeedbackSessionSummary) => item.groupId ?? item.sessionTitle
-
-  const byGroup = new Map<string | number, PeerFeedbackSessionSummary[]>()
-  for (const item of items) {
-    const key = groupKeyOf(item)
-    const list = byGroup.get(key)
-    if (list) {
-      list.push(item)
-    } else {
-      byGroup.set(key, [item])
-    }
-  }
-
-  const deltaBySessionId = new Map<number, number>()
-  const roundBySessionId = new Map<number, number>()
-  for (const list of byGroup.values()) {
-    const ascending = [...list].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-    ascending.forEach((item, index) => {
-      deltaBySessionId.set(
-        item.sessionId,
-        index > 0 ? item.scoreAvg - ascending[index - 1].scoreAvg : 0,
-      )
-      roundBySessionId.set(item.sessionId, index + 1)
-    })
-  }
-
-  return [...items]
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .map((item) => ({
-      sessionId: item.sessionId,
-      groupId: item.groupId,
-      groupTitle: item.sessionTitle,
-      date: formatRecordDate(item.createdAt),
-      score: item.scoreAvg,
-      delta: deltaBySessionId.get(item.sessionId) ?? 0,
-      round: roundBySessionId.get(item.sessionId) ?? 1,
-      status: 'completed' as const,
-    }))
-}
 
 // 이 페이지의 두 상단 카드는 지난 주 대비 같은 비교값이 없어, 카운트업 애니메이션이 붙은
 // StatCard 대신 라벨·값만 보여주는 단순한 카드를 쓴다.

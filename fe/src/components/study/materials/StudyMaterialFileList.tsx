@@ -4,10 +4,11 @@ import {
   FileArchive,
   FileSpreadsheet,
   FileText,
+  Loader2,
   Presentation,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { formatPostDate } from '@/lib/format'
+import { formatFileSize, formatPostDate } from '@/lib/format'
 import type { StudyMaterialItem } from '@/types/study-materials'
 
 // 확장자별 아이콘과 색상. 상태 색이 아니라 파일 종류 식별용이므로 텍스트 토큰 계열만 함께 쓴다.
@@ -31,12 +32,15 @@ function toExtension(filename: string): string {
 
 interface StudyMaterialFileListProps {
   files: StudyMaterialItem[]
+  // 다운로드가 진행 중인 자료 id 집합. 해당 행의 버튼을 스피너로 바꾼다.
+  downloadingIds: ReadonlySet<string>
   onDownload: (file: StudyMaterialItem) => void
 }
 
 // 공유된 파일을 드라이브형 목록으로 보여주는 자료실 파일 탭. 좁은 화면에서는 보조 열을 숨긴다.
 export function StudyMaterialFileList({
   files,
+  downloadingIds,
   onDownload,
 }: StudyMaterialFileListProps) {
   if (files.length === 0) {
@@ -58,6 +62,9 @@ export function StudyMaterialFileList({
             <th scope="col" className="px-4 py-3 text-caption font-semibold text-text-secondary">
               이름
             </th>
+            <th scope="col" className="hidden w-20 px-4 py-3 text-caption font-semibold text-text-secondary sm:table-cell">
+              크기
+            </th>
             <th scope="col" className="hidden w-28 px-4 py-3 text-caption font-semibold text-text-secondary md:table-cell">
               올린 사람
             </th>
@@ -76,6 +83,7 @@ export function StudyMaterialFileList({
                 icon: File,
                 className: 'text-text-secondary',
               }
+            const isDownloading = downloadingIds.has(file.id)
             return (
               <tr
                 key={file.id}
@@ -93,8 +101,14 @@ export function StudyMaterialFileList({
                   </div>
                   {/* 좁은 화면에서 숨긴 열의 정보를 이름 아래 한 줄로 요약한다. */}
                   <p className="mt-1 pl-7 text-caption text-text-secondary sm:hidden">
+                    {file.fileSize !== null
+                      ? `${formatFileSize(file.fileSize)} · `
+                      : ''}
                     {file.uploaderNickname} · {formatPostDate(file.createdAt)}
                   </p>
+                </td>
+                <td className="hidden whitespace-nowrap px-4 py-3 text-body-2 text-text-secondary sm:table-cell">
+                  {file.fileSize !== null ? formatFileSize(file.fileSize) : '—'}
                 </td>
                 <td className="hidden truncate px-4 py-3 text-body-2 text-text-secondary md:table-cell">
                   {file.uploaderNickname}
@@ -105,11 +119,21 @@ export function StudyMaterialFileList({
                 <td className="px-4 py-3 text-right">
                   <button
                     type="button"
+                    disabled={isDownloading}
+                    aria-busy={isDownloading || undefined}
                     onClick={() => onDownload(file)}
-                    className="inline-flex size-10 items-center justify-center rounded-ait-s text-text-secondary transition-colors [transition-duration:var(--duration-fast)] hover:bg-surface-default hover:text-action-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-action-primary/25"
-                    aria-label={`${file.originalFilename} 다운로드`}
+                    className="inline-flex size-10 items-center justify-center rounded-ait-s text-text-secondary transition-colors [transition-duration:var(--duration-fast)] hover:bg-surface-default hover:text-action-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-action-primary/25 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-secondary"
+                    aria-label={
+                      isDownloading
+                        ? `${file.originalFilename} 다운로드 중`
+                        : `${file.originalFilename} 다운로드`
+                    }
                   >
-                    <Download aria-hidden="true" />
+                    {isDownloading ? (
+                      <Loader2 aria-hidden="true" className="animate-spin" />
+                    ) : (
+                      <Download aria-hidden="true" />
+                    )}
                   </button>
                 </td>
               </tr>

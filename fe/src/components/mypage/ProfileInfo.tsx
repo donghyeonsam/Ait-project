@@ -17,10 +17,7 @@ interface ProfileInfoProps {
   onChangeRepositoryName: (id: number, name: string) => void
   isSaving?: boolean
   saveError?: string | null
-  repositoryError?: string | null
   repositoryLoading?: boolean
-  onRetryRepositories?: () => void
-  onDeleteRepository?: (id: number) => Promise<void>
   onRepositoryInstalled?: () => void
   onOpenDocuments: () => void
   onStartEditing: () => void
@@ -47,10 +44,7 @@ export function ProfileInfo({
   onChangeRepositoryName,
   isSaving = false,
   saveError,
-  repositoryError,
   repositoryLoading,
-  onRetryRepositories,
-  onDeleteRepository,
   onRepositoryInstalled,
   onOpenDocuments,
   onStartEditing,
@@ -113,10 +107,7 @@ export function ProfileInfo({
         ) : (
           <RepoAccordion
             repositories={profile.repositories}
-            error={repositoryError}
             loading={repositoryLoading}
-            onRetry={onRetryRepositories}
-            onDelete={onDeleteRepository}
             onInstalled={onRepositoryInstalled}
           />
         )}

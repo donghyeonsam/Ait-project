@@ -77,6 +77,8 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
   const [draft, setDraft] = useState('')
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  // 전송 실패 시 초안을 비운 채 그대로 두면 메시지가 조용히 사라진 것처럼 보인다.
+  const [sendError, setSendError] = useState<string | null>(null)
   const messageListRef = useRef<HTMLDivElement>(null)
   const messageInputRef = useRef<HTMLInputElement>(null)
 
@@ -132,7 +134,13 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
     if (!trimmed || isSending) return
     setDraft('')
     setEmojiPickerOpen(false)
-    void send(trimmed)
+    setSendError(null)
+    // send()가 실패해도 이미 비운 초안은 되돌리지 않으면 메시지가 조용히 사라진 것처럼 보인다.
+    send(trimmed).catch((error: unknown) => {
+      console.error('스터디 세션 채팅 전송 실패', error)
+      setDraft(trimmed)
+      setSendError('메시지를 보내지 못했습니다. 다시 시도해 주세요.')
+    })
   }
 
   useEffect(() => {
@@ -276,26 +284,28 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         style={{ left: effectivePosition.x, top: effectivePosition.y, width: BUTTON_SIZE, height: BUTTON_SIZE }}
-        className="absolute z-(--z-index-sticky) flex touch-none cursor-grab items-center justify-center overflow-hidden rounded-ait-pill bg-action-primary text-white shadow-elevation-2 transition-[background-color,transform] duration-250 ease-emphasized hover:bg-action-primary/90 active:cursor-grabbing motion-reduce:transition-none"
+        className="absolute z-(--z-index-sticky) flex touch-none cursor-grab items-center justify-center rounded-ait-pill bg-action-primary text-white shadow-elevation-2 transition-[background-color,transform] duration-250 ease-emphasized hover:bg-action-primary/90 active:cursor-grabbing motion-reduce:transition-none"
       >
-        <MessageSquare
-          className={cn(
-            'absolute size-5 transition-[opacity,transform] duration-250 ease-emphasized motion-reduce:transition-none',
-            open
-              ? 'rotate-90 scale-50 opacity-0'
-              : 'rotate-0 scale-100 opacity-100',
-          )}
-          aria-hidden="true"
-        />
-        <X
-          className={cn(
-            'absolute size-5 transition-[opacity,transform] duration-250 ease-emphasized motion-reduce:transition-none',
-            open
-              ? 'rotate-0 scale-100 opacity-100'
-              : '-rotate-90 scale-50 opacity-0',
-          )}
-          aria-hidden="true"
-        />
+        <span className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-ait-pill">
+          <MessageSquare
+            className={cn(
+              'absolute size-5 transition-[opacity,transform] duration-250 ease-emphasized motion-reduce:transition-none',
+              open
+                ? 'rotate-90 scale-50 opacity-0'
+                : 'rotate-0 scale-100 opacity-100',
+            )}
+            aria-hidden="true"
+          />
+          <X
+            className={cn(
+              'absolute size-5 transition-[opacity,transform] duration-250 ease-emphasized motion-reduce:transition-none',
+              open
+                ? 'rotate-0 scale-100 opacity-100'
+                : '-rotate-90 scale-50 opacity-0',
+            )}
+            aria-hidden="true"
+          />
+        </span>
         {unreadCount > 0 ? (
           <span
             aria-hidden="true"
@@ -369,6 +379,10 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
               })}
             </div>
           )}
+
+          {sendError ? (
+            <p className="shrink-0 px-3 pt-2 text-caption text-status-error">{sendError}</p>
+          ) : null}
 
           <form
             onSubmit={handleSubmit}

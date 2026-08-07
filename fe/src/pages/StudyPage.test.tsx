@@ -502,12 +502,6 @@ describe('StudyPage', () => {
       '[emoticon:01_인사]',
     )
 
-    const opacitySlider = within(chatDialog).getByRole('slider', {
-      name: '모달 투명도',
-    })
-    fireEvent.change(opacitySlider, { target: { value: '65' } })
-    expect(chatDialog).toHaveStyle({ opacity: '0.65' })
-
     const dragHandle = within(chatDialog).getByRole('banner')
     fireEvent.pointerDown(dragHandle, {
       pointerId: 1,
