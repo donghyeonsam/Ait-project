@@ -59,7 +59,6 @@ export function MyPage() {
   const [repositories, setRepositories] = useState<GithubRepository[] | null>(null)
   const [profileInfo, setProfileInfo] = useState<MyPageProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [repositoryError, setRepositoryError] = useState<string | null>(null)
   const [isRepositoryLoading, setIsRepositoryLoading] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [documentBoxOpen, setDocumentBoxOpen] = useState(false)
@@ -71,7 +70,6 @@ export function MyPage() {
       .then(([repositoriesResult, profile]) => {
         if (!active) return
         setRepositories(repositoriesResult.repositories)
-        setRepositoryError(repositoriesResult.repositoryError)
         setProfileInfo(profile)
       })
       .catch((requestError: unknown) => {
@@ -89,25 +87,21 @@ export function MyPage() {
   const retry = () => {
     setIsLoading(true)
     setError(null)
-    setRepositoryError(null)
     Promise.all([getMyPageRepositories(), getMyPageProfile()])
       .then(([repositoriesResult, profile]) => {
         setRepositories(repositoriesResult.repositories)
-        setRepositoryError(repositoriesResult.repositoryError)
         setProfileInfo(profile)
       })
       .catch((requestError: unknown) => setError(toErrorMessage(requestError)))
       .finally(() => setIsLoading(false))
   }
 
+  // 연동 확인 후 목록을 다시 불러온다. 실패해도 이전 목록을 그대로 유지한다.
   const retryRepositories = () => {
     setIsRepositoryLoading(true)
-    setRepositoryError(null)
     getMyGithubRepositories()
       .then(setRepositories)
-      .catch((requestError: unknown) => {
-        setRepositoryError(toErrorMessage(requestError))
-      })
+      .catch(() => {})
       .finally(() => setIsRepositoryLoading(false))
   }
 
@@ -159,9 +153,7 @@ export function MyPage() {
             <h2 id="profile-section-title" className="sr-only">내 정보</h2>
             <ProfileSection
               profile={profile}
-              repositoryError={repositoryError}
               repositoryLoading={isRepositoryLoading}
-              onRetryRepositories={retryRepositories}
               onRepositoryInstalled={retryRepositories}
               onOpenDocuments={() => setDocumentBoxOpen(true)}
             />

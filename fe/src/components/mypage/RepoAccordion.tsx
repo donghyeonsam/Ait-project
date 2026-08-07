@@ -12,19 +12,15 @@ const GITHUB_APP_INSTALL_URL = 'https://github.com/apps/Ait-deploy/installations
 
 interface RepoAccordionProps {
   repositories: ProfileRepository[]
-  error?: string | null
   loading?: boolean
-  onRetry?: () => void
   onDelete?: (id: number) => Promise<void>
   onInstalled?: () => void
 }
 
-// 등록한 GitHub 저장소를 펼쳐 보는 아코디언. 저장소 조회는 다른 프로필과 분리돼 실패해도 재시도할 수 있다.
+// 등록한 GitHub 저장소를 펼쳐 보는 아코디언.
 export function RepoAccordion({
   repositories,
-  error,
   loading = false,
-  onRetry,
   onDelete,
   onInstalled,
 }: RepoAccordionProps) {
@@ -107,17 +103,6 @@ export function RepoAccordion({
             <p className="pt-3 text-caption text-text-secondary" role="status">
               GitHub 저장소를 다시 불러오는 중입니다.
             </p>
-          ) : error ? (
-            <div className="pt-3" role="alert">
-              <p className="text-caption text-status-error">
-                GitHub 저장소를 불러오지 못했습니다. 다른 프로필 정보는 계속 이용할 수 있습니다.
-              </p>
-              {onRetry ? (
-                <Button type="button" variant="secondary" className="mt-3" onClick={onRetry}>
-                  GitHub 저장소 다시 불러오기
-                </Button>
-              ) : null}
-            </div>
           ) : repositories.length ? (
             <ul className="space-y-2 pt-3">
               {repositories.map((repository, index) => (
