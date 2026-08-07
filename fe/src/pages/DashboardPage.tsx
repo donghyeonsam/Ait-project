@@ -286,16 +286,16 @@ export function DashboardPage() {
         ) : (
           <>
             <section
-              className="study-reveal is-visible dashboard-stats flex gap-4"
+              className="study-reveal is-visible flex flex-col gap-4 lg:flex-row"
               style={{ '--reveal-order': 1 } as React.CSSProperties}
               aria-label="활동 요약"
             >
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 lg:flex-1">
                 <InterviewPowerPanel />
               </div>
-              <div className="flex w-72 shrink-0 flex-col gap-4">
+              <div className="flex flex-col gap-4 sm:flex-row lg:w-72 lg:shrink-0 lg:flex-col">
                 {metrics.map(({ label, unit, icon: Icon, value, caption }) => (
-                  <article key={label} className="rounded-ait-m border border-border-default bg-background-default p-4 shadow-elevation-1">
+                  <article key={label} className="min-w-0 flex-1 rounded-ait-m border border-border-default bg-background-default p-4 shadow-elevation-1">
                     <div className="flex items-center gap-3">
                       <span className="flex size-10 shrink-0 items-center justify-center rounded-ait-pill bg-status-neutral-surface text-action-primary" aria-hidden="true">
                         <Icon className="size-5" />

@@ -2916,10 +2916,6 @@ button:not(:disabled) {
 }
 
 @media (max-width: 63.999rem) {
-  .dashboard-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .dashboard-main-grid,
   .interview-summary-grid,
   .profile-layout {

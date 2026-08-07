@@ -176,9 +176,11 @@ export function InterviewPowerPanel() {
   const ringOffset = RING_CIRCUMFERENCE * (1 - expInLevel / EXP_PER_LEVEL)
 
   return (
-    <div className="flex h-full items-center gap-8 rounded-ait-m bg-status-neutral-surface px-8">
-      {/* 마스코트 + 경험치 도넛을 왼쪽으로 묶어, 가운데 남는 공간에 최근 리포트 요약이 들어간다. */}
-      <div className="flex shrink-0 items-center gap-6">
+    <div className="flex flex-col gap-6 rounded-ait-m bg-status-neutral-surface px-6 py-6 lg:h-full lg:flex-row lg:items-center lg:gap-8 lg:px-8 lg:py-0">
+      {/* 마스코트 + 경험치 도넛을 왼쪽으로 묶어, 가운데 남는 공간에 최근 리포트 요약이 들어간다.
+          너비가 좁아지면(태블릿 이하) 고정폭 요소들이 오른쪽 코멘트 영역을 끝없이 밀어내
+          한 글자씩 세로로 줄바꿈되므로, lg 미만에서는 세로로 쌓는다. */}
+      <div className="flex flex-wrap items-center justify-center gap-6 lg:shrink-0 lg:flex-nowrap lg:justify-start">
         {/* 스택된 카드 컬럼 높이에 맞춘 고정 크기. flex-stretch 높이에 상대적으로 맞추면
             (h-3/5 등) 리렌더링 시점에 따라 조상 높이 계산이 흔들려 구조가 깨질 수 있어
             고정값으로 둔다. */}
