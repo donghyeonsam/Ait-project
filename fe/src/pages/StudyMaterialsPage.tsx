@@ -57,6 +57,8 @@ export function StudyMaterialsPage() {
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
   const [materialsError, setMaterialsError] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)
+  // 조회 실패 시 페이지 전체를 새로고침하지 않고 자료 조회 이펙트만 다시 돌리는 키.
+  const [materialsReloadKey, setMaterialsReloadKey] = useState(0)
   // 다음 조회에 넘길 그룹톡 커서. 이 chatId보다 오래된 메시지를 이어서 훑는다.
   const cursorRef = useRef<number | undefined>(undefined)
 
@@ -67,6 +69,13 @@ export function StudyMaterialsPage() {
   // 실시간 수신으로 배열 인덱스가 밀려도 보던 이미지가 유지되도록 뷰어는 id로 추적한다.
   const [viewerImageId, setViewerImageId] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
+  // 자식 요소를 오갈 때 dragleave가 연달아 발생해도 드롭 안내가 깜빡이지 않도록 깊이를 센다.
+  const dragDepthRef = useRef(0)
+  // 다운로드 중인 자료 id 집합. 큰 파일에서 무반응처럼 보이거나 연타되는 것을 막는다.
+  const [downloadingIds, setDownloadingIds] = useState<ReadonlySet<string>>(
+    new Set(),
+  )
   // 업로드한 자료를 그룹톡 파일 토큰 메시지로 보내기 위한 STOMP 클라이언트.
   const chatClientRef = useRef<Client | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -130,7 +139,7 @@ export function StudyMaterialsPage() {
     return () => {
       isActive = false
     }
-  }, [groupId, isValidGroupId])
+  }, [groupId, isValidGroupId, materialsReloadKey])
 
   // 업로드 전송과 다른 구성원의 새 첨부 실시간 반영을 위해 그룹톡 STOMP 연결을 연다.
   useEffect(() => {
@@ -177,6 +186,19 @@ export function StudyMaterialsPage() {
         setMaterials((current) => [...current, ...page.items])
         setHasMore(page.hasNext)
         cursorRef.current = page.lastChatId ?? undefined
+        // 불러온 자료가 다른 탭에만 쌓이면 버튼이 무반응처럼 보여 결과 위치를 알려준다.
+        const addedToTab = page.items.filter(
+          (item) => item.isImage === (tab === 'image'),
+        ).length
+        if (page.items.length === 0) {
+          showToast('이 구간의 그룹톡에는 공유된 자료가 없었어요.')
+        } else if (addedToTab === 0) {
+          showToast(
+            tab === 'image'
+              ? '새로 불러온 자료가 모두 파일이에요. 파일 탭에서 확인해보세요.'
+              : '새로 불러온 자료가 모두 이미지예요. 이미지 탭에서 확인해보세요.',
+          )
+        }
       })
       .catch(() => {
         const message =
@@ -185,7 +207,7 @@ export function StudyMaterialsPage() {
         showToast(message)
       })
       .finally(() => setIsLoadingMore(false))
-  }, [groupId, hasMore, isLoadingMore, showToast])
+  }, [groupId, hasMore, isLoadingMore, showToast, tab])
 
   const uploaderOptions = useMemo(
     () => [...new Set(materials.map((item) => item.uploaderNickname))],
@@ -221,19 +243,24 @@ export function StudyMaterialsPage() {
   }, [images, viewerImageId])
 
   const handleDownload = async (item: StudyMaterialItem) => {
+    if (downloadingIds.has(item.id)) return
+    setDownloadingIds((current) => new Set(current).add(item.id))
     try {
       await downloadStudyMaterial(item)
     } catch {
       showToast('자료를 다운로드하지 못했어요. 잠시 후 다시 시도해주세요.')
+    } finally {
+      setDownloadingIds((current) => {
+        const next = new Set(current)
+        next.delete(item.id)
+        return next
+      })
     }
   }
 
   // 파일은 공용 업로드 API에 올린 뒤 그룹톡 파일 토큰 메시지로 전송해 저장한다.
-  // 목록 반영은 서버가 되돌려주는 실시간 메시지 수신으로 처리한다.
-  const handleUploadChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(event.target.files ?? [])
-    // 같은 파일을 다시 골라도 change 이벤트가 발생하도록 입력 값을 비운다.
-    event.target.value = ''
+  // 버튼 선택과 드래그 앤 드롭이 같은 경로를 쓴다.
+  const uploadFiles = async (selected: File[]) => {
     if (selected.length === 0 || isUploading) return
     if (!chatClientRef.current?.connected) {
       showToast('그룹톡 연결을 준비하고 있어요. 잠시 후 다시 시도해주세요.')
@@ -281,6 +308,13 @@ export function StudyMaterialsPage() {
     }
   }
 
+  const handleUploadChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(event.target.files ?? [])
+    // 같은 파일을 다시 골라도 change 이벤트가 발생하도록 입력 값을 비운다.
+    event.target.value = ''
+    await uploadFiles(selected)
+  }
+
   if (!isValidGroupId || loadError) {
     return (
       <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8 [zoom:0.9]">
@@ -304,7 +338,43 @@ export function StudyMaterialsPage() {
 
   return (
     <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8 [zoom:0.9]">
-      <section className="py-8" aria-labelledby="study-materials-title">
+      {/* 파일 드래그가 감지되면 섹션 전체가 드롭 영역이 된다. */}
+      <section
+        className="relative py-8"
+        aria-labelledby="study-materials-title"
+        onDragEnter={(event) => {
+          if (!event.dataTransfer.types.includes('Files')) return
+          event.preventDefault()
+          dragDepthRef.current += 1
+          setIsDragOver(true)
+        }}
+        onDragOver={(event) => {
+          if (event.dataTransfer.types.includes('Files')) event.preventDefault()
+        }}
+        onDragLeave={(event) => {
+          if (!event.dataTransfer.types.includes('Files')) return
+          dragDepthRef.current -= 1
+          if (dragDepthRef.current <= 0) {
+            dragDepthRef.current = 0
+            setIsDragOver(false)
+          }
+        }}
+        onDrop={(event) => {
+          if (!event.dataTransfer.types.includes('Files')) return
+          event.preventDefault()
+          dragDepthRef.current = 0
+          setIsDragOver(false)
+          void uploadFiles(Array.from(event.dataTransfer.files))
+        }}
+      >
+        {isDragOver ? (
+          <div className="pointer-events-none absolute inset-0 z-(--z-index-overlay) flex items-center justify-center rounded-ait-m border-2 border-dashed border-action-primary bg-surface-default/85">
+            <p className="flex items-center gap-2 text-body-1 font-semibold text-action-primary">
+              <Upload aria-hidden="true" className="size-5" />
+              여기에 놓으면 그룹톡에 공유되며 자료실에 올라가요
+            </p>
+          </div>
+        ) : null}
         <Breadcrumb
           items={[
             { label: '스터디 그룹', to: '/study' },
@@ -396,7 +466,7 @@ export function StudyMaterialsPage() {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => navigate(0)}
+                onClick={() => setMaterialsReloadKey((key) => key + 1)}
               >
                 다시 불러오기
               </Button>
@@ -423,6 +493,7 @@ export function StudyMaterialsPage() {
               ) : (
                 <StudyMaterialFileList
                   files={files}
+                  downloadingIds={downloadingIds}
                   onDownload={(file) => void handleDownload(file)}
                 />
               )}
@@ -472,6 +543,9 @@ export function StudyMaterialsPage() {
           setViewerImageId(images[index]?.id ?? null)
         }
         onClose={() => setViewerImageId(null)}
+        isDownloading={
+          viewerImageId !== null && downloadingIds.has(viewerImageId)
+        }
         onDownload={(image) => void handleDownload(image)}
       />
 
