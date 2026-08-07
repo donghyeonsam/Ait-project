@@ -372,10 +372,6 @@ button:not(:disabled) {
   grid-template-columns: minmax(18rem, 1fr) minmax(0, 2.35fr);
 }
 
-.recent-report-grid {
-  grid-template-columns: minmax(0, 1fr) minmax(20rem, 1.5fr);
-}
-
 .interview-summary-grid {
   grid-template-columns: 16.5rem minmax(0, 1fr);
 }
