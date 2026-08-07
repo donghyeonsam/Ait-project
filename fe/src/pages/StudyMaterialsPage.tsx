@@ -67,6 +67,9 @@ export function StudyMaterialsPage() {
   // 실시간 수신으로 배열 인덱스가 밀려도 보던 이미지가 유지되도록 뷰어는 id로 추적한다.
   const [viewerImageId, setViewerImageId] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
+  // 자식 요소를 오갈 때 dragleave가 연달아 발생해도 드롭 안내가 깜빡이지 않도록 깊이를 센다.
+  const dragDepthRef = useRef(0)
   // 다운로드 중인 자료 id 집합. 큰 파일에서 무반응처럼 보이거나 연타되는 것을 막는다.
   const [downloadingIds, setDownloadingIds] = useState<ReadonlySet<string>>(
     new Set(),
@@ -249,11 +252,8 @@ export function StudyMaterialsPage() {
   }
 
   // 파일은 공용 업로드 API에 올린 뒤 그룹톡 파일 토큰 메시지로 전송해 저장한다.
-  // 목록 반영은 서버가 되돌려주는 실시간 메시지 수신으로 처리한다.
-  const handleUploadChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(event.target.files ?? [])
-    // 같은 파일을 다시 골라도 change 이벤트가 발생하도록 입력 값을 비운다.
-    event.target.value = ''
+  // 버튼 선택과 드래그 앤 드롭이 같은 경로를 쓴다.
+  const uploadFiles = async (selected: File[]) => {
     if (selected.length === 0 || isUploading) return
     if (!chatClientRef.current?.connected) {
       showToast('그룹톡 연결을 준비하고 있어요. 잠시 후 다시 시도해주세요.')
@@ -301,6 +301,13 @@ export function StudyMaterialsPage() {
     }
   }
 
+  const handleUploadChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(event.target.files ?? [])
+    // 같은 파일을 다시 골라도 change 이벤트가 발생하도록 입력 값을 비운다.
+    event.target.value = ''
+    await uploadFiles(selected)
+  }
+
   if (!isValidGroupId || loadError) {
     return (
       <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8 [zoom:0.9]">
@@ -324,7 +331,43 @@ export function StudyMaterialsPage() {
 
   return (
     <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8 [zoom:0.9]">
-      <section className="py-8" aria-labelledby="study-materials-title">
+      {/* 파일 드래그가 감지되면 섹션 전체가 드롭 영역이 된다. */}
+      <section
+        className="relative py-8"
+        aria-labelledby="study-materials-title"
+        onDragEnter={(event) => {
+          if (!event.dataTransfer.types.includes('Files')) return
+          event.preventDefault()
+          dragDepthRef.current += 1
+          setIsDragOver(true)
+        }}
+        onDragOver={(event) => {
+          if (event.dataTransfer.types.includes('Files')) event.preventDefault()
+        }}
+        onDragLeave={(event) => {
+          if (!event.dataTransfer.types.includes('Files')) return
+          dragDepthRef.current -= 1
+          if (dragDepthRef.current <= 0) {
+            dragDepthRef.current = 0
+            setIsDragOver(false)
+          }
+        }}
+        onDrop={(event) => {
+          if (!event.dataTransfer.types.includes('Files')) return
+          event.preventDefault()
+          dragDepthRef.current = 0
+          setIsDragOver(false)
+          void uploadFiles(Array.from(event.dataTransfer.files))
+        }}
+      >
+        {isDragOver ? (
+          <div className="pointer-events-none absolute inset-0 z-(--z-index-overlay) flex items-center justify-center rounded-ait-m border-2 border-dashed border-action-primary bg-surface-default/85">
+            <p className="flex items-center gap-2 text-body-1 font-semibold text-action-primary">
+              <Upload aria-hidden="true" className="size-5" />
+              여기에 놓으면 그룹톡에 공유되며 자료실에 올라가요
+            </p>
+          </div>
+        ) : null}
         <Breadcrumb
           items={[
             { label: '스터디 그룹', to: '/study' },
