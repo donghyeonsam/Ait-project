@@ -177,12 +177,25 @@ export function StudyMaterialsPage() {
         setMaterials((current) => [...current, ...page.items])
         setHasMore(page.hasNext)
         cursorRef.current = page.lastChatId ?? undefined
+        // 불러온 자료가 다른 탭에만 쌓이면 버튼이 무반응처럼 보여 결과 위치를 알려준다.
+        const addedToTab = page.items.filter(
+          (item) => item.isImage === (tab === 'image'),
+        ).length
+        if (page.items.length === 0) {
+          showToast('이 구간의 그룹톡에는 공유된 자료가 없었어요.')
+        } else if (addedToTab === 0) {
+          showToast(
+            tab === 'image'
+              ? '새로 불러온 자료가 모두 파일이에요. 파일 탭에서 확인해보세요.'
+              : '새로 불러온 자료가 모두 이미지예요. 이미지 탭에서 확인해보세요.',
+          )
+        }
       })
       .catch(() => {
         showToast('자료를 더 불러오지 못했어요. 잠시 후 다시 시도해주세요.')
       })
       .finally(() => setIsLoadingMore(false))
-  }, [groupId, hasMore, isLoadingMore, showToast])
+  }, [groupId, hasMore, isLoadingMore, showToast, tab])
 
   const uploaderOptions = useMemo(
     () => [...new Set(materials.map((item) => item.uploaderNickname))],
