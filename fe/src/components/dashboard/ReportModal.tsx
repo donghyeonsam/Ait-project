@@ -10,7 +10,9 @@ import {
 import { toErrorMessage } from '@/api/http'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { RadarChart } from '@/components/dashboard/RadarChart'
 import { useAnimatedNumber } from '@/components/dashboard/useAnimatedNumber'
+import { toRadarAxes } from '@/lib/radar-axes'
 import type { InterviewRecord } from '@/types/dashboard'
 import { cn } from '@/lib/utils'
 
@@ -27,107 +29,6 @@ interface ReportModalProps {
 
 const focusableSelector =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-
-interface RadarAxis {
-  label: string
-  score: number
-}
-
-// 리포트 상세 점수를 레이더 축 순서(시선→표정→목소리→질의응답→문장구성)로 배열한다.
-const toRadarAxes = (detail: InterviewReportDetail): RadarAxis[] => [
-  { label: '시선', score: detail.eyeContactScore },
-  { label: '표정', score: detail.faceScore },
-  { label: '목소리', score: detail.voiceScore },
-  { label: '질의응답', score: detail.qnaScore },
-  { label: '문장구성', score: detail.sentenceScore },
-]
-
-// 레이더의 index번째 꼭짓점 좌표. 12시 방향(-90°)부터 시계방향으로 축 개수만큼 등분해 배치한다.
-function polarPoint(index: number, radius: number, axisCount: number) {
-  const angle = -Math.PI / 2 + (Math.PI * 2 * index) / axisCount
-  return `${120 + Math.cos(angle) * radius},${110 + Math.sin(angle) * radius}`
-}
-
-const gridLevels = [24, 48, 72, 88]
-
-function RadarChart({ axes, active }: { axes: RadarAxis[]; active: boolean }) {
-  const dataPolygon = axes
-    .map((axis, index) =>
-      polarPoint(index, (Math.min(Math.max(axis.score, 0), 10) / 10) * 88, axes.length),
-    )
-    .join(' ')
-
-  return (
-    <div className="relative mx-auto w-full max-w-56">
-      <svg
-        viewBox="0 0 240 220"
-        className="block h-auto w-full overflow-visible"
-        role="img"
-        aria-labelledby="radar-title radar-description"
-      >
-        <title id="radar-title">역량 분석</title>
-        <desc id="radar-description">
-          {axes.map((axis) => `${axis.label} ${axis.score.toFixed(1)}점`).join(', ')}
-          입니다.
-        </desc>
-        {gridLevels.map((radius) => (
-          <polygon
-            key={radius}
-            points={axes.map((_, index) => polarPoint(index, radius, axes.length)).join(' ')}
-            fill="none"
-            stroke="var(--color-chart-grid)"
-          />
-        ))}
-        {axes.map((_, index) => (
-          <line
-            key={index}
-            x1="120"
-            y1="110"
-            x2={polarPoint(index, 88, axes.length).split(',')[0]}
-            y2={polarPoint(index, 88, axes.length).split(',')[1]}
-            stroke="var(--color-chart-grid)"
-          />
-        ))}
-        <polygon
-          points={dataPolygon}
-          fill="var(--color-radar-fill)"
-          stroke="var(--color-radar-stroke)"
-          strokeWidth="2"
-          className={cn('radar-polygon', active && 'is-visible')}
-        />
-        {axes.map((axis, index) => {
-          const [x, y] = polarPoint(index, 111, axes.length).split(',').map(Number)
-          return (
-            <g key={axis.label} className={cn('radar-label', active && 'is-visible')}>
-              <text
-                x={x}
-                y={y}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill="var(--color-text-secondary)"
-                fontSize="13"
-              >
-                {axis.label}
-              </text>
-              <text
-                x={x}
-                y={y + 15}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill="var(--color-text-primary)"
-                fontSize="12"
-                fontWeight="600"
-                style={{ fontVariantNumeric: 'tabular-nums' }}
-              >
-                {axis.score.toFixed(1)}
-              </text>
-            </g>
-          )
-        })}
-      </svg>
-    </div>
-  )
-}
 
 interface QuestionProps {
   title: string

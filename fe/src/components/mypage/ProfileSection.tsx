@@ -11,9 +11,7 @@ import type { ProfileData } from '@/types/profile'
 
 interface ProfileSectionProps {
   profile: ProfileData
-  repositoryError?: string | null
   repositoryLoading?: boolean
-  onRetryRepositories?: () => void
   onRepositoryInstalled?: () => void
   onOpenDocuments: () => void
 }
@@ -65,9 +63,7 @@ function isDuplicateNicknameError(error: unknown) {
 
 export function ProfileSection({
   profile,
-  repositoryError,
   repositoryLoading,
-  onRetryRepositories,
   onRepositoryInstalled,
   onOpenDocuments,
 }: ProfileSectionProps) {
@@ -314,9 +310,7 @@ export function ProfileSection({
         onChangeRepositoryName={updateRepositoryName}
         isSaving={isSaving}
         saveError={saveError}
-        repositoryError={repositoryError}
         repositoryLoading={repositoryLoading}
-        onRetryRepositories={onRetryRepositories}
         onRepositoryInstalled={onRepositoryInstalled}
         onDeleteRepository={deleteRepository}
         onOpenDocuments={onOpenDocuments}

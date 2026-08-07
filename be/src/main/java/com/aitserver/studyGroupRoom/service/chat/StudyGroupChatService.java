@@ -1,7 +1,5 @@
 package com.aitserver.studyGroupRoom.service.chat;
 
-import com.aitserver.user.entity.User;
-import com.aitserver.user.repository.UserRepository;
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.studyGroupRoom.dto.chat.ChatDto;
@@ -10,9 +8,13 @@ import com.aitserver.studyGroupRoom.dto.chat.ChatReactionDto;
 import com.aitserver.studyGroupRoom.entity.StudyGroup;
 import com.aitserver.studyGroupRoom.entity.StudyGroupChat;
 import com.aitserver.studyGroupRoom.entity.StudyGroupChatReaction;
-import com.aitserver.studyGroupRoom.repository.StudyGroupChatRepository;
+import com.aitserver.studyGroupRoom.entity.StudyGroupFile;
+import com.aitserver.studyGroupRoom.enums.ChatType;
 import com.aitserver.studyGroupRoom.repository.StudyGroupChatReactionRepository;
+import com.aitserver.studyGroupRoom.repository.StudyGroupChatRepository;
 import com.aitserver.studyGroupRoom.repository.StudyGroupRepository;
+import com.aitserver.user.entity.User;
+import com.aitserver.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -33,30 +35,45 @@ public class StudyGroupChatService {
     private final UserRepository userRepository;
 
     @Transactional
-    public ChatDto.Response saveChat(Long groupId, Long userId, String message) {
+    public ChatDto.Response saveChat(Long groupId, Long userId, ChatDto.Request request) {
 
-        // 1. 발송 유저 엔티티 조회
+        // 1. 발송 유저 및 그룹 엔티티 조회
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NO_USER));
-
-        // 2. 목적지 스터디 그룹 엔티티 조회
         StudyGroup studyGroup = studyGroupRepository.findById(groupId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STUDY_GROUP_NOT_FOUND));
 
-        // 3. 그룹 멤버 확인
+        // 2. 그룹 멤버 확인
         studyGroup.validateMember(user.getId());
 
-        // 4. 채팅 엔티티 생성
+        // 3. 채팅(부모) 엔티티 생성
         StudyGroupChat chat = StudyGroupChat.builder()
                 .studyGroup(studyGroup)
                 .user(user)
-                .message(message)
+                .chatType(request.getChatType() != null ? request.getChatType() : ChatType.TEXT)
+                .message(request.getMessage())
                 .build();
 
-        // 5. DB에 저장
+        // 4. 첨부 파일이 존재하면 자식 엔티티 생성 및 연관관계 매핑
+        if (request.getFiles() != null && !request.getFiles().isEmpty()) {
+            for (ChatDto.FileDto fileDto : request.getFiles()) {
+                StudyGroupFile file = StudyGroupFile.builder()
+                        .studyGroup(studyGroup) // 모아보기용 연관관계
+                        .user(user)             // 업로더
+                        .originalFilename(fileDto.getOriginalFilename())
+                        .storedFilename(fileDto.getStoredFilename())
+                        .fileType(fileDto.getFileType())
+                        .fileSize(fileDto.getFileSize())
+                        .build();
+
+                chat.addFile(file); // 💡 중요: 연관관계 편의 메서드 호출
+            }
+        }
+
+        // 5. DB에 저장 (chat만 저장해도 cascade = CascadeType.ALL에 의해 file들도 자동 저장됨)
         StudyGroupChat savedChat = chatRepository.save(chat);
 
-        // 6. Response DTO로 변환
+        // 6. Response DTO로 변환하여 반환 (방 안의 사람들에게 웹소켓으로 뿌려줄 객체)
         return ChatDto.Response.from(savedChat, user.getNickname(), user.getProfileImage());
     }
 

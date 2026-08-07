@@ -442,6 +442,13 @@ button:not(:disabled) {
     var(--easing-emphasized) forwards;
 }
 
+/* 그리기 완료 뒤 대시를 제거해 경로 길이의 브라우저별 반올림과 무관하게 마지막 점까지 잇는다. */
+.simple-graph.is-active .simple-graph__line.is-drawn {
+  animation: none;
+  stroke-dasharray: none;
+  stroke-dashoffset: 0;
+}
+
 .simple-graph__area {
   opacity: 0;
   transform: scaleY(0.88);
@@ -3022,6 +3029,7 @@ button:not(:disabled) {
   }
 
   .simple-graph__line {
+    stroke-dasharray: none !important;
     stroke-dashoffset: 0 !important;
   }
 

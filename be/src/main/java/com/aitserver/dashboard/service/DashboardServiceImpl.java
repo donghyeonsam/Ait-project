@@ -15,6 +15,7 @@ import com.aitserver.studyGroupRoom.entity.StudyGroupCalendar;
 import com.aitserver.studyGroupRoom.repository.StudyGroupCalendarRepository;
 import com.aitserver.studySession.repository.StudySessionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +36,7 @@ public class DashboardServiceImpl implements DashboardService {
 
 
     @Override
+    @Cacheable(value = "dashboard", key = "#userId")
     public DashboardResponse getDashboardResponse(Long userId) {
         // 모의 면접 결과 리스트, 정렬까지 되어있는듯? -> 전체 조회에서 4개만 조회로 변경
         List<ReportListResponse> reportList = aiInterviewsRepository.findReportListByUserIdLimit(userId);

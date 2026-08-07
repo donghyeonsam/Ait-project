@@ -31,6 +31,15 @@ describe('study-chat-file', () => {
     expect(parseFileToken('[file:a.png:b.png] 추가 텍스트')).toBeNull()
   })
 
+  it('긴 파일명은 확장자를 남기고 잘라 메시지 길이 제한을 넘지 않게 한다', () => {
+    const longName = `${'가'.repeat(60)}.pdf`
+    const token = toFileToken('chats/uuid.pdf', longName)
+
+    expect(token.length).toBeLessThanOrEqual(200)
+    const parsed = parseFileToken(token)
+    expect(parsed?.originalFilename.endsWith('….pdf')).toBe(true)
+  })
+
   it('파일 메시지 미리보기는 파일 이름으로 바꾼다', () => {
     const token = toFileToken('chats/uuid.pdf', '발표자료.pdf')
 

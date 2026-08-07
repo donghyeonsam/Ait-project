@@ -1,4 +1,5 @@
 // 서버 채팅 스키마 변경 없이 답글을 표현하기 위해 메시지 문자열 맨 앞에 답글 토큰을 넣고 화면에서 되돌린다.
+import type { StudyGroupChatFile } from '@/api/study-group-chat'
 import { parseEmoticonToken } from '@/lib/emoticons'
 import { parseFileToken } from '@/lib/study-chat-file'
 
@@ -22,11 +23,12 @@ export function toReplyTarget(message: {
   chatId: number
   senderNickname: string
   message: string
+  files?: StudyGroupChatFile[]
 }): StudyChatReplyTarget {
   return {
     chatId: message.chatId,
     nickname: message.senderNickname,
-    preview: toStudyChatPreviewText(message.message),
+    preview: toStudyChatMessagePreview(message),
   }
 }
 
@@ -60,6 +62,23 @@ export function toStudyChatPreviewText(raw: string) {
 
   const file = parseFileToken(body)
   const previewSource = file ? `파일: ${file.originalFilename}` : body
+  return clipPreview(previewSource)
+}
+
+// 서버 files 첨부가 있으면 파일명 기반, 없으면 메시지 텍스트 기반으로 미리보기를 만든다.
+export function toStudyChatMessagePreview(message: {
+  message: string
+  files?: StudyGroupChatFile[]
+}) {
+  const [firstFile, ...restFiles] = message.files ?? []
+  if (firstFile) {
+    const suffix = restFiles.length > 0 ? ` 외 ${restFiles.length}개` : ''
+    return clipPreview(`파일: ${firstFile.originalFilename}${suffix}`)
+  }
+  return toStudyChatPreviewText(message.message)
+}
+
+function clipPreview(previewSource: string) {
   const singleLine = previewSource.replaceAll('\n', ' ').trim()
   return singleLine.length > replyPreviewMaxLength
     ? `${singleLine.slice(0, replyPreviewMaxLength)}…`

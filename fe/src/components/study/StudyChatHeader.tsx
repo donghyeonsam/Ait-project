@@ -1,4 +1,4 @@
-import { ChevronDown, Eye, GripHorizontal, UsersRound, X } from 'lucide-react'
+import { ChevronDown, GripHorizontal, UsersRound, X } from 'lucide-react'
 import type { MyStudyGroup } from '@/api/study-groups'
 import { DialogClose } from '@/components/ui/dialog'
 
@@ -9,9 +9,7 @@ interface StudyChatHeaderProps {
   isGroupSwitcherOpen: boolean
   groupSwitcherId: string
   groupTriggerRef: React.RefObject<HTMLButtonElement | null>
-  opacityPercent: number
   onToggleGroupSwitcher: () => void
-  onOpacityChange: (opacityPercent: number) => void
 }
 
 // 현재 그룹과 연결 상태를 요약하고 그룹 전환·닫기 동작을 제공한다.
@@ -22,9 +20,7 @@ export function StudyChatHeader({
   isGroupSwitcherOpen,
   groupSwitcherId,
   groupTriggerRef,
-  opacityPercent,
   onToggleGroupSwitcher,
-  onOpacityChange,
 }: StudyChatHeaderProps) {
   return (
     <header
@@ -81,25 +77,6 @@ export function StudyChatHeader({
       </button>
 
       <div className="flex shrink-0 items-center gap-2">
-        <label
-          className="flex items-center gap-1.5 text-text-secondary"
-          title={`모달 투명도 ${opacityPercent}%`}
-        >
-          <Eye className="hidden size-4 min-[28rem]:block" aria-hidden="true" />
-          <span className="sr-only">모달 투명도</span>
-          <input
-            type="range"
-            min="40"
-            max="100"
-            step="5"
-            value={opacityPercent}
-            onChange={(event) => onOpacityChange(Number(event.target.value))}
-            aria-label="모달 투명도"
-            aria-valuetext={`${opacityPercent}%`}
-            className="h-1.5 w-16 cursor-pointer accent-action-primary min-[28rem]:w-24"
-          />
-        </label>
-
         <DialogClose asChild>
           <button
             type="button"

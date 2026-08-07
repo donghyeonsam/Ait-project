@@ -1,5 +1,6 @@
 // 스터디 세션 상호평가 조회 API 호출과 관련 타입을 모아둔 모듈.
 import { backendRequest } from '@/api/http'
+import type { StudyRecord } from '@/types/dashboard'
 
 export interface PeerFeedback {
   id: number
@@ -83,4 +84,56 @@ export interface PeerFeedbackSessionSummary {
 // 내가 평가를 받은 세션 목록. 세션별로 이미 집계된 평균만 내려오고, 세부 항목·코멘트는 세션별 상세 조회로 받는다.
 export function getPeerFeedbackList() {
   return backendRequest<PeerFeedbackSessionSummary[]>('/api/peer-feedback/list/me')
+}
+
+// 서버 생성 시각을 'YYYY. MM. DD.' 형식으로 표시한다.
+export function formatRecordDate(value: string) {
+  const date = new Date(value)
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  return `${yyyy}. ${mm}. ${dd}.`
+}
+
+// 그룹별 직전 세션과의 점수 차를 계산해 화면 기록으로 바꾼다.
+// TODO: 실제 API 연동 필요 — 응답에 groupId가 없어 sessionTitle(그룹명)을 그룹 구분 키로 대신 쓴다.
+export function toStudyRecords(items: PeerFeedbackSessionSummary[]): StudyRecord[] {
+  const groupKeyOf = (item: PeerFeedbackSessionSummary) => item.groupId ?? item.sessionTitle
+
+  const byGroup = new Map<string | number, PeerFeedbackSessionSummary[]>()
+  for (const item of items) {
+    const key = groupKeyOf(item)
+    const list = byGroup.get(key)
+    if (list) {
+      list.push(item)
+    } else {
+      byGroup.set(key, [item])
+    }
+  }
+
+  const deltaBySessionId = new Map<number, number>()
+  const roundBySessionId = new Map<number, number>()
+  for (const list of byGroup.values()) {
+    const ascending = [...list].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    ascending.forEach((item, index) => {
+      deltaBySessionId.set(
+        item.sessionId,
+        index > 0 ? item.scoreAvg - ascending[index - 1].scoreAvg : 0,
+      )
+      roundBySessionId.set(item.sessionId, index + 1)
+    })
+  }
+
+  return [...items]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map((item) => ({
+      sessionId: item.sessionId,
+      groupId: item.groupId,
+      groupTitle: item.sessionTitle,
+      date: formatRecordDate(item.createdAt),
+      score: item.scoreAvg,
+      delta: deltaBySessionId.get(item.sessionId) ?? 0,
+      round: roundBySessionId.get(item.sessionId) ?? 1,
+      status: 'completed' as const,
+    }))
 }

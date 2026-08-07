@@ -63,31 +63,32 @@ export function PostCard({ post, onToggleBookmark, onToggleLike }: PostCardProps
         </button>
       </div>
 
-      <div className="mt-3 flex items-start gap-4">
-        <div className="min-w-0 flex-1">
-          <h3 className="text-[18px] font-semibold text-ink-900 transition-colors duration-[180ms] group-hover:text-navy-800">
+      <div className="mt-3 flex h-24 items-start gap-4">
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <h3 className="line-clamp-1 text-[18px] font-semibold text-ink-900 transition-colors duration-[180ms] group-hover:text-navy-800">
             {post.title}
           </h3>
           <p className="mt-1.5 line-clamp-1 text-body-2 text-ink-500">{post.excerpt}</p>
+          <div className="mt-3 flex flex-nowrap gap-1.5 overflow-hidden">
+            {post.tags.map((tag) => (
+              <TagChip key={tag} label={tag} />
+            ))}
+          </div>
         </div>
+
         {post.thumbnail ? (
-          <AuthenticatedImage
-            src={post.thumbnail}
-            alt=""
-            aria-hidden="true"
-            className="size-16 shrink-0 rounded-ait-s border border-line-soft object-cover"
-          />
+          // 카드 높이는 이 칸(h-24)이 정하고, 실제 이미지는 위로 튀어나와 헤더 영역까지 덮는 정사각형(136px)이다.
+          <div className="relative h-24 w-34 shrink-0">
+            <AuthenticatedImage
+              src={post.thumbnail}
+              alt=""
+              aria-hidden="true"
+              className="absolute -top-10 right-0 size-34 rounded-ait-s border border-line-soft object-cover"
+            />
+          </div>
         ) : null}
-      </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1.5">
-          {post.tags.map((tag) => (
-            <TagChip key={tag} label={tag} />
-          ))}
-        </div>
-
-        <div className="flex items-center gap-4 text-caption text-ink-500">
+        <div className="flex shrink-0 items-center gap-4 self-end text-caption text-ink-500">
           <span className="inline-flex items-center gap-1.5">
             <Eye aria-hidden="true" className="size-4 text-ink-400" />
             <span className="sr-only">조회수</span>
