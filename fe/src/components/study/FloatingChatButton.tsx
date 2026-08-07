@@ -77,6 +77,8 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
   const [draft, setDraft] = useState('')
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  // 전송 실패 시 초안을 비운 채 그대로 두면 메시지가 조용히 사라진 것처럼 보인다.
+  const [sendError, setSendError] = useState<string | null>(null)
   const messageListRef = useRef<HTMLDivElement>(null)
   const messageInputRef = useRef<HTMLInputElement>(null)
 
@@ -132,7 +134,12 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
     if (!trimmed || isSending) return
     setDraft('')
     setEmojiPickerOpen(false)
-    void send(trimmed)
+    setSendError(null)
+    // send()가 실패해도 이미 비운 초안은 되돌리지 않으면 메시지가 조용히 사라진 것처럼 보인다.
+    send(trimmed).catch(() => {
+      setDraft(trimmed)
+      setSendError('메시지를 보내지 못했습니다. 다시 시도해 주세요.')
+    })
   }
 
   useEffect(() => {
@@ -371,6 +378,10 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
               })}
             </div>
           )}
+
+          {sendError ? (
+            <p className="shrink-0 px-3 pt-2 text-caption text-status-error">{sendError}</p>
+          ) : null}
 
           <form
             onSubmit={handleSubmit}

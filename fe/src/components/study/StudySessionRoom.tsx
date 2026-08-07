@@ -969,9 +969,11 @@ function StudySessionRoomStage({
     setLeaveError(null)
     try {
       await endStudySession(connection.sessionId)
+      // onLeave()가 라우팅 이동에 실패해도(예외 발생) 다이얼로그를 먼저 닫아버리면 에러 문구를
+      // 보여줄 곳이 없어 화면만 멈춘 것처럼 보인다. 화면 전환이 확실히 시작된 뒤에 다이얼로그 상태를 정리한다.
+      onLeave()
       setLeaveDialogOpen(false)
       setEvalWarningStep(null)
-      onLeave()
     } catch (error) {
       setLeaveError(toErrorMessage(error))
     } finally {
