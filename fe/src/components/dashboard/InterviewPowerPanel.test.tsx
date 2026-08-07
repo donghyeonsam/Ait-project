@@ -1,9 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getInterviewReportDetail,
   getInterviewReports,
 } from '@/api/ai-interviews'
+import { getPeerFeedbackList, type PeerFeedbackSessionSummary } from '@/api/peer-feedback'
 import { InterviewPowerPanel } from '@/components/dashboard/InterviewPowerPanel'
 import type { InterviewRecord } from '@/types/dashboard'
 
@@ -12,8 +13,13 @@ vi.mock('@/api/ai-interviews', () => ({
   getInterviewReportDetail: vi.fn(),
 }))
 
+vi.mock('@/api/peer-feedback', () => ({
+  getPeerFeedbackList: vi.fn(),
+}))
+
 const mockedGetInterviewReports = vi.mocked(getInterviewReports)
 const mockedGetInterviewReportDetail = vi.mocked(getInterviewReportDetail)
+const mockedGetPeerFeedbackList = vi.mocked(getPeerFeedbackList)
 
 const records: InterviewRecord[] = [
   {
@@ -68,6 +74,10 @@ function detailFor(id: number) {
 }
 
 describe('InterviewPowerPanel', () => {
+  beforeEach(() => {
+    mockedGetPeerFeedbackList.mockResolvedValue([])
+  })
+
   it('완료된 면접 점수를 그대로 더해 EXP로 쌓고, 100 미만이면 Lv.1로 보여준다', async () => {
     mockedGetInterviewReports.mockResolvedValue(records)
     mockedGetInterviewReportDetail.mockResolvedValue(detailFor(1))
@@ -93,6 +103,20 @@ describe('InterviewPowerPanel', () => {
     // 60 + 55 = 115 → Lv.2, 레벨 안 경험치는 15.0
     await waitFor(() => expect(screen.getByText('Lv. 2')).toBeInTheDocument())
     expect(screen.getByText('15.0')).toBeInTheDocument()
+  })
+
+  it('스터디 상호평가 점수도 면접 점수와 함께 EXP로 더한다', async () => {
+    mockedGetInterviewReports.mockResolvedValue(records)
+    mockedGetInterviewReportDetail.mockResolvedValue(detailFor(1))
+    const peerFeedbacks: PeerFeedbackSessionSummary[] = [
+      { sessionId: 1, sessionTitle: '금융권 면접 PT 대비', createdAt: '2026-08-02T09:00:00', scoreAvg: 8 },
+    ]
+    mockedGetPeerFeedbackList.mockResolvedValue(peerFeedbacks)
+
+    render(<InterviewPowerPanel />)
+
+    // 8.4 + 6.6(면접) + 8(스터디) = 23.0
+    await waitFor(() => expect(screen.getByText('23.0')).toBeInTheDocument())
   })
 
   it('가장 최근 완료 면접의 잘한 점·개선점을 한 줄씩 보여준다', async () => {
