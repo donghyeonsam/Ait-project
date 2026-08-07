@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { aitEmoticons } from '@/lib/emoticons'
 
 const MASCOT_SLIDE_INTERVAL_MS = 6000
-const COMMENT_ROTATE_INTERVAL_MS = 7000
+const COMMENT_ROTATE_INTERVAL_MS = 4000
 
 // 100 EXP를 채우면 레벨업하는 단순한 누적 방식. 레벨 환산 없이 그냥 총점을 보여주면
 // 숫자가 커지는 느낌이 약해서, 원점수 총합을 그대로 EXP로 쓰고 레벨만 100 단위로 끊는다.

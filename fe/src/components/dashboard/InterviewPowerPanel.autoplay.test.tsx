@@ -77,7 +77,7 @@ describe('InterviewPowerPanel 코멘트 자동 전환', () => {
     render(<InterviewPowerPanel />)
     await waitFor(() => expect(screen.getByText('첫 번째 잘한 점')).toBeInTheDocument())
 
-    const call = setIntervalSpy.mock.calls.find(([, delay]) => delay === 7000)
+    const call = setIntervalSpy.mock.calls.find(([, delay]) => delay === 4000)
     expect(call).toBeTruthy()
     const advance = call?.[0] as (() => void) | undefined
 
