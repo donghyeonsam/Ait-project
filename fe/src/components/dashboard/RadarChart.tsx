@@ -11,7 +11,15 @@ function polarPoint(index: number, radius: number, axisCount: number) {
 const gridLevels = [24, 48, 72, 88]
 
 // 역량 5축을 오각형 레이더로 보여준다. active가 true가 되는 순간 그려지는 애니메이션이 재생된다.
-export function RadarChart({ axes, active }: { axes: RadarAxis[]; active: boolean }) {
+export function RadarChart({
+  axes,
+  active,
+  className,
+}: {
+  axes: RadarAxis[]
+  active: boolean
+  className?: string
+}) {
   // 같은 화면에 레이더가 동시에 여러 개 떠 있어도(캐러셀 + 모달 등) id가 겹치지 않도록 인스턴스별로 생성한다.
   const titleId = useId()
   const descriptionId = useId()
@@ -22,7 +30,7 @@ export function RadarChart({ axes, active }: { axes: RadarAxis[]; active: boolea
     .join(' ')
 
   return (
-    <div className="relative mx-auto w-full max-w-56">
+    <div className={cn('relative mx-auto w-full max-w-56', className)}>
       <svg
         viewBox="0 0 240 220"
         className="block h-auto w-full overflow-visible"
