@@ -1,10 +1,12 @@
+import { AnimatePresence, motion } from 'framer-motion'
 import { LogOut, Menu, MessageCircleMore } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { logout } from '@/api/auth'
 import { ProfileAvatar } from '@/components/common/ProfileAvatar'
 import { NotificationBell } from '@/components/layout/NotificationBell'
 import { Button } from '@/components/ui/button'
+import { dropdownPanel } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/useAuth'
 import { useStudyChat } from '@/lib/useStudyChat'
@@ -29,11 +31,35 @@ export function Header() {
   const { isAuthenticated, user, signOut } = useAuth()
   const { totalUnread, isChatOpen, openChat } = useStudyChat()
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const mobileMenuRef = useRef<HTMLDivElement>(null)
+  const mobileMenuId = useId()
 
   const hasUnread = typeof totalUnread === 'number' && totalUnread > 0
   // 긴 개수가 뱃지 크기를 밀어내지 않도록 99+로 축약한다.
   const unreadLabel =
     totalUnread !== undefined && totalUnread > 99 ? '99+' : String(totalUnread ?? 0)
+
+  // lg 이상으로 넓어지면 상단 내비게이션이 다시 보이므로 열려 있던 모바일 메뉴는 닫는다.
+  useEffect(() => {
+    if (!isMobileMenuOpen) return
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!mobileMenuRef.current?.contains(event.target as Node)) setMobileMenuOpen(false)
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileMenuOpen(false)
+    }
+    const media = window.matchMedia('(min-width: 64rem)')
+    const handleMediaChange = () => setMobileMenuOpen(false)
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    media.addEventListener('change', handleMediaChange)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+      media.removeEventListener('change', handleMediaChange)
+    }
+  }, [isMobileMenuOpen])
 
   const handleSignOut = async () => {
     if (isSigningOut) return
@@ -83,15 +109,52 @@ export function Header() {
         <div className="flex origin-right scale-90 items-center justify-end gap-2">
           {isAuthenticated ? (
             <>
-              <Button
-                type="button"
-                variant="text"
-                size="icon"
-                className="lg:hidden"
-                aria-label="메뉴"
-              >
-                <Menu aria-hidden="true" />
-              </Button>
+              <div ref={mobileMenuRef} className="relative lg:hidden">
+                <Button
+                  type="button"
+                  variant="text"
+                  size="icon"
+                  aria-label="메뉴"
+                  aria-haspopup="menu"
+                  aria-expanded={isMobileMenuOpen}
+                  aria-controls={isMobileMenuOpen ? mobileMenuId : undefined}
+                  onClick={() => setMobileMenuOpen((open) => !open)}
+                >
+                  <Menu aria-hidden="true" />
+                </Button>
+
+                <AnimatePresence>
+                  {isMobileMenuOpen ? (
+                    <motion.nav
+                      id={mobileMenuId}
+                      aria-label="주요 메뉴"
+                      variants={dropdownPanel}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
+                      className="absolute left-0 top-[calc(100%+0.375rem)] z-(--z-index-dropdown) w-48 origin-top-left overflow-hidden rounded-ait-s border border-line bg-surface-default py-1 shadow-elevation-2"
+                    >
+                      {navigationItems.map((item) => (
+                        <NavLink
+                          key={item.to}
+                          to={item.to}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={({ isActive }) =>
+                            cn(
+                              'block px-4 py-2.5 text-body-2',
+                              isActive
+                                ? 'font-semibold text-action-primary'
+                                : 'text-text-secondary hover:bg-status-neutral-surface hover:text-action-primary',
+                            )
+                          }
+                        >
+                          {item.label}
+                        </NavLink>
+                      ))}
+                    </motion.nav>
+                  ) : null}
+                </AnimatePresence>
+              </div>
               <NotificationBell />
               <Button
                 type="button"
