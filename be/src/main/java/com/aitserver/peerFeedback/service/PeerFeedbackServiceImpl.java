@@ -13,6 +13,7 @@ import com.aitserver.studySession.repository.StudySessionRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -76,6 +77,7 @@ public class PeerFeedbackServiceImpl implements PeerFeedbackService{
     }
 
     @Override
+    @CacheEvict(value = "dashboard", key = "#request.evaluateeId")
     public PeerFeedbackDetailResponse createPeerFeedback(PeerFeedbackCreateRequest request, Long userId, Long sessionId) {
 
         StudySession studySession = studySessionRepository.findById(sessionId)
