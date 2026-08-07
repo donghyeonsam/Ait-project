@@ -1,9 +1,7 @@
 import type { ImgHTMLAttributes } from 'react'
 import { useEffect, useState } from 'react'
-import {
-  fetchBackendAssetBlob,
-  isBackendAssetUrl,
-} from '@/api/http'
+import { isBackendAssetUrl } from '@/api/http'
+import { fetchAssetBlobCached } from '@/lib/asset-blob-cache'
 
 interface AuthenticatedImageState {
   originalSource: string
@@ -21,7 +19,8 @@ function useAuthenticatedImageUrl(source: string) {
     let active = true
     let objectUrl: string | null = null
 
-    void fetchBackendAssetBlob(source)
+    // 캐시된 blob이면 네트워크 없이 즉시 해소돼 탭 전환·재렌더 시 재다운로드가 없다.
+    void fetchAssetBlobCached(source)
       .then((blob) => {
         const nextObjectUrl = URL.createObjectURL(blob)
         if (!active) {
