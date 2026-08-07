@@ -136,7 +136,8 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
     setEmojiPickerOpen(false)
     setSendError(null)
     // send()가 실패해도 이미 비운 초안은 되돌리지 않으면 메시지가 조용히 사라진 것처럼 보인다.
-    send(trimmed).catch(() => {
+    send(trimmed).catch((error: unknown) => {
+      console.error('스터디 세션 채팅 전송 실패', error)
       setDraft(trimmed)
       setSendError('메시지를 보내지 못했습니다. 다시 시도해 주세요.')
     })
