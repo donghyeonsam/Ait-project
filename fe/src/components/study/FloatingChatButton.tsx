@@ -276,26 +276,28 @@ export function FloatingChatButton({ boundsRef }: FloatingChatButtonProps) {
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         style={{ left: effectivePosition.x, top: effectivePosition.y, width: BUTTON_SIZE, height: BUTTON_SIZE }}
-        className="absolute z-(--z-index-sticky) flex touch-none cursor-grab items-center justify-center overflow-hidden rounded-ait-pill bg-action-primary text-white shadow-elevation-2 transition-[background-color,transform] duration-250 ease-emphasized hover:bg-action-primary/90 active:cursor-grabbing motion-reduce:transition-none"
+        className="absolute z-(--z-index-sticky) flex touch-none cursor-grab items-center justify-center rounded-ait-pill bg-action-primary text-white shadow-elevation-2 transition-[background-color,transform] duration-250 ease-emphasized hover:bg-action-primary/90 active:cursor-grabbing motion-reduce:transition-none"
       >
-        <MessageSquare
-          className={cn(
-            'absolute size-5 transition-[opacity,transform] duration-250 ease-emphasized motion-reduce:transition-none',
-            open
-              ? 'rotate-90 scale-50 opacity-0'
-              : 'rotate-0 scale-100 opacity-100',
-          )}
-          aria-hidden="true"
-        />
-        <X
-          className={cn(
-            'absolute size-5 transition-[opacity,transform] duration-250 ease-emphasized motion-reduce:transition-none',
-            open
-              ? 'rotate-0 scale-100 opacity-100'
-              : '-rotate-90 scale-50 opacity-0',
-          )}
-          aria-hidden="true"
-        />
+        <span className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-ait-pill">
+          <MessageSquare
+            className={cn(
+              'absolute size-5 transition-[opacity,transform] duration-250 ease-emphasized motion-reduce:transition-none',
+              open
+                ? 'rotate-90 scale-50 opacity-0'
+                : 'rotate-0 scale-100 opacity-100',
+            )}
+            aria-hidden="true"
+          />
+          <X
+            className={cn(
+              'absolute size-5 transition-[opacity,transform] duration-250 ease-emphasized motion-reduce:transition-none',
+              open
+                ? 'rotate-0 scale-100 opacity-100'
+                : '-rotate-90 scale-50 opacity-0',
+            )}
+            aria-hidden="true"
+          />
+        </span>
         {unreadCount > 0 ? (
           <span
             aria-hidden="true"
