@@ -502,7 +502,8 @@ CREATE TABLE `study_group_chats` (
                                      `id` BIGINT NOT NULL AUTO_INCREMENT,
                                      `group_id` BIGINT NOT NULL,
                                      `user_id` BIGINT NOT NULL,
-                                     `message` VARCHAR(255) NOT NULL,
+                                     `chat_type` ENUM('TEXT', 'FILE', 'SYSTEM') NOT NULL DEFAULT 'TEXT',
+                                     `message` VARCHAR(255) NULL,
                                      `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
                                      PRIMARY KEY (`id`),
@@ -862,3 +863,44 @@ CREATE TABLE `social_users` (
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci
   COMMENT='소셜 가입 및 연동 사용자 정보';
+
+CREATE TABLE `study_group_files` (
+                                     `id` BIGINT NOT NULL AUTO_INCREMENT,
+                                     `group_id` BIGINT NOT NULL,          -- 모아보기를 위한 그룹 ID
+                                     `chat_id` BIGINT NOT NULL,           -- 어떤 채팅에서 올라온 파일인지 연결
+                                     `user_id` BIGINT NOT NULL,           -- 누가 올렸는지 식별
+                                     `original_filename` VARCHAR(255) NOT NULL,
+                                     `stored_filename` VARCHAR(500) NOT NULL,  -- 실제 저장된 경로 (S3 URL 등)
+                                     `file_type` ENUM('IMAGE', 'PDF', 'DOCUMENT', 'ZIP', 'OTHER') NOT NULL DEFAULT 'OTHER',
+                                     `file_size` BIGINT DEFAULT 0,        -- 파일 크기 (선택사항, 바이트 단위)
+                                     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                                     PRIMARY KEY (`id`),
+
+    -- 모아보기 화면 조회를 위한 인덱스
+                                     KEY `idx_study_group_files_group_id` (`group_id`),
+    -- 특정 채팅 메시지의 첨부파일을 찾기 위한 인덱스
+                                     KEY `idx_study_group_files_chat_id` (`chat_id`),
+
+                                     CONSTRAINT `fk_study_group_files_group`
+                                         FOREIGN KEY (`group_id`)
+                                             REFERENCES `study_groups` (`id`)
+                                             ON DELETE CASCADE
+                                             ON UPDATE CASCADE,
+
+                                     CONSTRAINT `fk_study_group_files_chat`
+                                         FOREIGN KEY (`chat_id`)
+                                             REFERENCES `study_group_chats` (`id`)
+                                             ON DELETE CASCADE
+                                             ON UPDATE CASCADE,
+
+                                     CONSTRAINT `fk_study_group_files_user`
+                                         FOREIGN KEY (`user_id`)
+                                             REFERENCES `users` (`id`)
+                                             ON DELETE CASCADE
+                                             ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci
+  COMMENT='스터디 그룹 채팅 첨부파일';
+
