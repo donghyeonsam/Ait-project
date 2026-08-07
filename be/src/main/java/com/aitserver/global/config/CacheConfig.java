@@ -7,8 +7,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
+import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
@@ -24,13 +24,12 @@ public class CacheConfig {
             RedisConnectionFactory redisConnectionFactory
     ) {
 
-        GenericJacksonJsonRedisSerializer jsonSerializer =
-                GenericJacksonJsonRedisSerializer.builder()
-                        .build();
+        RedisSerializer<Object> jsonSerializer =
+                RedisSerializer.json();
 
         RedisCacheConfiguration defaultConfig =
                 RedisCacheConfiguration.defaultCacheConfig()
-                        .entryTtl(Duration.ofSeconds(60))
+                        .entryTtl(Duration.ofMinutes(5))
                         .disableCachingNullValues()
                         .serializeKeysWith(
                                 RedisSerializationContext.SerializationPair
@@ -55,28 +54,28 @@ public class CacheConfig {
         cacheConfigurations.put(
                 "dashboard",
                 defaultConfig.entryTtl(
-                        Duration.ofSeconds(60)
+                        Duration.ofMinutes(2)
                 )
         );
 
         cacheConfigurations.put(
                 "myStudyGroups",
                 defaultConfig.entryTtl(
-                        Duration.ofSeconds(60)
+                        Duration.ofMinutes(2)
                 )
         );
 
         cacheConfigurations.put(
                 "studyGroupDetail",
                 defaultConfig.entryTtl(
-                        Duration.ofSeconds(60)
+                        Duration.ofMinutes(2)
                 )
         );
 
         cacheConfigurations.put(
                 "reportList",
                 defaultConfig.entryTtl(
-                        Duration.ofSeconds(60)
+                        Duration.ofMinutes(2)
                 )
         );
 

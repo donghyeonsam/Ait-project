@@ -1,12 +1,14 @@
 package com.aitserver.dashboard.dto;
 
-import lombok.Builder;
-import lombok.Getter;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
 @Getter
+@Setter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class MyStudyCalendarResponse {
 
 
