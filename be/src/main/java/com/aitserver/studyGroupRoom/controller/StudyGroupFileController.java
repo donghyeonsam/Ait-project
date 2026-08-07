@@ -60,12 +60,14 @@ public class StudyGroupFileController {
 
     @GetMapping("/{groupId}/files")
     public ResponseEntity<ApiResponse<Page<StudyGroupFileDto.Response>>> getGroupFiles(
-            @PathVariable Long groupId,
+            @PathVariable("groupId") Long groupId,
             @AuthenticationPrincipal Long currentUserId,
+            @RequestParam(value = "type", required = false) String type,
             @PageableDefault(size = 20) Pageable pageable,
             HttpServletRequest request) {
 
-        Page<StudyGroupFileDto.Response> fileResponses = fileService.getGroupFiles(groupId, currentUserId, pageable);
+        Page<StudyGroupFileDto.Response> fileResponses =
+                fileService.getGroupFiles(groupId, currentUserId, type, pageable);
 
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK,

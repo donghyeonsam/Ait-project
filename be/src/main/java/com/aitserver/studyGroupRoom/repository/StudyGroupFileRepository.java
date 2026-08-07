@@ -1,6 +1,7 @@
 package com.aitserver.studyGroupRoom.repository;
 
 import com.aitserver.studyGroupRoom.entity.StudyGroupFile;
+import com.aitserver.studyGroupRoom.enums.FileType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,7 +14,21 @@ public interface StudyGroupFileRepository extends JpaRepository<StudyGroupFile, 
     @Query("SELECT f FROM StudyGroupFile f JOIN FETCH f.user " +
             "WHERE f.studyGroup.id = :groupId ORDER BY f.id DESC")
     Page<StudyGroupFile> findFilesByGroupIdWithUser(
+            @Param("groupId") Long groupId, Pageable pageable);
+
+    // 2. 이미지만 조회
+    @Query("SELECT f FROM StudyGroupFile f JOIN FETCH f.user " +
+            "WHERE f.studyGroup.id = :groupId AND f.fileType = :fileType ORDER BY f.id DESC")
+    Page<StudyGroupFile> findByGroupIdAndFileType(
             @Param("groupId") Long groupId,
-            Pageable pageable
-    );
+            @Param("fileType") FileType fileType,
+            Pageable pageable);
+
+    // 3. 이미지 빼고 조회
+    @Query("SELECT f FROM StudyGroupFile f JOIN FETCH f.user " +
+            "WHERE f.studyGroup.id = :groupId AND f.fileType != :fileType ORDER BY f.id DESC")
+    Page<StudyGroupFile> findByGroupIdAndFileTypeNot(
+            @Param("groupId") Long groupId,
+            @Param("fileType") FileType fileType,
+            Pageable pageable);
 }

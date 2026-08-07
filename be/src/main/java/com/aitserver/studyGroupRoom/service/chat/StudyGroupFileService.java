@@ -4,6 +4,8 @@ import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.studyGroupRoom.dto.chat.StudyGroupFileDto;
 import com.aitserver.studyGroupRoom.entity.StudyGroup;
+import com.aitserver.studyGroupRoom.entity.StudyGroupFile;
+import com.aitserver.studyGroupRoom.enums.FileType;
 import com.aitserver.studyGroupRoom.repository.StudyGroupFileRepository;
 import com.aitserver.studyGroupRoom.repository.StudyGroupRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,16 +22,23 @@ public class StudyGroupFileService {
     private final StudyGroupFileRepository fileRepository;
     private final StudyGroupRepository studyGroupRepository;
 
-    public Page<StudyGroupFileDto.Response> getGroupFiles(Long groupId, Long userId, Pageable pageable) {
-        // 1. 그룹 조회 및 존재 여부 확인
+    public Page<StudyGroupFileDto.Response> getGroupFiles(
+            Long groupId, Long userId, String type, Pageable pageable) {
+
         StudyGroup studyGroup = studyGroupRepository.findById(groupId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STUDY_GROUP_NOT_FOUND));
-
-        // 2. 권한 확인 (해당 사용자가 스터디 그룹 멤버인지)
         studyGroup.validateMember(userId);
 
-        // 3. 파일 목록 조회 (Fetch Join 적용됨)
-        return fileRepository.findFilesByGroupIdWithUser(groupId, pageable)
-                .map(StudyGroupFileDto.Response::from);
+        Page<StudyGroupFile> filePage;
+
+        if ("image".equalsIgnoreCase(type)) {
+            filePage = fileRepository.findByGroupIdAndFileType(groupId, FileType.IMAGE, pageable);
+        } else if ("other".equalsIgnoreCase(type)) {
+            filePage = fileRepository.findByGroupIdAndFileTypeNot(groupId, FileType.IMAGE, pageable);
+        } else {
+            filePage = fileRepository.findFilesByGroupIdWithUser(groupId, pageable);
+        }
+
+        return filePage.map(StudyGroupFileDto.Response::from);
     }
 }
