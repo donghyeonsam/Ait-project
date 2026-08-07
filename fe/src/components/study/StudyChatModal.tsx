@@ -11,9 +11,11 @@ import {
   applyStudyGroupChatReactionUpdate,
   connectStudyGroupChat,
   getStudyGroupChats,
+  sendStudyGroupChatFileMessage,
   sendStudyGroupChatMessage,
   setStudyGroupChatReactionForUser,
   toggleStudyGroupChatReaction,
+  type StudyGroupChatFile,
   type StudyGroupChatMessage,
 } from '@/api/study-group-chat'
 import {
@@ -278,6 +280,20 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
     return true
   }
 
+  const sendFileMessage = (
+    files: StudyGroupChatFile[],
+    message: string | null,
+  ) => {
+    if (selectedGroupId === null || !clientRef.current?.connected) return false
+    sendStudyGroupChatFileMessage(
+      clientRef.current,
+      selectedGroupId,
+      files,
+      message,
+    )
+    return true
+  }
+
   const toggleReaction = (chatId: number, emoji: string) => {
     if (selectedGroupId === null || !clientRef.current?.connected) return
 
@@ -526,6 +542,7 @@ export function StudyChatModal({ open, onOpenChange }: StudyChatModalProps) {
           isConnected={isConnected}
           connectError={connectError}
           onSend={sendMessage}
+          onSendFiles={sendFileMessage}
           replyTarget={replyTarget}
           onCancelReply={() => setReplyTarget(null)}
         />
