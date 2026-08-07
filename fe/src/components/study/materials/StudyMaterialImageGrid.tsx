@@ -62,6 +62,7 @@ export function StudyMaterialImageGrid({
                   <AuthenticatedImage
                     src={image.url}
                     alt={image.originalFilename}
+                    lazy
                     loading="lazy"
                     className="size-full object-cover transition-transform [transition-duration:var(--duration-fast)] [transition-timing-function:var(--easing-standard)] group-hover:scale-105"
                   />
