@@ -1,6 +1,7 @@
 import { Plus } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { InfiniteScrollTrigger } from '@/components/common/InfiniteScrollTrigger'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { MyStudySection } from '@/components/study/MyStudySection'
 import { StudyApplicationToast } from '@/components/study/StudyApplicationToast'
@@ -222,6 +223,13 @@ export function StudyPage() {
   }, [groups, myStudyIds, query, recruitment, sort])
 
   const visibleStudies = filteredStudies.slice(0, visibleCount)
+  const hasMoreStudies = visibleStudies.length < filteredStudies.length
+
+  const loadMoreStudies = useCallback(() => {
+    setVisibleCount((count) =>
+      Math.min(count + LOAD_MORE_COUNT, filteredStudies.length),
+    )
+  }, [filteredStudies.length])
 
   useEffect(() => {
     if (!toast) return
@@ -360,21 +368,15 @@ export function StudyPage() {
               onApply={openApplicationDialog}
             />
 
-            {visibleCount < filteredStudies.length ? (
-              <div className="mt-8 flex justify-center">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="min-w-56"
-                  onClick={() =>
-                    setVisibleCount((count) => count + LOAD_MORE_COUNT)
-                  }
-                >
-                  <Plus className="size-4" aria-hidden="true" />
-                  더보기
-                </Button>
-              </div>
-            ) : null}
+            <InfiniteScrollTrigger
+              hasMore={hasMoreStudies}
+              isLoading={false}
+              itemCount={visibleStudies.length}
+              onLoadMore={loadMoreStudies}
+              className="mt-8"
+              loadingLabel="스터디를 더 불러오는 중"
+              fallbackLabel="더보기"
+            />
           </>
         )}
       </section>

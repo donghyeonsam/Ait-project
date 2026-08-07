@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   fetchPosts,
@@ -8,8 +8,8 @@ import {
   toggleLike,
 } from '@/api/community'
 import { PageTransition } from '@/components/common/PageTransition'
+import { InfiniteScrollTrigger } from '@/components/common/InfiniteScrollTrigger'
 import { HeroSearch } from '@/components/community/HeroSearch'
-import { LoadMoreButton } from '@/components/community/LoadMoreButton'
 import { PostCard, PostCardSkeleton } from '@/components/community/PostCard'
 import { PostTabs } from '@/components/community/PostTabs'
 import { TrendingKeywordTicker } from '@/components/community/TrendingKeywordTicker'
@@ -32,7 +32,7 @@ const CATEGORY_FILTER_OPTIONS = [
   ...CATEGORY_OPTIONS,
 ]
 
-// 커뮤니티 목록 화면. 검색·인기 태그 롤링·탭·필터·게시글 카드·더보기를 담당한다.
+// 커뮤니티 목록 화면. 검색·인기 태그 롤링·탭·필터·게시글 무한 스크롤을 담당한다.
 export function CommunityPage() {
   const [query, setQuery] = useState('')
   const [searchTargets, setSearchTargets] = useState<CommunitySearchTargets>({
@@ -45,6 +45,7 @@ export function CommunityPage() {
   const [posts, setPosts] = useState<CommunityPost[]>([])
   const [hasMore, setHasMore] = useState(false)
   const [isLoadingMore, setLoadingMore] = useState(false)
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
   const [keywords, setKeywords] = useState<TrendingKeyword[]>([])
 
   // 필터가 연달아 바뀔 때 늦게 도착한 이전 응답이 목록을 덮어쓰지 않도록 요청에 번호를 매긴다.
@@ -84,26 +85,47 @@ export function CommunityPage() {
         if (id !== requestId.current) return
         setPosts(items)
         setHasMore(more)
+        setLoadMoreError(null)
         setLoadedKey(listKey)
       },
     )
   }, [tab, category, query, searchTargets, listKey])
 
-  const loadMore = async () => {
-    if (isLoadingMore) return
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || !hasMore) return
+    const id = requestId.current
     setLoadingMore(true)
-    const { items, hasMore: more } = await fetchPosts({
-      tab,
-      category,
-      offset: posts.length,
-      limit: PAGE_SIZE,
-      query,
-      searchTargets,
-    })
-    setPosts((prev) => [...prev, ...items])
-    setHasMore(more)
-    setLoadingMore(false)
-  }
+    setLoadMoreError(null)
+    try {
+      const { items, hasMore: more } = await fetchPosts({
+        tab,
+        category,
+        offset: posts.length,
+        limit: PAGE_SIZE,
+        query,
+        searchTargets,
+      })
+      if (id !== requestId.current) return
+      setPosts((prev) => [...prev, ...items])
+      setHasMore(more)
+    } catch {
+      if (id === requestId.current) {
+        setLoadMoreError(
+          '게시글을 더 불러오지 못했어요. 잠시 후 다시 시도해주세요.',
+        )
+      }
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [
+    category,
+    hasMore,
+    isLoadingMore,
+    posts.length,
+    query,
+    searchTargets,
+    tab,
+  ])
 
   // 북마크·좋아요는 낙관적으로 먼저 반영한다.
   const handleToggleBookmark = (target: CommunityPost) => {
@@ -228,13 +250,17 @@ export function CommunityPage() {
             </AnimatePresence>
 
             {!isLoadingList && posts.length > 0 ? (
-              <div className="mt-6">
-                <LoadMoreButton
-                  hasMore={hasMore}
-                  isLoading={isLoadingMore}
-                  onClick={loadMore}
-                />
-              </div>
+              <InfiniteScrollTrigger
+                hasMore={hasMore}
+                isLoading={isLoadingMore}
+                itemCount={posts.length}
+                onLoadMore={loadMore}
+                className="mt-6"
+                loadingLabel="게시글을 더 불러오는 중"
+                endMessage="모든 글을 확인했어요"
+                errorMessage={loadMoreError}
+                fallbackLabel="더보기"
+              />
             ) : null}
           </section>
         </div>
