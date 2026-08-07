@@ -16,6 +16,7 @@ import {
   toStudyMaterialItem,
 } from '@/api/study-materials'
 import { Breadcrumb } from '@/components/common/Breadcrumb'
+import { InfiniteScrollTrigger } from '@/components/common/InfiniteScrollTrigger'
 import { SegmentedControl } from '@/components/form/SegmentedControl'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { StudyMaterialFileList } from '@/components/study/materials/StudyMaterialFileList'
@@ -53,6 +54,7 @@ export function StudyMaterialsPage() {
   const [materials, setMaterials] = useState<StudyMaterialItem[]>([])
   const [isLoadingMaterials, setIsLoadingMaterials] = useState(isValidGroupId)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
   const [materialsError, setMaterialsError] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)
   // 다음 조회에 넘길 그룹톡 커서. 이 chatId보다 오래된 메시지를 이어서 훑는다.
@@ -104,6 +106,7 @@ export function StudyMaterialsPage() {
       setMaterials([])
       setIsLoadingMaterials(true)
       setMaterialsError(null)
+      setLoadMoreError(null)
       try {
         const page = await fetchStudyGroupMaterials(groupId)
         if (!isActive) return
@@ -168,6 +171,7 @@ export function StudyMaterialsPage() {
     if (isLoadingMore || !hasMore) return
 
     setIsLoadingMore(true)
+    setLoadMoreError(null)
     fetchStudyGroupMaterials(groupId, cursorRef.current)
       .then((page) => {
         setMaterials((current) => [...current, ...page.items])
@@ -175,7 +179,10 @@ export function StudyMaterialsPage() {
         cursorRef.current = page.lastChatId ?? undefined
       })
       .catch(() => {
-        showToast('자료를 더 불러오지 못했어요. 잠시 후 다시 시도해주세요.')
+        const message =
+          '자료를 더 불러오지 못했어요. 잠시 후 다시 시도해주세요.'
+        setLoadMoreError(message)
+        showToast(message)
       })
       .finally(() => setIsLoadingMore(false))
   }, [groupId, hasMore, isLoadingMore, showToast])
@@ -419,7 +426,18 @@ export function StudyMaterialsPage() {
                   onDownload={(file) => void handleDownload(file)}
                 />
               )}
-              {hasMore ? (
+              {tab === 'image' ? (
+                <InfiniteScrollTrigger
+                  hasMore={hasMore}
+                  isLoading={isLoadingMore}
+                  itemCount={materials.length}
+                  onLoadMore={loadMore}
+                  className="mt-6"
+                  loadingLabel="이전 이미지를 불러오는 중"
+                  errorMessage={loadMoreError}
+                  fallbackLabel="이전 자료 더 불러오기"
+                />
+              ) : hasMore ? (
                 <div className="mt-6 flex justify-center">
                   <Button
                     type="button"
