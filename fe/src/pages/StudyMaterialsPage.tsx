@@ -1,22 +1,22 @@
 import type { Client } from '@stomp/stompjs'
 import { Loader2, Upload } from 'lucide-react'
 import type { ChangeEvent } from 'react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toErrorMessage } from '@/api/http'
 import {
   connectStudyGroupChat,
-  sendStudyGroupChatMessage,
-  uploadStudyGroupChatFile,
+  sendStudyGroupChatFileMessage,
+  uploadStudyGroupChatFiles,
 } from '@/api/study-group-chat'
 import { getStudyGroupDetail } from '@/api/study-groups'
 import {
   downloadStudyMaterial,
   fetchStudyGroupMaterials,
-  toStudyMaterialItem,
+  toStudyMaterialItems,
+  type StudyMaterialsSource,
 } from '@/api/study-materials'
 import { Breadcrumb } from '@/components/common/Breadcrumb'
-import { InfiniteScrollTrigger } from '@/components/common/InfiniteScrollTrigger'
 import { SegmentedControl } from '@/components/form/SegmentedControl'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { StudyMaterialFileList } from '@/components/study/materials/StudyMaterialFileList'
@@ -26,7 +26,10 @@ import { StudyMaterialImageViewerDialog } from '@/components/study/materials/Stu
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToastStack } from '@/components/ui/toast'
-import { parseFileToken, toFileToken } from '@/lib/study-chat-file'
+import {
+  fromStudyGroupChatFile,
+  toStudyGroupChatFile,
+} from '@/lib/study-chat-file'
 import { useAuth } from '@/lib/useAuth'
 import { useToasts } from '@/lib/useToasts'
 import type {
@@ -34,9 +37,19 @@ import type {
   StudyMaterialTab,
 } from '@/types/study-materials'
 
-// 서버 에코 도착 전에 목록에 먼저 넣는 임시 자료의 id. 저장 파일명이 서버 생성 유일값이라 매칭 키로 쓴다.
-function toPendingId(storedFilename: string) {
-  return `pending-${storedFilename}`
+// 탭 하나가 서버 페이지네이션을 독립적으로 진행하기 위한 상태 묶음.
+interface MaterialsTabState {
+  items: StudyMaterialItem[]
+  // null이면 더 불러올 자료가 없다.
+  nextSource: StudyMaterialsSource | null
+  // 전용 API가 알려준 종류별 전체 개수. legacy(과거 토큰) 자료는 포함하지 않는다.
+  totalCount: number | null
+}
+
+const emptyTabState: MaterialsTabState = {
+  items: [],
+  nextSource: null,
+  totalCount: null,
 }
 
 // 스터디 그룹 자료실. 그룹톡에 공유된 이미지는 모아보기 그리드로, 파일은 드라이브형 목록으로 보여준다.
@@ -51,16 +64,15 @@ export function StudyMaterialsPage() {
   const [isLoadingGroup, setIsLoadingGroup] = useState(isValidGroupId)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [materials, setMaterials] = useState<StudyMaterialItem[]>([])
+  const [imageTab, setImageTab] = useState<MaterialsTabState>(emptyTabState)
+  const [fileTab, setFileTab] = useState<MaterialsTabState>(emptyTabState)
   const [isLoadingMaterials, setIsLoadingMaterials] = useState(isValidGroupId)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
+  const [loadingMoreTab, setLoadingMoreTab] = useState<StudyMaterialTab | null>(
+    null,
+  )
   const [materialsError, setMaterialsError] = useState<string | null>(null)
-  const [hasMore, setHasMore] = useState(false)
   // 조회 실패 시 페이지 전체를 새로고침하지 않고 자료 조회 이펙트만 다시 돌리는 키.
   const [materialsReloadKey, setMaterialsReloadKey] = useState(0)
-  // 다음 조회에 넘길 그룹톡 커서. 이 chatId보다 오래된 메시지를 이어서 훑는다.
-  const cursorRef = useRef<number | undefined>(undefined)
 
   const [tab, setTab] = useState<StudyMaterialTab>('image')
   const [query, setQuery] = useState('')
@@ -76,10 +88,33 @@ export function StudyMaterialsPage() {
   const [downloadingIds, setDownloadingIds] = useState<ReadonlySet<string>>(
     new Set(),
   )
-  // 업로드한 자료를 그룹톡 파일 토큰 메시지로 보내기 위한 STOMP 클라이언트.
+  // 업로드한 자료를 그룹톡 FILE 메시지로 보내기 위한 STOMP 클라이언트.
   const chatClientRef = useRef<Client | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toasts, showToast } = useToasts()
+
+  const setTabState = (
+    kind: StudyMaterialTab,
+    updater: (current: MaterialsTabState) => MaterialsTabState,
+  ) => {
+    if (kind === 'image') setImageTab(updater)
+    else setFileTab(updater)
+  }
+
+  // 실시간 수신·업로드 직후 반영에 함께 쓰는 삽입. 같은 자료(id)는 한 번만 넣고 전체 개수도 맞춘다.
+  const insertMaterial = (item: StudyMaterialItem) => {
+    setTabState(item.isImage ? 'image' : 'file', (current) => {
+      if (current.items.some((material) => material.id === item.id)) {
+        return current
+      }
+      return {
+        ...current,
+        items: [item, ...current.items],
+        totalCount:
+          current.totalCount === null ? null : current.totalCount + 1,
+      }
+    })
+  }
 
   // 그룹 이름·접근 권한 확인은 기존 상세 API를 그대로 쓴다.
   useEffect(() => {
@@ -104,29 +139,43 @@ export function StudyMaterialsPage() {
     }
   }, [groupId, isValidGroupId])
 
-  // 전용 자료실 API가 없어 그룹톡 히스토리에서 첨부를 걸러 최신순으로 쌓는다.
+  // 이미지·파일 탭의 첫 페이지를 동시에 불러온다.
   useEffect(() => {
     if (!isValidGroupId) return
 
     let isActive = true
 
     const loadInitialMaterials = async () => {
-      cursorRef.current = undefined
-      setMaterials([])
+      setImageTab(emptyTabState)
+      setFileTab(emptyTabState)
       setIsLoadingMaterials(true)
       setMaterialsError(null)
-      setLoadMoreError(null)
       try {
-        const page = await fetchStudyGroupMaterials(groupId)
+        const [imagesPage, filesPage] = await Promise.all([
+          fetchStudyGroupMaterials(groupId, 'image'),
+          fetchStudyGroupMaterials(groupId, 'file'),
+        ])
         if (!isActive) return
         // 조회 중 실시간으로 받은 자료는 히스토리보다 최신이므로 중복만 걸러 앞에 유지한다.
-        setMaterials((current) => {
-          const loadedIds = new Set(page.items.map((item) => item.id))
-          const liveOnly = current.filter((item) => !loadedIds.has(item.id))
-          return [...liveOnly, ...page.items]
-        })
-        setHasMore(page.hasNext)
-        cursorRef.current = page.lastChatId ?? undefined
+        for (const [kind, page] of [
+          ['image', imagesPage],
+          ['file', filesPage],
+        ] as const) {
+          setTabState(kind, (current) => {
+            const loadedIds = new Set(page.items.map((item) => item.id))
+            const liveOnly = current.items.filter(
+              (item) => !loadedIds.has(item.id),
+            )
+            return {
+              items: [...liveOnly, ...page.items],
+              nextSource: page.nextSource,
+              totalCount:
+                page.totalCount === null
+                  ? null
+                  : page.totalCount + liveOnly.length,
+            }
+          })
+        }
       } catch (error) {
         if (isActive) setMaterialsError(toErrorMessage(error))
       } finally {
@@ -147,23 +196,9 @@ export function StudyMaterialsPage() {
 
     const client = connectStudyGroupChat(groupId, {
       onMessage: (incoming) => {
-        const item = toStudyMaterialItem(incoming)
-        if (!item) return
-        const pendingId = toPendingId(item.storedFilename)
-        // 뷰어가 임시 항목을 보고 있으면 교체될 실제 id로 옮겨 뷰어가 닫히지 않게 한다.
-        setViewerImageId((activeId) =>
-          activeId === pendingId ? item.id : activeId,
-        )
-        setMaterials((current) => {
-          if (current.some((material) => material.id === item.id)) return current
-          // 내가 올린 자료의 서버 에코면 새로 추가하지 않고 임시 항목을 실제 항목으로 교체한다.
-          if (current.some((material) => material.id === pendingId)) {
-            return current.map((material) =>
-              material.id === pendingId ? item : material,
-            )
-          }
-          return [item, ...current]
-        })
+        for (const item of toStudyMaterialItems(incoming)) {
+          insertMaterial(item)
+        }
       },
       onNotice: () => {},
       onReaction: () => {},
@@ -174,67 +209,75 @@ export function StudyMaterialsPage() {
       chatClientRef.current = null
       void client.deactivate()
     }
+    // insertMaterial은 상태 setter만 쓰므로 연결을 다시 만들 이유가 없다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId, isValidGroupId])
 
-  const loadMore = useCallback(() => {
-    if (isLoadingMore || !hasMore) return
+  const loadMore = (kind: StudyMaterialTab) => {
+    const tabState = kind === 'image' ? imageTab : fileTab
+    if (loadingMoreTab !== null || !tabState.nextSource) return
 
-    setIsLoadingMore(true)
-    setLoadMoreError(null)
-    fetchStudyGroupMaterials(groupId, cursorRef.current)
+    setLoadingMoreTab(kind)
+    fetchStudyGroupMaterials(groupId, kind, tabState.nextSource)
       .then((page) => {
-        setMaterials((current) => [...current, ...page.items])
-        setHasMore(page.hasNext)
-        cursorRef.current = page.lastChatId ?? undefined
-        // 불러온 자료가 다른 탭에만 쌓이면 버튼이 무반응처럼 보여 결과 위치를 알려준다.
-        const addedToTab = page.items.filter(
-          (item) => item.isImage === (tab === 'image'),
-        ).length
-        if (page.items.length === 0) {
-          showToast('이 구간의 그룹톡에는 공유된 자료가 없었어요.')
-        } else if (addedToTab === 0) {
-          showToast(
-            tab === 'image'
-              ? '새로 불러온 자료가 모두 파일이에요. 파일 탭에서 확인해보세요.'
-              : '새로 불러온 자료가 모두 이미지예요. 이미지 탭에서 확인해보세요.',
-          )
+        setTabState(kind, (current) => {
+          const knownIds = new Set(current.items.map((item) => item.id))
+          return {
+            items: [
+              ...current.items,
+              ...page.items.filter((item) => !knownIds.has(item.id)),
+            ],
+            nextSource: page.nextSource,
+            totalCount: page.totalCount ?? current.totalCount,
+          }
+        })
+        // 과거 토큰 스캔 구간은 빈 손으로 끝날 수 있어 버튼이 무반응처럼 보이지 않게 알린다.
+        if (page.items.length === 0 && page.nextSource) {
+          showToast('이 구간에서는 자료를 찾지 못했어요. 한 번 더 불러와보세요.')
         }
       })
       .catch(() => {
-        const message =
-          '자료를 더 불러오지 못했어요. 잠시 후 다시 시도해주세요.'
-        setLoadMoreError(message)
-        showToast(message)
+        showToast('자료를 더 불러오지 못했어요. 잠시 후 다시 시도해주세요.')
       })
-      .finally(() => setIsLoadingMore(false))
-  }, [groupId, hasMore, isLoadingMore, showToast, tab])
+      .finally(() => setLoadingMoreTab(null))
+  }
 
   const uploaderOptions = useMemo(
-    () => [...new Set(materials.map((item) => item.uploaderNickname))],
-    [materials],
+    () => [
+      ...new Set(
+        [...imageTab.items, ...fileTab.items].map(
+          (item) => item.uploaderNickname,
+        ),
+      ),
+    ],
+    [imageTab.items, fileTab.items],
   )
 
   const normalizedQuery = query.trim().toLowerCase()
   const isFiltering = normalizedQuery !== '' || uploader !== ''
-  const filteredMaterials = useMemo(
-    () =>
-      materials.filter(
-        (item) =>
-          (normalizedQuery === '' ||
-            item.originalFilename.toLowerCase().includes(normalizedQuery)) &&
-          (uploader === '' || item.uploaderNickname === uploader),
-      ),
-    [materials, normalizedQuery, uploader],
-  )
+  const matchesFilters = (item: StudyMaterialItem) =>
+    (normalizedQuery === '' ||
+      item.originalFilename.toLowerCase().includes(normalizedQuery)) &&
+    (uploader === '' || item.uploaderNickname === uploader)
 
   const images = useMemo(
-    () => filteredMaterials.filter((item) => item.isImage),
-    [filteredMaterials],
+    () => imageTab.items.filter(matchesFilters),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [imageTab.items, normalizedQuery, uploader],
   )
   const files = useMemo(
-    () => filteredMaterials.filter((item) => !item.isImage),
-    [filteredMaterials],
+    () => fileTab.items.filter(matchesFilters),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fileTab.items, normalizedQuery, uploader],
   )
+
+  // 필터 중에는 걸러진 개수를, 평소에는 서버 전체 개수(과거 자료를 더 불러왔으면 그 이상)를 보여준다.
+  const imageCount = isFiltering
+    ? images.length
+    : Math.max(imageTab.totalCount ?? 0, imageTab.items.length)
+  const fileCount = isFiltering
+    ? files.length
+    : Math.max(fileTab.totalCount ?? 0, fileTab.items.length)
 
   const viewerIndex = useMemo(() => {
     if (viewerImageId === null) return null
@@ -258,7 +301,7 @@ export function StudyMaterialsPage() {
     }
   }
 
-  // 파일은 공용 업로드 API에 올린 뒤 그룹톡 파일 토큰 메시지로 전송해 저장한다.
+  // 파일은 채팅 전용 업로드 API에 한 번에 올린 뒤 그룹톡 FILE 메시지 하나로 전송해 저장한다.
   // 버튼 선택과 드래그 앤 드롭이 같은 경로를 쓴다.
   const uploadFiles = async (selected: File[]) => {
     if (selected.length === 0 || isUploading) return
@@ -268,43 +311,34 @@ export function StudyMaterialsPage() {
     }
 
     setIsUploading(true)
-    let uploadedCount = 0
-    let failedCount = 0
-    for (const file of selected) {
-      try {
-        const storedFilename = await uploadStudyGroupChatFile(file)
-        const client = chatClientRef.current
-        if (!client?.connected) throw new Error('연결이 끊겼습니다.')
-        const token = toFileToken(storedFilename, file.name)
-        sendStudyGroupChatMessage(client, groupId, token)
-        uploadedCount += 1
-        // 서버 에코를 기다리지 않고 임시 항목을 먼저 넣어 방금 올린 자료가 바로 보이게 한다.
-        // 표시 규칙(파일명 자르기·URL·이미지 판별)이 에코와 어긋나지 않도록 같은 토큰을 되파싱한다.
-        const attachment = parseFileToken(token)
-        if (attachment) {
-          const pendingItem: StudyMaterialItem = {
-            id: toPendingId(attachment.storedFilename),
-            storedFilename: attachment.storedFilename,
-            originalFilename: attachment.originalFilename,
-            url: attachment.url,
-            isImage: attachment.isImage,
-            uploaderNickname: user?.nickname ?? '',
-            createdAt: new Date().toISOString(),
-          }
-          setMaterials((current) => [pendingItem, ...current])
-        }
-      } catch {
-        failedCount += 1
-      }
-    }
-    setIsUploading(false)
-    if (uploadedCount > 0) {
-      showToast(`파일 ${uploadedCount}개를 올렸어요.`)
-    }
-    if (failedCount > 0) {
-      showToast(
-        `파일 ${failedCount}개를 올리지 못했어요. 잠시 후 다시 시도해주세요.`,
+    try {
+      const storedFilenames = await uploadStudyGroupChatFiles(selected)
+      const client = chatClientRef.current
+      if (!client?.connected) throw new Error('연결이 끊겼습니다.')
+      const chatFiles = storedFilenames.map((storedFilename, index) =>
+        toStudyGroupChatFile(storedFilename, selected[index]),
       )
+      sendStudyGroupChatFileMessage(client, groupId, chatFiles)
+      // 서버 에코를 기다리지 않고 먼저 목록에 넣는다. 에코는 같은 id라 중복 삽입되지 않는다.
+      const uploadedAt = new Date().toISOString()
+      for (const chatFile of chatFiles) {
+        const attachment = fromStudyGroupChatFile(chatFile)
+        insertMaterial({
+          id: attachment.storedFilename,
+          storedFilename: attachment.storedFilename,
+          originalFilename: attachment.originalFilename,
+          url: attachment.url,
+          isImage: attachment.isImage,
+          fileSize: chatFile.fileSize,
+          uploaderNickname: user?.nickname ?? '',
+          createdAt: uploadedAt,
+        })
+      }
+      showToast(`파일 ${selected.length}개를 올렸어요.`)
+    } catch {
+      showToast('파일을 올리지 못했어요. 잠시 후 다시 시도해주세요.')
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -335,6 +369,9 @@ export function StudyMaterialsPage() {
       </PageLayout>
     )
   }
+
+  const activeTabState = tab === 'image' ? imageTab : fileTab
+  const activeItems = tab === 'image' ? images : files
 
   return (
     <PageLayout contentClassName="max-w-dashboard px-4 sm:px-8 [zoom:0.9]">
@@ -429,8 +466,8 @@ export function StudyMaterialsPage() {
           <SegmentedControl
             ariaLabel="자료 종류 선택"
             options={[
-              { value: 'image', label: `이미지 ${images.length}` },
-              { value: 'file', label: `파일 ${files.length}` },
+              { value: 'image', label: `이미지 ${imageCount}` },
+              { value: 'file', label: `파일 ${fileCount}` },
             ]}
             value={tab}
             onChange={setTab}
@@ -474,13 +511,13 @@ export function StudyMaterialsPage() {
           ) : (
             <>
               {/* 필터 결과 없음은 자료 자체가 없는 빈 상태와 구분해 조건 변경을 안내한다. */}
-              {isFiltering && (tab === 'image' ? images : files).length === 0 ? (
+              {isFiltering && activeItems.length === 0 ? (
                 <div className="rounded-ait-m border border-border-default bg-surface-default py-16 text-center">
                   <p className="text-body-1 text-text-primary">
                     조건에 맞는 자료가 없어요
                   </p>
                   <p className="mt-2 text-body-2 text-text-secondary">
-                    {hasMore
+                    {activeTabState.nextSource
                       ? '검색은 지금까지 불러온 자료에만 적용돼요. 조건을 바꾸거나 이전 자료를 더 불러온 뒤 다시 찾아보세요.'
                       : '검색어나 올린 사람 조건을 바꿔보세요.'}
                   </p>
@@ -497,27 +534,16 @@ export function StudyMaterialsPage() {
                   onDownload={(file) => void handleDownload(file)}
                 />
               )}
-              {tab === 'image' ? (
-                <InfiniteScrollTrigger
-                  hasMore={hasMore}
-                  isLoading={isLoadingMore}
-                  itemCount={materials.length}
-                  onLoadMore={loadMore}
-                  className="mt-6"
-                  loadingLabel="이전 이미지를 불러오는 중"
-                  errorMessage={loadMoreError}
-                  fallbackLabel="이전 자료 더 불러오기"
-                />
-              ) : hasMore ? (
+              {activeTabState.nextSource ? (
                 <div className="mt-6 flex justify-center">
                   <Button
                     type="button"
                     variant="secondary"
-                    disabled={isLoadingMore}
-                    aria-busy={isLoadingMore}
-                    onClick={loadMore}
+                    disabled={loadingMoreTab !== null}
+                    aria-busy={loadingMoreTab === tab}
+                    onClick={() => loadMore(tab)}
                   >
-                    {isLoadingMore ? (
+                    {loadingMoreTab === tab ? (
                       <>
                         <Loader2
                           aria-hidden="true"

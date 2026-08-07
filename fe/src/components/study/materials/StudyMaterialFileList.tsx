@@ -8,7 +8,7 @@ import {
   Presentation,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { formatPostDate } from '@/lib/format'
+import { formatFileSize, formatPostDate } from '@/lib/format'
 import type { StudyMaterialItem } from '@/types/study-materials'
 
 // 확장자별 아이콘과 색상. 상태 색이 아니라 파일 종류 식별용이므로 텍스트 토큰 계열만 함께 쓴다.
@@ -62,6 +62,9 @@ export function StudyMaterialFileList({
             <th scope="col" className="px-4 py-3 text-caption font-semibold text-text-secondary">
               이름
             </th>
+            <th scope="col" className="hidden w-20 px-4 py-3 text-caption font-semibold text-text-secondary sm:table-cell">
+              크기
+            </th>
             <th scope="col" className="hidden w-28 px-4 py-3 text-caption font-semibold text-text-secondary md:table-cell">
               올린 사람
             </th>
@@ -98,8 +101,14 @@ export function StudyMaterialFileList({
                   </div>
                   {/* 좁은 화면에서 숨긴 열의 정보를 이름 아래 한 줄로 요약한다. */}
                   <p className="mt-1 pl-7 text-caption text-text-secondary sm:hidden">
+                    {file.fileSize !== null
+                      ? `${formatFileSize(file.fileSize)} · `
+                      : ''}
                     {file.uploaderNickname} · {formatPostDate(file.createdAt)}
                   </p>
+                </td>
+                <td className="hidden whitespace-nowrap px-4 py-3 text-body-2 text-text-secondary sm:table-cell">
+                  {file.fileSize !== null ? formatFileSize(file.fileSize) : '—'}
                 </td>
                 <td className="hidden truncate px-4 py-3 text-body-2 text-text-secondary md:table-cell">
                   {file.uploaderNickname}

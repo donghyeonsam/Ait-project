@@ -10,7 +10,10 @@ import {
 } from '@/components/study/StudyChatAttachmentMessage'
 import { StudyChatMessageReactions } from '@/components/study/StudyChatMessageReactions'
 import { parseEmoticonToken } from '@/lib/emoticons'
-import { parseFileToken } from '@/lib/study-chat-file'
+import {
+  fromStudyGroupChatFile,
+  parseFileToken,
+} from '@/lib/study-chat-file'
 import {
   parseReplyMessage,
   toReplyTarget,
@@ -50,7 +53,15 @@ export function StudyChatMessageItem({
   const isSelf = message.senderId === currentUserId
   const { reply, body } = parseReplyMessage(message.message)
   const emoticon = parseEmoticonToken(body)
-  const file = parseFileToken(body)
+  // 서버 files 첨부가 정식 경로이고, 과거 메시지의 파일 토큰은 하위 호환으로 계속 표시한다.
+  const tokenFile = parseFileToken(body)
+  const attachments = message.files?.length
+    ? message.files.map(fromStudyGroupChatFile)
+    : tokenFile
+      ? [tokenFile]
+      : []
+  // 첨부가 files로 온 메시지는 body에 본문 텍스트가 남아 있을 때만 함께 보여준다.
+  const bodyText = tokenFile || emoticon ? '' : body.trim()
 
   return (
     <div
@@ -133,14 +144,29 @@ export function StudyChatMessageItem({
                   alt={`${emoticon.label} 이모티콘`}
                   className="block size-24 object-contain"
                 />
-              ) : file?.isImage ? (
-                <StudyChatImageMessage
-                  file={file}
-                  senderNickname={message.senderNickname}
-                  createdAt={message.createdAt}
-                />
-              ) : file ? (
-                <StudyChatFileMessage file={file} />
+              ) : attachments.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  {attachments.map((attachment) =>
+                    attachment.isImage ? (
+                      <StudyChatImageMessage
+                        key={attachment.storedFilename}
+                        file={attachment}
+                        senderNickname={message.senderNickname}
+                        createdAt={message.createdAt}
+                      />
+                    ) : (
+                      <StudyChatFileMessage
+                        key={attachment.storedFilename}
+                        file={attachment}
+                      />
+                    ),
+                  )}
+                  {bodyText ? (
+                    <p className="whitespace-pre-wrap wrap-break-word">
+                      {bodyText}
+                    </p>
+                  ) : null}
+                </div>
               ) : (
                 <p className="whitespace-pre-wrap wrap-break-word">{body}</p>
               )}
