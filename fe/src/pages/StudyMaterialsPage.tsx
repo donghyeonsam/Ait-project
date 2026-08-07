@@ -65,6 +65,10 @@ export function StudyMaterialsPage() {
   // 실시간 수신으로 배열 인덱스가 밀려도 보던 이미지가 유지되도록 뷰어는 id로 추적한다.
   const [viewerImageId, setViewerImageId] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  // 다운로드 중인 자료 id 집합. 큰 파일에서 무반응처럼 보이거나 연타되는 것을 막는다.
+  const [downloadingIds, setDownloadingIds] = useState<ReadonlySet<string>>(
+    new Set(),
+  )
   // 업로드한 자료를 그룹톡 파일 토큰 메시지로 보내기 위한 STOMP 클라이언트.
   const chatClientRef = useRef<Client | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -214,10 +218,18 @@ export function StudyMaterialsPage() {
   }, [images, viewerImageId])
 
   const handleDownload = async (item: StudyMaterialItem) => {
+    if (downloadingIds.has(item.id)) return
+    setDownloadingIds((current) => new Set(current).add(item.id))
     try {
       await downloadStudyMaterial(item)
     } catch {
       showToast('자료를 다운로드하지 못했어요. 잠시 후 다시 시도해주세요.')
+    } finally {
+      setDownloadingIds((current) => {
+        const next = new Set(current)
+        next.delete(item.id)
+        return next
+      })
     }
   }
 
@@ -416,6 +428,7 @@ export function StudyMaterialsPage() {
               ) : (
                 <StudyMaterialFileList
                   files={files}
+                  downloadingIds={downloadingIds}
                   onDownload={(file) => void handleDownload(file)}
                 />
               )}
@@ -454,6 +467,9 @@ export function StudyMaterialsPage() {
           setViewerImageId(images[index]?.id ?? null)
         }
         onClose={() => setViewerImageId(null)}
+        isDownloading={
+          viewerImageId !== null && downloadingIds.has(viewerImageId)
+        }
         onDownload={(image) => void handleDownload(image)}
       />
 

@@ -4,6 +4,7 @@ import {
   FileArchive,
   FileSpreadsheet,
   FileText,
+  Loader2,
   Presentation,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -31,12 +32,15 @@ function toExtension(filename: string): string {
 
 interface StudyMaterialFileListProps {
   files: StudyMaterialItem[]
+  // 다운로드가 진행 중인 자료 id 집합. 해당 행의 버튼을 스피너로 바꾼다.
+  downloadingIds: ReadonlySet<string>
   onDownload: (file: StudyMaterialItem) => void
 }
 
 // 공유된 파일을 드라이브형 목록으로 보여주는 자료실 파일 탭. 좁은 화면에서는 보조 열을 숨긴다.
 export function StudyMaterialFileList({
   files,
+  downloadingIds,
   onDownload,
 }: StudyMaterialFileListProps) {
   if (files.length === 0) {
@@ -76,6 +80,7 @@ export function StudyMaterialFileList({
                 icon: File,
                 className: 'text-text-secondary',
               }
+            const isDownloading = downloadingIds.has(file.id)
             return (
               <tr
                 key={file.id}
@@ -105,11 +110,21 @@ export function StudyMaterialFileList({
                 <td className="px-4 py-3 text-right">
                   <button
                     type="button"
+                    disabled={isDownloading}
+                    aria-busy={isDownloading || undefined}
                     onClick={() => onDownload(file)}
-                    className="inline-flex size-10 items-center justify-center rounded-ait-s text-text-secondary transition-colors [transition-duration:var(--duration-fast)] hover:bg-surface-default hover:text-action-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-action-primary/25"
-                    aria-label={`${file.originalFilename} 다운로드`}
+                    className="inline-flex size-10 items-center justify-center rounded-ait-s text-text-secondary transition-colors [transition-duration:var(--duration-fast)] hover:bg-surface-default hover:text-action-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-action-primary/25 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-secondary"
+                    aria-label={
+                      isDownloading
+                        ? `${file.originalFilename} 다운로드 중`
+                        : `${file.originalFilename} 다운로드`
+                    }
                   >
-                    <Download aria-hidden="true" />
+                    {isDownloading ? (
+                      <Loader2 aria-hidden="true" className="animate-spin" />
+                    ) : (
+                      <Download aria-hidden="true" />
+                    )}
                   </button>
                 </td>
               </tr>
