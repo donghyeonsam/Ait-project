@@ -1,4 +1,6 @@
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
+import { useEffect } from 'react'
+import { isBackendAssetUrl } from '@/api/http'
 import { AuthenticatedImage } from '@/components/common/AuthenticatedImage'
 import { Button } from '@/components/ui/button'
 import {
@@ -6,6 +8,7 @@ import {
   DialogContent,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { fetchAssetBlobCached } from '@/lib/asset-blob-cache'
 import { formatPostDate } from '@/lib/format'
 import type { StudyMaterialItem } from '@/types/study-materials'
 
@@ -26,6 +29,16 @@ export function StudyMaterialImageViewerDialog({
   onClose,
   onDownload,
 }: StudyMaterialImageViewerDialogProps) {
+  // 이전·다음으로 넘길 때 로딩이 보이지 않도록 인접 이미지를 캐시에 미리 받아둔다.
+  useEffect(() => {
+    if (activeIndex === null) return
+    for (const adjacent of [images[activeIndex - 1], images[activeIndex + 1]]) {
+      if (adjacent && isBackendAssetUrl(adjacent.url)) {
+        fetchAssetBlobCached(adjacent.url).catch(() => {})
+      }
+    }
+  }, [activeIndex, images])
+
   const image = activeIndex === null ? null : images[activeIndex]
   if (activeIndex === null || !image) return null
 
