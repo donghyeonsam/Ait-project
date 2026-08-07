@@ -1,4 +1,4 @@
-// GitHub 저장소 목록 조회·표시 이름 수정·연동 삭제와 App 설치 확정 API 호출을 담은 모듈.
+// GitHub 저장소 목록 조회·표시 이름 수정과 App 설치 확정 API 호출을 담은 모듈.
 import { backendRequest } from '@/api/http'
 
 export interface GithubRepository {
@@ -24,11 +24,5 @@ export function updateGithubRepoNickname(repoId: number, repoNickname: string) {
   return backendRequest<void>(`/api/github/repos/${repoId}`, {
     method: 'PATCH',
     body: JSON.stringify({ repoNickname }),
-  })
-}
-
-export function deleteGithubRepo(repoId: number) {
-  return backendRequest<void>(`/api/github/repos/${repoId}`, {
-    method: 'DELETE',
   })
 }

@@ -1,10 +1,9 @@
-import { ChevronDown, ExternalLink, GitFork, Trash2 } from 'lucide-react'
+import { ChevronDown, ExternalLink, GitFork } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { confirmGithubInstallation } from '@/api/github'
 import { toErrorMessage } from '@/api/http'
 import { GitHubIcon } from '@/components/icons/GitHubIcon'
 import { Button } from '@/components/ui/button'
-import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { isGithubInstallMessage, openGithubInstallPopup } from '@/lib/githubInstall'
 import type { ProfileRepository } from '@/types/profile'
 
@@ -13,7 +12,6 @@ const GITHUB_APP_INSTALL_URL = 'https://github.com/apps/Ait-deploy/installations
 interface RepoAccordionProps {
   repositories: ProfileRepository[]
   loading?: boolean
-  onDelete?: (id: number) => Promise<void>
   onInstalled?: () => void
 }
 
@@ -21,13 +19,9 @@ interface RepoAccordionProps {
 export function RepoAccordion({
   repositories,
   loading = false,
-  onDelete,
   onInstalled,
 }: RepoAccordionProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [pendingDelete, setPendingDelete] = useState<ProfileRepository | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isInstalling, setIsInstalling] = useState(false)
   const [installError, setInstallError] = useState<string | null>(null)
 
@@ -60,20 +54,6 @@ export function RepoAccordion({
     const popup = openGithubInstallPopup(GITHUB_APP_INSTALL_URL)
     if (!popup) {
       setInstallError('팝업이 차단되어 있습니다. 브라우저의 팝업 차단을 해제한 뒤 다시 시도해주세요.')
-    }
-  }
-
-  const confirmDelete = async () => {
-    if (!pendingDelete || !onDelete) return
-    setIsDeleting(true)
-    setDeleteError(null)
-    try {
-      await onDelete(pendingDelete.id)
-      setPendingDelete(null)
-    } catch (requestError) {
-      setDeleteError(toErrorMessage(requestError))
-    } finally {
-      setIsDeleting(false)
     }
   }
 
@@ -120,33 +100,12 @@ export function RepoAccordion({
                     <span className="truncate">{repository.name}</span>
                     <ExternalLink className="size-4 shrink-0" aria-hidden="true" />
                   </a>
-                  {onDelete ? (
-                    <Button
-                      type="button"
-                      variant="text"
-                      size="icon"
-                      className="-my-2 shrink-0 text-text-secondary hover:text-status-error [&_svg]:size-4"
-                      aria-label={`${repository.name} 연동 삭제`}
-                      onClick={() => {
-                        setDeleteError(null)
-                        setPendingDelete(repository)
-                      }}
-                    >
-                      <Trash2 aria-hidden="true" />
-                    </Button>
-                  ) : null}
                 </li>
               ))}
             </ul>
           ) : (
             <p className="pt-3 text-caption text-text-secondary">등록된 레포지토리가 없습니다.</p>
           )}
-
-          {deleteError ? (
-            <p className="pt-3 text-caption text-status-error" role="alert">
-              {deleteError}
-            </p>
-          ) : null}
 
           {installError ? (
             <p className="pt-3 text-caption text-status-error" role="alert">
@@ -166,23 +125,6 @@ export function RepoAccordion({
           </Button>
         </div>
       </div>
-
-      <ConfirmDialog
-        open={pendingDelete !== null}
-        onOpenChange={(open) => {
-          // 삭제 요청이 진행되는 동안에는 대화상자를 닫지 않는다.
-          if (!open && !isDeleting) setPendingDelete(null)
-        }}
-        title="레포지토리 연동을 삭제할까요?"
-        description={
-          pendingDelete
-            ? `'${pendingDelete.name}' 연동이 삭제되며, 면접 설정에서 더 이상 선택할 수 없습니다.`
-            : undefined
-        }
-        confirmLabel={isDeleting ? '삭제 중...' : '삭제'}
-        cancelLabel="취소"
-        onConfirm={confirmDelete}
-      />
     </div>
   )
 }
