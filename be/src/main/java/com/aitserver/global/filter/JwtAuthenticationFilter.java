@@ -28,7 +28,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         // 1. 헤더에서 토큰 추출
-        log.info("[JWT Filter] 사용자 토큰 확인 시작 - Method: {}, URI: {}", request.getMethod(), request.getRequestURI());
         String token = resolveToken(request);
 
         if(token != null && jwtTokenProvider.validateToken(token)) {
