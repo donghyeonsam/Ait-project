@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from 'react'
-import { ProfileAvatar } from '@/components/common/ProfileAvatar'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -11,7 +10,6 @@ import {
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import type { StudyCardData } from '@/components/study/StudyCard'
-import { useAuth } from '@/lib/useAuth'
 
 interface StudyApplyDialogProps {
   study: StudyCardData | null
@@ -27,7 +25,6 @@ export function StudyApplyDialog({
   onOpenChange,
   onSubmit,
 }: StudyApplyDialogProps) {
-  const { user } = useAuth()
   const [message, setMessage] = useState('')
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -59,18 +56,7 @@ export function StudyApplyDialog({
         </DialogHeader>
 
         <form className="mt-6" onSubmit={handleSubmit}>
-          <div className="flex items-center gap-3">
-            <ProfileAvatar
-              src={user?.profileImageUrl}
-              fallbackLabel={user?.nickname.slice(0, 1) ?? '신청자'}
-              className="size-10"
-            />
-            <p className="text-body-1 font-medium text-text-primary">
-              {user?.nickname ?? '신청자'}
-            </p>
-          </div>
-
-          <label className="mt-4 block">
+          <label className="block">
             <span className="mb-2 block text-body-2 font-medium text-text-primary">
               신청 메시지
             </span>
