@@ -103,7 +103,7 @@ export function ParticipantTile({
       className={cn(
         // 호출부(그리드/스트립/스테이지)가 이미 정확한 비율의 박스를 만들어 넘겨주므로 그 크기를 그대로 채운다.
         // @container로 감싸 하위 오버레이가 이 타일의 실제 크기에 맞춰 커지고 작아지게 한다.
-        'group @container relative flex h-full w-full items-center justify-center overflow-hidden rounded-ait-m bg-theater-backdrop text-white transition-shadow duration-(--duration-fast) ease-standard',
+        'study-participant-tile group @container relative flex h-full w-full items-center justify-center overflow-hidden rounded-ait-m bg-theater-backdrop text-white transition-shadow duration-(--duration-fast) ease-standard',
         !participant.isSelf && !speakingHighlight && 'hover:ring-2 hover:ring-white/70',
         speakingHighlight && 'study-participant-speaking',
         dragOver && 'ring-2 ring-action-primary',
