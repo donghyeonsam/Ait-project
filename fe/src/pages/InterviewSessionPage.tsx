@@ -67,6 +67,9 @@ const difficultyMap: Record<Difficulty, InterviewRecord['difficulty']> = {
 }
 
 const ANSWER_DURATION_SECONDS = 90
+// 답변이 너무 짧으면("잘모르겠습니다" 등) 서버가 매번 미충족으로 판단해 꼬리질문을
+// 계속 생성하므로, 이 길이 이하일 때는 서버가 내려준 꼬리질문을 사용하지 않는다.
+const MIN_ANSWER_LENGTH_FOR_FOLLOW_UP = 10
 
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
@@ -438,7 +441,10 @@ function ActiveInterviewSession({
           answer: transcript,
           audioBlob,
         })
-        generatedFollowUp = response?.nextQuestion ?? null
+        generatedFollowUp =
+          transcript.length <= MIN_ANSWER_LENGTH_FOR_FOLLOW_UP
+            ? null
+            : (response?.nextQuestion ?? null)
       } catch {
         generatedFollowUp = null
       } finally {
