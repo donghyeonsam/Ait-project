@@ -54,28 +54,28 @@ public class CacheConfig {
         cacheConfigurations.put(
                 "dashboard",
                 defaultConfig.entryTtl(
-                        Duration.ofMinutes(2)
+                        Duration.ofMinutes(5)
                 )
         );
 
         cacheConfigurations.put(
                 "myStudyGroups",
                 defaultConfig.entryTtl(
-                        Duration.ofMinutes(2)
+                        Duration.ofMinutes(5)
                 )
         );
 
         cacheConfigurations.put(
-                "studyGroupDetail",
+                "peerFeedbackList",
                 defaultConfig.entryTtl(
-                        Duration.ofMinutes(2)
+                        Duration.ofMinutes(5)
                 )
         );
 
         cacheConfigurations.put(
                 "reportList",
                 defaultConfig.entryTtl(
-                        Duration.ofMinutes(2)
+                        Duration.ofMinutes(5)
                 )
         );
 

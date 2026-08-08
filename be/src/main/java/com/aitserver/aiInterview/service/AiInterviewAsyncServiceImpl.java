@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -217,6 +218,18 @@ public class AiInterviewAsyncServiceImpl implements AiInterviewAsyncService {
     @Transactional
     @Async
     @CacheEvict(value = "dashboard", key = "#userId")
+    @Caching(
+            evict = {
+                    @CacheEvict(
+                            value = "dashboard",
+                            key = "#userId"
+                    ),
+                    @CacheEvict(
+                            value = "reportList",
+                            key = "#userId"
+                    )
+            }
+    )
     public void interviewComplete(Long userId, Long aiInterviewId) {
         log.info("[===Async=== AiInterviewAsyncServiceImpl] AI 모의 면접 완료!!!");
 
