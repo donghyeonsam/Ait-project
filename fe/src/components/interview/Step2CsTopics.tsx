@@ -5,10 +5,11 @@ import { cn } from '@/lib/utils'
 interface Step2CsTopicsProps {
   value: CsTopic[]
   onToggle: (topic: CsTopic) => void
+  disabled?: boolean
 }
 
 // 설문 2단계(CS 주제). 최대 CS_TOPIC_MAX개까지 다중 선택하며, 한도에 도달하면 미선택 항목을 비활성화한다.
-export function Step2CsTopics({ value, onToggle }: Step2CsTopicsProps) {
+export function Step2CsTopics({ value, onToggle, disabled = false }: Step2CsTopicsProps) {
   return (
     <section aria-labelledby="step2-cs-title">
       <div className="flex items-baseline justify-between">
@@ -19,7 +20,7 @@ export function Step2CsTopics({ value, onToggle }: Step2CsTopicsProps) {
       <div className="mt-4 grid grid-cols-3 gap-3" role="group" aria-labelledby="step2-cs-title">
         {csTopicOptions.map((topic) => {
           const isSelected = value.includes(topic)
-          const isDisabled = !isSelected && value.length >= CS_TOPIC_MAX
+          const isDisabled = disabled || (!isSelected && value.length >= CS_TOPIC_MAX)
 
           return (
             <button

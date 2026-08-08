@@ -1,9 +1,15 @@
+import { Check } from 'lucide-react'
 import type { InterviewPreparation } from '@/api/ai-interviews'
 import type { SurveyState } from '@/components/interview/useInterviewSurvey'
+import { Button } from '@/components/ui/button'
 
 interface Step4SummaryProps {
   state: SurveyState
   preparation: InterviewPreparation | null
+  canConfirm: boolean
+  isConfirmed: boolean
+  onConfirm: () => void
+  onReset: () => void
 }
 
 interface SummaryRow {
@@ -11,8 +17,10 @@ interface SummaryRow {
   value: string
 }
 
-// 설문 4단계. 선택 내용을 최종 확인하는 요약 화면.
-export function Step4Summary({ state, preparation }: Step4SummaryProps) {
+// 설문 4단계. 선택 내용을 최종 확인하는 요약 화면. 확인을 눌러야 5단계(환경 설정)가 열리고,
+// 그 시점에 맞춰 AI 질문 생성 요청도 시작된다. 확인 후에는 1~3단계가 잠기며, 다시 고치려면
+// 초기화 버튼으로 처음부터 다시 진행해야 한다.
+export function Step4Summary({ state, preparation, canConfirm, isConfirmed, onConfirm, onReset }: Step4SummaryProps) {
   const coverLetterTitle = preparation?.coverLetters
     .find((coverLetter) => String(coverLetter.id) === state.coverLetterId)?.title ?? '-'
   const repositoryName = preparation?.githubRepositories
@@ -49,6 +57,29 @@ export function Step4Summary({ state, preparation }: Step4SummaryProps) {
           </div>
         ))}
       </dl>
+
+      <div className="mt-8 flex flex-col items-center gap-2 border-t border-border-default pt-6">
+        <div className="flex items-center gap-3">
+          <Button type="button" disabled={!canConfirm} onClick={onConfirm}>
+            {isConfirmed ? (
+              <>
+                <Check className="size-4" aria-hidden="true" />
+                확인 완료 · 환경 설정으로 이동
+              </>
+            ) : (
+              '이 내용으로 확인했어요'
+            )}
+          </Button>
+          {isConfirmed ? (
+            <Button type="button" variant="secondary" onClick={onReset}>
+              다시 선택하기
+            </Button>
+          ) : null}
+        </div>
+        {isConfirmed ? null : (
+          <p className="text-caption text-text-secondary">확인하면 위 선택을 바탕으로 AI가 질문 생성을 시작해요.</p>
+        )}
+      </div>
     </section>
   )
 }

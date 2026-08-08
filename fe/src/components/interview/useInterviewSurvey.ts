@@ -116,6 +116,11 @@ export function useInterviewSurvey() {
     })
   }, [])
 
+  // 최종 확인을 취소하고 처음부터 다시 고를 때 모든 입력을 초기 상태로 되돌린다.
+  const reset = useCallback(() => {
+    setState(initialState)
+  }, [])
+
   // 면접 유형을 바꾸면 그 유형에 해당하지 않는 입력(지원 정보·CS 주제)은 초기화한다.
   const selectInterviewType = useCallback((type: InterviewGoalType) => {
     setState((previous) => ({
@@ -139,6 +144,7 @@ export function useInterviewSurvey() {
   return {
     state,
     update,
+    reset,
     selectRepository,
     toggleCsTopic,
     selectInterviewType,

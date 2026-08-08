@@ -14,10 +14,11 @@ interface Step2ApplyInfoProps {
   onChangeCareerLevel: (value: string) => void
   onSelectCoverLetter: (id: string) => void
   onSelectRepository: (id: string) => void
+  disabled?: boolean
 }
 
 const inputClass =
-  'w-full rounded-ait-s border border-border-default bg-surface-default px-4 py-2.5 text-body-1 text-text-primary transition-colors ease-standard duration-(--duration-fast) placeholder:text-text-secondary focus:border-action-primary focus:outline-none focus:ring-3 focus:ring-action-primary/25'
+  'w-full rounded-ait-s border border-border-default bg-surface-default px-4 py-2.5 text-body-1 text-text-primary transition-colors ease-standard duration-(--duration-fast) placeholder:text-text-secondary focus:border-action-primary focus:outline-none focus:ring-3 focus:ring-action-primary/25 disabled:cursor-not-allowed disabled:opacity-50'
 
 // 설문 2단계(지원 정보). 직무·경력 입력과 자소서·레포지토리 선택을 받는다. 목록은 로딩/에러/빈 상태를 각각 표시한다.
 export function Step2ApplyInfo({
@@ -32,6 +33,7 @@ export function Step2ApplyInfo({
   onChangeCareerLevel,
   onSelectCoverLetter,
   onSelectRepository,
+  disabled = false,
 }: Step2ApplyInfoProps) {
   return (
     <section aria-labelledby="step2-apply-title">
@@ -45,6 +47,7 @@ export function Step2ApplyInfo({
             id="apply-position"
             type="text"
             value={position}
+            disabled={disabled}
             onChange={(event) => onChangePosition(event.target.value)}
             placeholder="예: 프론트엔드 개발자"
             className={cn(inputClass, 'mt-2')}
@@ -56,6 +59,7 @@ export function Step2ApplyInfo({
             id="apply-career"
             type="text"
             value={careerLevel}
+            disabled={disabled}
             onChange={(event) => onChangeCareerLevel(event.target.value)}
             placeholder="예: 신입, 3년 차"
             className={cn(inputClass, 'mt-2')}
@@ -84,10 +88,12 @@ export function Step2ApplyInfo({
                     type="button"
                     role="radio"
                     aria-checked={isSelected}
+                    disabled={disabled}
                     onClick={() => onSelectCoverLetter(id)}
                     className={cn(
                       'flex w-full items-center justify-between gap-3 rounded-ait-s px-3 py-2.5 text-left transition-colors ease-standard duration-(--duration-fast)',
                       isSelected ? 'bg-status-success-surface' : 'hover:bg-status-neutral-surface',
+                      disabled && 'cursor-not-allowed opacity-50 hover:bg-transparent',
                     )}
                   >
                     <span>
@@ -130,10 +136,12 @@ export function Step2ApplyInfo({
                   <button
                     type="button"
                     aria-pressed={isSelected}
+                    disabled={disabled}
                     onClick={() => onSelectRepository(id)}
                     className={cn(
                       'flex w-full items-center justify-between gap-3 rounded-ait-s px-3 py-2.5 text-left transition-colors ease-standard duration-(--duration-fast)',
                       isSelected ? 'bg-status-success-surface' : 'hover:bg-status-neutral-surface',
+                      disabled && 'cursor-not-allowed opacity-50 hover:bg-transparent',
                     )}
                   >
                     <span>
