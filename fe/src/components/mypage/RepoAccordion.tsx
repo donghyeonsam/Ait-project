@@ -4,6 +4,7 @@ import { confirmGithubInstallation } from '@/api/github'
 import { toErrorMessage } from '@/api/http'
 import { GitHubIcon } from '@/components/icons/GitHubIcon'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { isGithubInstallMessage, openGithubInstallPopup } from '@/lib/githubInstall'
 import type { ProfileRepository } from '@/types/profile'
 
@@ -12,16 +13,22 @@ const GITHUB_APP_INSTALL_URL = 'https://github.com/apps/Ait-deploy/installations
 interface RepoAccordionProps {
   repositories: ProfileRepository[]
   loading?: boolean
+  onDelete?: (id: number) => Promise<void>
   onInstalled?: () => void
 }
 
 // 등록한 GitHub 저장소를 펼쳐 보는 아코디언.
+// 삭제 API·확인 다이얼로그는 그대로 두되, 목록에서 삭제를 트리거하는 버튼은 화면에 노출하지 않는다.
 export function RepoAccordion({
   repositories,
   loading = false,
+  onDelete,
   onInstalled,
 }: RepoAccordionProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<ProfileRepository | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isInstalling, setIsInstalling] = useState(false)
   const [installError, setInstallError] = useState<string | null>(null)
 
@@ -54,6 +61,20 @@ export function RepoAccordion({
     const popup = openGithubInstallPopup(GITHUB_APP_INSTALL_URL)
     if (!popup) {
       setInstallError('팝업이 차단되어 있습니다. 브라우저의 팝업 차단을 해제한 뒤 다시 시도해주세요.')
+    }
+  }
+
+  const confirmDelete = async () => {
+    if (!pendingDelete || !onDelete) return
+    setIsDeleting(true)
+    setDeleteError(null)
+    try {
+      await onDelete(pendingDelete.id)
+      setPendingDelete(null)
+    } catch (requestError) {
+      setDeleteError(toErrorMessage(requestError))
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -107,6 +128,12 @@ export function RepoAccordion({
             <p className="pt-3 text-caption text-text-secondary">등록된 레포지토리가 없습니다.</p>
           )}
 
+          {deleteError ? (
+            <p className="pt-3 text-caption text-status-error" role="alert">
+              {deleteError}
+            </p>
+          ) : null}
+
           {installError ? (
             <p className="pt-3 text-caption text-status-error" role="alert">
               {installError}
@@ -125,6 +152,23 @@ export function RepoAccordion({
           </Button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          // 삭제 요청이 진행되는 동안에는 대화상자를 닫지 않는다.
+          if (!open && !isDeleting) setPendingDelete(null)
+        }}
+        title="레포지토리 연동을 삭제할까요?"
+        description={
+          pendingDelete
+            ? `'${pendingDelete.name}' 연동이 삭제되며, 면접 설정에서 더 이상 선택할 수 없습니다.`
+            : undefined
+        }
+        confirmLabel={isDeleting ? '삭제 중...' : '삭제'}
+        cancelLabel="취소"
+        onConfirm={confirmDelete}
+      />
     </div>
   )
 }
