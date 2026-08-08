@@ -18,7 +18,6 @@ import { useAuth } from '@/lib/useAuth'
 const loginSchema = z.object({
   email: z.string().trim().email('올바른 이메일 형식을 입력해주세요.'),
   password: z.string().min(1, '비밀번호를 입력해주세요.'),
-  rememberMe: z.boolean(),
 })
 
 type LoginFormValues = z.infer<typeof loginSchema>
@@ -38,14 +37,14 @@ export function LoginPage() {
     defaultValues: {
       email: '',
       password: '',
-      rememberMe: false,
     },
   })
 
   const onSubmit = async (values: LoginFormValues) => {
     try {
       const response = await login(values.email, values.password)
-      signIn(response.accessToken, response.user, values.rememberMe)
+      // 소셜 로그인과 동일하게 항상 localStorage에 저장해 새 탭에서도 로그인 상태를 유지한다.
+      signIn(response.accessToken, response.user, true)
 
       // 보호된 경로에서 리다이렉트돼 왔다면 로그인 후 그 경로로 되돌려보낸다.
       const routeState = location.state as { from?: string } | null
@@ -96,15 +95,6 @@ export function LoginPage() {
               {...register('password')}
             />
           </div>
-
-          <label className="mt-4 flex w-fit cursor-pointer items-center gap-2 text-body-2 text-text-secondary">
-            <input
-              type="checkbox"
-              className="size-4 accent-action-primary"
-              {...register('rememberMe')}
-            />
-            로그인 상태 유지
-          </label>
 
           <Button type="submit" className="mt-6 w-full" disabled={isSubmitting}>
             {isSubmitting ? '로그인 중...' : '로그인'}
