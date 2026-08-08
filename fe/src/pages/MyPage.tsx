@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getMyGithubRepositories, type GithubRepository } from '@/api/github'
 import { getProfileImageUrl, toErrorMessage } from '@/api/http'
-import { getMyPageProfile, getMyPageRepositories, type MyPageProfile } from '@/api/my-page'
+import {
+  getMyPageProfile,
+  type MyPageGithubRepository,
+  type MyPageProfile,
+} from '@/api/my-page'
 import { DocumentBoxDialog } from '@/components/documents/DocumentBoxDialog'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { ActivityTabs } from '@/components/mypage/ActivityTabs'
@@ -12,12 +15,12 @@ import { useAuth } from '@/lib/useAuth'
 import type { ProfileData } from '@/types/profile'
 
 // 첫 저장소 URL에서 "호스트/소유자" 형태의 GitHub 프로필 경로를 뽑아낸다. 파싱 실패 시 빈 문자열.
-function githubProfile(repositories: GithubRepository[]) {
+function githubProfile(repositories: MyPageGithubRepository[]) {
   const repository = repositories[0]
   if (!repository) return ''
 
   try {
-    const url = new URL(repository.url)
+    const url = new URL(repository.repoUrl)
     const owner = url.pathname.split('/').filter(Boolean)[0]
     return owner ? `${url.hostname}/${owner}` : ''
   } catch {
@@ -25,12 +28,10 @@ function githubProfile(repositories: GithubRepository[]) {
   }
 }
 
-// 저장소·계정 정보를 화면용 ProfileData 하나로 합친다. 이름·닉네임·관심 직무·기술
-// 스택은 모두 내 정보 조회(실제 저장된 값)에서 가져온다.
-function createProfile(
-  repositories: GithubRepository[],
-  profileInfo: MyPageProfile,
-): ProfileData {
+// 계정 정보를 화면용 ProfileData 하나로 합친다. 저장소 목록도 내 정보 조회 응답을 그대로 쓰는데,
+// githubRepoId가 여기서만 저장 요청에 그대로 되돌려 보낼 수 있는 내부 식별자이기 때문이다
+// (GitHub 저장소 목록 API의 githubRepoId는 GitHub 자체 repo id라 값이 다르다).
+function createProfile(profileInfo: MyPageProfile): ProfileData {
   const roles = [profileInfo.firstJobInterest, profileInfo.secondJobInterest].filter(
     (value): value is string => Boolean(value?.trim()),
   )
@@ -39,12 +40,12 @@ function createProfile(
     name: profileInfo.name,
     nickname: profileInfo.nickname,
     email: profileInfo.email,
-    github: githubProfile(repositories),
+    github: githubProfile(profileInfo.githubRepositories),
     roles,
-    repositories: repositories.map((repository) => ({
+    repositories: profileInfo.githubRepositories.map((repository) => ({
       id: repository.githubRepoId,
-      name: repository.nickname || repository.name,
-      url: repository.url,
+      name: repository.repoNickname,
+      url: repository.repoUrl,
     })),
     skills: profileInfo.skills,
     avatarUrl: profileInfo.profileImageUrl
@@ -56,7 +57,6 @@ function createProfile(
 // 마이페이지. 프로필과 등록 자료를 불러와 보여주고, 저장소 조회는 별도로 재시도할 수 있다.
 export function MyPage() {
   const { user } = useAuth()
-  const [repositories, setRepositories] = useState<GithubRepository[] | null>(null)
   const [profileInfo, setProfileInfo] = useState<MyPageProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isRepositoryLoading, setIsRepositoryLoading] = useState(false)
@@ -66,11 +66,9 @@ export function MyPage() {
   useEffect(() => {
     let active = true
 
-    Promise.all([getMyPageRepositories(), getMyPageProfile()])
-      .then(([repositoriesResult, profile]) => {
-        if (!active) return
-        setRepositories(repositoriesResult.repositories)
-        setProfileInfo(profile)
+    getMyPageProfile()
+      .then((profile) => {
+        if (active) setProfileInfo(profile)
       })
       .catch((requestError: unknown) => {
         if (active) setError(toErrorMessage(requestError))
@@ -87,28 +85,25 @@ export function MyPage() {
   const retry = () => {
     setIsLoading(true)
     setError(null)
-    Promise.all([getMyPageRepositories(), getMyPageProfile()])
-      .then(([repositoriesResult, profile]) => {
-        setRepositories(repositoriesResult.repositories)
-        setProfileInfo(profile)
-      })
+    getMyPageProfile()
+      .then(setProfileInfo)
       .catch((requestError: unknown) => setError(toErrorMessage(requestError)))
       .finally(() => setIsLoading(false))
   }
 
-  // 연동 확인 후 목록을 다시 불러온다. 실패해도 이전 목록을 그대로 유지한다.
+  // 연동 확인 후 저장소 목록을 다시 불러온다. 실패해도 이전 목록을 그대로 유지한다.
   const retryRepositories = () => {
     setIsRepositoryLoading(true)
-    getMyGithubRepositories()
-      .then(setRepositories)
+    getMyPageProfile()
+      .then(setProfileInfo)
       .catch(() => {})
       .finally(() => setIsRepositoryLoading(false))
   }
 
   const profile = useMemo(() => {
-    if (!repositories || !profileInfo) return null
-    return createProfile(repositories, profileInfo)
-  }, [repositories, profileInfo])
+    if (!profileInfo) return null
+    return createProfile(profileInfo)
+  }, [profileInfo])
 
   return (
     <PageLayout>

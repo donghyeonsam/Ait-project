@@ -118,6 +118,17 @@ const PANEL_TRANSITION_MS = 250
 // 참가자별 상호평가 진행 여부를 서로 알리는 데이터 채널 토픽. 채팅과 같은 Room 데이터 채널을 공유하되
 // 이 토픽으로만 필터링해 받는다.
 const EVALUATION_PROGRESS_TOPIC = 'peer-eval-progress'
+// LiveKit 접속 직후에는 백엔드가 participant_joined 웹훅을 아직 못 받아 참가자 상태가 미처
+// JOINED로 반영되기 전이라, members 조회가 잠깐 403으로 실패할 수 있다. 보조 표시 정보라 실패해도
+// 화면엔 지장 없지만, 웹훅이 도착할 시간을 두고 몇 번 더 시도하면 대부분 성공한다.
+const MEMBERS_FETCH_MAX_RETRIES = 4
+const MEMBERS_FETCH_RETRY_DELAY_MS = 1000
+// 평가 진행률은 채팅과 같은 LiveKit 데이터 채널(RELIABLE)을 공유한다. 그 채널이 세션에서
+// 처음 열리는 순간이 카메라·마이크 트랙을 올리는 초기 협상과 겹치면 SDP negotiation이 충돌해
+// 엔진이 닫혀버리고(그 이후 채팅 전송도 전부 "PC manager is closed"로 실패), 참가자 입장으로
+// remoteParticipants.length가 짧은 시간에 여러 번 바뀌면 그때마다 재전송이 겹쳐 위험이 커진다.
+// 초기 협상이 끝날 시간을 벌고 잦은 변화를 한 번으로 묶기 위해 지연 후 전송한다.
+const EVALUATION_PROGRESS_SEND_DELAY_MS = 1500
 
 // 네이티브 select는 옵션 목록이 브라우저가 그리는 팝업이라 다크 패널과 무관하게 흰 배경으로 렌더링된다.
 // 공용 Dropdown(커스텀 listbox)을 쓰면 목록도 우리 스타일로 그려지므로, 장치설정바(bg-theater-backdrop)에
@@ -482,19 +493,31 @@ function StudySessionRoomStage({
 
   useEffect(() => {
     let isActive = true
+    let retryTimer: number | null = null
 
-    getStudySessionMembers(connection.sessionId)
-      .then((members) => {
-        if (!isActive) return
-        setMembersByUserId(
-          new Map(members.map((member) => [member.userId, member])),
-        )
-      })
-      // 참가자 정보는 보조 표시라, 실패하면 LiveKit이 주는 값만으로 계속 진행한다.
-      .catch(() => {})
+    const fetchMembers = (attempt: number) => {
+      getStudySessionMembers(connection.sessionId)
+        .then((members) => {
+          if (!isActive) return
+          setMembersByUserId(
+            new Map(members.map((member) => [member.userId, member])),
+          )
+        })
+        .catch(() => {
+          // 참가자 정보는 보조 표시라, 재시도를 다 써도 실패하면 LiveKit이 주는 값만으로 계속 진행한다.
+          if (!isActive || attempt >= MEMBERS_FETCH_MAX_RETRIES) return
+          retryTimer = window.setTimeout(
+            () => fetchMembers(attempt + 1),
+            MEMBERS_FETCH_RETRY_DELAY_MS * (attempt + 1),
+          )
+        })
+    }
+
+    fetchMembers(0)
 
     return () => {
       isActive = false
+      if (retryTimer !== null) window.clearTimeout(retryTimer)
     }
   }, [connection.sessionId, remoteIdentityKey])
 
@@ -682,10 +705,15 @@ function StudySessionRoomStage({
   )
 
   // 내 진행 상황이 바뀔 때, 그리고 누군가 새로 들어와 아직 내 상태를 모를 수 있을 때 다시 알린다.
+  // 초기 트랙 협상과 겹치지 않도록 지연시키고, 짧은 시간 내 여러 번 바뀌면 마지막 한 번만 보낸다.
   useEffect(() => {
-    const payload = new TextEncoder().encode(JSON.stringify({ done: myEvaluationDone }))
-    // 연결이 끊기는 도중에는 전송이 실패할 수 있는데, 화면을 떠나는 참가자에게는 의미 없는 정보라 무시한다.
-    sendEvaluationProgress(payload, { reliable: true }).catch(() => {})
+    const timer = window.setTimeout(() => {
+      const payload = new TextEncoder().encode(JSON.stringify({ done: myEvaluationDone }))
+      // 연결이 끊기는 도중에는 전송이 실패할 수 있는데, 화면을 떠나는 참가자에게는 의미 없는 정보라 무시한다.
+      sendEvaluationProgress(payload, { reliable: true }).catch(() => {})
+    }, EVALUATION_PROGRESS_SEND_DELAY_MS)
+
+    return () => window.clearTimeout(timer)
   }, [myEvaluationDone, sendEvaluationProgress, remoteParticipants.length])
 
   // 이미 나간 사람의 완료 여부는 더 이상 의미가 없으므로, 지금 남아 있는 참가자만 센다.

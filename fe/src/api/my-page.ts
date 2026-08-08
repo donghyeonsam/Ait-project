@@ -1,19 +1,4 @@
-import { getMyGithubRepositories, type GithubRepository } from '@/api/github'
-import { backendRequest, toErrorMessage } from '@/api/http'
-
-export interface MyPageRepositoriesResult {
-  repositories: GithubRepository[]
-  repositoryError: string | null
-}
-
-// 마이페이지의 깃허브 저장소 목록을 조회한다. 실패해도 페이지 전체를 막지 않고 repositoryError로 넘긴다.
-export async function getMyPageRepositories(): Promise<MyPageRepositoriesResult> {
-  try {
-    return { repositories: await getMyGithubRepositories(), repositoryError: null }
-  } catch (error) {
-    return { repositories: [], repositoryError: toErrorMessage(error) }
-  }
-}
+import { backendRequest } from '@/api/http'
 
 export interface MyPageGithubRepository {
   githubRepoId: number

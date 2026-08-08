@@ -93,15 +93,20 @@ public class GithubWebhookService {
             githubAppRepository.findByInstallationId(installationId).ifPresent(githubApp -> {
                 Long userId = githubApp.getUserId();
 
-                // 1. 앱을 지우기 전(CASCADE 발동 전)에 레포지토리 목록을 먼저 가져옵니다.
+                // 1. 앱을 지우기 전에 레포지토리 목록을 먼저 가져옵니다. (JPA 메모리에 올라감)
                 List<GithubRepo> repos = githubRepoRepository.findByGithubAppId(githubApp.getId());
 
-                // 2. FastAPI에 각 레포지토리의 임베딩 삭제 요청을 차례대로 보냅니다.
+                // 2. FastAPI에 각 레포지토리의 임베딩 삭제 요청을 보냅니다.
                 for (GithubRepo repo : repos) {
                     githubAnalysisService.deleteGithubRepoEmbedding(userId, repo.getId());
                 }
 
-                // 3. 원래 하던 대로 DB에서 앱 삭제 (이때 레포지토리들도 CASCADE로 DB에서 날아갑니다)
+                // JPA 메모리 에러(TransientPropertyValueException) 방지를 위해 자식을 먼저 지웁니다!
+                if (!repos.isEmpty()) {
+                    githubRepoRepository.deleteAll(repos);
+                }
+
+                // 부모 삭제
                 githubAppRepository.delete(githubApp);
 
                 log.info("🗑유저 ID: {}의 깃허브 연동 데이터(DB) 및 임베딩(FastAPI)이 완전히 삭제되었습니다.", userId);
