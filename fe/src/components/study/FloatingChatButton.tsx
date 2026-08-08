@@ -142,13 +142,6 @@ export function FloatingChatButton({ boundsRef, onConnectionBroken }: FloatingCh
     // send()가 실패해도 이미 비운 초안은 되돌리지 않으면 메시지가 조용히 사라진 것처럼 보인다.
     send(trimmed).catch((error: unknown) => {
       console.error('스터디 세션 채팅 전송 실패', error)
-      // TODO: 재연결 다이얼로그가 왜 안 뜨는지 원인 확인용 임시 로그. 원인 파악 후 제거한다.
-      console.error('[chat-debug]', {
-        isUnexpectedConnectionState: error instanceof UnexpectedConnectionState,
-        errorName: error instanceof Error ? error.name : typeof error,
-        errorConstructorName: (error as { constructor?: { name?: string } })?.constructor?.name,
-        hasOnConnectionBroken: typeof onConnectionBroken === 'function',
-      })
       setDraft(trimmed)
       setSendError('메시지를 보내지 못했습니다. 다시 시도해 주세요.')
       // LiveKit 엔진이 이미 닫힌 상태(PC manager is closed)인데도 Room이 Disconnected 이벤트를

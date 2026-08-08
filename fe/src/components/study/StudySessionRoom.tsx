@@ -118,6 +118,11 @@ const PANEL_TRANSITION_MS = 250
 // 참가자별 상호평가 진행 여부를 서로 알리는 데이터 채널 토픽. 채팅과 같은 Room 데이터 채널을 공유하되
 // 이 토픽으로만 필터링해 받는다.
 const EVALUATION_PROGRESS_TOPIC = 'peer-eval-progress'
+// LiveKit 접속 직후에는 백엔드가 participant_joined 웹훅을 아직 못 받아 참가자 상태가 미처
+// JOINED로 반영되기 전이라, members 조회가 잠깐 403으로 실패할 수 있다. 보조 표시 정보라 실패해도
+// 화면엔 지장 없지만, 웹훅이 도착할 시간을 두고 몇 번 더 시도하면 대부분 성공한다.
+const MEMBERS_FETCH_MAX_RETRIES = 4
+const MEMBERS_FETCH_RETRY_DELAY_MS = 1000
 
 // 네이티브 select는 옵션 목록이 브라우저가 그리는 팝업이라 다크 패널과 무관하게 흰 배경으로 렌더링된다.
 // 공용 Dropdown(커스텀 listbox)을 쓰면 목록도 우리 스타일로 그려지므로, 장치설정바(bg-theater-backdrop)에
@@ -482,19 +487,31 @@ function StudySessionRoomStage({
 
   useEffect(() => {
     let isActive = true
+    let retryTimer: number | null = null
 
-    getStudySessionMembers(connection.sessionId)
-      .then((members) => {
-        if (!isActive) return
-        setMembersByUserId(
-          new Map(members.map((member) => [member.userId, member])),
-        )
-      })
-      // 참가자 정보는 보조 표시라, 실패하면 LiveKit이 주는 값만으로 계속 진행한다.
-      .catch(() => {})
+    const fetchMembers = (attempt: number) => {
+      getStudySessionMembers(connection.sessionId)
+        .then((members) => {
+          if (!isActive) return
+          setMembersByUserId(
+            new Map(members.map((member) => [member.userId, member])),
+          )
+        })
+        .catch(() => {
+          // 참가자 정보는 보조 표시라, 재시도를 다 써도 실패하면 LiveKit이 주는 값만으로 계속 진행한다.
+          if (!isActive || attempt >= MEMBERS_FETCH_MAX_RETRIES) return
+          retryTimer = window.setTimeout(
+            () => fetchMembers(attempt + 1),
+            MEMBERS_FETCH_RETRY_DELAY_MS * (attempt + 1),
+          )
+        })
+    }
+
+    fetchMembers(0)
 
     return () => {
       isActive = false
+      if (retryTimer !== null) window.clearTimeout(retryTimer)
     }
   }, [connection.sessionId, remoteIdentityKey])
 
