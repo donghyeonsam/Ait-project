@@ -5,10 +5,11 @@ import { cn } from '@/lib/utils'
 interface Step1InterviewTypeProps {
   value: string | null
   onSelect: (type: (typeof interviewGoalOptions)[number]['type']) => void
+  disabled?: boolean
 }
 
 // 설문 1단계. 연습할 면접 유형을 하나만 고르는 단일 선택 화면.
-export function Step1InterviewType({ value, onSelect }: Step1InterviewTypeProps) {
+export function Step1InterviewType({ value, onSelect, disabled = false }: Step1InterviewTypeProps) {
   return (
     <section aria-labelledby="step1-title">
       <h2 id="step1-title" className="text-h3">어떤 면접을 연습할까요?</h2>
@@ -24,12 +25,14 @@ export function Step1InterviewType({ value, onSelect }: Step1InterviewTypeProps)
               type="button"
               role="radio"
               aria-checked={isSelected}
+              disabled={disabled}
               onClick={() => onSelect(option.type)}
               className={cn(
                 'flex flex-col items-start gap-4 rounded-ait-m border p-5 text-left transition-colors ease-standard duration-(--duration-fast)',
                 isSelected
                   ? 'border-action-primary bg-surface-default shadow-elevation-1'
                   : 'border-status-neutral-border bg-surface-default hover:border-action-primary/40',
+                disabled && 'cursor-not-allowed opacity-50 hover:border-status-neutral-border',
               )}
             >
               <div>
