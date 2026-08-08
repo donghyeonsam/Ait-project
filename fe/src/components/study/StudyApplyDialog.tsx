@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { ProfileAvatar } from '@/components/common/ProfileAvatar'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -60,11 +60,11 @@ export function StudyApplyDialog({
 
         <form className="mt-6" onSubmit={handleSubmit}>
           <div className="flex items-center gap-3">
-            <Avatar className="size-10">
-              <AvatarFallback className="border-0 bg-profile-avatar text-transparent">
-                {user?.nickname ?? '신청자'}
-              </AvatarFallback>
-            </Avatar>
+            <ProfileAvatar
+              src={user?.profileImageUrl}
+              fallbackLabel={user?.nickname.slice(0, 1) ?? '신청자'}
+              className="size-10"
+            />
             <p className="text-body-1 font-medium text-text-primary">
               {user?.nickname ?? '신청자'}
             </p>
