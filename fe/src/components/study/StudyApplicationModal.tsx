@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { ProfileAvatar } from '@/components/common/ProfileAvatar'
 import { cn } from '@/lib/utils'
 import {
   getStudyGroupApplications,
@@ -141,11 +141,11 @@ export function StudyApplicationModal({
                     aria-controls={`application-${application.applicationId}-details`}
                     className="flex w-full items-center gap-3 p-4 text-left"
                   >
-                    <Avatar className="size-10">
-                      <AvatarFallback className="border-0 bg-profile-avatar text-transparent">
-                        신청자
-                      </AvatarFallback>
-                    </Avatar>
+                    <ProfileAvatar
+                      src={application.profileImageUrl}
+                      fallbackLabel={application.nickname.slice(0, 1)}
+                      className="size-10"
+                    />
                     <p className="min-w-0 flex-1 truncate text-body-1 text-text-primary">
                       <span className="font-medium">
                         {application.nickname}

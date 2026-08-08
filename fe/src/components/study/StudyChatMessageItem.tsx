@@ -1,9 +1,5 @@
 import type { StudyGroupChatMessage } from '@/api/study-group-chat'
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from '@/components/ui/avatar'
+import { ProfileAvatar } from '@/components/common/ProfileAvatar'
 import {
   StudyChatFileMessage,
   StudyChatImageMessage,
@@ -74,18 +70,11 @@ export function StudyChatMessageItem({
       )}
     >
       {!isSelf ? (
-        <Avatar className="mt-5 size-8 shrink-0 border border-border-default bg-profile-avatar">
-          {message.profileImageUrl ? (
-            <AvatarImage
-              src={message.profileImageUrl}
-              alt=""
-              className="object-cover"
-            />
-          ) : null}
-          <AvatarFallback className="border-0 bg-profile-avatar text-caption font-semibold text-action-primary">
-            {message.senderNickname.trim().charAt(0) || '?'}
-          </AvatarFallback>
-        </Avatar>
+        <ProfileAvatar
+          src={message.profileImageUrl}
+          fallbackLabel={message.senderNickname.trim().charAt(0) || '?'}
+          className="mt-5 size-8 shrink-0 border border-border-default bg-profile-avatar"
+        />
       ) : null}
 
       <div className="max-w-[80%]">
