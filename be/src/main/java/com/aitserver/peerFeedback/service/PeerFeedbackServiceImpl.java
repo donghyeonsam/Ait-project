@@ -14,6 +14,8 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -77,7 +79,18 @@ public class PeerFeedbackServiceImpl implements PeerFeedbackService{
     }
 
     @Override
-    @CacheEvict(value = "dashboard", key = "#request.evaluateeId")
+    @Caching(
+            evict = {
+                    @CacheEvict(
+                            value = "dashboard",
+                            key = "#request.evaluateeId"
+                    ),
+                    @CacheEvict(
+                            value = "peerFeedbackList",
+                            key = "#request.evaluateeId"
+                    )
+            }
+    )
     public PeerFeedbackDetailResponse createPeerFeedback(PeerFeedbackCreateRequest request, Long userId, Long sessionId) {
 
         StudySession studySession = studySessionRepository.findById(sessionId)
@@ -143,6 +156,11 @@ public class PeerFeedbackServiceImpl implements PeerFeedbackService{
     // 내가 참여했던 세션별 리스트
     @Override
     @Transactional
+    @Cacheable(
+            value = "peerFeedbackList",
+            key = "#userId",
+            unless = "#result == null || #result.isEmpty()"
+    )
     public List<PeerFeedbackListResponse> getPeerFeedbackList(
             Long userId
     ) {

@@ -16,6 +16,7 @@ import com.aitserver.global.exception.ErrorCode;
 import com.aitserver.user.repository.UserSkillRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -148,6 +149,11 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
     @Transactional(readOnly = true)
     @Override
+    @Cacheable(
+            value = "reportList",
+            key = "#userId",
+            unless = "#result == null || #result.isEmpty()"
+    )
     public List<ReportListResponse> getList(Long userId) {
         log.info("[AiInterviewServiceImpl] 사용자 AI 면접 결과 리스트 조회 userId: {}", userId);
 
