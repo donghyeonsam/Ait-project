@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ArrowDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
   getInterviewPreparation,
@@ -16,7 +17,8 @@ import { Step4Summary } from '@/components/interview/Step4Summary'
 import { Step5DeviceSetup } from '@/components/interview/Step5DeviceSetup'
 import { SurveyFooter } from '@/components/interview/SurveyFooter'
 import { SurveyStepper, type SurveyStepperItem } from '@/components/interview/SurveyStepper'
-import { SURVEY_STEP_LABELS, useInterviewSurvey, type SurveyState } from '@/components/interview/useInterviewSurvey'
+import { SURVEY_STEP_LABELS, useInterviewSurvey } from '@/components/interview/useInterviewSurvey'
+import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { createInterviewInputContract, createInterviewSessionNavigationState } from '@/lib/interview-session'
 import { clearInterviewQuestionCache, prefetchInterviewQuestions } from '@/lib/interview-question-cache'
@@ -34,22 +36,9 @@ function StepSectionHeading({ step }: { step: number }) {
 // 스텝 섹션 공통 카드. 테두리로 단계 사이 경계를 분명히 한다.
 const stepSectionClass = 'rounded-ait-m border border-border-default bg-surface-default p-8'
 
-// 면접 시작 버튼이 비활성일 때 가장 먼저 채워야 할 항목을 안내한다.
-function getDisabledHint(
-  state: SurveyState,
-  stepValidity: boolean[],
-  showApplyInfo: boolean,
-  isStep5Unlocked: boolean,
-) {
-  if (!stepValidity[0]) return '면접 유형을 선택해 주세요.'
-  if (!stepValidity[1]) {
-    if (showApplyInfo && (!state.position.trim() || !state.careerLevel.trim() || state.coverLetterId === null)) {
-      return '지원 정보(직무·경력·자소서)를 입력해 주세요.'
-    }
-    return 'CS 주제를 1개 이상 선택해 주세요.'
-  }
-  if (!stepValidity[2]) return '난이도와 면접 스타일을 선택해 주세요.'
-  if (!isStep5Unlocked) return '4단계 최종 확인에서 확인 버튼을 눌러 주세요.'
+// 면접 시작 버튼(=5단계가 열린 뒤에만 노출되는 하단 바)이 비활성일 때 안내할 문구.
+// 이 시점엔 1~4단계는 이미 확인을 마친 상태라 장치 준비 여부만 남는다.
+function getDisabledHint(stepValidity: boolean[]) {
   if (!stepValidity[4]) return '카메라·마이크 접근을 허용해야 면접을 시작할 수 있어요.'
   return undefined
 }
@@ -67,6 +56,8 @@ export function InterviewsPage() {
   // 바꾸면 키가 달라져 자동으로 잠기므로, 5단계는 항상 "확인된 최신 입력"에서만 열린다.
   const [confirmedInputKey, setConfirmedInputKey] = useState<string | null>(null)
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
+  // 2단계의 "다음"은 한 번 누르면 사라지는 1회용 버튼이라 클릭 여부를 별도로 기억해 둔다.
+  const [isStep3Revealed, setIsStep3Revealed] = useState(false)
   const sectionRefs = useRef<(HTMLElement | null)[]>([])
   const stickyBarRef = useRef<HTMLDivElement | null>(null)
   const { state, stepValidity, showApplyInfo, showCsTopics } = survey
@@ -105,6 +96,10 @@ export function InterviewsPage() {
   // 5단계(환경 설정)는 4단계에서 확인 버튼을 눌러야만 열린다. 확인 이후 1~3단계 값을 바꾸면
   // currentInputKey가 달라져 다시 잠기고, 재확인이 필요해진다.
   const isStep5Unlocked = confirmedInputKey !== null && confirmedInputKey === currentInputKey
+  // 1단계는 선택 즉시 완료로 볼 수 있어 값이 생기는 순간 2단계를 연다.
+  const isStep2Revealed = state.interviewType !== null
+  // 3단계는 난이도·스타일을 각각 하나씩 고르면 자연스럽게 완료로 볼 수 있어 자동으로 4단계를 연다.
+  const isStep4Revealed = stepValidity[2]
 
   // sticky 스텝 바 아래에 섹션 상단이 오도록 헤더·바 높이를 실측해 스크롤한다(zoom 0.9 보정 포함).
   const scrollToStep = (step: number) => {
@@ -127,10 +122,27 @@ export function InterviewsPage() {
   const handleConfirmReset = () => {
     survey.reset()
     setConfirmedInputKey(null)
+    setIsStep3Revealed(false)
     clearInterviewQuestionCache()
     setIsResetDialogOpen(false)
     scrollToStep(1)
   }
+
+  // 새 단계가 열리는 순간에만 그쪽으로 스크롤한다. 이미 열린 뒤에는 값이 바뀌어도 다시 스크롤하지 않는다.
+  useEffect(() => {
+    if (!isStep2Revealed) return
+    scrollToStep(2)
+  }, [isStep2Revealed])
+
+  useEffect(() => {
+    if (!isStep3Revealed) return
+    scrollToStep(3)
+  }, [isStep3Revealed])
+
+  useEffect(() => {
+    if (!isStep4Revealed) return
+    scrollToStep(4)
+  }, [isStep4Revealed])
 
   useEffect(() => {
     if (!isStep5Unlocked) return
@@ -219,72 +231,92 @@ export function InterviewsPage() {
             </div>
           </section>
 
-          <section ref={(element) => { sectionRefs.current[1] = element }} className={stepSectionClass}>
-            <StepSectionHeading step={2} />
-            <div className="mt-6">
-              {showApplyInfo || showCsTopics ? (
-                <div className="space-y-10">
-                  {showApplyInfo ? (
-                    <Step2ApplyInfo
-                      position={state.position}
-                      careerLevel={state.careerLevel}
-                      coverLetterId={state.coverLetterId}
-                      repositoryId={state.repositoryId}
-                      preparation={preparation}
-                      isLoading={isPreparationLoading}
-                      error={preparationError}
-                      onChangePosition={(value) => survey.update('position', value)}
-                      onChangeCareerLevel={(value) => survey.update('careerLevel', value)}
-                      onSelectCoverLetter={(id) => survey.update('coverLetterId', id)}
-                      onSelectRepository={survey.selectRepository}
-                      disabled={isStep5Unlocked}
-                    />
-                  ) : null}
-                  {showCsTopics ? (
-                    <Step2CsTopics
-                      value={state.csTopics}
-                      onToggle={survey.toggleCsTopic}
-                      disabled={isStep5Unlocked}
-                    />
-                  ) : null}
+          {isStep2Revealed ? (
+            <section
+              ref={(element) => { sectionRefs.current[1] = element }}
+              className={cn(stepSectionClass, 'survey-step')}
+            >
+              <StepSectionHeading step={2} />
+              <div className="mt-6 space-y-10">
+                {showApplyInfo ? (
+                  <Step2ApplyInfo
+                    position={state.position}
+                    careerLevel={state.careerLevel}
+                    coverLetterId={state.coverLetterId}
+                    repositoryId={state.repositoryId}
+                    preparation={preparation}
+                    isLoading={isPreparationLoading}
+                    error={preparationError}
+                    onChangePosition={(value) => survey.update('position', value)}
+                    onChangeCareerLevel={(value) => survey.update('careerLevel', value)}
+                    onSelectCoverLetter={(id) => survey.update('coverLetterId', id)}
+                    onSelectRepository={survey.selectRepository}
+                    disabled={isStep5Unlocked}
+                  />
+                ) : null}
+                {showCsTopics ? (
+                  <Step2CsTopics
+                    value={state.csTopics}
+                    onToggle={survey.toggleCsTopic}
+                    disabled={isStep5Unlocked}
+                  />
+                ) : null}
+              </div>
+              {/* 텍스트 입력이 섞여 있어 "완료" 시점을 자동으로 판단하기 어려우므로 수동 완료 버튼을 둔다.
+                  필수 항목을 채워야 활성화되고, 한 번 눌러 3단계가 열리면 다시 스크롤해 올라와도 다시 나타나지 않는다. */}
+              {!isStep3Revealed ? (
+                <div className="mt-8 flex justify-center border-t border-border-default pt-6">
+                  <Button type="button" disabled={!stepValidity[1]} onClick={() => setIsStep3Revealed(true)}>
+                    다음으로
+                    <ArrowDown className="size-4" aria-hidden="true" />
+                  </Button>
                 </div>
-              ) : (
-                <div className="rounded-ait-m border border-dashed border-status-neutral-border bg-status-neutral-surface p-8 text-center text-body-2 text-text-secondary">
-                  면접 유형을 먼저 선택하면 필요한 입력 항목이 여기에 표시돼요.
-                </div>
-              )}
-            </div>
-          </section>
+              ) : null}
+            </section>
+          ) : null}
 
-          <section ref={(element) => { sectionRefs.current[2] = element }} className={stepSectionClass}>
-            <StepSectionHeading step={3} />
-            <div className="mt-6">
-              <Step3Style
-                difficulty={state.difficulty}
-                style={state.style}
-                onSelectDifficulty={(value) => survey.update('difficulty', value)}
-                onSelectStyle={(value) => survey.update('style', value)}
-                disabled={isStep5Unlocked}
-              />
-            </div>
-          </section>
+          {isStep3Revealed ? (
+            <section
+              ref={(element) => { sectionRefs.current[2] = element }}
+              className={cn(stepSectionClass, 'survey-step')}
+            >
+              <StepSectionHeading step={3} />
+              <div className="mt-6">
+                <Step3Style
+                  difficulty={state.difficulty}
+                  style={state.style}
+                  onSelectDifficulty={(value) => survey.update('difficulty', value)}
+                  onSelectStyle={(value) => survey.update('style', value)}
+                  disabled={isStep5Unlocked}
+                />
+              </div>
+            </section>
+          ) : null}
 
-          <section ref={(element) => { sectionRefs.current[3] = element }} className={stepSectionClass}>
-            <StepSectionHeading step={4} />
-            <div className="mt-6">
-              <Step4Summary
-                state={state}
-                preparation={preparation}
-                canConfirm={canConfirmStep4}
-                isConfirmed={isStep5Unlocked}
-                onConfirm={handleConfirmStep4}
-                onReset={() => setIsResetDialogOpen(true)}
-              />
-            </div>
-          </section>
+          {isStep4Revealed ? (
+            <section
+              ref={(element) => { sectionRefs.current[3] = element }}
+              className={cn(stepSectionClass, 'survey-step')}
+            >
+              <StepSectionHeading step={4} />
+              <div className="mt-6">
+                <Step4Summary
+                  state={state}
+                  preparation={preparation}
+                  canConfirm={canConfirmStep4}
+                  isConfirmed={isStep5Unlocked}
+                  onConfirm={handleConfirmStep4}
+                  onReset={() => setIsResetDialogOpen(true)}
+                />
+              </div>
+            </section>
+          ) : null}
 
           {isStep5Unlocked ? (
-            <section ref={(element) => { sectionRefs.current[4] = element }} className={stepSectionClass}>
+            <section
+              ref={(element) => { sectionRefs.current[4] = element }}
+              className={cn(stepSectionClass, 'survey-step')}
+            >
               <StepSectionHeading step={5} />
               <div className="mt-6">
                 <Step5DeviceSetup
@@ -302,21 +334,18 @@ export function InterviewsPage() {
                 />
               </div>
             </section>
-          ) : (
-            <section className={cn(stepSectionClass, 'border-dashed text-center text-body-2 text-text-secondary')}>
-              <StepSectionHeading step={5} />
-              <p className="mt-6">4단계에서 확인을 완료하면 환경 설정이 열려요.</p>
-            </section>
-          )}
+          ) : null}
         </div>
 
           <div className="pb-16">
-            <SurveyFooter
-              completedCount={displayStepValidity.filter(Boolean).length}
-              canStart={isStep5Unlocked && survey.allStepsValid}
-              onStart={() => setIsLeavingToSession(true)}
-              disabledHint={getDisabledHint(state, stepValidity, showApplyInfo, isStep5Unlocked)}
-            />
+            {isStep5Unlocked ? (
+              <SurveyFooter
+                completedCount={displayStepValidity.filter(Boolean).length}
+                canStart={survey.allStepsValid}
+                onStart={() => setIsLeavingToSession(true)}
+                disabledHint={getDisabledHint(stepValidity)}
+              />
+            ) : null}
           </div>
         </div>
       </div>

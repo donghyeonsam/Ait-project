@@ -38,7 +38,6 @@ export function Step2ApplyInfo({
   return (
     <section aria-labelledby="step2-apply-title">
       <h2 id="step2-apply-title" className="text-h3">어디에 지원하고 있나요?</h2>
-      <p className="mt-1 text-body-2 text-text-secondary">정해지지 않은 항목은 비워두어도 괜찮아요.</p>
 
       <div className="mt-6 grid grid-cols-2 gap-6">
         <div>
@@ -117,7 +116,7 @@ export function Step2ApplyInfo({
         <div>
           <span className="text-body-2 font-medium text-text-primary">
             레포지토리 선택
-            <span className="ml-2 text-caption font-normal text-text-secondary">1개 선택 가능</span>
+            <span className="ml-2 text-caption font-normal text-text-secondary">(선택 사항)</span>
           </span>
           <ul className="mt-2 h-56 space-y-2 overflow-y-auto rounded-ait-s border border-border-default p-2" aria-label="레포지토리 선택">
             {isLoading ? (
