@@ -1,6 +1,7 @@
 package com.aitserver.github.service;
 
 import com.aitserver.github.entity.GithubRepo;
+import com.aitserver.github.extractor.FileExtractor;
 import com.aitserver.github.repository.GithubRepoRepository;
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
@@ -22,10 +23,7 @@ import org.springframework.web.client.RestClient;
 import java.io.IOException;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -36,14 +34,17 @@ public class GithubAnalysisService {
     private final RestClient restClient;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final List<FileExtractor> extractors;
 
     public GithubAnalysisService(
             GithubRepoRepository githubRepoRepository,
             GithubTokenService githubTokenService,
+            List<FileExtractor> extractors,
             RestClient.Builder restClientBuilder
     ) {
         this.githubRepoRepository = githubRepoRepository;
         this.githubTokenService = githubTokenService;
+        this.extractors = extractors;
 
         HttpClient httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
@@ -76,16 +77,16 @@ public class GithubAnalysisService {
     @Value("${FASTAPI_URL}")
     private String fastAPI_URL;
 
-    // 우리가 찾고자 하는 타겟 핵심 파일명 리스트 (확장 가능)
-    private static final Set<String> TARGET_FILES = Set.of(
-            "package.json",
-            "build.gradle",
-            "pom.xml",
-            "requirements.txt",
-            "docker-compose.yml",
-            "Dockerfile",
-            "application.yml"
+    // 수집에서 제외할 경로 (의존성 설치 디렉토리, 빌드 산출물 등)
+    private static final Set<String> EXCLUDED_DIRS = Set.of(
+            "node_modules", "vendor", ".venv", "venv",
+            "dist", "build", "out", "target",
+            "__pycache__", "fixtures"
     );
+
+    private static final int MAX_DEPTH = 4;
+    private static final int MAX_TOTAL_FILES = 20;
+    private static final int MAX_FETCH_ATTEMPTS = 30;
 
     /**
      * FastAPI에 분석을 요청하고 결과를 DB에 저장하는 비동기 메서드
@@ -224,43 +225,76 @@ public class GithubAnalysisService {
 
     private List<String> fetchTargetFiles(String owner, String repo, HttpHeaders baseHeaders) {
         List<String> collectedFiles = new ArrayList<>();
-
-        // 1. 레포지토리의 기본 브랜치(보통 main 또는 master)의 트리 구조를 긁어온다.
-        String treeApiUrl = String.format("https://api.github.com/repos/%s/%s/git/trees/HEAD?recursive=1", owner, repo);
+        String treeApiUrl = String.format(
+                "https://api.github.com/repos/%s/%s/git/trees/HEAD?recursive=1", owner, repo);
 
         try {
             String treeResponse = restClient.get()
                     .uri(treeApiUrl)
-                    .headers(httpHeaders -> httpHeaders.addAll(baseHeaders))
+                    .headers(h -> h.addAll(baseHeaders))
                     .retrieve()
                     .body(String.class);
 
             JsonNode rootNode = objectMapper.readTree(treeResponse);
-            JsonNode treeNode = rootNode.path("tree");
 
+            if (rootNode.path("truncated").asBoolean(false)) {
+                log.warn("[Tree 잘림] 레포지토리: {} - 일부 파일이 누락될 수 있습니다.", repo);
+            }
+
+            JsonNode treeNode = rootNode.path("tree");
             if (treeNode.isMissingNode() || !treeNode.isArray()) {
                 return collectedFiles;
             }
 
-            // 2. 전체 파일 경로를 순회하며 우리가 찾는 파일 이름(TARGET_FILES)이 포함된 경로만 필터링
+            // 1) 후보 경로 수집 (blob + 제외경로 아님 + 깊이 이내 + 담당 추출기 존재)
+            List<String> candidates = new ArrayList<>();
             for (JsonNode node : treeNode) {
+                if (!"blob".equals(node.path("type").asText())) continue;
+
                 String path = node.path("path").asText();
-                String type = node.path("type").asText(); // "blob"은 파일, "tree"는 폴더
+                if (isExcluded(path)) continue;
+                if (depthOf(path) > MAX_DEPTH) continue;
+                if (findExtractor(path).isEmpty()) continue;
 
-                if ("blob".equals(type)) {
-                    // 파일명 추출 (경로의 마지막 부분)
-                    String fileName = path.substring(path.lastIndexOf('/') + 1);
+                candidates.add(path);
+            }
 
-                    if (TARGET_FILES.contains(fileName)) {
-                        // 3. 타겟 파일이 발견되면 해당 파일의 내용을 다운로드 (Raw 형태)
-                        log.info("핵심 파일 발견: {}", path);
-                        String fileContent = fetchFileContent(owner, repo, path, baseHeaders);
-                        if (fileContent != null && !fileContent.isBlank()) {
-                            // 프롬프트가 이 파일이 어떤 경로에 있던 파일인지 알 수 있도록 경로 정보를 달아줍니다.
-                            collectedFiles.add(String.format("--- File Path: %s ---\n%s", path, fileContent));
-                        }
-                    }
+            // 2) 얕은 경로 우선 정렬 (루트의 설정 파일이 진짜다)
+            candidates.sort(Comparator.comparingInt(this::depthOf).thenComparing(p -> p));
+
+            // 3) 추출기별 상한 + 전체 상한 + 조회 시도 상한을 지키며 수집
+            Map<String, Integer> counts = new HashMap<>();
+            int fetchAttempts = 0;
+
+            for (String path : candidates) {
+                if (collectedFiles.size() >= MAX_TOTAL_FILES) {
+                    log.info("[수집 상한 도달] 레포지토리: {}", repo);
+                    break;
                 }
+                if (fetchAttempts >= MAX_FETCH_ATTEMPTS) {
+                    log.info("[조회 시도 상한 도달] 레포지토리: {}, 수집: {}건", repo, collectedFiles.size());
+                    break;
+                }
+
+                FileExtractor extractor = findExtractor(path).orElseThrow();
+                String extractorKey = extractor.getClass().getName();
+
+                int used = counts.getOrDefault(extractorKey, 0);
+                if (used >= extractor.maxFiles()) continue;
+
+                fetchAttempts++;
+                String raw = fetchFileContent(owner, repo, path, baseHeaders);
+                if (raw == null || raw.isBlank()) continue;
+
+                // 원문은 여기서 끝. 아래로 내려가지 않는다.
+                String safe = extractor.extract(path, raw);
+                if (safe == null || safe.isBlank()) {
+                    log.info("[추출 결과 없음/실패] 경로: {}", path);
+                    continue;
+                }
+
+                collectedFiles.add(String.format("--- File Path: %s ---%n%s", path, safe));
+                counts.put(extractorKey, used + 1);
             }
 
         } catch (Exception e) {
@@ -268,6 +302,25 @@ public class GithubAnalysisService {
         }
 
         return collectedFiles;
+    }
+
+    private Optional<FileExtractor> findExtractor(String path) {
+        return extractors.stream()
+                .filter(e -> e.supports(path))
+                .findFirst();
+    }
+
+    private boolean isExcluded(String path) {
+        String[] segments = path.toLowerCase().split("/");
+        // 마지막 세그먼트는 파일명이므로 디렉토리만 검사한다
+        for (int i = 0; i < segments.length - 1; i++) {
+            if (EXCLUDED_DIRS.contains(segments[i])) return true;
+        }
+        return false;
+    }
+
+    private int depthOf(String path) {
+        return (int) path.chars().filter(c -> c == '/').count();
     }
 
     /**
