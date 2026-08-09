@@ -147,68 +147,17 @@ describe('SessionTheater recording controls', () => {
     expect(screen.queryByRole('button', { name: '답변 종료' })).toBeNull()
   })
 
-  it('질문 중에는 사진을 유지하고 답변 경청 영상으로 전환한다', async () => {
+  it('질문 중에는 사진을 유지하고 답변 경청 영상을 순환 재생한다', async () => {
     const random = vi.spyOn(Math, 'random').mockReturnValue(0)
-    const onQuestionPlaying = vi.fn()
-    const onQuestionEnded = vi.fn()
     const { container, rerender } = render(
-      <SessionTheater
-        {...defaultProps}
-        demoVideoQuestionKey="0:1:demo"
-        demoQuestionVideoSrc="/demo-interview-video/question_1.mp4"
-        demoVideoQuestionActive
-        questionVisible={false}
-        onDemoQuestionVideoPlaying={onQuestionPlaying}
-        onDemoQuestionVideoEnded={onQuestionEnded}
-      />,
+      <SessionTheater {...defaultProps} isAiSpeaking />,
     )
 
-    expect(
-      screen.getByText('질문 영상을 불러오고 있어요…'),
-    ).toBeVisible()
-    expect(screen.queryByText(defaultProps.question)).toBeNull()
-
-    const questionVideo = await waitFor(() => {
-      const video = container.querySelector<HTMLVideoElement>(
-        'video[src="/demo-interview-video/question_1.mp4"]',
-      )
-      expect(video).not.toBeNull()
-      return video!
-    })
-    expect(questionVideo.muted).toBe(false)
-    expect(questionVideo.volume).toBe(0.7)
-    fireEvent.playing(questionVideo)
-    expect(questionVideo).not.toHaveClass('is-active')
-    expect(screen.getByAltText('AI 면접관')).toBeVisible()
-    expect(onQuestionPlaying).toHaveBeenCalledWith('0:1:demo')
-
-    rerender(
-      <SessionTheater
-        {...defaultProps}
-        isAiSpeaking
-        demoVideoQuestionKey="0:1:demo"
-        demoQuestionVideoSrc="/demo-interview-video/question_1.mp4"
-        demoVideoQuestionActive
-        questionVisible
-        onDemoQuestionVideoPlaying={onQuestionPlaying}
-        onDemoQuestionVideoEnded={onQuestionEnded}
-      />,
-    )
     expect(screen.getByText(defaultProps.question)).toBeVisible()
-    fireEvent.ended(questionVideo)
-    expect(onQuestionEnded).toHaveBeenCalledWith('0:1:demo')
+    expect(screen.getByAltText('AI 면접관')).toBeVisible()
+    expect(container.querySelector('video')).toBeNull()
 
-    rerender(
-      <SessionTheater
-        {...defaultProps}
-        answerStatus="recording"
-        demoVideoQuestionKey="0:1:demo"
-        demoQuestionVideoSrc="/demo-interview-video/question_1.mp4"
-        demoVideoQuestionActive={false}
-        onDemoQuestionVideoPlaying={onQuestionPlaying}
-        onDemoQuestionVideoEnded={onQuestionEnded}
-      />,
-    )
+    rerender(<SessionTheater {...defaultProps} answerStatus="recording" />)
 
     const listeningVideo = await waitFor(() => {
       const video = container.querySelector<HTMLVideoElement>(
@@ -217,10 +166,8 @@ describe('SessionTheater recording controls', () => {
       expect(video).not.toBeNull()
       return video!
     })
-    expect(questionVideo).not.toBeInTheDocument()
+    expect(listeningVideo.muted).toBe(true)
     fireEvent.playing(listeningVideo)
-
-    expect(questionVideo).not.toHaveClass('is-active')
     expect(listeningVideo).toHaveClass('is-active')
 
     random.mockReturnValue(0.5)

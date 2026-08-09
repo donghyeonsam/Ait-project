@@ -8,8 +8,8 @@ import {
   Square,
 } from 'lucide-react'
 import { DeviceControlBar } from '@/components/interview/DeviceControlBar'
-import { DemoInterviewerVideo } from '@/components/interview/DemoInterviewerVideo'
 import { FloatingSelfView } from '@/components/interview/FloatingSelfView'
+import { InterviewerVideo } from '@/components/interview/InterviewerVideo'
 import type { MediaPermissionState } from '@/components/interview/useMediaDevices'
 import type { VoiceAnswerStatus } from '@/components/interview/useVoiceAnswer'
 import { Textarea } from '@/components/ui/textarea'
@@ -52,16 +52,6 @@ interface SessionTheaterProps {
   speakerVolume: number
   onToggleSpeakerMuted: () => void
   onChangeSpeakerVolume: (value: number) => void
-  demoVideoQuestionKey?: string
-  demoQuestionVideoSrc?: string | null
-  demoVideoQuestionActive?: boolean
-  questionVisible?: boolean
-  onDemoQuestionVideoPlaying?: (playbackKey: string) => void
-  onDemoQuestionVideoEnded?: (playbackKey: string) => void
-  onDemoQuestionVideoPlaybackError?: (
-    playbackKey: string,
-    reason: 'blocked' | 'unavailable',
-  ) => void
 }
 
 function formatCountdown(totalSeconds: number) {
@@ -117,13 +107,6 @@ export function SessionTheater({
   speakerVolume,
   onToggleSpeakerMuted,
   onChangeSpeakerVolume,
-  demoVideoQuestionKey,
-  demoQuestionVideoSrc = null,
-  demoVideoQuestionActive,
-  questionVisible = true,
-  onDemoQuestionVideoPlaying = () => {},
-  onDemoQuestionVideoEnded = () => {},
-  onDemoQuestionVideoPlaybackError = () => {},
 }: SessionTheaterProps) {
   const stageRef = useRef<HTMLDivElement>(null)
 
@@ -152,21 +135,10 @@ export function SessionTheater({
     <div ref={stageRef} className="session-theater screen-fade-in">
       <h1 className="sr-only">AI 모의면접 진행</h1>
 
-      <DemoInterviewerVideo
+      <InterviewerVideo
         posterSrc={INTERVIEWER_IMAGE_SRC}
-        questionKey={
-          demoVideoQuestionKey ?? `${questionIndex}:${question}`
-        }
-        questionVideoSrc={demoQuestionVideoSrc}
-        isQuestionPlaybackActive={
-          demoVideoQuestionActive ?? isAiSpeaking
-        }
+        phaseKey={`${questionIndex}:${question}`}
         isListeningPlaybackActive={isRecording}
-        speakerMuted={speakerMuted}
-        speakerVolume={speakerVolume}
-        onQuestionPlaying={onDemoQuestionVideoPlaying}
-        onQuestionEnded={onDemoQuestionVideoEnded}
-        onQuestionPlaybackError={onDemoQuestionVideoPlaybackError}
       />
       <div className="session-theater-scrim" aria-hidden="true" />
 
@@ -261,7 +233,7 @@ export function SessionTheater({
                     ) : null}
                   </div>
                   <p className="session-theater-question" aria-live="polite">
-                    {questionVisible ? question : '질문 영상을 불러오고 있어요…'}
+                    {question}
                   </p>
 
                   {voiceError || speechError ? (

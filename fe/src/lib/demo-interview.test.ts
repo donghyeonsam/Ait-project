@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { GeneratedInterviewQuestion } from '@/api/ai-interviews'
 import {
-  getDemoQuestionVideoSrc,
   isDemoInterviewAccount,
   isDemoPortfolioInterview,
   replaceDemoQuestions,
@@ -57,26 +56,6 @@ describe('demo interview', () => {
     expect(result[1]?.question).toContain('비동기 로직과 예외 처리')
     expect(generatedQuestions[0]?.question).toBe('AI가 생성한 첫 번째 질문')
     expect(generatedQuestions[1]?.question).toBe('AI가 생성한 두 번째 질문')
-  })
-
-  it('시연 질문 순서와 꼬리 깊이에 맞는 질문 영상을 반환한다', () => {
-    const [first, second] = replaceDemoQuestions(generatedQuestions, true)
-    const followUp = resolveDemoFollowUpQuestion({
-      enabled: true,
-      answeredQuestion: first,
-      generatedFollowUp: null,
-    })
-
-    expect(getDemoQuestionVideoSrc(first)).toBe(
-      '/demo-interview-video/question_1.mp4',
-    )
-    expect(getDemoQuestionVideoSrc(followUp!)).toBe(
-      '/demo-interview-video/question_1_follow.mp4',
-    )
-    expect(getDemoQuestionVideoSrc(second)).toBe(
-      '/demo-interview-video/question_2.mp4',
-    )
-    expect(getDemoQuestionVideoSrc(generatedQuestions[0])).toBeNull()
   })
 
   it('일반 계정에서는 생성된 질문을 그대로 사용한다', () => {

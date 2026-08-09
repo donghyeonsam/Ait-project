@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { selectListeningVideo } from '@/components/interview/demo-interviewer-videos'
+import { selectListeningVideo } from '@/components/interview/interviewer-videos'
 
 describe('selectListeningVideo', () => {
   it.each([

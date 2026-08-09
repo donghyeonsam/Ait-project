@@ -1,11 +1,5 @@
 import type { GeneratedInterviewQuestion } from '@/api/ai-interviews'
 
-const DEMO_QUESTION_VIDEO_SOURCES = {
-  first: '/demo-interview-video/question_1.mp4',
-  firstFollowUp: '/demo-interview-video/question_1_follow.mp4',
-  second: '/demo-interview-video/question_2.mp4',
-} as const
-
 const DEMO_FIRST_QUESTION: GeneratedInterviewQuestion = {
   order: 1,
   question:
@@ -84,24 +78,6 @@ export function replaceDemoQuestions(
     if (question.order === 2) return cloneQuestion(DEMO_SECOND_QUESTION)
     return question
   })
-}
-
-export function getDemoQuestionVideoSrc(
-  question: GeneratedInterviewQuestion,
-) {
-  if (question.source !== 'demo') return null
-
-  if (question.order === 1 && (question.depth ?? 0) === 0) {
-    return DEMO_QUESTION_VIDEO_SOURCES.first
-  }
-  if (question.order === 1 && question.depth === 1) {
-    return DEMO_QUESTION_VIDEO_SOURCES.firstFollowUp
-  }
-  if (question.order === 2 && (question.depth ?? 0) === 0) {
-    return DEMO_QUESTION_VIDEO_SOURCES.second
-  }
-
-  return null
 }
 
 export function resolveDemoFollowUpQuestion({
