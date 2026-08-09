@@ -1,7 +1,6 @@
 import { Plus } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { InfiniteScrollTrigger } from '@/components/common/InfiniteScrollTrigger'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { MyStudySection } from '@/components/study/MyStudySection'
 import { StudyApplicationToast } from '@/components/study/StudyApplicationToast'
@@ -37,10 +36,10 @@ import { useAuth } from '@/lib/useAuth'
 import { useInView } from '@/lib/useInView'
 import { cn } from '@/lib/utils'
 
-const INITIAL_VISIBLE_STUDIES = 6
-const LOAD_MORE_COUNT = 3
-// 목록 API는 페이지네이션을 지원하지만 화면의 검색·정렬이 전체 목록 기준이라 한 번에 받아둔다.
-const STUDY_PAGE_SIZE = 100
+// 더보기 클릭마다 받아오는 페이지 크기. 서버 목록 API의 기본 페이지 크기(6)와 맞춘다.
+const GROUPS_PAGE_SIZE = 6
+// 검색어 입력마다 서버에 바로 요청하지 않고 타이핑이 멎을 때까지 기다리는 지연 시간.
+const SEARCH_DEBOUNCE_MS = 300
 
 const recruitmentStatusByGroupStatus: Record<
   StudyGroupStatus,
@@ -63,13 +62,11 @@ function toStudyCard(group: StudyGroupListItem): StudyCardData {
   }
 }
 
-function matchesRecruitmentFilter(
-  groupStatus: StudyGroupStatus,
-  filter: RecruitmentFilter,
-) {
-  if (filter === 'all') return true
-  if (filter === 'recruiting') return groupStatus === 'RECRUITING'
-  return groupStatus === 'ACTIVE'
+// 서버가 상태값으로 모집 필터를 받으므로 화면 필터를 그 값으로 옮긴다.
+function toStatusParam(filter: RecruitmentFilter): StudyGroupStatus | undefined {
+  if (filter === 'recruiting') return 'RECRUITING'
+  if (filter === 'active') return 'ACTIVE'
+  return undefined
 }
 
 // 스터디 탐색부터 신청, 그룹 대화까지 라운지 UI 흐름을 조합한다.
@@ -78,12 +75,19 @@ export function StudyPage() {
   const { isAuthenticated, user } = useAuth()
   const currentUserId = user?.userId ?? null
   const [query, setQuery] = useState('')
+  // 검색어는 debouncedQuery로 지연시켜서, 타이핑마다 서버에 요청이 나가지 않게 한다.
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [recruitment, setRecruitment] = useState<RecruitmentFilter>('all')
   const [sort, setSort] = useState<StudySort>('latest')
-  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_STUDIES)
   const [groups, setGroups] = useState<StudyGroupListItem[]>([])
+  const [totalGroupCount, setTotalGroupCount] = useState(0)
+  const [groupPage, setGroupPage] = useState(0)
+  const [hasMoreGroups, setHasMoreGroups] = useState(false)
   const [isLoadingGroups, setIsLoadingGroups] = useState(true)
+  const [isLoadingMoreGroups, setIsLoadingMoreGroups] = useState(false)
   const [groupsError, setGroupsError] = useState<string | null>(null)
+  // 검색·필터가 바뀌지 않아도 목록을 다시 받아야 할 때(재시도, 가입 승인 등) 이 값을 올려 effect를 재실행시킨다.
+  const [groupsReloadKey, setGroupsReloadKey] = useState(0)
   const [myStudies, setMyStudies] = useState<MyStudyGroup[]>([])
   const [isLoadingMyStudies, setIsLoadingMyStudies] = useState(true)
   const [myStudiesError, setMyStudiesError] = useState<string | null>(null)
@@ -107,21 +111,74 @@ export function StudyPage() {
     threshold: 0.05,
   })
 
-  // 최초 로딩은 isLoadingGroups 초기값(true)이 담당하고, 재시도·갱신 시에만 호출부에서 다시 세운다.
-  const loadGroups = useCallback(
-    () =>
-      getStudyGroups({ size: STUDY_PAGE_SIZE })
-        .then((page) => {
-          setGroups(page.content)
-          setGroupsError(null)
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setDebouncedQuery(query.trim()),
+      SEARCH_DEBOUNCE_MS,
+    )
+    return () => window.clearTimeout(timer)
+  }, [query])
+
+  // 검색어·모집 상태·정렬·재시도 요청이 바뀔 때마다 1페이지부터 새로 받아온다.
+  useEffect(() => {
+    let isActive = true
+
+    const loadGroups = async () => {
+      setIsLoadingGroups(true)
+      try {
+        const result = await getStudyGroups({
+          status: toStatusParam(recruitment),
+          keyword: debouncedQuery || undefined,
+          sortBy: sort,
+          page: 0,
+          size: GROUPS_PAGE_SIZE,
         })
-        .catch((error: unknown) => {
-          setGroups([])
-          setGroupsError(toErrorMessage(error))
-        })
-        .finally(() => setIsLoadingGroups(false)),
-    [],
-  )
+        if (!isActive) return
+        setGroups(result.content)
+        setTotalGroupCount(result.totalElements)
+        setGroupPage(0)
+        setHasMoreGroups(!result.last)
+        setGroupsError(null)
+      } catch (error) {
+        if (!isActive) return
+        setGroups([])
+        setTotalGroupCount(0)
+        setHasMoreGroups(false)
+        setGroupsError(toErrorMessage(error))
+      } finally {
+        if (isActive) setIsLoadingGroups(false)
+      }
+    }
+
+    void loadGroups()
+
+    return () => {
+      isActive = false
+    }
+  }, [debouncedQuery, recruitment, sort, groupsReloadKey])
+
+  // 다음 페이지를 이어 붙인다. 검색·필터가 바뀌면 위 effect가 목록을 통째로 새로 받으므로 여기서는 신경 쓰지 않는다.
+  const loadMoreGroups = () => {
+    if (isLoadingMoreGroups || !hasMoreGroups) return
+    setIsLoadingMoreGroups(true)
+    const nextPage = groupPage + 1
+    getStudyGroups({
+      status: toStatusParam(recruitment),
+      keyword: debouncedQuery || undefined,
+      sortBy: sort,
+      page: nextPage,
+      size: GROUPS_PAGE_SIZE,
+    })
+      .then((result) => {
+        setGroups((current) => [...current, ...result.content])
+        setGroupPage(nextPage)
+        setHasMoreGroups(!result.last)
+      })
+      .catch((error: unknown) => {
+        setToast({ message: toErrorMessage(error), variant: 'error' })
+      })
+      .finally(() => setIsLoadingMoreGroups(false))
+  }
 
   const loadMyStudies = useCallback(
     () =>
@@ -150,9 +207,8 @@ export function StudyPage() {
   )
 
   useEffect(() => {
-    void loadGroups()
     void loadMyStudies()
-  }, [loadGroups, loadMyStudies])
+  }, [loadMyStudies])
 
   // 내 스터디 목록 응답에 활성 세션 정보가 없어 그룹별로 조회해 모은다. 실패한 그룹은 비활성으로 둔다.
   useEffect(() => {
@@ -175,12 +231,8 @@ export function StudyPage() {
     }
   }, [myStudies])
 
-  const myStudyIds = useMemo(
-    () => new Set(myStudies.map((study) => study.id)),
-    [myStudies],
-  )
-
-  // 승인·거절 알림이 오면 신청 완료 표시를 걷어내고, 승인이면 내 스터디 목록도 갱신한다.
+  // 승인·거절 알림이 오면 신청 완료 표시를 걷어내고, 승인이면 내 스터디 목록과 찾기 목록을 함께 갱신한다.
+  // (가입한 그룹은 서버가 찾기 목록에서 자동으로 제외하므로 목록을 다시 받아야 화면에서 빠진다.)
   useEffect(() => {
     if (currentUserId === null) return
     return addNotificationListener((item) => {
@@ -192,52 +244,20 @@ export function StudyPage() {
         saveAppliedStudyIds(currentUserId, next)
         return next
       })
-      if (item.type === 'GROUP_APPROVE') void loadMyStudies()
+      if (item.type === 'GROUP_APPROVE') {
+        void loadMyStudies()
+        setGroupsReloadKey((key) => key + 1)
+      }
     })
   }, [currentUserId, loadMyStudies])
 
-  const filteredStudies = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase('ko-KR')
-    const matched = groups.filter((group) => {
-      if (myStudyIds.has(group.id)) return false
-
-      const matchesQuery =
-        !normalizedQuery ||
-        [group.title, group.description].some((value) =>
-          value.toLocaleLowerCase('ko-KR').includes(normalizedQuery),
-        )
-
-      return (
-        matchesQuery && matchesRecruitmentFilter(group.groupStatus, recruitment)
-      )
-    })
-
-    return matched
-      .map(toStudyCard)
-      .toSorted((first, second) => {
-        const difference =
-          new Date(second.createdAt).getTime() -
-          new Date(first.createdAt).getTime()
-        return sort === 'oldest' ? -difference : difference
-      })
-  }, [groups, myStudyIds, query, recruitment, sort])
-
-  const visibleStudies = filteredStudies.slice(0, visibleCount)
-  const hasMoreStudies = visibleStudies.length < filteredStudies.length
-
-  const loadMoreStudies = useCallback(() => {
-    setVisibleCount((count) =>
-      Math.min(count + LOAD_MORE_COUNT, filteredStudies.length),
-    )
-  }, [filteredStudies.length])
+  const studyCards = useMemo(() => groups.map(toStudyCard), [groups])
 
   useEffect(() => {
     if (!toast) return
     const timer = window.setTimeout(() => setToast(null), 3500)
     return () => window.clearTimeout(timer)
   }, [toast])
-
-  const resetVisibleCount = () => setVisibleCount(INITIAL_VISIBLE_STUDIES)
 
   // 로그인 세션이 없으면 신청 다이얼로그를 열지 않고 로그인 화면으로 보낸다.
   const openApplicationDialog = (study: StudyCardData) => {
@@ -318,7 +338,7 @@ export function StudyPage() {
             스터디 찾기
           </h2>
           <p className="text-caption text-text-secondary">
-            총 {filteredStudies.length}개의 스터디
+            총 {totalGroupCount}개의 스터디
           </p>
         </div>
 
@@ -326,18 +346,9 @@ export function StudyPage() {
           query={query}
           recruitment={recruitment}
           sort={sort}
-          onQueryChange={(value) => {
-            setQuery(value)
-            resetVisibleCount()
-          }}
-          onRecruitmentChange={(value) => {
-            setRecruitment(value)
-            resetVisibleCount()
-          }}
-          onSortChange={(value) => {
-            setSort(value)
-            resetVisibleCount()
-          }}
+          onQueryChange={setQuery}
+          onRecruitmentChange={setRecruitment}
+          onSortChange={setSort}
         />
 
         {isLoadingGroups ? (
@@ -352,10 +363,7 @@ export function StudyPage() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => {
-                setIsLoadingGroups(true)
-                void loadGroups()
-              }}
+              onClick={() => setGroupsReloadKey((key) => key + 1)}
             >
               다시 시도
             </Button>
@@ -363,20 +371,24 @@ export function StudyPage() {
         ) : (
           <>
             <StudyCardGrid
-              studies={visibleStudies}
+              studies={studyCards}
               appliedStudyIds={appliedStudyIds}
               onApply={openApplicationDialog}
             />
 
-            <InfiniteScrollTrigger
-              hasMore={hasMoreStudies}
-              isLoading={false}
-              itemCount={visibleStudies.length}
-              onLoadMore={loadMoreStudies}
-              className="mt-8"
-              loadingLabel="스터디를 더 불러오는 중"
-              fallbackLabel="더보기"
-            />
+            {hasMoreGroups ? (
+              <div className="mt-8 flex justify-center">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={loadMoreGroups}
+                  disabled={isLoadingMoreGroups}
+                  aria-busy={isLoadingMoreGroups}
+                >
+                  {isLoadingMoreGroups ? '불러오는 중' : '더보기'}
+                </Button>
+              </div>
+            ) : null}
           </>
         )}
       </section>

@@ -10,11 +10,6 @@ const backendBaseUrl = (import.meta.env.VITE_BE_API_URL ?? '/backend').replace(
   '',
 )
 
-// 업로드된 파일은 API 서버가 아니라 EC2에 정적으로 저장되어 별도 도메인에서 바로 서빙된다.
-const uploadsBaseUrl = (
-  import.meta.env.VITE_UPLOADS_URL ?? 'https://i15d202.p.ssafy.io/download'
-).replace(/\/$/, '')
-
 // 프로필 사진은 게시글 첨부와 다른 정적 경로(uploads/profiles)에서 서빙된다.
 const profileUploadsBaseUrl = (
   import.meta.env.VITE_PROFILE_UPLOADS_URL ?? 'https://i15d202.p.ssafy.io/uploads'
@@ -34,12 +29,13 @@ const encodeStoredPath = (storedPath: string) =>
     .join('/')
     .replace(/^\/+/, '')
 
-// storedFilename(예: boards/uuid.png)을 실제 업로드 파일 정적 URL로 변환한다.
+// storedFilename(예: boards/uuid.png)을 실제 업로드 파일 URL로 변환한다.
+// 별도 정적 도메인이 아니라 인증이 필요한 백엔드 /images 리소스 경로를 그대로 쓴다.
 export function getUploadedFileUrl(storedFilename: string) {
   if (/^https?:\/\//i.test(storedFilename) || storedFilename.startsWith('data:')) {
     return storedFilename
   }
-  return `${uploadsBaseUrl}/${encodeStoredPath(storedFilename)}`
+  return getBackendAssetUrl(`/images/${encodeStoredPath(storedFilename)}`)
 }
 
 // profileImageUrl(예: profiles/uuid.png)을 실제 프로필 사진 정적 URL로 변환한다.
