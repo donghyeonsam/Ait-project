@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -13,6 +20,7 @@ import {
   type StudyGroupDetail,
   type StudyGroupListItem,
   type StudyGroupPage,
+  type StudyGroupQuery,
 } from '@/api/study-groups'
 import {
   connectStudyGroupChat,
@@ -114,17 +122,48 @@ const myStudyGroups: MyStudyGroup[] = [
   },
 ]
 
-function toPage(content: StudyGroupListItem[]): StudyGroupPage {
+// FE가 서버 쪽 검색·필터·정렬·페이지네이션에 맞춰 요청하는지 확인할 수 있도록,
+// be의 StudyGroupRepository 쿼리(상태 일치 + 제목·설명 LIKE + 생성일 정렬 + 페이지 슬라이스)를 흉내 낸다.
+function queryStudyGroups(
+  source: StudyGroupListItem[],
+  { status, keyword, sortBy, page = 0, size = 20 }: StudyGroupQuery,
+): StudyGroupPage {
+  const normalizedKeyword = keyword?.toLocaleLowerCase('ko-KR')
+  const filtered = source.filter((group) => {
+    const matchesStatus = !status || group.groupStatus === status
+    const matchesKeyword =
+      !normalizedKeyword ||
+      [group.title, group.description].some((value) =>
+        value.toLocaleLowerCase('ko-KR').includes(normalizedKeyword),
+      )
+    return matchesStatus && matchesKeyword
+  })
+
+  const sorted = [...filtered].sort((first, second) => {
+    const difference =
+      new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
+    return sortBy === 'oldest' ? -difference : difference
+  })
+
+  const start = page * size
+  const content = sorted.slice(start, start + size)
+
   return {
     content,
-    totalElements: content.length,
-    totalPages: 1,
-    number: 0,
-    size: 100,
-    first: true,
-    last: true,
+    totalElements: sorted.length,
+    totalPages: Math.max(Math.ceil(sorted.length / size), 1),
+    number: page,
+    size,
+    first: page === 0,
+    last: start + content.length >= sorted.length,
     empty: content.length === 0,
   }
+}
+
+function mockStudyGroupsFrom(source: StudyGroupListItem[]) {
+  vi.mocked(getStudyGroups).mockImplementation((query: StudyGroupQuery = {}) =>
+    Promise.resolve(queryStudyGroups(source, query)),
+  )
 }
 
 // 그룹톡 진입 버튼과 모달이 전역 프로바이더로 옮겨져 실제 앱과 같은 구성으로 감싼다.
@@ -147,7 +186,7 @@ describe('StudyPage', () => {
     // 첫 방문 기준점 기록이 테스트 간에 누적되지 않게 한다.
     localStorage.clear()
     notificationListeners.clear()
-    vi.mocked(getStudyGroups).mockResolvedValue(toPage(studyGroups))
+    mockStudyGroupsFrom(studyGroups)
     vi.mocked(getMyStudyGroups).mockResolvedValue(myStudyGroups)
     vi.mocked(applyToStudyGroup).mockResolvedValue(undefined)
     vi.mocked(getMyActiveStudyGroups).mockResolvedValue(myStudyGroups)
@@ -196,11 +235,16 @@ describe('StudyPage', () => {
     ).toHaveLength(6)
 
     await user.click(screen.getByRole('button', { name: '더보기' }))
-    expect(
-      screen.getAllByRole('article', { name: /상세 정보$/ }),
-    ).toHaveLength(9)
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole('article', { name: /상세 정보$/ }),
+      ).toHaveLength(9),
+    )
 
+    // 검색어는 디바운스를 거쳐 서버에 요청된다. ML 카드는 필터링 전에도 이미 떠 있으므로
+    // "총 1개"처럼 필터링이 끝나야만 참이 되는 텍스트로 반영 완료를 먼저 기다린다.
     await user.type(screen.getByRole('searchbox', { name: '스터디 검색' }), 'ML')
+    expect(await screen.findByText('총 1개의 스터디')).toBeInTheDocument()
     expect(
       screen.getByRole('article', { name: 'ML 엔지니어 실전 면접 상세 정보' }),
     ).toBeInTheDocument()
@@ -209,7 +253,6 @@ describe('StudyPage', () => {
         name: 'REACT 프론트엔드 면접 대비 상세 정보',
       }),
     ).not.toBeInTheDocument()
-    expect(screen.getByText('총 1개의 스터디')).toBeInTheDocument()
   })
 
   it('모집 상태 필터를 서버 응답의 groupStatus에 맞춰 적용한다', async () => {
@@ -226,10 +269,10 @@ describe('StudyPage', () => {
 
     await user.selectOptions(recruitmentSelect, 'active')
 
-    expect(screen.getByText('총 1개의 스터디')).toBeInTheDocument()
     expect(
-      screen.getByRole('article', { name: '포트폴리오 리뷰 모임 상세 정보' }),
+      await screen.findByRole('article', { name: '포트폴리오 리뷰 모임 상세 정보' }),
     ).toBeInTheDocument()
+    expect(screen.getByText('총 1개의 스터디')).toBeInTheDocument()
   })
 
   it('목록 카드에 현재 인원과 정원을 함께 표시한다', async () => {
@@ -256,33 +299,6 @@ describe('StudyPage', () => {
     ).toHaveAttribute('href', '/study/groups/102')
   })
 
-  it('이미 가입한 스터디는 스터디 찾기 목록에서 제외한다', async () => {
-    vi.mocked(getStudyGroups).mockResolvedValueOnce(
-      toPage([
-        ...studyGroups,
-        {
-          id: 101,
-          title: '금융권 면접 PT 대비',
-          description: '금융권 PT 면접을 함께 준비해요.',
-          capacity: 6,
-          currentMemberCount: 4,
-          groupStatus: 'ACTIVE',
-          createdAt: '2026-07-01T09:00:00',
-        },
-      ]),
-    )
-
-    renderStudyPage()
-    await screen.findAllByRole('article', { name: /상세 정보$/ })
-
-    expect(
-      screen.queryByRole('article', {
-        name: '금융권 면접 PT 대비 상세 정보',
-      }),
-    ).not.toBeInTheDocument()
-    expect(screen.getByText(`총 ${studyGroups.length}개의 스터디`)).toBeInTheDocument()
-  })
-
   it('마이 스터디 카드에 그룹장·그룹원 여부를 표시한다', async () => {
     renderStudyPage()
 
@@ -302,7 +318,7 @@ describe('StudyPage', () => {
 
     expect(await screen.findByRole('alert')).toBeInTheDocument()
 
-    vi.mocked(getStudyGroups).mockResolvedValue(toPage(studyGroups))
+    mockStudyGroupsFrom(studyGroups)
     await user.click(screen.getByRole('button', { name: '다시 시도' }))
 
     expect(

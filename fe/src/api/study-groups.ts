@@ -70,6 +70,7 @@ export interface StudyGroupCreateRequest {
 export interface StudyGroupQuery {
   status?: StudyGroupStatus
   keyword?: string
+  sortBy?: 'latest' | 'oldest'
   page?: number
   size?: number
 }
@@ -90,10 +91,17 @@ export interface StudyGroupApplication {
   appliedAt: string
 }
 
-export function getStudyGroups({ status, keyword, page, size }: StudyGroupQuery = {}) {
+export function getStudyGroups({
+  status,
+  keyword,
+  sortBy,
+  page,
+  size,
+}: StudyGroupQuery = {}) {
   const searchParams = new URLSearchParams()
   if (status) searchParams.set('status', status)
   if (keyword) searchParams.set('keyword', keyword)
+  if (sortBy) searchParams.set('sortBy', sortBy)
   if (page !== undefined) searchParams.set('page', String(page))
   if (size !== undefined) searchParams.set('size', String(size))
 
