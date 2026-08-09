@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { deleteGithubRepo } from '@/api/github'
 import { ApiError, getProfileImageUrl, toErrorMessage } from '@/api/http'
 import { checkNicknameAvailability, updateMyPageProfile } from '@/api/my-page'
@@ -80,6 +80,21 @@ export function ProfileSection({
   const [skillsText, setSkillsText] = useState(() => toCommaText(profile.skills))
   const [rolesText, setRolesText] = useState(() => toCommaText(profile.roles))
   const [rolesError, setRolesError] = useState<string | null>(null)
+  const isEditingRef = useRef(isEditing)
+  useEffect(() => {
+    isEditingRef.current = isEditing
+  }, [isEditing])
+
+  // 레포지토리 연동처럼 부모가 프로필을 다시 불러와 profile prop이 새 객체로 바뀌면
+  // 화면에 실제로 쓰이는 savedProfile도 같이 갱신한다. 편집 중에는 입력 중인 draft를
+  // 덮어쓰지 않도록 건너뛴다.
+  useEffect(() => {
+    if (isEditingRef.current) return
+    setSavedProfile(profile)
+    setDraft(profile)
+    setSkillsText(toCommaText(profile.skills))
+    setRolesText(toCommaText(profile.roles))
+  }, [profile])
 
   // 형식(빈 값·길이)과 "저장된 닉네임과 동일" 여부는 입력 즉시 updateField에서 걸러지고,
   // 형식이 유효하고 실제로 값이 바뀐 경우에만 여기서 서버에 중복 여부를 debounce로 물어본다.
