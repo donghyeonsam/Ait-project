@@ -239,10 +239,10 @@ export function StudyChatImageMessage({
         aria-haspopup="dialog"
         className="block cursor-zoom-in focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-action-primary/25"
       >
-        <img
+        <AuthenticatedImage
           src={file.url}
           alt={file.originalFilename}
-          loading="lazy"
+          lazy
           className="block max-h-48 max-w-full rounded-ait-s object-contain"
         />
       </button>
