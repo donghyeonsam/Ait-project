@@ -40,6 +40,10 @@ parselmouth 는 Praat(음성학 표준 소프트웨어)의 C/C++ 소스를 그�
 from __future__ import annotations
 
 import logging
+import os
+import subprocess
+import tempfile
+from pathlib import Path
 
 import librosa
 import numpy as np
@@ -49,6 +53,11 @@ from parselmouth.praat import call as praat_call
 from config import settings
 
 logger = logging.getLogger(__name__)
+
+# ffmpeg 변환에 허용할 최대 시간(초).
+# 90초짜리 답변도 1초 안에 끝나는 작업이라 넉넉한 값이다. 이 제한이 없으면 깨진
+# 파일을 만났을 때 ffmpeg 가 멈춰 서서 voice_concurrency 자리를 영구히 점유한다.
+FFMPEG_TIMEOUT_SEC = 30.0
 
 N_MFCC = 13
 # 3(F0) + 2(RMS) + 4(휴지/속도/길이) + 3(음질) + 13*2(MFCC)
@@ -79,6 +88,82 @@ def _clean(v) -> float:
     return 0.0 if (np.isnan(f) or np.isinf(f)) else f
 
 
+def _load_sound(path: str) -> parselmouth.Sound:
+    """
+    오디오 파일 -> parselmouth.Sound. 필요할 때만 ffmpeg 로 wav 를 거쳐 연다.
+
+    [왜 필요한가]
+    Praat 의 파일 리더는 WAV/AIFF/FLAC/MP3 같은 포맷만 안다. 브라우저 MediaRecorder
+    가 만드는 webm(Matroska) 이나 mp4 컨테이너는 열지 못한다. 반면 librosa 는 ffmpeg
+    폴백으로 읽어내므로, 같은 파일이 librosa 는 통과하고 parselmouth.Sound(path) 에서만
+    터진다 - 학습 데이터가 전부 Praat 이 읽는 포맷이라 학습 때는 드러나지 않는다.
+
+    [왜 '실패했을 때만' 변환하는가]
+    확장자만 보고 미리 분기하면 Praat 이 실제로 읽을 수 있는 포맷까지 변환 대상에
+    끌려 들어갈 수 있다. 원본을 그대로 읽던 경로를 건드리면 학습 때 뽑은 피처와
+    미묘하게 달라지므로(training-serving skew), 지금까지 정상 동작하던 입력은 단 한
+    바이트도 다르게 처리하지 않는 쪽을 택했다. 변환은 어차피 터지던 파일에만 걸린다.
+
+    ⚠️ 변환 시 -ar(샘플레이트)를 지정하지 않는다. 모듈 상단 [이전 버전에서 고친 것] 2)
+       참고 - Praat 쪽 지표(특히 jitter)는 원본 샘플레이트에서 계산해야 정밀도가
+       유지된다. 여기서 16kHz 로 낮추면 그 결정을 조용히 되돌리는 셈이 된다.
+    """
+    try:
+        return parselmouth.Sound(path)
+    except Exception as e:
+        # Praat 은 포맷을 모를 때 PraatError 를 던지지만, 예외 타입에 의존하지 않고
+        # "직접 못 열면 변환한다"로 단순하게 처리한다. 변환까지 실패하면 아래에서
+        # 이 원인을 함께 붙여 다시 던지므로 정보가 사라지지 않는다.
+        praat_error = str(e)
+        logger.info("Praat 이 직접 열지 못해 wav 로 변환합니다 (확장자=%s, 원인=%s)",
+                    Path(path).suffix or "(없음)", praat_error)
+
+    fd, wav_path = tempfile.mkstemp(suffix=".wav")
+    os.close(fd)   # ffmpeg 가 직접 쓸 것이므로 파이썬 쪽 핸들은 닫는다
+    try:
+        try:
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-nostdin",            # 표준입력을 붙잡지 않는다(서버에서 멈춤 방지)
+                    "-loglevel", "error",
+                    "-y",                  # 이미 만들어둔 임시 파일을 덮어쓴다
+                    "-i", path,
+                    "-vn",                 # 영상 트랙이 섞여 있어도 버린다
+                    "-ac", "1",            # 모노. librosa 쪽 mono=True 와 동일 조건
+                    "-c:a", "pcm_s16le",   # 무압축 PCM (Praat 이 읽는 형식)
+                    wav_path,
+                ],
+                check=True,
+                capture_output=True,
+                timeout=FFMPEG_TIMEOUT_SEC,
+            )
+        except FileNotFoundError as e:
+            # 컨테이너에 ffmpeg 가 없는 경우. Dockerfile 에 설치돼 있으므로 정상
+            # 배포에서는 발생하지 않지만, 로컬 실행에서 원인을 헤매지 않도록 명시한다.
+            raise RuntimeError(
+                "ffmpeg 를 찾을 수 없어 오디오를 변환할 수 없습니다. "
+                "Dockerfile 과 동일하게 ffmpeg 를 설치해주세요."
+            ) from e
+        except subprocess.TimeoutExpired as e:
+            raise RuntimeError(
+                f"오디오 변환이 {FFMPEG_TIMEOUT_SEC:.0f}초를 넘겨 중단했습니다."
+            ) from e
+        except subprocess.CalledProcessError as e:
+            stderr = (e.stderr or b"").decode("utf-8", "replace").strip()
+            raise ValueError(
+                f"오디오를 열 수 없습니다. Praat: {praat_error} / "
+                f"ffmpeg: {stderr[-300:] or '(메시지 없음)'}"
+            ) from e
+
+        return parselmouth.Sound(wav_path)
+    finally:
+        # 성공하든 실패하든 임시 파일은 반드시 지운다.
+        # parselmouth.Sound 는 생성 시점에 샘플을 모두 메모리로 읽으므로,
+        # 여기서 파일을 지워도 반환된 객체는 그대로 쓸 수 있다.
+        Path(wav_path).unlink(missing_ok=True)
+
+
 def _praat_features(path: str) -> dict[str, float]:
     """
     Praat(parselmouth)으로 F0 통계 + 음질 지표를 한 번에 계산한다.
@@ -95,7 +180,7 @@ def _praat_features(path: str) -> dict[str, float]:
        기준을 그대로 적용하면 안 된다. 같은 방식으로 계산한 값끼리의 상대 비교 용도로만
        쓰고, 실제로 긴장도와 상관이 있는지는 우리 데이터로 검증해야 한다.
     """
-    snd = parselmouth.Sound(path)  # 원본 샘플레이트 유지가 의도된 동작
+    snd = _load_sound(path)  # 원본 샘플레이트 유지가 의도된 동작
 
     floor = settings.praat_pitch_floor
     ceiling = settings.praat_pitch_ceiling
