@@ -1,47 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { selectListeningVideo } from '@/components/interview/demo-interviewer-videos'
+import { selectListeningVideo } from '@/components/interview/interviewer-videos'
 
 const CROSSFADE_SECONDS = 0.24
 const CROSSFADE_CLEANUP_MS = 280
 
-type VideoLayerKind = 'question' | 'listening'
-
 interface VideoLayer {
   id: number
-  kind: VideoLayerKind
   src: string
-  playbackKey: string | null
 }
 
-interface DemoInterviewerVideoProps {
+interface InterviewerVideoProps {
   posterSrc: string
-  questionKey: string
-  questionVideoSrc: string | null
-  isQuestionPlaybackActive: boolean
+  /** 질문이 바뀌면 경청 영상을 처음부터 다시 순환시키기 위한 구분값이다. */
+  phaseKey: string
   isListeningPlaybackActive: boolean
-  speakerMuted: boolean
-  speakerVolume: number
-  onQuestionPlaying: (playbackKey: string) => void
-  onQuestionEnded: (playbackKey: string) => void
-  onQuestionPlaybackError: (
-    playbackKey: string,
-    reason: 'blocked' | 'unavailable',
-  ) => void
 }
 
 // 질문 중에는 포스터를 유지하고, 답변 경청 중에는 동작 영상을 순환한다.
-export function DemoInterviewerVideo({
+export function InterviewerVideo({
   posterSrc,
-  questionKey,
-  questionVideoSrc,
-  isQuestionPlaybackActive,
+  phaseKey,
   isListeningPlaybackActive,
-  speakerMuted,
-  speakerVolume,
-  onQuestionPlaying,
-  onQuestionEnded,
-  onQuestionPlaybackError,
-}: DemoInterviewerVideoProps) {
+}: InterviewerVideoProps) {
   const [layers, setLayers] = useState<VideoLayer[]>([])
   const [activeLayerId, setActiveLayerId] = useState<number | null>(null)
   const activeLayerIdRef = useRef<number | null>(null)
@@ -49,8 +29,6 @@ export function DemoInterviewerVideo({
   const layerIdRef = useRef(0)
   const phaseRef = useRef('')
   const cleanupTimerRef = useRef<number | null>(null)
-  const videoElementsRef = useRef<Map<number, HTMLVideoElement>>(new Map())
-  const blockedLayerIdRef = useRef<number | null>(null)
 
   const clearCleanupTimer = useCallback(() => {
     if (cleanupTimerRef.current === null) return
@@ -59,18 +37,9 @@ export function DemoInterviewerVideo({
   }, [])
 
   const transitionToVideo = useCallback(
-    (
-      src: string,
-      kind: VideoLayerKind,
-      playbackKey: string | null = null,
-    ) => {
+    (src: string) => {
       clearCleanupTimer()
-      const nextLayer: VideoLayer = {
-        id: ++layerIdRef.current,
-        kind,
-        src,
-        playbackKey,
-      }
+      const nextLayer: VideoLayer = { id: ++layerIdRef.current, src }
       desiredLayerIdRef.current = nextLayer.id
       setLayers((current) => {
         const activeLayer = current.find(
@@ -95,31 +64,19 @@ export function DemoInterviewerVideo({
 
   const playNextListeningVideo = useCallback(() => {
     const selection = selectListeningVideo(Math.random)
-    transitionToVideo(selection.src, 'listening')
+    transitionToVideo(selection.src)
   }, [transitionToVideo])
 
   useEffect(() => {
-    const phase = isQuestionPlaybackActive
-      ? `question:${questionKey}:${questionVideoSrc ?? 'poster'}`
-      : isListeningPlaybackActive
-        ? `listening:${questionKey}`
-        : `idle:${questionKey}`
+    const phase = isListeningPlaybackActive
+      ? `listening:${phaseKey}`
+      : `idle:${phaseKey}`
     if (phaseRef.current === phase) return
     const transitionTimer = window.setTimeout(() => {
       phaseRef.current = phase
 
-      if (isListeningPlaybackActive && !isQuestionPlaybackActive) {
+      if (isListeningPlaybackActive) {
         playNextListeningVideo()
-        return
-      }
-
-      if (!isQuestionPlaybackActive) {
-        transitionToPoster()
-        return
-      }
-
-      if (questionVideoSrc) {
-        transitionToVideo(questionVideoSrc, 'question', questionKey)
         return
       }
 
@@ -129,22 +86,10 @@ export function DemoInterviewerVideo({
     return () => window.clearTimeout(transitionTimer)
   }, [
     isListeningPlaybackActive,
-    isQuestionPlaybackActive,
+    phaseKey,
     playNextListeningVideo,
-    questionKey,
-    questionVideoSrc,
     transitionToPoster,
-    transitionToVideo,
   ])
-
-  useEffect(() => {
-    const volume = Math.min(1, Math.max(0, speakerVolume / 100))
-    videoElementsRef.current.forEach((video, layerId) => {
-      const layer = layers.find((item) => item.id === layerId)
-      video.muted = layer?.kind !== 'question' || speakerMuted
-      video.volume = volume
-    })
-  }, [layers, speakerMuted, speakerVolume])
 
   useEffect(
     () => () => {
@@ -157,13 +102,8 @@ export function DemoInterviewerVideo({
     if (desiredLayerIdRef.current !== layer.id) return
 
     clearCleanupTimer()
-    blockedLayerIdRef.current = null
-    const nextActiveLayerId = layer.kind === 'listening' ? layer.id : null
-    activeLayerIdRef.current = nextActiveLayerId
-    setActiveLayerId(nextActiveLayerId)
-    if (layer.kind === 'question' && layer.playbackKey) {
-      onQuestionPlaying(layer.playbackKey)
-    }
+    activeLayerIdRef.current = layer.id
+    setActiveLayerId(layer.id)
     cleanupTimerRef.current = window.setTimeout(() => {
       setLayers((current) =>
         current.filter((currentLayer) => currentLayer.id === layer.id),
@@ -174,29 +114,15 @@ export function DemoInterviewerVideo({
 
   const handleCanPlay = (layer: VideoLayer, video: HTMLVideoElement) => {
     if (layer.id !== desiredLayerIdRef.current || !video.paused) return
-
-    const playRequest = video.play()
-    if (!playRequest) return
-    void playRequest.catch(() => {
-      if (
-        layer.kind !== 'question' ||
-        !layer.playbackKey ||
-        layer.id !== desiredLayerIdRef.current ||
-        blockedLayerIdRef.current === layer.id
-      ) {
-        return
-      }
-      blockedLayerIdRef.current = layer.id
-      onQuestionPlaybackError(layer.playbackKey, 'blocked')
-    })
+    void video.play()?.catch(() => {})
   }
 
+  // 다음 영상을 남은 크로스페이드 시간만큼 미리 띄워 전환 순간의 끊김을 없앤다.
   const handleListeningProgress = (
     layer: VideoLayer,
     video: HTMLVideoElement,
   ) => {
     if (
-      layer.kind !== 'listening' ||
       layer.id !== activeLayerIdRef.current ||
       layer.id !== desiredLayerIdRef.current ||
       !Number.isFinite(video.duration) ||
@@ -209,31 +135,18 @@ export function DemoInterviewerVideo({
   }
 
   const handleEnded = (layer: VideoLayer) => {
-    if (layer.id !== desiredLayerIdRef.current) return
-
-    if (layer.kind === 'question' && layer.playbackKey) {
-      onQuestionEnded(layer.playbackKey)
+    if (
+      layer.id !== desiredLayerIdRef.current ||
+      layer.id !== activeLayerIdRef.current
+    ) {
       return
     }
-
-    if (
-      layer.kind === 'listening' &&
-      layer.id === activeLayerIdRef.current
-    ) {
-      playNextListeningVideo()
-    }
+    playNextListeningVideo()
   }
 
   const handleError = (layer: VideoLayer) => {
     if (layer.id !== desiredLayerIdRef.current) return
-    if (layer.kind === 'listening') {
-      playNextListeningVideo()
-      return
-    }
-    if (layer.playbackKey) {
-      onQuestionPlaybackError(layer.playbackKey, 'unavailable')
-    }
-    transitionToPoster()
+    playNextListeningVideo()
   }
 
   return (
@@ -246,21 +159,12 @@ export function DemoInterviewerVideo({
       {layers.map((layer) => (
         <video
           key={layer.id}
-          ref={(video) => {
-            if (!video) {
-              videoElementsRef.current.delete(layer.id)
-              return
-            }
-            videoElementsRef.current.set(layer.id, video)
-            video.muted = layer.kind !== 'question' || speakerMuted
-            video.volume = Math.min(1, Math.max(0, speakerVolume / 100))
-          }}
           src={layer.src}
           className={`interviewer-media-video${
             layer.id === activeLayerId ? ' is-active' : ''
           }`}
           autoPlay
-          muted={layer.kind !== 'question' || speakerMuted}
+          muted
           playsInline
           preload="auto"
           aria-hidden="true"

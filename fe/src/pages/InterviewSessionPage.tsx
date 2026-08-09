@@ -37,7 +37,6 @@ import {
   type InterviewSessionNavigationState,
 } from '@/lib/interview-session'
 import {
-  getDemoQuestionVideoSrc,
   isDemoPortfolioInterview,
   replaceDemoQuestions,
   resolveDemoFollowUpQuestion,
@@ -293,38 +292,12 @@ function ActiveInterviewSession({
   const [micGain, setMicGain] = useState(devices.micGain)
   const [speakerMuted, setSpeakerMuted] = useState(false)
   const [speakerVolume, setSpeakerVolume] = useState(devices.speakerVolume)
-  const [demoVideoPlaybackAttempt, setDemoVideoPlaybackAttempt] = useState(0)
-  const [startedDemoVideoKey, setStartedDemoVideoKey] = useState<string | null>(
-    null,
-  )
-  const [completedDemoVideoKey, setCompletedDemoVideoKey] = useState<
-    string | null
-  >(null)
-  const [blockedDemoVideoKey, setBlockedDemoVideoKey] = useState<string | null>(
-    null,
-  )
-  const [demoVideoError, setDemoVideoError] = useState<{
-    playbackKey: string
-    message: string
-  } | null>(null)
   const sessionStartRef = useRef(0)
   const submittedAnswersRef = useRef<SubmittedVoiceAnswer[]>([])
   const question = sessionQuestions[questionIndex]
   const voiceAnswer = useVoiceAnswer(stream)
   const nonVerbalCapture = useNonVerbalCapture(stream, aiInterviewId)
   const questionKey = `${questionIndex}:${question.order}:${question.question}`
-  const demoQuestionVideoSrc = isDemoInterview
-    ? getDemoQuestionVideoSrc(question)
-    : null
-  const usesDemoQuestionVideo = Boolean(demoQuestionVideoSrc)
-  const demoVideoPlaybackKey = `${questionKey}:video:${demoVideoPlaybackAttempt}`
-  const isDemoQuestionVideoActive =
-    usesDemoQuestionVideo &&
-    completedDemoVideoKey !== demoVideoPlaybackKey
-  const isDemoQuestionVideoSpeaking =
-    isDemoQuestionVideoActive &&
-    startedDemoVideoKey === demoVideoPlaybackKey &&
-    blockedDemoVideoKey !== demoVideoPlaybackKey
   const answerSecondsRemaining = useAnswerCountdown({
     activeKey:
       voiceAnswer.status === 'recording' ? questionKey : null,
@@ -336,16 +309,11 @@ function ActiveInterviewSession({
     speechKey: questionKey,
     volume: speakerVolume,
     muted: speakerMuted,
-    enabled: Boolean(stream) && !usesDemoQuestionVideo,
+    enabled: Boolean(stream),
   })
-  const completedQuestionMediaKey = usesDemoQuestionVideo
-    ? completedDemoVideoKey === demoVideoPlaybackKey
-      ? questionKey
-      : null
-    : questionSpeech.completedSpeechKey
   const resetAutoRecording = useAutoRecordingAfterSpeech({
     questionKey,
-    completedSpeechKey: completedQuestionMediaKey,
+    completedSpeechKey: questionSpeech.completedSpeechKey,
     enabled: Boolean(stream) && !micMuted,
     answerStatus: voiceAnswer.status,
     startRecording: voiceAnswer.startRecording,
@@ -528,60 +496,14 @@ function ActiveInterviewSession({
       resetVoiceAnswer()
       resetNonVerbalCapture()
     }
-    if (usesDemoQuestionVideo) {
-      setDemoVideoError(null)
-      setBlockedDemoVideoKey(null)
-      setDemoVideoPlaybackAttempt((attempt) => attempt + 1)
-      return
-    }
     replayQuestion()
   }, [
     replayQuestion,
     resetAutoRecording,
     resetNonVerbalCapture,
     resetVoiceAnswer,
-    usesDemoQuestionVideo,
     voiceAnswerStatus,
   ])
-
-  const handleDemoQuestionVideoPlaying = useCallback(
-    (playbackKey: string) => {
-      if (playbackKey !== demoVideoPlaybackKey) return
-      setStartedDemoVideoKey(playbackKey)
-      setBlockedDemoVideoKey(null)
-      setDemoVideoError(null)
-    },
-    [demoVideoPlaybackKey],
-  )
-
-  const handleDemoQuestionVideoEnded = useCallback(
-    (playbackKey: string) => {
-      if (playbackKey !== demoVideoPlaybackKey) return
-      setCompletedDemoVideoKey(playbackKey)
-    },
-    [demoVideoPlaybackKey],
-  )
-
-  const handleDemoQuestionVideoPlaybackError = useCallback(
-    (playbackKey: string, reason: 'blocked' | 'unavailable') => {
-      if (playbackKey !== demoVideoPlaybackKey) return
-      setStartedDemoVideoKey(playbackKey)
-      setDemoVideoError({
-        playbackKey,
-        message:
-          reason === 'blocked'
-            ? '브라우저가 질문 영상의 자동 재생을 차단했습니다. 질문 다시 듣기를 눌러주세요.'
-            : '질문 영상을 재생하지 못했습니다. 화면의 질문을 확인해주세요.',
-      })
-
-      if (reason === 'blocked') {
-        setBlockedDemoVideoKey(playbackKey)
-        return
-      }
-      setCompletedDemoVideoKey(playbackKey)
-    },
-    [demoVideoPlaybackKey],
-  )
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -656,11 +578,7 @@ function ActiveInterviewSession({
         transcript={voiceAnswer.transcript}
         onChangeTranscript={voiceAnswer.setTranscript}
         voiceError={voiceAnswer.error}
-        speechError={
-          demoVideoError?.playbackKey === demoVideoPlaybackKey
-            ? demoVideoError.message
-            : questionSpeech.error
-        }
+        speechError={questionSpeech.error}
         mediaPermission={permission}
         onRetryMediaAccess={() => {
           void requestAccess(
@@ -672,18 +590,11 @@ function ActiveInterviewSession({
         primaryActionDisabled={primaryActionDisabled}
         onPrimaryAction={handlePrimaryAction}
         onFinishAnswer={handleFinishAnswer}
-        isAiSpeaking={
-          usesDemoQuestionVideo
-            ? isDemoQuestionVideoSpeaking
-            : questionSpeech.isSpeaking
-        }
+        isAiSpeaking={questionSpeech.isSpeaking}
         onReplayQuestion={handleReplayQuestion}
         replayDisabled={
-          (!stream && !usesDemoQuestionVideo) ||
-          (usesDemoQuestionVideo
-            ? isDemoQuestionVideoActive &&
-              blockedDemoVideoKey !== demoVideoPlaybackKey
-            : questionSpeech.isSpeaking) ||
+          !stream ||
+          questionSpeech.isSpeaking ||
           voiceAnswer.status === 'recording' ||
           voiceAnswer.status === 'processing'
         }
@@ -696,28 +607,6 @@ function ActiveInterviewSession({
         speakerVolume={speakerVolume}
         onToggleSpeakerMuted={() => setSpeakerMuted((value) => !value)}
         onChangeSpeakerVolume={setSpeakerVolume}
-        demoVideoQuestionKey={
-          isDemoInterview
-            ? usesDemoQuestionVideo
-              ? demoVideoPlaybackKey
-              : questionKey
-            : undefined
-        }
-        demoQuestionVideoSrc={demoQuestionVideoSrc}
-        demoVideoQuestionActive={
-          usesDemoQuestionVideo
-            ? isDemoQuestionVideoActive
-            : questionSpeech.isSpeaking
-        }
-        questionVisible={
-          !usesDemoQuestionVideo ||
-          startedDemoVideoKey === demoVideoPlaybackKey
-        }
-        onDemoQuestionVideoPlaying={handleDemoQuestionVideoPlaying}
-        onDemoQuestionVideoEnded={handleDemoQuestionVideoEnded}
-        onDemoQuestionVideoPlaybackError={
-          handleDemoQuestionVideoPlaybackError
-        }
       />
 
       <Dialog open={endDialogOpen} onOpenChange={setEndDialogOpen}>
