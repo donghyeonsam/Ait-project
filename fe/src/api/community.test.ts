@@ -55,7 +55,7 @@ const draft: CommunityPostDraft = {
       storedFilename: 'stored-guide.pdf',
       fileType: 'PDF',
       usageType: 'ATTACHMENT',
-      url: '/backend/images/stored-guide.pdf',
+      url: '/backend/uploads/stored-guide.pdf',
     },
   ],
   allowComments: true,
@@ -109,7 +109,7 @@ describe('fetchPosts', () => {
     })
 
     expect(result.items[0]?.thumbnail).toBe(
-      '/backend/images/stored-thumb%201.png',
+      '/backend/uploads/stored-thumb%201.png',
     )
   })
 
@@ -378,7 +378,7 @@ describe('fetchPost', () => {
           storedFilename: 'boards/stored-guide.pdf',
           fileType: 'PDF',
           usageType: 'ATTACHMENT',
-          url: '/backend/images/boards/stored-guide.pdf',
+          url: '/backend/uploads/boards/stored-guide.pdf',
         }),
       ],
     })
@@ -555,7 +555,7 @@ describe('post file upload', () => {
       storedFilename: 'boards/stored-image.png',
       fileType: 'IMAGE',
       usageType: 'INLINE',
-      url: '/backend/images/boards/stored-image.png',
+      url: '/backend/uploads/boards/stored-image.png',
     })
   })
 
@@ -587,8 +587,8 @@ describe('post file upload', () => {
       { fileType: 'OTHER', usageType: 'ATTACHMENT' },
     ])
     expect(result.map((file) => file.url)).toEqual([
-      '/backend/images/boards/stored-guide.pdf',
-      '/backend/images/boards/stored-note.txt',
+      '/backend/uploads/boards/stored-guide.pdf',
+      '/backend/uploads/boards/stored-note.txt',
     ])
   })
 
@@ -616,11 +616,11 @@ describe('post file upload', () => {
       storedFilename: 'boards/stored-guide.pdf',
       fileType: 'PDF',
       usageType: 'ATTACHMENT',
-      url: '/backend/images/boards/stored-guide.pdf',
+      url: '/backend/uploads/boards/stored-guide.pdf',
     })
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      '/backend/images/boards/stored-guide.pdf',
+      '/backend/uploads/boards/stored-guide.pdf',
     )
     expect(downloadedFilename).toBe('면접 자료.pdf')
     expect(createObjectURL).toHaveBeenCalledOnce()

@@ -30,12 +30,13 @@ const encodeStoredPath = (storedPath: string) =>
     .replace(/^\/+/, '')
 
 // storedFilename(예: boards/uuid.png)을 실제 업로드 파일 URL로 변환한다.
-// 별도 정적 도메인이 아니라 인증이 필요한 백엔드 /images 리소스 경로를 그대로 쓴다.
+// nginx가 /uploads 경로를 인증 없이 정적으로 서빙하므로, 우리 프록시(/backend)를 거쳐
+// 같은 출처로 요청한다 — 백엔드 도메인을 직접 호출하면 CORS 헤더가 없어 다운로드용 fetch가 막힌다.
 export function getUploadedFileUrl(storedFilename: string) {
   if (/^https?:\/\//i.test(storedFilename) || storedFilename.startsWith('data:')) {
     return storedFilename
   }
-  return getBackendAssetUrl(`/images/${encodeStoredPath(storedFilename)}`)
+  return getBackendAssetUrl(`/uploads/${encodeStoredPath(storedFilename)}`)
 }
 
 // profileImageUrl(예: profiles/uuid.png)을 실제 프로필 사진 정적 URL로 변환한다.
