@@ -11,7 +11,6 @@ import {
   StudyGroupMemberPanel,
   type StudyGroupMember,
 } from '@/components/study/StudyGroupMemberPanel'
-import { StudyKickedMemberModal } from '@/components/study/StudyKickedMemberModal'
 import { StudyLeaderTransferDialog } from '@/components/study/StudyLeaderTransferDialog'
 import { Button } from '@/components/ui/button'
 import {
@@ -63,7 +62,6 @@ export function StudyGroupPage() {
   const [statusError, setStatusError] = useState<string | null>(null)
   const [hasActiveSession, setHasActiveSession] = useState(false)
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false)
-  const [isKickedMemberModalOpen, setIsKickedMemberModalOpen] = useState(false)
   const [applicantCount, setApplicantCount] = useState(0)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isLeaderTransferDialogOpen, setIsLeaderTransferDialogOpen] =
@@ -437,7 +435,6 @@ export function StudyGroupPage() {
                 isRecruiting={isRecruiting}
                 onRecruitingChange={(next) => void changeRecruiting(next)}
                 onReviewApplications={() => setIsApplicationModalOpen(true)}
-                onManageKickedMembers={() => setIsKickedMemberModalOpen(true)}
                 onTransferLeadership={() =>
                   setIsLeaderTransferDialogOpen(true)
                 }
@@ -487,12 +484,6 @@ export function StudyGroupPage() {
         open={isApplicationModalOpen}
         onOpenChange={setIsApplicationModalOpen}
         onApplicationProcessed={loadApplicantCount}
-      />
-
-      <StudyKickedMemberModal
-        groupId={groupId}
-        open={isKickedMemberModalOpen}
-        onOpenChange={setIsKickedMemberModalOpen}
       />
 
       <StudyLeaderTransferDialog
