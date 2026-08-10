@@ -1,271 +1,140 @@
 # ai-evaluate
 
-AI 모의 면접 - 답변 영상/오디오의 표정·음성 분석 서버.
+면접 답변 영상/오디오에서 **표정·음성**을 분석해 0~10점 점수를 돌려주는 FastAPI 서버.
 
-기존 `ai/`(질문생성·RAG) 서버와 완전히 분리된 별도 서비스다. `ai/` 는 손대지 않는다.
+기존 `ai/`(질문 생성/RAG, :8000) 서버와 완전히 분리된 별도 서비스다(:8100). `librosa`/
+`parselmouth`/`torch` 등 무거운 미디어 분석 의존성을 질문 생성 기능과 같은 배포 위험에
+묶지 않기 위해 처음부터 별도 서버로 나눴다.
 
-**v0.3.0** — 코드 리뷰 지적사항 8건 반영. 자세한 내용은
-[docs/CODE_REVIEW.md](docs/CODE_REVIEW.md) 참고.
-
----
-
-## 1. 아키텍처
-
-```
-[표정]  브라우저: 카메라 → MediaPipe(JS) → 프레임별 숫자 묶음
-        → POST /analyses/face  → 점수 바로 받음 (수 ms)
-        ※ 영상이 서버로 올라오지 않는다.
-
-[음성]  브라우저: 녹음 → 소리 파일
-        → BE(Spring, @Async) 가 바이트로 읽어서 전달
-        → POST /analyses/voice  → 점수 바로 받음 (2~3초)
-        → BE 가 Redis 에 저장
-        ※ 목소리 떨림 계산은 브라우저에 대체품이 없어 서버에서 해야 한다.
-```
-
-### 왜 이렇게 나눴나
-
-| | 표정 | 음성 |
-|---|---|---|
-| 무거운 계산 위치 | 브라우저 | 서버 |
-| 서버 CPU 부하 | 거의 0 | 2~3초/건 |
-| 서버로 올라가는 것 | 숫자 ~100KB | 소리 ~700KB |
-
-얼굴 인식이 전체 계산의 95%를 차지하는데, 이걸 브라우저로 넘기면 서버는 평균 내고
-작은 모델에 넣는 일만 남아 사실상 공짜가 된다. 같은 EC2 에서 화상면접(LiveKit)이
-CPU 를 쓰고 있다면 이 차이가 결정적이다.
-
-### 대기열(Celery)을 기본으로 쓰지 않는 이유
-
-BE 가 이미 `@Async` 로 별도 스레드에서 호출한다. 그 스레드는 어차피 기다리고 있으므로,
-서버가 번호표를 또 발급하고 BE 가 "다 됐어요?" 하고 계속 물어보는 건 낭비다.
-그냥 그 자리에서 처리해 결과를 돌려주는 게 단순하다.
-
-대신 **동시 실행 개수 제한**은 반드시 있어야 한다(`VOICE_CONCURRENCY=2`).
-없으면 `@Async` 스레드 수만큼 분석이 한꺼번에 돌아 CPU 가 꽉 차고 LiveKit 이 끊긴다.
-
-대기열이 꼭 필요하면 켤 수 있다:
-
-```bash
-docker compose --profile queue up -d   # worker + redis 추가 실행
-```
-
----
-
-## 2. 디렉토리
+## 디렉토리 구조
 
 ```
 ai-evaluate/
-├── config.py                 설정 (.env 로드, ai/config.py 와 같은 패턴)
-├── api/                      FastAPI - 표정 동기 처리 + 음성 접수/조회
-│   ├── main.py
-│   ├── routers/{health,analysis}.py
-│   └── schemas/analysis.py
-├── core/                     학습·추론이 공유하는 도메인 로직 (도커 이미지에 포함)
-│   ├── mlp.py                        표정·음성 공용 MLP 클래스
+├── config.py                    # .env 기반 설정
+├── api/
+│   ├── main.py                    # FastAPI 엔트리포인트 (모델은 lifespan이 아니라 첫 요청 시 lazy 로딩)
+│   ├── routers/
+│   │   ├── health.py                # /health, /health/model, /health/worker
+│   │   └── analysis.py               # /analyses/face, /analyses/voice(+queue)
+│   └── schemas/
+│       └── analysis.py               # FaceResult/VoiceResult 등 요청·응답 스키마
+├── core/                          # 학습(training/)과 추론(api/, worker/)이 공유하는 도메인 로직
+│   ├── mlp.py                       # 표정/음성 공용 MLP 클래스 + 체크포인트 로더
 │   ├── face/
-│   │   ├── landmark_metrics.py       EAR/MAR/이탈 계산 (JS 가 이걸 그대로 옮김)
-│   │   ├── aggregator.py             프레임 벡터 → 116차원 집계벡터
-│   │   ├── predictor.py
-│   │   └── model/                    face_mlp.pt, face_scaler.json
+│   │   ├── landmark_metrics.py        # EAR/MAR/정면이탈 계산 (frontend-sample의 JS와 동일 로직 유지 기준)
+│   │   ├── aggregator.py               # 프레임별 값 -> 167차원 집계벡터
+│   │   ├── predictor.py                 # 집계벡터 -> MLP 추론 -> score
+│   │   └── model/                        # face_mlp.pt, face_scaler.json (커밋된 학습 산출물)
 │   └── voice/
-│       ├── feature_extractor.py      오디오 → 38차원 (Praat 중심, pyin 제거)
-│       ├── predictor.py
-│       └── model/                    voice_mlp.pt, voice_scaler.json
-├── worker/                   Celery (음성 전용)
+│       ├── feature_extractor.py        # 오디오 -> 44차원 피처(librosa+Praat)
+│       ├── predictor.py                 # 피처 -> MLP 추론 -> confidence/tension/score
+│       └── model/                        # voice_mlp.pt, voice_scaler.json
+├── worker/                        # Celery 큐 방식 음성 분석 (선택 기능, 기본 비활성)
 │   ├── celery_app.py
-│   ├── storage.py            로컬볼륨/S3 추상화 (배포 위치 미정 대응)
-│   └── tasks.py
-├── training/                 학습 전용 (도커 이미지에서 제외됨)
-│   ├── trainer.py                    공용 학습 루프
-│   ├── face/{extract_frames,build_dataset,train_mlp,verify_parity}.py, labels.csv
-│   └── voice/{make_pseudo_labels,build_dataset,train_mlp}.py
-├── frontend-sample/face-capture.js   프론트 참고 구현
-├── docs/
-│   ├── SPRING_INTEGRATION.md         BE 연동 방법 + Java 예시
-│   ├── GLOSSARY.md                   용어 사전 (쉬운 말 설명)
-│   ├── CODE_REVIEW.md                코드 흐름 설명 + 리뷰 지적사항
-│   └── ARCHITECTURE.md               왜 이렇게 만들었나
-└── data/                     원본/중간 산출물 (.gitignore 권장)
+│   ├── tasks.py                     # analyze_voice 태스크 (core/voice/*를 그대로 호출)
+│   └── storage.py                    # local/S3 스토리지 추상화 (현재 local만 구현)
+├── training/                      # 학습 파이프라인 (도커 이미지에는 포함되지 않음, .dockerignore)
+│   ├── trainer.py                    # 표정/음성 공용 학습 루프 (80/20 분할, early stopping)
+│   ├── face/                          # extract_frames -> make_pseudo_labels -> build_dataset -> train_mlp -> verify_parity
+│   └── voice/                         # make_pseudo_labels -> build_dataset -> train_mlp (+ split_holdout, sanity_check_sample)
+├── frontend-sample/
+│   └── face-capture.js              # 브라우저 MediaPipe 랜드마크 추출 참고 구현
+├── docs/                           # 개발일지, ARCHITECTURE.md
+├── tests/
+│   ├── test_aggregator.py            # 집계 로직 단위 테스트
+│   └── test_api.py                    # API 요청/응답 스모크 테스트 (서버 미기동 상태로 검증)
+├── requirements.txt                 # 서버(런타임) 의존성
+├── requirements-train.txt            # 학습 전용 의존성 (이미지에 미포함)
+└── Dockerfile / docker-compose.yml / .dockerignore
 ```
 
-**핵심 원칙**: 집계·피처 계산 로직은 `core/` 한 곳에만 있고 학습과 추론이 그것을
-공유한다. 학습 때의 피처와 서비스할 때의 피처가 어긋나면(training-serving skew)
-검증 성능은 좋은데 실서비스만 틀리는, 추적이 극히 어려운 버그가 된다.
+## 아키텍처 핵심: Teacher-Student Distillation
 
----
+무거운 사전학습 모델(teacher)은 **학습 시점(`training/`)에만** 라벨을 만드는 데 쓰이고,
+실제 서빙(`core/`, `api/`, `worker/`)에는 그 teacher를 흉내 내도록 학습된 **경량 MLP만**
+배포된다. `core/mlp.py`의 `MLP` 클래스가 표정/음성 공용 구조이며(입력 차원만 다르고
+구조는 동일), 은닉층 `hidden_dims=(64, 32)`, `dropout=0.3`을 기본값으로 쓴다(클립 수가
+적으면 `(32, 16)`으로 줄이도록 학습 스크립트가 `--hidden` 옵션을 제공).
 
-## 3. 서버 실행
+| | 표정 | 음성 |
+|---|---|---|
+| Teacher (학습 시에만 사용) | EMO-AffectNet (ResNet50 + LSTM, 7클래스) | jungjongho/wav2vec2-xlsr-korean-speech-emotion-recognition2 (한국어 6클래스, 기본값). `--teacher audeering`(영어 3축)도 보조로 지원 |
+| Student 입력 차원 | 167 | 44 |
+| Student 출력 | score(회귀 1) → 종형 곡선으로 0~10점 변환 | confidence/tension(2) → tension을 종형 곡선으로 0~10점 변환 |
+| 현재 커밋된 체크포인트 | `core/face/model/face_mlp.pt`(in_dim=167로 확인됨) | `core/voice/model/voice_mlp.pt`(in_dim=44로 확인됨) |
 
-```bash
-cp .env.example .env
-docker compose up -d --build        # api 컨테이너 하나만 뜬다
+응답 스키마(`FaceResult`/`VoiceResult`)는 `score`(0~10) 단일 필드만 노출한다.
+`tension_score`/`confidence_score`/`blink_per_minute` 등은 `predictor.py` 내부에서는
+계속 계산되지만 pydantic 스키마에 선언돼 있지 않아 응답 직렬화 시 자동으로 제외된다.
 
-curl localhost:8100/health          # 서버 살아있는지
-curl localhost:8100/health/model    # 학습된 모델 파일이 있는지
-```
+## 표정 분석: 랜드마크 추출은 브라우저에서
 
-용어가 낯설면 **[docs/GLOSSARY.md](docs/GLOSSARY.md)** 에 쉬운 말로 정리해뒀다.
+`POST /analyses/face`는 영상 파일을 받지 않는다. 브라우저(MediaPipe JS,
+`frontend-sample/face-capture.js` 참고)가 얼굴 인식과 blendshape/EAR/MAR/정면이탈 계산을
+끝낸 뒤, 프레임별 숫자 묶음(`FaceFrame`: blendshapes 52개 + ear/mar/deviation)만
+`FaceAnalyzeRequest`로 전송한다. 서버는 이를 `core/face/aggregator.py`로 167차원
+벡터(blendshape 평균/표준편차/후반-전반차이 52×3 + EAR/MAR/이탈 통계 + 깜빡임/시선이탈
++ 시간변화 피처)로 집계한 뒤 MLP에 넣기만 하므로 수 ms 안에 끝난다. 학습(`training/face/
+build_dataset.py`)과 추론이 같은 `aggregate_from_frames()` 함수를 공유해
+training-serving skew를 방지한다.
 
-포트는 8100이다(기존 `ai/` 가 8000 사용).
+## 음성 분석: 서버가 오디오를 직접 처리
 
----
+`POST /analyses/voice`는 오디오 파일(webm/wav/mp3/m4a/ogg/flac/opus)을 바이트로 받아
+임시 파일로 저장한 뒤, `core/voice/feature_extractor.py`가 librosa(16kHz 리샘플,
+MFCC 13×2/RMS/onset 기반 발화속도/무음비율)와 Praat(원본 샘플레이트, F0/jitter/shimmer/
+HNR/포먼트)로 44차원 피처를 뽑아 MLP에 넣는다(2~3초 소요). 목소리 떨림 같은 지표는
+브라우저에서 계산할 수 없어 오디오 자체를 서버로 보내야 한다. `asyncio.Semaphore` +
+전용 `ThreadPoolExecutor`(기본 동시 2건, `VOICE_CONCURRENCY`)로 동시 실행 개수를
+제한해, 같은 서버에서 도는 화상면접(LiveKit) CPU를 침범하지 않게 한다.
 
-## 4. 학습 파이프라인
+## 핵심 기술 스택
 
-학습은 서버가 아니라 **개발자 로컬**에서 돌린다. 산출물 `.pt`/`.json` 만
-`core/*/model/` 에 커밋해서 배포한다.
+| 구분 | 내용 |
+|---|---|
+| 웹 프레임워크 | FastAPI 0.115.0 + uvicorn |
+| 데이터 검증 | pydantic 2.9.2 / pydantic-settings 2.5.2 |
+| MLP 추론 | torch 2.4.1 (CPU 전용 휠), numpy 1.26.4 |
+| 음성 피처 추출 | librosa 0.10.2, praat-parselmouth 0.4.5, soundfile, audioread (+ ffmpeg) |
+| 큐(선택 기능) | celery 5.4.0, redis 5.0.8 |
+| 파일 업로드 | python-multipart |
+| 학습 전용(`requirements-train.txt`, 이미지 미포함) | mediapipe 0.10.14, opencv-python-headless, transformers, huggingface_hub, pillow, scikit-learn |
 
-```bash
-pip install -r requirements.txt -r requirements-train.txt
-```
-
-### 4-1. 표정
-
-```bash
-# 0) MediaPipe 모델 파일 (1회, 프론트와 반드시 같은 파일을 써야 함)
-mkdir -p models
-wget -O models/face_landmarker.task \
-  https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
-
-# 1) 팀원 답변 영상 촬영 → data/raw/clips/ 에 배치
-
-# 2) 라벨: 사람이 직접 채우거나(training/face/labels.csv), teacher(EMO-AffectNet)로
-#    pseudo-label 을 자동 생성한다. 후자를 먼저 돌려 초안을 만들고 사람이 검수/수정
-#    하는 방식을 권장한다 (완전 자동보다 신뢰도가 높고, 라벨링 시간도 준다).
-python -m training.face.make_pseudo_labels \
-    --video data/raw/clips \
-    --out training/face/labels_pseudo.csv \
-    --lstm-corpus Aff-Wild2
-#    (clip_id, file_name, person_id, labeler_a, labeler_b, label_final, note)
-#    person_id 는 "unknown" 으로 채워지므로 group-split 이 필요하면 직접 채울 것.
-
-# 3) 영상 → 프레임 벡터 JSON
-python -m training.face.extract_frames \
-    --clips data/raw/clips --out data/processed/frames \
-    --model models/face_landmarker.task
-
-# 4) 프레임 JSON + 라벨 → 학습 데이터셋 (사람 라벨 대신 pseudo-label CSV 를 써도 됨)
-python -m training.face.build_dataset \
-    --frames data/processed/frames \
-    --labels training/face/labels.csv \
-    --out data/processed/face_dataset.npz
-
-# 5) 학습 (데이터가 적으면 --hidden 32,16)
-python -m training.face.train_mlp \
-    --data data/processed/face_dataset.npz --group-split
-```
-
-### 4-2. 음성
-
-```bash
-# 1) 영상에서 오디오 분리
-mkdir -p data/raw/audio
-for f in data/raw/clips/*.mp4; do
-  ffmpeg -i "$f" -ar 16000 -ac 1 "data/raw/audio/$(basename "${f%.*}").wav"
-done
-
-# 2) teacher(jungjongho, 한국어 6클래스)로 pseudo-label 생성.
-#    --window 15 로 데이터를 6배 늘린다. audeering 을 보조로 쓰려면 --teacher audeering.
-python -m training.voice.make_pseudo_labels \
-    --teacher jungjongho \
-    --audio data/raw/audio \
-    --out data/processed/voice_pseudo_labels_jungjongho.csv \
-    --window 15
-
-# 3) 경량 피처 + 라벨 결합 (윈도우 분할했으므로 chunks 폴더를 지정)
-#    --teacher 는 2)에서 쓴 것과 반드시 같아야 한다(컬럼 스키마가 다름).
-python -m training.voice.build_dataset \
-    --teacher jungjongho \
-    --audio data/processed/audio_chunks \
-    --labels data/processed/voice_pseudo_labels_jungjongho.csv \
-    --out data/processed/voice_dataset.npz
-
-# 4) distillation 학습 (--teacher 도 동일하게)
-python -m training.voice.train_mlp \
-    --teacher jungjongho \
-    --data data/processed/voice_dataset.npz --group-split
-```
-
-### 4-3. 정합성 검증 (초기에 1회 필수)
-
-파이썬 MediaPipe와 브라우저 JS MediaPipe의 출력이 같은지 확인한다.
-
-```bash
-python -m training.face.verify_parity --py out_py/sample.json --js sample_js.json
-```
-
-JS 쪽 JSON은 `FaceCapture.downloadDebugJson()` 으로 받는다.
-
----
-
-## 4-4. 테스트
-
-```bash
-pip install fastapi python-multipart httpx numpy
-python -m tests.test_aggregator   # 집계 로직 (torch 불필요)
-python -m tests.test_api          # API 응답/검증
-```
-
----
-
-## 5. API
+## API 엔드포인트
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| POST | `/analyses/face` | 프레임 숫자 묶음 → 표정 점수 (바로 응답) |
-| POST | `/analyses/voice` | 소리 파일/바이트 → 음성 점수 (2~3초 후 응답) |
-| GET | `/health` | 서버 살아있는지 |
-| GET | `/health/model` | 학습된 모델 파일이 있는지 |
-| POST | `/analyses/voice/queue` | (선택) 대기열에 넣고 번호표 받기 |
-| GET | `/analyses/voice/{task_id}` | (선택) 번호표로 결과 조회 |
+| GET | `/health` | 서버 생존 확인 (외부 의존성 없이 즉시 응답) |
+| GET | `/health/model` | 표정/음성 모델 파일이 실제로 존재하는지 확인 |
+| GET | `/health/worker` | Celery 워커 ping (큐 미사용 시 `disabled`/`no_worker`가 정상) |
+| POST | `/analyses/face` | 프레임 벡터 묶음 → 표정 점수 즉시 반환 |
+| POST | `/analyses/voice` | 오디오 파일 → 음성 점수 반환 (동기, 2~3초 소요) |
+| POST | `/analyses/voice/queue` | (선택) 오디오를 큐에 접수하고 `task_id` 반환 — Celery/Redis 필요 |
+| GET | `/analyses/voice/{task_id}` | (선택) `task_id`로 큐 처리 상태/결과 조회 |
 
-BE(Spring) 연동 예시 코드는 **[docs/SPRING_INTEGRATION.md](docs/SPRING_INTEGRATION.md)** 참고.
+## worker/(큐 방식)는 선택적 기능이다
 
-⚠️ BE 쪽 read timeout 을 최소 30초로 잡을 것. 기본값이 짧으면 분석이 끝나기 전에 끊긴다.
+`worker/`는 Celery 태스크(`analyze_voice`)와 스토리지 추상화까지 완전히 구현돼 있고
+Dockerfile에도 포함되지만(`COPY worker/`), **기본 `docker compose up`으로는 실행되지
+않는다.** `analysis.py`의 `POST /analyses/voice`가 이미 그 자리에서 동기 처리로 결과를
+반환하므로, BE가 응답을 기다릴 수 없는 상황에서만 아래 프로필로 켜서 쓰도록 설계돼 있다.
 
----
+## 실행 방법
 
-## 6. 배포 위치가 바뀔 때
+```bash
+# .env 파일 필요 (별도 .env.example 없음 — docker-compose가 env_file로 참조하므로
+# 파일 자체는 있어야 하며, 없는 값은 config.py의 기본값을 그대로 쓴다)
+touch .env
 
-배포처가 아직 미정이라 이식성을 고려해뒀다.
+# 기본 실행: api 컨테이너만 (표정/음성 모두 이 안에서 동기 처리)
+docker compose up -d --build
+# → http://localhost:8100
 
-| 상황 | 고칠 곳 |
-|---|---|
-| 다른 VM(GCP/온프렘)으로 이사 | 없음. compose 그대로 복사 |
-| Redis를 관리형으로 | `.env` 의 CELERY_* 두 줄 |
-| CPU→GPU 인스턴스 | Dockerfile 의 torch CPU 인덱스 한 줄 삭제 |
-| ECS/k8s (컨테이너가 다른 노드에 분산) | `worker/storage.py` 에 S3Storage 추가 + `.env` 한 줄 |
+# 큐 방식이 필요할 때: worker + redis 추가 실행
+docker compose --profile queue up -d --build
+```
 
-`storage.py` 추상화가 있는 이유가 마지막 항목이다. api와 worker가 공유 볼륨으로
-파일을 주고받는 방식은 두 컨테이너가 같은 머신에 있을 때만 동작한다.
-
----
-
-## 7. 아직 정해지지 않은 것 (⚠️ 코드보다 먼저 결정해야 함)
-
-- [x] ~~표정 MLP가 무엇을 예측할지~~ — **확정**: 표정/음성 둘 다 `confidence_score`
-      (자신감) / `tension_score`(긴장도) 0~1 연속값, `tension_score = 1 - confidence_score`.
-      teacher 도 확정: 음성=jungjongho(한국어 6클래스 분류 → 재조합), 표정=EMO-AffectNet
-      (ResNet50+LSTM, 7클래스 → 재조합). 근거는 `docs/ARCHITECTURE.md` 9절 참고.
-- [ ] 라벨링 인원/도구 (초기엔 구글시트, 물량 늘면 Label Studio) — teacher pseudo-label
-      을 초안으로 쓰고 사람이 검수하는 방식을 권장(4-1/4-2 참고)
-- [ ] MLP 은닉층 크기 — `(64,32)` 는 임시값. 클립 100개 미만이면 `(32,16)` 권장
-- [ ] `ai-evaluate` 를 별도 레포로 뺄지 같은 레포에 둘지
-- [ ] 모델 파일이 커지면 Git LFS 검토 (`face_landmarker.task` 가 수 MB)
-- [ ] teacher 라벨(특히 jungjongho 의 TENSION_WEIGHTS, EMO-AffectNet 의
-      FACE_TENSION_WEIGHTS)의 sanity check — 실제 팀 녹화본으로 검증 전까지는
-      두 가중치 모두 잠정값이다.
-
-## 8. 알려진 한계
-
-- **데이터 부족 위험**: 표정 피처 116차원인데 클립이 50개면 모델은 학습이 아니라
-  암기를 한다. 검증 점수가 좋아도 실서비스에서 무너진다.
-- **distillation 의 상한**: student(경량 MLP)는 teacher(wav2vec2)보다 좋아질 수 없다.
-  teacher 가 한국어 면접 발화에서 틀리면 student 는 그 틀린 값을 충실히 학습한다.
-  `make_pseudo_labels.py` 실행 후 sanity check 를 반드시 할 것.
-- **jitter/shimmer 의 근거 약함**: 이 지표들은 성대 질환 진단 맥락에서 검증된 것이지
-  '면접 긴장'과의 상관은 우리 데이터로 확인해야 한다. `train_mlp.py` 의 축별
-  상관계수 출력이 그 검증 지점이다.
-- **`deviation` 은 시선추적이 아니다**: 코끝의 화면중앙 이탈 거리로, 사용자가 카메라
-  앞에 치우쳐 앉기만 해도 커진다. 정확한 시선이 필요하면 홍채 랜드마크(468~477) 확장 필요.
+`docker-compose.yml`은 모든 서비스를 `platform: linux/amd64`로 고정한다(ARM 환경에서
+`praat-parselmouth` 소스 빌드가 실패하는 것을 막기 위함). uvicorn `--workers`는 늘리지
+않는 것을 전제로 한다 — `VOICE_CONCURRENCY`가 프로세스 1개 기준이라 워커 수를 늘리면
+실제 동시 분석 개수가 그만큼 배로 늘어난다.
