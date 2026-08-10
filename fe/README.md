@@ -1,6 +1,6 @@
 # Ait Frontend
 
-Ait(AI 모의면접 플랫폼)의 Vite + React + TypeScript 기반 프론트엔드입니다. 현재는 공통 Header, Footer, PageLayout과 빈 라우트만 구성된 초기 스캐폴딩 단계입니다.
+Ait(AI 모의면접 플랫폼)의 Vite + React + TypeScript 기반 프론트엔드입니다. 로그인·OAuth, 대시보드, AI 모의면접, 스터디(LiveKit 화상 세션 포함), 이력서·자소서 작성, 커뮤니티, 마이페이지 등 주요 화면이 구현되어 있습니다.
 
 ## 실행 방법
 
@@ -16,6 +16,7 @@ npm run dev
 ```bash
 npm run lint       # ESLint 검사
 npm run typecheck  # TypeScript 타입 검사
+npm run test       # Vitest 테스트 실행
 npm run build      # 프로덕션 빌드
 npm run preview    # 빌드 결과 미리보기
 ```
@@ -24,10 +25,19 @@ npm run preview    # 빌드 결과 미리보기
 
 - Vite 8 + React 19 + TypeScript
 - Tailwind CSS 4 (`@tailwindcss/vite`)
-- shadcn/ui 구조(new-york, CSS variables)와 Radix UI primitives
+- shadcn/ui 구조(new-york, CSS variables)와 Radix UI primitives, `class-variance-authority`, `tailwind-merge`
 - React Router
 - Lucide React
 - Pretendard Variable
+- GSAP(`gsap`, `@gsap/react`), Framer Motion(`motion`) — 랜딩 등 진입·수치 모션
+- Three.js(`three`, `@react-three/fiber`) — 랜딩 3D 연출
+- LiveKit(`livekit-client`, `@livekit/components-react`) — 스터디 세션 화상 연결
+- MediaPipe Tasks Vision(`@mediapipe/tasks-vision`) — 면접 답변 구간 표정·시선 캡처
+- Tiptap(`@tiptap/react` 등) — 이력서·자소서 리치 텍스트 에디터
+- `react-hook-form` + `@hookform/resolvers` + `zod` — 폼 상태와 검증
+- `@stomp/stompjs` + `sockjs-client` — 스터디 그룹톡 등 실시간 통신
+- `dompurify` — 사용자 입력 HTML sanitize
+- Vitest + Testing Library + jsdom — 단위/컴포넌트 테스트
 
 Pretendard는 공식 npm 패키지 `pretendard@1.3.9`의 `dist/web/variable/pretendardvariable-dynamic-subset.css`를 사용합니다. 폰트는 자체 호스팅되며, 자주 쓰이는 한글과 기본 라틴 문자가 포함된 `PretendardVariable.subset.91.woff2`를 preload합니다. 패키지의 `@font-face`와 preload용 선언 모두 `font-display: swap`을 적용합니다.
 
@@ -35,33 +45,69 @@ Pretendard는 공식 npm 패키지 `pretendard@1.3.9`의 `dist/web/variable/pret
 
 ```text
 src/
-  app/                 # 라우터, 전역 프로바이더
-  pages/               # 라우트 단위 빈 페이지
+  api/                 # 백엔드 REST/OAuth 연동 모듈 (auth, community, study-*, ai-interviews, resume 등)
+  app/                 # 라우터, 인증 프로바이더(AuthProvider), route guard, 전역 컨텍스트
+  assets/              # 소스에서 import하는 폰트·이미지
   components/
-    layout/            # Header, Footer, PageLayout
-    ui/                # Ait 토큰으로 재정의한 shadcn/ui 컴포넌트
+    auth/              # 로그인·회원가입 UI
     common/            # 프로젝트 공통 컴포넌트
-  lib/                 # cn(), useInView
+    community/         # 커뮤니티 도메인 UI
+    dashboard/         # 대시보드 도메인 UI
+    documents/         # 이력서·자소서 에디터 UI
+    editor/            # 리치 텍스트 에디터(Tiptap) 관련 UI
+    form/              # 공통 폼 컨트롤
+    icons/             # 커스텀 아이콘
+    interview/         # AI 모의면접 도메인 UI
+    landing/           # 랜딩 페이지 섹션
+    layout/            # Header, Footer, PageLayout, NotificationBell
+    mypage/            # 마이페이지 도메인 UI
+    reactbits/         # 진입·수치 모션 컴포넌트
+    study/             # 스터디(화상 세션 포함) 도메인 UI
+    ui/                # Ait 토큰으로 재정의한 shadcn/ui 컴포넌트
+  lib/                 # 훅과 유틸리티 (useAuth, OAuth 헬퍼, format 등)
+  mocks/               # 화면 확인용 목업 데이터
+  pages/               # 라우트 단위 페이지
   styles/              # globals.css와 디자인 토큰
+  test/                # Vitest 전역 설정
   types/               # 공통 타입
-  mocks/               # 추후 화면 확인용 목업 데이터
 ```
 
 ## 라우트
 
-| 경로 | 페이지 |
-| --- | --- |
-| `/` | 로그인 전 랜딩 페이지(구현 예정) |
-| `/dashboard` | 로그인 후 홈인 대시보드 |
-| `/interviews` | AI 모의면접 |
-| `/study` | 스터디 라운지 |
-| `/community` | 커뮤니티 |
-| `/terms` | 이용약관 |
-| `/privacy` | 개인정보처리방침 |
-| `/recording-notice` | 녹화 · AI 분석 안내 |
-| `*` | 404 |
+인증이 필요한 화면은 `ProtectedRoute`로 보호되며, 비로그인 상태로 접근하면 `/login`으로 이동 후 원래 경로(`state.from`)로 복귀합니다. `/login`, `/signup`, OAuth 콜백은 반대로 로그인 상태에서 접근하면 `/dashboard`로 이동합니다.
 
-`/`와 `/dashboard`는 공개 랜딩과 로그인 후 홈을 구분하기 위해 별도 라우트로 유지합니다. 실제 인증 상태가 도입되면 `/dashboard`를 포함한 서비스 라우트에 인증 Guard를 연결하며, 현재 스캐폴딩에는 가짜 인증 상태나 임시 Guard를 두지 않습니다.
+| 경로 | 페이지 | 접근 |
+| --- | --- | --- |
+| `/` | 로그인 여부에 따라 랜딩 페이지 또는 `/dashboard`로 분기 | 공개 |
+| `/dashboard` | 로그인 후 홈 대시보드 | 보호 |
+| `/dashboard/interviews` | 대시보드 - 면접 현황 | 보호 |
+| `/dashboard/study` | 대시보드 - 스터디 현황 | 보호 |
+| `/interviews` | AI 모의면접 | 보호 |
+| `/interviews/session` | AI 모의면접 세션 | 보호 |
+| `/study` | 스터디 라운지 | 보호 |
+| `/study/groups/:studyId` | 스터디 그룹 상세 | 보호 |
+| `/study/groups/:studyId/materials` | 스터디 자료실 | 보호 |
+| `/study/groups/:groupId/session/prejoin` | 스터디 세션 입장 전 장치 점검 | 보호 |
+| `/study/session/:sessionId/room` | 스터디 화상 세션(LiveKit) | 보호 |
+| `/community` | 커뮤니티 | 보호 |
+| `/community/write` | 커뮤니티 글쓰기 | 보호 |
+| `/community/posts/:postId` | 커뮤니티 게시글 | 보호 |
+| `/community/posts/:postId/edit` | 커뮤니티 글 수정 | 보호 |
+| `/github/callback` | 깃허브 연동 콜백 | 보호 |
+| `/mypage` | 마이페이지 | 보호 |
+| `/mypage/documents/resume` | 이력서 | 보호 |
+| `/mypage/documents/cover-letters/new` | 자소서 작성 | 보호 |
+| `/mypage/documents/cover-letters/:coverLetterId` | 자소서 상세·수정 | 보호 |
+| `/login` | 로그인 | 비로그인 전용 |
+| `/signup` | 회원가입 | 비로그인 전용 |
+| `/oauth/google/callback` | 구글 OAuth 콜백 | 비로그인 전용 |
+| `/oauth/github/callback` | 깃허브 OAuth 콜백 | 비로그인 전용 |
+| `/terms` | 이용약관 | 공개 |
+| `/privacy` | 개인정보처리방침 | 공개 |
+| `/recording-notice` | 녹화 · AI 분석 안내 | 공개 |
+| `*` | 404 | 공개 |
+
+이 외에 `/landingpage`, `/ladingpage`, `/mypage/documents`는 각각 `/`, `/`, `/mypage`로 리다이렉트되는 별칭 경로입니다.
 
 ## 토큰 사용 규칙
 
