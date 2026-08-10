@@ -36,12 +36,6 @@ import {
   isInterviewSessionConfiguration,
   type InterviewSessionNavigationState,
 } from '@/lib/interview-session'
-import {
-  isDemoPortfolioInterview,
-  replaceDemoQuestions,
-  resolveDemoFollowUpQuestion,
-} from '@/lib/demo-interview'
-import { useAuth } from '@/lib/useAuth'
 import type { Difficulty, InterviewGoalType } from '@/mocks/interview'
 import type { InterviewRecord, InterviewType, JobType } from '@/types/dashboard'
 
@@ -133,11 +127,6 @@ function InterviewSessionContent({
   config,
 }: InterviewSessionContentProps) {
   const navigate = useNavigate()
-  const { user } = useAuth()
-  const isDemoInterview = isDemoPortfolioInterview(
-    user?.email,
-    config.input.interviewType,
-  )
   const questionRequestRef = useRef<QuestionRequest | null>(null)
   const [generatedSession, setGeneratedSession] =
     useState<InterviewQuestionGenerationResponse | null>(null)
@@ -161,10 +150,7 @@ function InterviewSessionContent({
     questionRequestRef.current.promise
       .then((response) => {
         if (!active) return
-        const generatedQuestions = replaceDemoQuestions(
-          response.questions,
-          isDemoInterview,
-        )
+        const generatedQuestions = response.questions
           .filter((item) => item.question.trim())
           .map((item) => ({ ...item, depth: item.depth ?? 0 }))
           .sort((a, b) => a.order - b.order)
@@ -187,7 +173,7 @@ function InterviewSessionContent({
     return () => {
       active = false
     }
-  }, [attempt, config.input, isDemoInterview])
+  }, [attempt, config.input])
 
   if (generatedSession && stageExited) {
     return (
@@ -196,7 +182,6 @@ function InterviewSessionContent({
           config={config}
           aiInterviewId={generatedSession.aiInterviewId}
           questions={generatedSession.questions}
-          isDemoInterview={isDemoInterview}
         />
         {/* 검게 덮인 상태로 시작해 장막을 걷으며 면접 화면을 드러낸다. */}
         <ScreenFadeCurtain covered={false} initialCovered />
@@ -269,7 +254,6 @@ interface ActiveInterviewSessionProps {
   config: NonNullable<InterviewSessionNavigationState['interviewConfig']>
   aiInterviewId: number | null
   questions: GeneratedInterviewQuestion[]
-  isDemoInterview: boolean
 }
 
 // 생성된 질문을 순서대로 제시하고 사용자의 음성 답변을 진행한다.
@@ -277,7 +261,6 @@ function ActiveInterviewSession({
   config,
   aiInterviewId,
   questions,
-  isDemoInterview,
 }: ActiveInterviewSessionProps) {
   const navigate = useNavigate()
   const { input, devices } = config
@@ -396,8 +379,8 @@ function ActiveInterviewSession({
     })
     setHasProgress(true)
 
-    // aiInterviewId가 없거나 녹음 없이 답변만 있으면 저장을 건너뛴다. 일반 면접은 저장 실패 시
-    // 다음 질문으로 넘어가고, 시연 계정의 고정 꼬리질문은 서버 응답과 관계없이 이어간다.
+    // aiInterviewId가 없거나 녹음 없이 답변만 있으면 저장을 건너뛴다.
+    // 저장에 실패하면 꼬리질문 없이 다음 질문으로 넘어간다.
     let generatedFollowUp: GeneratedInterviewQuestion | null = null
     if (aiInterviewId !== null && audioBlob) {
       setIsSubmittingAnswer(true)
@@ -420,11 +403,7 @@ function ActiveInterviewSession({
       }
     }
 
-    const followUpQuestion = resolveDemoFollowUpQuestion({
-      enabled: isDemoInterview,
-      answeredQuestion: question,
-      generatedFollowUp,
-    })
+    const followUpQuestion = generatedFollowUp
 
     voiceAnswer.reset()
     nonVerbalCapture.reset()
@@ -453,7 +432,6 @@ function ActiveInterviewSession({
     aiInterviewId,
     handleViewResults,
     input,
-    isDemoInterview,
     isLastQuestion,
     isSubmittingAnswer,
     nonVerbalCapture,
