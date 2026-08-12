@@ -5,18 +5,15 @@ import com.aitserver.community.entity.*;
 import com.aitserver.community.repository.*;
 import com.aitserver.global.exception.BusinessException;
 import com.aitserver.global.exception.ErrorCode;
-import com.nimbusds.jose.jwk.ThumbprintURI;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.JPAExpressions;
-import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.support.PageableExecutionUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -24,7 +21,6 @@ import org.springframework.util.StringUtils;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.aitserver.user.entity.QUser.user;
 import static com.aitserver.community.entity.QPost.post;
 import static com.aitserver.community.entity.QPostTag.postTag;
 
@@ -45,30 +41,46 @@ public class PostSearchService {
      */
     public Page<PostDto.ListResponse> getPosts(Long userId, PostDto.SearchCondition condition, Pageable pageable) {
 
+        int pageSize = pageable.getPageSize();
+        int pageNumber = pageable.getPageNumber();
+        int pageBlockSize = 10;
+
         List<Post> posts = queryFactory
                 .selectFrom(post)
-                .join(post.user, user).fetchJoin() // 작성자 닉네임 한 번에 조인
                 .where(
                         categoryEq(condition.getCategory()),
                         buildSearchCondition(condition.getKeyword(), condition.getTag())
                 )
                 .orderBy(createOrderSpecifier(condition.getSortType()))
                 .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
+                .limit(pageSize)
                 .fetch();
 
-        JPAQuery<Long> countQuery = queryFactory
-                .select(post.count())
+        int currentBlock = pageNumber / pageBlockSize;
+
+        int blockMaxElements = (currentBlock + 1) * pageBlockSize * pageSize;
+
+        List<Long> countIds = queryFactory
+                .select(post.id)
                 .from(post)
                 .where(
                         categoryEq(condition.getCategory()),
                         buildSearchCondition(condition.getKeyword(), condition.getTag())
-                );
+                )
+                .limit(blockMaxElements + 1) // 다음 블록이 있는지 확인용
+                .fetch();
 
-        Page<Post> postPage = PageableExecutionUtils.getPage(posts, pageable, countQuery::fetchOne);
+        long total;
+        if (countIds.size() > blockMaxElements) {
+            // 데이터가 넘치면 딱 100개(혹은 200개)로 고정해서 반환 -> 프론트는 항상 10페이지 단위로 그림!
+            total = blockMaxElements;
+        } else {
+            // 마지막 블록이라서 10페이지를 못 채우면 실제 남은 개수 반환
+            total = countIds.size();
+        }
 
         if (posts.isEmpty()) {
-            return new PageImpl<>(Collections.emptyList(), pageable, postPage.getTotalElements());
+            return new PageImpl<>(Collections.emptyList(), pageable, total);
         }
 
         List<Long> postIds = posts.stream().map(Post::getId).toList();
@@ -119,7 +131,7 @@ public class PostSearchService {
             return new PostDto.ListResponse(p, tags, isScrapped, isLiked, commentCount, thumbnailUrl);
         }).toList();
 
-        return new PageImpl<>(responses, pageable, postPage.getTotalElements());
+        return new PageImpl<>(responses, pageable, total);
     }
 
     /**

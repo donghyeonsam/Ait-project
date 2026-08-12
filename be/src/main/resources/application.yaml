@@ -4,7 +4,7 @@ logging:
 
 jwt:
   secret: ${JWT_SECRET_KEY}
-  access-token-expiration: 3600000      # 1시간 (밀리초)
+  access-token-expiration: 36000000      # 1시간 (밀리초)
   refresh-token-expiration: 604800000   # 7일 (밀리초)
 
 server:
@@ -29,6 +29,10 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: ${MYSQL_USER}
     password: ${MYSQL_PASSWORD}
+    hikari:
+      maximum-pool-size: 60
+      minimum-idle: 10
+
 
   data:
     redis:
@@ -39,7 +43,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate # 혹은 create, validate 등 팀 컨벤션에 맞게 설정
-    show-sql: false
+    show-sql: true
     properties:
       hibernate:
         format_sql: true
