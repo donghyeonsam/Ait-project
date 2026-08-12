@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface StudyGroupChatRepository extends JpaRepository<StudyGroupChat, Long> {
-    @Query("SELECT c FROM StudyGroupChat c JOIN FETCH c.user " +
+    @Query("SELECT c FROM StudyGroupChat c " +
             "WHERE c.studyGroup.id = :groupId " +
             "AND (:lastChatId IS NULL OR c.id < :lastChatId) " +
             "ORDER BY c.id DESC")
