@@ -1,13 +1,19 @@
 package com.aitserver.community.service;
 
 import com.aitserver.community.entity.Post;
+import com.aitserver.community.repository.PostLikeScrapRepository;
 import com.aitserver.community.repository.PostRepository;
+import com.aitserver.user.entity.User;
 import com.aitserver.user.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -25,16 +31,48 @@ class PostInteractionServiceConcurrencyTest {
     private PostRepository postRepository;
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private PostLikeScrapRepository postLikeScrapRepository;
+
+    private Long targetPostId;
+    private final List<Long> userIds = new ArrayList<>();
+
+    @BeforeEach
+    void setUp() {
+        // 매번 실행할 때마다 고유한 난수를 생성해서 이메일 중복을 원천 차단합니다.
+        String unique = UUID.randomUUID().toString().substring(0, 8);
+
+        // 1. 유저 100명 생성 및 DB에 찐 저장
+        List<User> dummyUsers = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            User user = User.builder()
+                    .nickname("테스트유저_" + unique + "_" + i)
+                    .email("test_" + unique + "_" + i + "@ssafy.com")
+                    .password("1234")
+                    .name("asdf")
+                    .build();
+            dummyUsers.add(user);
+        }
+        userRepository.saveAll(dummyUsers);
+
+        // 생성된 유저들의 실제 DB PK(ID)를 리스트에 담아둠
+        dummyUsers.forEach(user -> userIds.add(user.getId()));
+
+        // 2. 좋아요를 받을 타겟 게시글 1개 생성 및 저장
+        Post post = Post.builder()
+                .title("동시성 테스트 게시글")
+                .content("내용")
+                .category("면접 후기")
+                // 💡 ID 1번 유저를 억지로 찾지 말고, 방금 만든 더미 유저 중 1명을 작성자로 넣습니다!
+                .user(dummyUsers.get(0))
+                .build();
+        targetPostId = postRepository.save(post).getId();
+    }
 
     @Test
     @DisplayName("100명의 유저가 동시에 좋아요를 누르면 100개가 올라가야 한다 (하지만 실패할 것이다)")
     void addLikeConcurrencyTest() throws InterruptedException {
-        // given: 게시글 1개와 서로 다른 유저 100명을 미리 DB에 저장해둔다고 가정합니다.
-        // (실제 테스트 시에는 테스트용 게시글과 100명의 유저를 insert 하는 코드를 여기에 작성해주세요)
-        Long targetPostId = 1L;
-
         int threadCount = 100;
-
         // 32명의 일꾼(스레드)을 미리 준비시킵니다.
         ExecutorService executorService = Executors.newFixedThreadPool(32);
 
@@ -42,14 +80,14 @@ class PostInteractionServiceConcurrencyTest {
         CountDownLatch latch = new CountDownLatch(threadCount);
 
         // when: 100명의 유저가 "동시에" 좋아요 API 로직을 호출합니다.
-        for (int i = 1; i <= threadCount; i++) {
-            Long userId = (long) i; // 1번부터 100번 유저
+        for (int i = 0; i < threadCount; i++) {
+            Long userId = userIds.get(i);
 
             executorService.submit(() -> {
                 try {
                     postInteractionService.addLike(userId, targetPostId);
                 } finally {
-                    latch.countDown(); // 작업이 끝나면 자물쇠 숫자를 1개씩 풉니다.
+                    latch.countDown();
                 }
             });
         }
