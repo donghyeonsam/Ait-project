@@ -67,8 +67,14 @@ public class PostInteractionService {
             throw new BusinessException(duplicateError);
         }
 
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        Post post;
+        if (type == ActionType.LIKE) {
+            post = postRepository.findByIdWithPessimisticLock(postId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        } else {
+            post = postRepository.findById(postId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        }
 
         // User는 DB 조회 없이 ID만 가진 프록시 객체 생성 (성능 최적화)
         User user = userRepository.getReferenceById(userId);
@@ -103,6 +109,10 @@ public class PostInteractionService {
 
         postLikeScrapRepository.delete(interaction);
 
-         if (type == ActionType.LIKE) interaction.getPost().decreaseLikeCount();
+        if (type == ActionType.LIKE) {
+            Post post = postRepository.findByIdWithPessimisticLock(postId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+            post.decreaseLikeCount();
+        }
     }
 }

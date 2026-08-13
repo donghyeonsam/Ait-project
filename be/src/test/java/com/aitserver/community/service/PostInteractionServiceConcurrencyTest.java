@@ -70,7 +70,7 @@ class PostInteractionServiceConcurrencyTest {
     }
 
     @Test
-    @DisplayName("100명의 유저가 동시에 좋아요를 누르면 100개가 올라가야 한다 (하지만 실패할 것이다)")
+    @DisplayName("100명의 유저가 동시에 좋아요를 누르면 100개가 올라가야 한다")
     void addLikeConcurrencyTest() throws InterruptedException {
         int threadCount = 100;
         // 32명의 일꾼(스레드)을 미리 준비시킵니다.
