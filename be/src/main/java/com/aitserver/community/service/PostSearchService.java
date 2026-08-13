@@ -48,8 +48,8 @@ public class PostSearchService {
         List<Post> posts = queryFactory
                 .selectFrom(post)
                 .where(
-                        categoryEq(condition.getCategory()),
-                        buildSearchCondition(condition.getKeyword(), condition.getTag())
+                        categoryEq(condition.getCategory())
+//                        buildSearchCondition(condition.getKeyword(), condition.getTag())
                 )
                 .orderBy(createOrderSpecifier(condition.getSortType()))
                 .offset(pageable.getOffset())
